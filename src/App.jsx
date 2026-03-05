@@ -339,8 +339,8 @@ const LoginScreen = ({ onLogin }) => {
               <div key={u.id} onClick={() => setSel(u)} style={{ ...card, padding: "20px 16px", cursor: "pointer", textAlign: "center", animation: `fadeUp .4s ease ${.15*i}s both`, transition: "all .2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = u.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
-                <div style={{ width: 52, height: 52, borderRadius: "50%", background: u.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22, margin: "0 auto 10px", fontFamily: fontD }}>{u.initial}</div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{u.name}</div>
+                <div style={{ width: 72, height: 72, borderRadius: "50%", background: u.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 30, margin: "0 auto 12px", fontFamily: fontD }}>{u.initial}</div>
+                <div style={{ fontWeight: 700, fontSize: 22 }}>{u.name}</div>
                 <div style={{ fontSize: 11, color: T.gray, textTransform: "capitalize", marginTop: 2 }}>{u.role}</div>
               </div>
             ))}
@@ -349,17 +349,17 @@ const LoginScreen = ({ onLogin }) => {
       ) : (
         <div style={{ textAlign: "center", animation: "scaleIn .3s ease" }}>
           <div onClick={() => { setSel(null); setPin(""); setErr(false); }} style={{ cursor: "pointer", marginBottom: 20 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: sel.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 28, margin: "0 auto 10px", fontFamily: fontD }}>{sel.initial}</div>
-            <div style={{ fontWeight: 700, fontSize: 18 }}>{sel.name}</div>
+            <div style={{ width: 84, height: 84, borderRadius: "50%", background: sel.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 36, margin: "0 auto 12px", fontFamily: fontD }}>{sel.initial}</div>
+            <div style={{ fontWeight: 700, fontSize: 24 }}>{sel.name}</div>
             <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Tocá para cambiar</div>
           </div>
           <div style={{ display: "flex", gap: 14, justifyContent: "center", marginBottom: 24, animation: shake ? "shake .4s ease" : "none" }}>
             {[0,1,2,3].map(i => (
-              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: i < pin.length ? (err ? T.red : sel.color) : "transparent", border: `2px solid ${err ? T.red : (i < pin.length ? sel.color : T.border)}`, transition: "all .15s" }} />
+              <div key={i} style={{ width: 22, height: 22, borderRadius: "50%", background: i < pin.length ? (err ? T.red : sel.color) : "transparent", border: `2px solid ${err ? T.red : (i < pin.length ? sel.color : T.border)}`, transition: "all .15s" }} />
             ))}
           </div>
           {err && <div style={{ color: T.red, fontSize: 13, marginBottom: 12, fontWeight: 600 }}>PIN incorrecto</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, maxWidth: 240, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, maxWidth: 320, margin: "0 auto" }}>
             {[1,2,3,4,5,6,7,8,9,null,0,"⌫"].map((n,i) => n === null ? <div key={i}/> : (
               <div key={i} onClick={() => n === "⌫" ? (setPin(pin.slice(0,-1)), setErr(false)) : tapPin(String(n))}
                 style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", fontWeight: 700, fontSize: 22, fontFamily: fontD, userSelect: "none", transition: "background .15s" }}
@@ -1870,7 +1870,7 @@ const DashboardScreen = (props) => {
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .4s ease" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 28 }}>
         {[
           { icon: "🚗", value: active.length, label: "En taller hoy", color: T.accent },
           { icon: "🔴", value: pending, label: "Esperando", color: T.red },
@@ -3370,7 +3370,7 @@ const AdminScreen = ({ orders, clients, onNavigate }) => {
       <div style={{ ...card, padding: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, fontFamily: fontD, color: T.accent }}>📩 CAMPAÑAS POR SERVICIO</div>
         <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>Seleccioná un servicio para enviar ofertas a los clientes que lo realizaron</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {WORK_TYPES.map((wt, i) => {
             const count = getCampaignClients(wt.name).length;
             return (
