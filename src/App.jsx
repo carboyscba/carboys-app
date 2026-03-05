@@ -2356,7 +2356,6 @@ const VehicleDetailScreen = (props) => {
                     {isBlocked && <div style={{ fontSize: 8, color: T.accent, marginTop: 2 }}>✓ Agregado</div>}
                     {isAdded && !isBlocked && <div style={{ fontSize: 8, color: T.green, marginTop: 2 }}>+ Agregar más</div>}
                   </div>
-                  </div>
                 );
               })}
             </div>
