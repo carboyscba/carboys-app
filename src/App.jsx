@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
 
 const T = {
   bg: "#080e1a", bg2: "#0d1526", bg3: "#131d33", border: "#1a2744",
@@ -213,7 +213,7 @@ const INITIAL_ORDERS = [
 
 ];
 
-const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21 };
+const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
 
 const FontLoader = () => (
   <style>{`
@@ -229,6 +229,16 @@ const FontLoader = () => (
     @keyframes shake { 0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);} }
     input::placeholder, textarea::placeholder { color: ${T.gray}; }
     select { appearance: none; }
+    
+    /* === TEXT INPUT AUTO-SCROLL === */
+    html { scroll-behavior: smooth; }
+    input:focus, textarea:focus, select:focus {
+      scroll-margin-top: 100px;
+      scroll-margin-bottom: 300px;
+    }
+    @supports (-webkit-touch-callout: none) {
+      body { height: -webkit-fill-available; }
+    }
     
     /* === TABLET OPTIMIZATION (12" tablets) === */
     @media (min-width: 768px) and (max-width: 1400px) and (pointer: coarse) {
@@ -304,6 +314,72 @@ const btnPrimary = (c = T.accent) => ({
 
 const fmt = (n) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 const fmtD = (d) => d ? d.replace(/\s/g, "") : "";
+
+
+// ── NUMPAD COMPONENT ──
+const NumPadContext = React.createContext();
+const NumPadProvider = ({ children }) => {
+  const [numPadState, setNumPadState] = useState({ open: false, value: "", label: "", onConfirm: null, allowDot: false });
+  const openNumPad = (label, currentValue, onConfirm, allowDot = false) => {
+    setNumPadState({ open: true, value: String(currentValue || ""), label, onConfirm, allowDot });
+  };
+  const closeNumPad = () => setNumPadState({ open: false, value: "", label: "", onConfirm: null, allowDot: false });
+  const addDigit = (d) => setNumPadState(prev => ({ ...prev, value: prev.value + d }));
+  const delDigit = () => setNumPadState(prev => ({ ...prev, value: prev.value.slice(0, -1) }));
+  const confirm = () => {
+    if (numPadState.onConfirm) numPadState.onConfirm(numPadState.value);
+    closeNumPad();
+  };
+  return (
+    <NumPadContext.Provider value={{ openNumPad }}>
+      {children}
+      {numPadState.open && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={closeNumPad}>
+          <div style={{ background: T.bg2, borderRadius: "20px 20px 0 0", padding: "20px 24px 24px", width: "100%", maxWidth: 440, border: `1px solid ${T.border}`, borderBottom: "none" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 14, color: T.gray }}>{numPadState.label}</span>
+              <span style={{ fontSize: 13, color: T.grayLight, cursor: "pointer" }} onClick={closeNumPad}>✕ Cerrar</span>
+            </div>
+            <div style={{ background: T.bg, borderRadius: 12, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", border: `2px solid ${T.accent}` }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: T.accent, marginRight: 6 }}>$</span>
+              <span style={{ fontSize: 28, fontWeight: 800, fontFamily: fontD, color: T.text, flex: 1 }}>{numPadState.value ? Number(numPadState.value).toLocaleString("es-AR") : "0"}</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              {[1,2,3,4,5,6,7,8,9, numPadState.allowDot ? "." : "", 0, "del"].map((d, i) => {
+                if (d === "") return <div key={i} />;
+                if (d === "del") return (
+                  <div key={i} onClick={delDigit} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 56, borderRadius: 12, background: T.bg3, cursor: "pointer", fontSize: 20, color: T.gray, border: `1px solid ${T.border}` }}>⌫</div>
+                );
+                return (
+                  <div key={i} onClick={() => addDigit(String(d))} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 56, borderRadius: 12, background: T.bg, cursor: "pointer", fontSize: 22, fontWeight: 700, fontFamily: fontD, border: `1px solid ${T.border}`, color: T.text }}>{d}</div>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button onClick={() => setNumPadState(prev => ({ ...prev, value: "" }))} style={{ flex: 1, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 14, border: `1px solid ${T.border}`, background: T.bg3, color: T.gray, cursor: "pointer", fontFamily: font }}>Borrar</button>
+              <button onClick={confirm} style={{ flex: 2, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 14, border: "none", background: T.accent, color: "#fff", cursor: "pointer", fontFamily: font }}>✓ Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </NumPadContext.Provider>
+  );
+};
+const useNumPad = () => React.useContext(NumPadContext);
+
+// Helper component: clickable numeric field that opens numpad
+const NumField = ({ value, onChange, placeholder, label, prefix, style: st, allowDot }) => {
+  const { openNumPad } = useNumPad();
+  const display = value ? (prefix === "$" ? Number(value).toLocaleString("es-AR") : value) : "";
+  return (
+    <div onClick={() => openNumPad(label || placeholder || "Número", value, (v) => onChange(v), allowDot)} 
+      style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 6, cursor: "pointer", minHeight: 44, userSelect: "none", ...st }}>
+      {prefix && <span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>{prefix}</span>}
+      <span style={{ flex: 1, fontWeight: 700, fontFamily: fontD, fontSize: 15, color: display ? T.text : T.gray }}>{display || placeholder || "0"}</span>
+      <span style={{ fontSize: 11, color: T.gray }}>⌨</span>
+    </div>
+  );
+};
 
 const LoginScreen = ({ onLogin }) => {
   const [sel, setSel] = useState(null);
@@ -580,8 +656,8 @@ const NewOrderScreen = (props) => {
       clientId: foundClient?.id || Date.now(),
       domain: form.domain,
       status: "pending",
-      works: works.map(w => ({ type: w.type, price: parseFloat(w.price), desc: w.desc })),
-      payments: payments.map(p => ({ method: p.method, amount: parseFloat(p.amount), account: p.account, installments: p.installments })),
+      works: works.map(w => ({ ...w, price: parseFloat(w.price) || 0 })),
+      payments: payments.map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })),
       assignedTo: "",
       date: new Date().toISOString().split("T")[0],
       invoiceType: getInvoiceType(payments[0]),
@@ -638,7 +714,7 @@ const NewOrderScreen = (props) => {
           {searchMode === "dni" && (
             <div>
               <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                <input value={dniSearch} onChange={e => setDniSearch(e.target.value.replace(/[^0-9]/g, ""))}
+                <input inputMode="numeric" value={dniSearch} onChange={e => setDniSearch(e.target.value.replace(/[^0-9]/g, ""))}
                   onKeyDown={e => e.key === "Enter" && searchDni()}
                   placeholder="Ingrese DNI o CUIT sin guiones" style={{ ...inputStyle, flex: 1, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px" }} autoFocus />
                 <button onClick={searchDni} style={btnPrimary()}>Buscar</button>
@@ -760,13 +836,13 @@ const NewOrderScreen = (props) => {
             </div>
             <div>
               <label style={labelStyle}>DNI {!form.cuit ? "*" : ""}</label>
-              <input value={form.dni} onChange={e => setForm(f => ({ ...f, dni: e.target.value.replace(/[^0-9]/g, "") }))}
+              <input inputMode="numeric" value={form.dni} onChange={e => setForm(f => ({ ...f, dni: e.target.value.replace(/[^0-9]/g, "") }))}
                 disabled={foundClient && !editMode && !isNew} placeholder="Sin puntos"
                 style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: !form.dni && !form.cuit ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>CUIT {!form.dni ? "*" : ""}</label>
-              <input value={form.cuit} onChange={e => setForm(f => ({ ...f, cuit: e.target.value.replace(/[^0-9]/g, "") }))}
+              <input inputMode="numeric" value={form.cuit} onChange={e => setForm(f => ({ ...f, cuit: e.target.value.replace(/[^0-9]/g, "") }))}
                 disabled={foundClient && !editMode && !isNew} placeholder="Sin guiones"
                 style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: !form.dni && !form.cuit ? T.orange : T.border }} />
               {!form.dni && !form.cuit && (
@@ -775,7 +851,7 @@ const NewOrderScreen = (props) => {
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={labelStyle}>Celular *</label>
-              <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9]/g, "") }))}
+              <input inputMode="numeric" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9]/g, "") }))}
                 disabled={foundClient && !editMode && !isNew} placeholder="Ej: 3515201053"
                 style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1 }} />
             </div>
@@ -848,7 +924,7 @@ const NewOrderScreen = (props) => {
             ) : (
               <div>
                 <label style={labelStyle}>Kilómetros *</label>
-                <input value={form.km} onChange={e => setForm(f => ({ ...f, km: e.target.value.replace(/[^0-9]/g, "") }))}
+                <input inputMode="numeric" value={form.km} onChange={e => setForm(f => ({ ...f, km: e.target.value.replace(/[^0-9]/g, "") }))}
                   placeholder="Ej: 45000" style={inputStyle} />
               </div>
             )}
@@ -1068,7 +1144,7 @@ const NewOrderScreen = (props) => {
                     <label style={labelStyle}>Precio *</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                       <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
-                      <input value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => updateWork(i, "price", e.target.value.replace(/[^0-9]/g, ""))}
+                      <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => updateWork(i, "price", e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="0" style={{ ...inputStyle, fontSize: 18, fontWeight: 700, fontFamily: fontD }} />
                     </div>
                   </div>}
@@ -1378,8 +1454,8 @@ const NewOrderScreen = (props) => {
                 {brakeEjes.tra && <div style={{ fontSize: 10, color: T.accent, marginTop: 4, fontWeight: 700 }}>✓ SELECCIONADO</div>}
               </div>
             </div>
-            {brakeEjes.del && <div style={{ marginBottom: 12 }}><label style={{ ...labelStyle, fontSize: 11 }}>Monto Eje Delantero *</label><div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span><input type="text" value={brakeEjes.delPrice ? Number(brakeEjes.delPrice).toLocaleString("es-AR") : ""} onChange={e => setBrakeEjes(prev => ({ ...prev, delPrice: e.target.value.replace(/[^0-9]/g, "") }))} placeholder="0" style={{ ...inputStyle, fontSize: 16, fontFamily: fontD, flex: 1 }} /></div></div>}
-            {brakeEjes.tra && <div style={{ marginBottom: 12 }}><label style={{ ...labelStyle, fontSize: 11 }}>Monto Eje Trasero *</label><div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span><input type="text" value={brakeEjes.traPrice ? Number(brakeEjes.traPrice).toLocaleString("es-AR") : ""} onChange={e => setBrakeEjes(prev => ({ ...prev, traPrice: e.target.value.replace(/[^0-9]/g, "") }))} placeholder="0" style={{ ...inputStyle, fontSize: 16, fontFamily: fontD, flex: 1 }} /></div></div>}
+            {brakeEjes.del && <div style={{ marginBottom: 12 }}><label style={{ ...labelStyle, fontSize: 11 }}>Monto Eje Delantero *</label><div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span><input inputMode="numeric" type="text" value={brakeEjes.delPrice ? Number(brakeEjes.delPrice).toLocaleString("es-AR") : ""} onChange={e => setBrakeEjes(prev => ({ ...prev, delPrice: e.target.value.replace(/[^0-9]/g, "") }))} placeholder="0" style={{ ...inputStyle, fontSize: 16, fontFamily: fontD, flex: 1 }} /></div></div>}
+            {brakeEjes.tra && <div style={{ marginBottom: 12 }}><label style={{ ...labelStyle, fontSize: 11 }}>Monto Eje Trasero *</label><div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span><input inputMode="numeric" type="text" value={brakeEjes.traPrice ? Number(brakeEjes.traPrice).toLocaleString("es-AR") : ""} onChange={e => setBrakeEjes(prev => ({ ...prev, traPrice: e.target.value.replace(/[^0-9]/g, "") }))} placeholder="0" style={{ ...inputStyle, fontSize: 16, fontFamily: fontD, flex: 1 }} /></div></div>}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button onClick={() => setShowBrakePopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => { const nw = []; if (brakeEjes.del && brakeEjes.delPrice) nw.push({ type: "Pastillas de Freno", price: brakeEjes.delPrice, desc: "Eje delantero" }); if (brakeEjes.tra && brakeEjes.traPrice) nw.push({ type: "Pastillas de Freno", price: brakeEjes.traPrice, desc: "Eje trasero" }); if (nw.length > 0) { setWorks(w => [...w, ...nw]); setShowBrakePopup(false); } }} disabled={(!brakeEjes.del && !brakeEjes.tra) || (brakeEjes.del && !brakeEjes.delPrice) || (brakeEjes.tra && !brakeEjes.traPrice)} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 13, opacity: (!brakeEjes.del && !brakeEjes.tra) || (brakeEjes.del && !brakeEjes.delPrice) || (brakeEjes.tra && !brakeEjes.traPrice) ? 0.4 : 1 }}>Confirmar</button>
@@ -1534,7 +1610,7 @@ const NewOrderScreen = (props) => {
                   <label style={labelStyle}>Monto *</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
-                    <input value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
+                    <input inputMode="numeric" value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
                       placeholder="0" style={{ ...inputStyle, flex: 1 }} />
                   </div>
                 </div>
@@ -1734,7 +1810,7 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
         <div key={i} style={{ ...card, padding: 14, marginBottom: 10, display: "flex", gap: 10, alignItems: "center" }}>
           <input value={item.name} onChange={e => updateItem(i, "name", e.target.value)}
             placeholder="Producto (ej: Lámpara H7)" style={{ ...inputStyle, flex: 2 }} />
-          <input value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={e => updateItem(i, "price", e.target.value.replace(/[^0-9]/g, ""))}
+          <input inputMode="numeric" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={e => updateItem(i, "price", e.target.value.replace(/[^0-9]/g, ""))}
             placeholder="0" style={{ ...inputStyle, flex: 1 }} />
           {items.length > 1 && <span onClick={() => removeItem(i)} style={{ color: T.red, cursor: "pointer", fontWeight: 700, fontSize: 16, padding: "0 6px" }}>✕</span>}
         </div>
@@ -1830,7 +1906,7 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
           </div>
           <div style={{ marginTop: 12 }}>
             <label style={labelStyle}>DNI / CUIT {method !== "Cta. Corriente" ? "*" : "(opcional)"}</label>
-            <input value={clientInfo.dni} onChange={e => setClientInfo(c => ({ ...c, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+            <input inputMode="numeric" value={clientInfo.dni} onChange={e => setClientInfo(c => ({ ...c, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
           </div>
           <div style={{ marginTop: 12 }}>
             <label style={labelStyle}>Teléfono *</label>
@@ -2318,6 +2394,28 @@ const VehicleDetailScreen = (props) => {
         )}
       </div>
 
+      {/* Auth status banner */}
+      {(() => {
+        const authNotif = (notifications || []).find(n => n.orderId === order.id);
+        if (!authNotif) return null;
+        const isApproved = authNotif.status === "approved";
+        const isDenied = authNotif.status === "denied";
+        const isPending = authNotif.status === "pending";
+        const color = isApproved ? T.green : isDenied ? T.red : T.orange;
+        const label = isApproved ? "✅ AUTORIZACIÓN APROBADA" : isDenied ? "❌ AUTORIZACIÓN DENEGADA" : "⏳ PENDIENTE DE AUTORIZACIÓN";
+        return (
+          <div style={{ ...card, padding: "14px 20px", marginBottom: 16, borderLeft: `4px solid ${color}`, background: `${color}08` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color }}>{label}</div>
+              {isPending && (user.role === "dueño" || user.role === "encargado") && (
+                <button onClick={() => onNavigate("authManage", order)} style={{ ...btnPrimary(color), fontSize: 12, padding: "8px 16px" }}>Gestionar</button>
+              )}
+            </div>
+            {authNotif.items && <div style={{ marginTop: 6, fontSize: 12, color: T.grayLight }}>{authNotif.items.map(it => it.label).join(", ")}</div>}
+          </div>
+        );
+      })()}
+
       {/* Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
@@ -2672,15 +2770,15 @@ const VehicleDetailScreen = (props) => {
               </div>
               <div>
                 <label style={labelStyle}>Celular</label>
-                <input value={editClient.phone} onChange={e => setEditClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                <input inputMode="numeric" value={editClient.phone} onChange={e => setEditClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>DNI</label>
-                <input value={editClient.dni} onChange={e => setEditClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                <input inputMode="numeric" value={editClient.dni} onChange={e => setEditClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={labelStyle}>CUIT</label>
-                <input value={editClient.cuit} onChange={e => setEditClient(p => ({ ...p, cuit: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                <input inputMode="numeric" value={editClient.cuit} onChange={e => setEditClient(p => ({ ...p, cuit: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
               </div>
             </div>
 
@@ -3453,7 +3551,7 @@ const SF_TEMPLATE = [
     { id: "dtc_fallos", label: "Revisión de fallos (DTC)", type: "dtc" },
   ]},
   { section: "BATERÍA", icon: "🔋", items: [
-    { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true },
+    { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true, needsAuth: true },
     { id: "carga_alternador", label: "Carga de alternador", type: "voltage" },
   ]},
   { section: "BUJÍAS", icon: "⚡", items: [
@@ -3528,7 +3626,7 @@ const CarTiresDiagram = ({ tires, onChange }) => {
           <rect x="35" y="75" width="30" height="15" rx="6" fill="none" stroke={T.border} strokeWidth="1" />
         </svg>
         {positions.map(p => {
-          const v = tires[p.key] ?? 100;
+          const v = tires[p.key] ?? 0;
           return (
             <div key={p.key} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%, -50%)", textAlign: "center" }}>
               <div style={{ width: 36, height: 50, borderRadius: 6, border: `2px solid ${gc(v)}`, background: `${gc(v)}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -3543,10 +3641,10 @@ const CarTiresDiagram = ({ tires, onChange }) => {
         {positions.map(p => (
           <div key={p.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 10, color: T.grayLight, width: 50, fontWeight: 600 }}>{p.label}</span>
-            <input type="range" min="0" max="100" value={tires[p.key] ?? 100}
+            <input type="range" min="0" max="100" value={tires[p.key] ?? 0}
               onChange={e => onChange({ ...tires, [p.key]: parseInt(e.target.value) })}
-              style={{ flex: 1, accentColor: gc(tires[p.key] ?? 100), height: 6 }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: gc(tires[p.key] ?? 100), width: 32, textAlign: "right" }}>{tires[p.key] ?? 100}%</span>
+              style={{ flex: 1, accentColor: gc(tires[p.key] ?? 0), height: 6 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: gc(tires[p.key] ?? 0), width: 32, textAlign: "right" }}>{tires[p.key] ?? 0}%</span>
           </div>
         ))}
       </div>
@@ -3931,7 +4029,7 @@ const ServiceSheetScreen = (props) => {
       case "ternary": return !!d.fluidOk;
       case "lavaparabrisas": return !!d.fluidOk;
       case "fluid": return !!d.fluidOk;
-      case "brakeFluid": return !!d.fluidOk && d.percent >= 0;
+      case "brakeFluid": return d.percent >= 0;
       case "lamp": return !!d.fluidOk;
       case "percentRC": return d.percent >= 0;
       case "batteryPercent": return d.percent >= 0;
@@ -3992,6 +4090,7 @@ const ServiceSheetScreen = (props) => {
 
   const [showPendingAuthPopup, setShowPendingAuthPopup] = useState(false);
   const [showMissingChangePopup, setShowMissingChangePopup] = useState(null);
+  const [showAuthRequest, setShowAuthRequest] = useState(false);
 
   const tryFinalize = () => {
     if (serviceWorks.length > 0) {
@@ -4102,17 +4201,21 @@ const ServiceSheetScreen = (props) => {
         </div>
 
         {item.type === "statusRC" && !isForced && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 8, ...ml, flexWrap: "wrap" }}>
-            {["bien", "regular", "cambiar"].map(s => (
-              <div key={s} onClick={() => setStatus4(item.id, s)}
-                style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1px solid ${d.status === s ? S4_COLORS[s] : T.border}` }}>
-                {S4_ICONS[s]} {s === "cambiado" ? "SUSTITUIDA" : s.toUpperCase()}
-              </div>
-            ))}
-            {(d.status === "regular" || d.status === "cambiar" || d.status === "cambiado") && (
-              <div onClick={() => setStatus4(item.id, "cambiado")}
-                style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
-                {S4_ICONS.cambiado} SUSTITUIDA
+          <div style={{ ...ml, marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {["bien", "regular", "cambiar"].map(s => (
+                <div key={s} onClick={() => setStatus4(item.id, s)}
+                  style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1.5px solid ${d.status === s ? S4_COLORS[s] : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: S4_COLORS[s] }} />{s === "cambiar" ? "CAMBIAR" : s.toUpperCase()}
+                </div>
+              ))}
+            </div>
+            {d.status === "cambiar" && (
+              <div style={{ marginTop: 8 }}>
+                <div onClick={() => setStatus4(item.id, "cambiado")}
+                  style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? `${T.accent}20` : T.bg, color: d.status === "cambiado" ? T.accent : T.gray, border: `1.5px solid ${d.status === "cambiado" ? T.accent : T.border}`, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  🔵 SUSTITUIDA
+                </div>
               </div>
             )}
           </div>
@@ -4144,20 +4247,28 @@ const ServiceSheetScreen = (props) => {
         {item.type === "percentRC" && !isForced && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>{item.percentLabel}</span>
+              <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>Desgaste</span>
               <input type="range" min="0" max="100" value={d.percent >= 0 ? d.percent : 50}
-                onChange={e => upd(item.id, { percent: parseInt(e.target.value), checked: true })}
-                style={{ flex: 1, accentColor: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, height: 6 }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
+                onChange={e => { const v = parseInt(e.target.value); upd(item.id, { percent: v, checked: true, status: v <= 10 ? "cambiar" : v <= 20 ? "regular" : "" }); }}
+                style={{ flex: 1, accentColor: (d.percent >= 0 ? d.percent : 50) > 70 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 20 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 10 ? "#FF9800" : T.red, height: 6 }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 70 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 20 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 10 ? "#FF9800" : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {["cambiar", "cambiado"].map(s => (
-                <div key={s} onClick={() => setStatus4(item.id, s)}
-                  style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1px solid ${d.status === s ? S4_COLORS[s] : T.border}` }}>
-                  {S4_ICONS[s]} {s === "cambiado" ? "SUSTITUIDA" : s.toUpperCase()}
-                </div>
-              ))}
+            <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "space-between" }}>
+              <span style={{ color: T.red }}>0-10% CAMBIAR</span>
+              <span style={{ color: "#FF9800" }}>10-20% CRÍTICO</span>
+              <span style={{ color: "#43a047" }}>20-70% BIEN</span>
+              <span style={{ color: "#43a047" }}>70-100% ÓPTIMO</span>
             </div>
+            {d.percent >= 0 && d.percent <= 10 && (
+              <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                {["cambiar", "cambiado"].map(s => (
+                  <div key={s} onClick={() => setStatus4(item.id, s)}
+                    style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1px solid ${d.status === s ? S4_COLORS[s] : T.border}` }}>
+                    {S4_ICONS[s]} {s === "cambiado" ? "SUSTITUIDA" : s.toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -4330,33 +4441,17 @@ const ServiceSheetScreen = (props) => {
         {item.type === "brakeFluid" && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 6 }}>% DE AGUA EN LÍQUIDO</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {[
-                { val: 0, label: "0%", color: T.green },
-                { val: 1, label: "1%", color: T.green },
-                { val: 2, label: "2%", color: T.green },
-                { val: 3, label: "3%", color: T.orange },
-                { val: 4, label: "4%", color: T.red },
-              ].map(opt => (
-                <div key={opt.val} onClick={() => upd(item.id, { percent: d.percent === opt.val ? -1 : opt.val, checked: true })}
-                  style={{ flex: 1, padding: "10px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `2px solid ${d.percent === opt.val ? opt.color : T.border}`, background: d.percent === opt.val ? `${opt.color}20` : T.bg, transition: "all .15s" }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: d.percent === opt.val ? opt.color : T.gray }}>{opt.label}</div>
-                  <div style={{ fontSize: 8, fontWeight: 700, color: d.percent === opt.val ? opt.color : T.gray, marginTop: 2 }}>
-                    {opt.val <= 2 ? "OK" : opt.val === 3 ? "CRÍTICO" : "MAL"}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              {[{ k: "bien", label: "BIEN", color: T.green }, { k: "cambiar", label: "CAMBIAR", color: T.red }].map(s => (
-                <div key={s.k} onClick={() => setBinary(item.id, s.k)}
-                  style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === s.k ? `${s.color}20` : T.bg, color: d.fluidOk === s.k ? s.color : T.gray, border: `2px solid ${d.fluidOk === s.k ? s.color : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: s.color }} />{s.label}
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {[{v:0,l:"0%",c:T.green,t:"OK"},{v:1,l:"1%",c:T.green,t:"OK"},{v:2,l:"2%",c:T.green,t:"OK"},{v:3,l:"3%",c:T.red,t:"CRÍTICO"},{v:4,l:"4%",c:T.red,t:"MAL"}].map(o => (
+                <div key={o.v} onClick={() => upd(item.id, { percent: d.percent === o.v ? -1 : o.v, checked: true })}
+                  style={{ flex: 1, padding: "10px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `2px solid ${d.percent === o.v ? o.c : T.border}`, background: d.percent === o.v ? `${o.c}20` : T.bg, transition: "all .15s" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: d.percent === o.v ? o.c : T.gray }}>{o.l}</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: d.percent === o.v ? o.c : T.gray, marginTop: 2 }}>{o.t}</div>
                 </div>
               ))}
             </div>
             <div onClick={() => upd(item.id, { added: !d.added })}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.added ? "rgba(30,136,229,0.12)" : T.bg, color: d.added ? T.accent : T.gray, border: `1px solid ${d.added ? T.accent : T.border}` }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.added ? "rgba(30,136,229,0.12)" : T.bg, color: d.added ? T.accent : T.gray, border: `1px solid ${d.added ? T.accent : T.border}` }}>
               <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${d.added ? T.accent : T.border}`, background: d.added ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>{d.added ? "✓" : ""}</div>
               Se niveló
             </div>
@@ -4929,254 +5024,176 @@ const ServiceSheetScreen = (props) => {
           </div>
         </div>
       )}
+
+      {/* Pendientes de autorización */}
+      {(() => {
+        const authItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => it.needsAuth && data[it.id] && (data[it.id].status === "cambiar" || (it.type === "batteryPercent" && data[it.id].percent >= 0 && data[it.id].percent < 50)) && !forcedChangeItems.has(it.id)));
+        if (authItems.length === 0) return null;
+        const existingAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
+        const approvedAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+        const deniedAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "denied");
+        return (
+          <div style={{ ...card, padding: 20, marginTop: 20, borderColor: T.orange, borderLeft: `4px solid ${T.orange}` }}>
+            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12, color: T.orange }}>⚠️ Items que requieren autorización</div>
+            {authItems.map((it, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < authItems.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{it.label}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>Requiere autorización del cliente</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: T.red, padding: "4px 10px", borderRadius: 6, background: `${T.red}15` }}>CAMBIAR</div>
+              </div>
+            ))}
+            {existingAuth && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: `${T.orange}10`, border: `1px solid ${T.orange}30` }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.orange }}>📤 Solicitud enviada — esperando respuesta</div>
+            </div>}
+            {approvedAuth && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30` }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.green }}>✅ Autorización APROBADA</div>
+            </div>}
+            {deniedAuth && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: `${T.red}10`, border: `1px solid ${T.red}30` }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.red }}>❌ Autorización DENEGADA</div>
+            </div>}
+            {!existingAuth && !approvedAuth && !deniedAuth && (
+              <button onClick={() => {
+                const items = authItems.map(it => ({ id: it.id, label: it.label }));
+                const notif = { id: Date.now(), orderId: order.id, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
+                setNotifications(prev => [...prev, notif]);
+                setShowAuthRequest(true);
+                setTimeout(() => setShowAuthRequest(false), 3000);
+              }} style={{ ...btnPrimary(T.orange), width: "100%", marginTop: 14, fontSize: 14, padding: "14px 0" }}>
+                📤 Pedir Autorización
+              </button>
+            )}
+            {showAuthRequest && <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, fontWeight: 700, color: T.green }}>✅ Solicitud enviada al encargado</div>}
+          </div>
+        );
+      })()}
+
     </div>
   );
 };
 
-const AuthManageScreen = (props) => {
-  const { notification, order, clients, user, orders, setOrders, notifications, setNotifications, config, onNavigate } = props;
+const AuthManageScreen = ({ notification, order, clients, user, orders, setOrders, notifications, setNotifications, config, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
-  const notif = notification || (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
-
-  const [selected, setSelected] = useState(() => new Set(notif ? notif.items.map(it => it.id) : []));
-  const [prices, setPrices] = useState({});
+  const notif = notifications.find(n => n.orderId === order.id && n.status === "pending");
   const [sent, setSent] = useState(false);
-  const [clientApproved, setClientApproved] = useState(() => new Set());
-  const [finished, setFinished] = useState(false);
 
   if (!notif) return (
-    <div style={{ padding: 24, textAlign: "center", paddingTop: 80 }}>
-      <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>No hay solicitudes pendientes</div>
-      <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.accent), marginTop: 20 }}>← Volver al Dashboard</button>
+    <div style={{ padding: 24, textAlign: "center" }}>
+      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, fontFamily: fontD }}>Sin solicitudes pendientes</div>
+      <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
     </div>
   );
 
-  const toggleItem = (id, set, setter) => setter(prev => {
-    const n = new Set(prev);
-    n.has(id) ? n.delete(id) : n.add(id);
-    return n;
-  });
+  const items = notif.items || [];
+  const totalSinIva = items.reduce((s, it) => s + (parseFloat(order.works.find(w => w.trenItems?.some(ti => ti.label === it.label))?.trenItems?.find(ti => ti.label === it.label)?.price) || 0), 0);
+  const iva = config.ivaRate || 21;
+  const totalConIva = totalSinIva * (1 + iva / 100);
 
-  const sentItems = notif.items.filter(it => selected.has(it.id));
-  const totalPrice = sentItems.reduce((s, it) => s + (parseFloat(prices[it.id]) || 0), 0);
-  const ivaRate = config?.ivaRate || 21;
-  const totalWithIva = totalPrice * (1 + ivaRate / 100);
-
-  const buildWhatsApp = () => {
-    const lines = sentItems.map(it => `• ${it.label}: $${(parseFloat(prices[it.id]) || 0).toLocaleString("es-AR")}`);
-    const msg = `Hola ${client?.name || ""}! Te escribimos de *CarBoys* 🔧\n\nDurante el service de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${fmtD(order.domain)}) encontramos que es necesario realizar los siguientes cambios:\n\n${lines.join("\n")}\n\n💰 Subtotal: $${totalPrice.toLocaleString("es-AR")}\n💰 Total con IVA: $${Math.round(totalWithIva).toLocaleString("es-AR")}\n\n¿Nos autorizás a realizar los trabajos? Quedamos a tu disposición.`;
-    window.open(`https://wa.me/${client?.phone || ""}?text=${encodeURIComponent(msg)}`, "_blank");
+  const sendWhatsApp = () => {
+    const ph = client?.phone || "";
+    let msg = config.authMessage || "Hola {nombre}, tu vehículo {dominio} necesita: {item}. Total: ${total}";
+    msg = msg.replace("{nombre}", client?.name || "")
+      .replace("{dominio}", fmtD(order.domain))
+      .replace("{vehiculo}", (vehicle?.brand || "") + " " + (vehicle?.model || ""))
+      .replace("{item}", items.map(it => it.label).join(", "))
+      .replace("{precio}", fmt(totalSinIva))
+      .replace("{precioIVA}", fmt(totalConIva))
+      .replace("{total}", fmt(totalConIva));
+    if (ph) window.open("https://wa.me/549" + ph + "?text=" + encodeURIComponent(msg), "_blank");
     setSent(true);
-    setClientApproved(new Set(sentItems.map(it => it.id)));
   };
 
-  const confirmDecision = () => {
-    const approved = sentItems.filter(it => clientApproved.has(it.id));
-    const rejected = sentItems.filter(it => !clientApproved.has(it.id));
-
-    const newWorks = approved.map(it => ({
-      type: it.label,
-      price: parseFloat(prices[it.id]) || 0,
-      desc: `Autorizado — Solicitado por ${notif.requestedBy}`,
-    }));
-
-    const rejectionNotes = rejected.map(it => `${it.label} (${it.section}) — cambio NO aprobado por el cliente`);
-
-    const existingNotes = order.techNotes || [""];
-    const cleanNotes = existingNotes.filter(n => n.trim() !== "");
-    const mergedNotes = [...cleanNotes, ...rejectionNotes];
-    if (mergedNotes.length === 0) mergedNotes.push("");
-
-    setOrders(prev => prev.map(o => o.id === order.id ? {
-      ...o,
-      works: [...o.works, ...newWorks],
-      techNotes: mergedNotes,
-    } : o));
-
-    setNotifications(prev => prev.map(n => n.id === notif.id ? {
-      ...n, status: "approved",
-      approvedItems: approved,
-      rejectedItems: rejected,
-      approvedBy: user.name,
-      approvedAt: new Date().toLocaleString("es-AR"),
-    } : n));
-
-    setFinished(true);
+  const approve = () => {
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved" } : n));
+    // Enable "cambiado" status on approved items in service sheet
+    if (order.serviceSheet) {
+      const updated = { ...order.serviceSheet };
+      items.forEach(it => {
+        if (updated[it.id]) updated[it.id] = { ...updated[it.id], authApproved: true };
+      });
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
+    }
+    onNavigate("vehicleDetail", order);
   };
 
-  const rejectAll = () => {
-    const rejectionNotes = sentItems.map(it => `${it.label} (${it.section}) — cambio NO aprobado por el cliente`);
-    const existingNotes = order.techNotes || [""];
-    const cleanNotes = existingNotes.filter(n => n.trim() !== "");
-    const mergedNotes = [...cleanNotes, ...rejectionNotes];
-    if (mergedNotes.length === 0) mergedNotes.push("");
-
-    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, techNotes: mergedNotes } : o));
-    setNotifications(prev => prev.map(n => n.id === notif.id ? {
-      ...n, status: "approved", approvedItems: [], rejectedItems: sentItems,
-      approvedBy: user.name, approvedAt: new Date().toLocaleString("es-AR"),
-    } : n));
-    setFinished(true);
+  const deny = (reason) => {
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "denied", denyReason: reason } : n));
+    onNavigate("vehicleDetail", order);
   };
 
-  if (finished) {
-    const approved = sentItems.filter(it => clientApproved.has(it.id));
-    const rejected = sentItems.filter(it => !clientApproved.has(it.id));
-    return (
-      <div style={{ padding: 24, animation: "scaleIn .4s ease", maxWidth: 700, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", paddingTop: 40, marginBottom: 30 }}>
-          <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
-          <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, color: T.green }}>Autorización procesada</div>
-        </div>
-        {approved.length > 0 && (
-          <div style={{ ...card, padding: 16, marginBottom: 12, borderLeft: `3px solid ${T.green}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.green, marginBottom: 6 }}>✅ Aprobados ({approved.length})</div>
-            {approved.map(it => (
-              <div key={it.id} style={{ fontSize: 13, color: T.grayLight, padding: "3px 0" }}>• {it.label} — {fmt(parseFloat(prices[it.id]) || 0)}</div>
-            ))}
-          </div>
-        )}
-        {rejected.length > 0 && (
-          <div style={{ ...card, padding: 16, marginBottom: 12, borderLeft: `3px solid ${T.red}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.red, marginBottom: 6 }}>❌ Rechazados ({rejected.length})</div>
-            {rejected.map(it => (
-              <div key={it.id} style={{ fontSize: 13, color: T.grayLight, padding: "3px 0" }}>• {it.label} — agregado a observaciones técnicas</div>
-            ))}
-          </div>
-        )}
-        <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.accent), marginTop: 16, width: "100%" }}>← Volver al Dashboard</button>
-      </div>
-    );
-  }
-
-  if (sent) {
-    return (
-      <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
-        <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${T.orange}` }}>
-          <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 600, color: T.orange, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Respuesta del Cliente</div>
-          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{fmtD(order.domain)}</div>
-          <div style={{ fontSize: 13, color: T.gray }}>{client ? `${client.name} ${client.lastName}` : ""} — {vehicle ? `${vehicle.brand} ${vehicle.model}` : ""}</div>
-        </div>
-
-        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 15, marginBottom: 6 }}>¿Qué aprobó el cliente?</div>
-          <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>Marcá los ítems que el cliente autorizó. Los no marcados quedarán como rechazados en observaciones técnicas.</div>
-
-          {sentItems.map(it => {
-            const isAppr = clientApproved.has(it.id);
-            return (
-              <div key={it.id} onClick={() => toggleItem(it.id, clientApproved, setClientApproved)}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, border: `2px solid ${isAppr ? T.green : T.border}`, background: isAppr ? T.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#fff", flexShrink: 0, transition: "all .15s" }}>
-                  {isAppr ? "✓" : ""}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{it.label}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{it.section}</div>
-                </div>
-                <div style={{ fontWeight: 700, fontFamily: fontD, fontSize: 15, color: isAppr ? T.green : T.gray }}>{fmt(parseFloat(prices[it.id]) || 0)}</div>
-              </div>
-            );
-          })}
-
-          {/* Summary */}
-          <div style={{ marginTop: 14, padding: 14, background: T.bg, borderRadius: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-              <span style={{ color: T.green, fontWeight: 700 }}>✅ Aprobados: {clientApproved.size}</span>
-              <span style={{ color: T.red, fontWeight: 700 }}>❌ Rechazados: {sentItems.length - clientApproved.size}</span>
-            </div>
-            {clientApproved.size > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, marginTop: 8 }}>
-                <span>Total a agregar</span>
-                <span style={{ color: T.accent }}>{fmt(Math.round(sentItems.filter(it => clientApproved.has(it.id)).reduce((s, it) => s + (parseFloat(prices[it.id]) || 0), 0) * (1 + ivaRate / 100)))}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 10 }}>
-          <button onClick={confirmDecision}
-            style={{ ...btnPrimary(T.green), fontSize: 15 }}>
-            ✅ Confirmar — {clientApproved.size > 0 ? `Agregar ${clientApproved.size} trabajo${clientApproved.size !== 1 ? "s" : ""} a la orden` : "Registrar rechazo total"}
-          </button>
-          <button onClick={rejectAll}
-            style={{ ...btnPrimary(T.red), fontSize: 14 }}>
-            ❌ Cliente rechazó todo
-          </button>
-          <button onClick={() => onNavigate("dashboard")}
-            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
-        </div>
-      </div>
-    );
-  }
+  const [showDenyPopup, setShowDenyPopup] = useState(false);
 
   return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
-      <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${T.red}` }}>
-        <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 600, color: T.red, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Solicitud de Autorización</div>
-        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700 }}>{fmtD(order.domain)}</div>
-        <div style={{ fontSize: 13, color: T.gray }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-        <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>Cliente: {client ? `${client.name} ${client.lastName}` : "—"}</div>
-        <div style={{ fontSize: 12, color: T.gray, marginTop: 6 }}>Solicitado por <strong style={{ color: T.grayLight }}>{notif.requestedBy}</strong> — {notif.requestedAt}</div>
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📋 Solicitud de Autorización</div>
+        <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
 
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 15, marginBottom: 14 }}>ÍTEMS QUE REQUIEREN CAMBIO</div>
-        <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Seleccioná los que querés informar al cliente y poné el precio.</div>
+      <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 6 }}>VEHÍCULO</div>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{fmtD(order.domain)}</div>
+        <div style={{ fontSize: 14, color: T.grayLight }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
+        <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>Cliente: {client?.name} {client?.lastName}</div>
+        <div style={{ fontSize: 12, color: T.gray }}>Solicitado por: {notif.requestedBy} — {notif.date}</div>
+      </div>
 
-        {notif.items.map(it => {
-          const isSel = selected.has(it.id);
-          return (
-            <div key={it.id} style={{ padding: "14px 0", borderBottom: `1px solid ${T.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div onClick={() => toggleItem(it.id, selected, setSelected)}
-                  style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isSel ? T.accent : T.border}`, background: isSel ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#fff", flexShrink: 0 }}>
-                  {isSel ? "✓" : ""}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{it.label}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{it.section}</div>
-                </div>
-              </div>
-              {isSel && (
-                <div style={{ marginLeft: 36, marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, color: T.grayLight }}>$</span>
-                  <input value={prices[it.id] ? Number(prices[it.id]).toLocaleString("es-AR") : ""} onChange={e => setPrices(p => ({ ...p, [it.id]: e.target.value.replace(/[^0-9]/g, "") }))}
-                    placeholder="0" type="text" style={{ ...inputStyle, width: 140, fontSize: 16, fontWeight: 700, fontFamily: fontD, textAlign: "center" }} />
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: T.orange }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.orange, marginBottom: 10 }}>⚠️ Items que requieren cambio</div>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{it.label}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>CAMBIAR</span>
+          </div>
+        ))}
+      </div>
 
-        {selected.size > 0 && (
-          <div style={{ marginTop: 14, padding: 14, background: T.bg, borderRadius: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.grayLight, marginBottom: 4 }}>
-              <span>Subtotal ({selected.size} ítem{selected.size !== 1 ? "s" : ""})</span>
-              <span>{fmt(totalPrice)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.grayLight, marginBottom: 4 }}>
-              <span>+ IVA {ivaRate}%</span>
-              <span>{fmt(totalWithIva - totalPrice)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 800, marginTop: 4 }}>
-              <span>TOTAL</span>
-              <span style={{ color: T.accent }}>{fmt(Math.round(totalWithIva))}</span>
+      <div style={{ ...card, padding: 16, marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8 }}>PRESUPUESTO</div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: T.gray }}>Subtotal (sin IVA)</span>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(totalSinIva)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: T.gray }}>IVA ({iva}%)</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(totalSinIva * iva / 100)}</span>
+        </div>
+        <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD }}>TOTAL</span>
+          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: T.accent }}>{fmt(totalConIva)}</span>
+        </div>
+      </div>
+
+      <button onClick={sendWhatsApp} style={{ ...btnPrimary(T.green), width: "100%", marginBottom: 12, fontSize: 15, padding: "16px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        📱 Enviar Presupuesto por WhatsApp
+      </button>
+      {sent && <div style={{ textAlign: "center", fontSize: 12, color: T.green, marginBottom: 12 }}>✅ Presupuesto enviado</div>}
+
+      <div style={{ display: "flex", gap: 12 }}>
+        <button onClick={approve} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>
+          ✅ Autorizado
+        </button>
+        <button onClick={() => setShowDenyPopup(true)} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0" }}>
+          ❌ Denegado
+        </button>
+      </div>
+
+      {showDenyPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)" }} onClick={() => setShowDenyPopup(false)}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 350, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 20, textAlign: "center", marginBottom: 12 }}>❌</div>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", marginBottom: 16 }}>Motivo de denegación</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => deny("cliente")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0" }}>👤 Denegado por el Cliente</button>
+              <button onClick={() => deny("administracion")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0" }}>🏢 Denegado por Administración</button>
+              <button onClick={() => setShowDenyPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "10px 0", color: T.gray }}>Cancelar</button>
             </div>
           </div>
-        )}
-      </div>
-
-      <div style={{ display: "grid", gap: 10 }}>
-        <button onClick={buildWhatsApp} disabled={selected.size === 0 || totalPrice === 0}
-          style={{ ...btnPrimary(selected.size > 0 && totalPrice > 0 ? T.green : T.gray), fontSize: 15, opacity: selected.size > 0 && totalPrice > 0 ? 1 : .5 }}>
-          📱 Enviar presupuesto por WhatsApp
-        </button>
-        <button onClick={() => onNavigate("dashboard")}
-          style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -6228,6 +6245,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
     { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
     { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
+    { key: "mensajes", icon: "📝", label: "Mensajes Predefinidos", desc: "Plantillas de WhatsApp" },
   ].filter(s => !s.only || s.only === user.role);
 
   if (!section) return (
@@ -6304,7 +6322,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             </div>
 
             <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>PIN DE ACCESO</div>
-            <input value={editingUser.pin} onChange={e => setEditingUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+            <input inputMode="numeric" value={editingUser.pin} onChange={e => setEditingUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
               maxLength={4} style={{ ...inputStyle, fontSize: 28, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 12, width: 160, padding: "8px 12px" }} />
 
             <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS DEL ROL: {ROLES.find(r => r.key === editingUser.role)?.label}</div>
@@ -6386,7 +6404,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: T.grayLight }}>PIN (4 dígitos)</label>
-              <input value={newUser.pin} onChange={e => setNewUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+              <input inputMode="numeric" value={newUser.pin} onChange={e => setNewUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
                 maxLength={4} placeholder="0000" style={{ ...inputStyle, fontSize: 22, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 10, width: 140, padding: "8px 12px", marginTop: 4 }} />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -6406,7 +6424,26 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     </div>
   );
 
-  if (section === "surcharges") return (
+  if (section === "mensajes") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📝 Mensajes Predefinidos</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 8 }}>📋 Mensaje de Autorización</div>
+        <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Se envía al cliente cuando un repuesto necesita autorización de cambio.</div>
+        <div style={{ fontSize: 11, color: T.accent, marginBottom: 8 }}>Variables disponibles: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{item}"} {"{precio}"} {"{precioIVA}"} {"{total}"}</div>
+        <textarea value={config.authMessage || ""} onChange={e => setConfig(prev => ({ ...prev, authMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 220, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
+          placeholder="Escribí el mensaje..." />
+        <div style={{ marginTop: 10, fontSize: 11, color: T.grayLight }}>💡 Usá * para negrita en WhatsApp (ej: *texto en negrita*)</div>
+        <button onClick={() => showSaved("Mensaje guardado ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 13 }}>💾 Guardar</button>
+      </div>
+    </div>
+  );
+
+    if (section === "surcharges") return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
@@ -6471,6 +6508,18 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
 };
 
 export default function App() {
+  useEffect(() => {
+    const handleFocus = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, []);
+
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
