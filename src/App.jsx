@@ -229,6 +229,64 @@ const FontLoader = () => (
     @keyframes shake { 0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);} }
     input::placeholder, textarea::placeholder { color: ${T.gray}; }
     select { appearance: none; }
+    
+    /* === TABLET OPTIMIZATION (12" tablets) === */
+    @media (min-width: 768px) and (max-width: 1400px) and (pointer: coarse) {
+      /* Touch targets - min 44px for finger tapping */
+      button, [role="button"], input[type="checkbox"], input[type="radio"] {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      /* Larger text for readability */
+      body { font-size: 16px; }
+      input, select, textarea { 
+        font-size: 16px !important; 
+        padding: 14px 16px !important;
+        min-height: 48px;
+      }
+      
+      /* Better spacing between interactive elements */
+      button {
+        padding: 14px 24px !important;
+        font-size: 15px !important;
+      }
+      
+      /* Prevent iOS zoom on focus */
+      input[type="text"], input[type="password"], input[type="number"], 
+      input[type="email"], input[type="tel"], textarea, select {
+        font-size: 16px !important;
+      }
+      
+      /* Larger checkboxes and radio buttons */
+      input[type="range"] {
+        height: 8px !important;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        width: 28px !important;
+        height: 28px !important;
+        -webkit-appearance: none;
+      }
+      
+      /* Scrollbar for touch */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-thumb { border-radius: 4px; }
+    }
+    
+    /* Tablet landscape specific */
+    @media (min-width: 1024px) and (max-width: 1400px) and (pointer: coarse) {
+      /* Two-column layouts get more breathing room */
+      .tablet-grid { gap: 16px !important; }
+    }
+    
+    /* Print styles */
+    @media print {
+      body { background: white !important; }
+      .no-print { display: none !important; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
   `}</style>
 );
 
