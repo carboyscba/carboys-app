@@ -3005,6 +3005,12 @@ const PieChart = ({ data, size = 180 }) => {
 
 const AdminScreen = ({ orders, clients, config, onNavigate }) => {
   const [tab, setTab] = useState("resumen");
+  const [selCobro, setSelCobro] = useState(null);
+  const [cobroPay, setCobroPay] = useState([]);
+  const [histYear, setHistYear] = useState(new Date().getFullYear());
+  const [histMonth, setHistMonth] = useState(null);
+  const [histDetail, setHistDetail] = useState(null);
+  const [statView, setStatView] = useState(null);
   const [period, setPeriod] = useState("dia");
   const [egresos, setEgresos] = useState([]);
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0] });
@@ -3099,7 +3105,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       {/* Tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(t => (
-          <div key={t.key} onClick={() => setTab(t.key)}
+          <div key={t.key} onClick={() => setTab(t.key); setSelCobro(null); setCobroPay([]); setHistDetail(null); setHistMonth(null); setStatView(null)}
             style={{ ...card, padding: "16px 8px", cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2 }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>{t.icon}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: tab === t.key ? T.accent : T.gray }}>{t.l}</div>
@@ -3156,8 +3162,6 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🧾 Cobros — Vehículos en Taller</div>
         {(() => {
           const inTaller = orders.filter(o => ["pending", "working", "done"].includes(o.status));
-          const [selCobro, setSelCobro] = useState(null);
-          const [cobroPay, setCobroPay] = useState([]);
           if (selCobro) {
             const o = selCobro;
             const cl = clients.find(c => c.id === o.clientId);
@@ -3303,9 +3307,6 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       {tab === "historial" && (<div>
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📚 Historial de Vehículos</div>
         {(() => {
-          const [histYear, setHistYear] = useState(new Date().getFullYear());
-          const [histMonth, setHistMonth] = useState(null);
-          const [histDetail, setHistDetail] = useState(null);
           const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
           const years = [...new Set(allOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
           const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -3711,7 +3712,6 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
 
       {/* ══════ ESTADÍSTICAS ══════ */}
       {tab === "stats" && (() => {
-        const [statView, setStatView] = useState(null);
         const STAT_ITEMS = [
           { key: "pagos", icon: "💳", label: "Medios de Pago" },
           { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
