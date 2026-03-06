@@ -3517,7 +3517,7 @@ const SF_TEMPLATE = [
     { id: "tt_rulemanes", label: "Rulemanes", type: "binary", needsAuth: true },
   ]},
   { section: "FLUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "fluid", hasPercent: true, percentLabel: "% de agua", needsAuth: true },
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
     { id: "liq_direccion", label: "Líquido de dirección", type: "fluid" },
     { id: "liq_refrigerante", label: "Líquido refrigerante", type: "fluid", needsAuth: true },
     { id: "aceite_caja", label: "Aceite de caja", type: "fluid", needsAuth: true },
@@ -3583,7 +3583,7 @@ const PF_DEL_TEMPLATE = [
     { id: "td_discos", label: "Discos", type: "statusRC", needsAuth: true },
   ]},
   { section: "LÍQUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "fluid", hasPercent: true, percentLabel: "% de agua", needsAuth: true },
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
   ]},
 ];
 
@@ -3592,7 +3592,7 @@ const PF_TRA_TEMPLATE = [
     { id: "tt_freno", label: "Freno trasero", type: "check" },
   ]},
   { section: "LÍQUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "fluid", hasPercent: true, percentLabel: "% de agua", needsAuth: true },
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
   ]},
 ];
 
@@ -3605,7 +3605,7 @@ const PF_AMBOS_TEMPLATE = [
     { id: "tt_freno", label: "Freno trasero", type: "check" },
   ]},
   { section: "LÍQUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "fluid", hasPercent: true, percentLabel: "% de agua", needsAuth: true },
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
   ]},
 ];
 
@@ -4878,98 +4878,6 @@ const ServiceSheetScreen = (props) => {
       </div>
 
       {/* Authorization request */}
-      {(() => {
-        const needsAuthChange = (item) => {
-          if (!item.needsAuth) return false;
-          const d = data[item.id];
-          if (!d) return false;
-          switch (item.type) {
-            case "statusRC": return d.status === "cambiar";
-            case "optionalStatusRC": return d.status === "cambiar";
-            case "percentRC": return d.status === "cambiar";
-            case "freno_trasero": return d.status === "cambiar";
-            case "binary": return d.fluidOk === "mal";
-            case "ternary": return d.fluidOk === "mal";
-            case "fluid": return d.fluidOk === "cambiar";
-            case "batteryPercent": return d.percent >= 0 && d.percent < 50;
-            default: return false;
-          }
-        };
-        const cambiarItems = SHEET_TPL.flatMap(s => s.items.filter(it => isVisible(it))).filter(needsAuthChange);
-        const existingNotif = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
-        const approvedNotif = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
-
-        if (approvedNotif) {
-          return (
-            <div style={{ marginBottom: 16 }}>
-              {approvedNotif.approvedItems?.length > 0 && (
-                <div style={{ ...card, padding: 16, marginBottom: 8, borderColor: T.green, background: "rgba(67,160,71,0.06)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 18 }}>✅</span>
-                    <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 14, color: T.green }}>APROBADOS POR EL CLIENTE</div>
-                  </div>
-                  {approvedNotif.approvedItems.map(it => (
-                    <div key={it.id} style={{ fontSize: 12, color: T.grayLight, padding: "2px 0", marginLeft: 26 }}>• {it.label}</div>
-                  ))}
-                </div>
-              )}
-              {approvedNotif.rejectedItems?.length > 0 && (
-                <div style={{ ...card, padding: 16, borderColor: T.red, background: "rgba(229,57,53,0.06)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 18 }}>❌</span>
-                    <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 14, color: T.red }}>NO APROBADOS POR EL CLIENTE</div>
-                  </div>
-                  {approvedNotif.rejectedItems.map(it => (
-                    <div key={it.id} style={{ fontSize: 12, color: T.grayLight, padding: "2px 0", marginLeft: 26 }}>• {it.label}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        }
-
-        if (existingNotif) {
-          return (
-            <div style={{ ...card, padding: 18, marginBottom: 16, borderColor: T.orange, background: "rgba(255,152,0,0.06)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: T.orange, animation: "pulse 2s infinite" }} />
-                <div>
-                  <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 14, color: T.orange }}>AUTORIZACIÓN PENDIENTE</div>
-                  <div style={{ fontSize: 12, color: T.gray }}>Esperando respuesta de {existingNotif.items.length} ítem{existingNotif.items.length !== 1 ? "s" : ""}...</div>
-                </div>
-              </div>
-            </div>
-          );
-        }
-
-        if (cambiarItems.length > 0) {
-          const sendAuth = () => {
-            const newNotif = {
-              id: Date.now(), orderId: order.id, domain: order.domain, clientId: order.clientId,
-              requestedBy: user.name, requestedAt: new Date().toLocaleString("es-AR"), status: "pending",
-              items: cambiarItems.map(it => ({ id: it.id, label: it.label, section: SHEET_TPL.find(s => s.items.includes(it))?.section || "" })),
-              approvedItems: [],
-            };
-            setNotifications(prev => [...prev, newNotif]);
-          };
-          return (
-            <div onClick={sendAuth}
-              style={{ ...card, padding: 20, marginBottom: 16, cursor: "pointer", textAlign: "center", borderColor: T.red, background: "rgba(229,57,53,0.06)", transition: "all .2s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(229,57,53,0.12)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(229,57,53,0.06)"; e.currentTarget.style.transform = "none"; }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🔔</div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, color: T.red }}>PEDIR AUTORIZACIÓN</div>
-              <div style={{ fontSize: 13, color: T.grayLight, marginTop: 6 }}>{cambiarItems.length} ítem{cambiarItems.length !== 1 ? "s" : ""} requiere{cambiarItems.length === 1 ? "" : "n"} cambio:</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 8 }}>
-                {cambiarItems.map(it => (
-                  <span key={it.id} style={{ padding: "4px 10px", borderRadius: 6, background: `${T.red}20`, color: T.red, fontSize: 11, fontWeight: 700 }}>🔴 {it.label}</span>
-                ))}
-              </div>
-            </div>
-          );
-        }
-        return null;
-      })()}
 
       </>
       )}
@@ -5027,44 +4935,56 @@ const ServiceSheetScreen = (props) => {
 
       {/* Pendientes de autorización */}
       {(() => {
-        const authItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => it.needsAuth && data[it.id] && (data[it.id].status === "cambiar" || (it.type === "batteryPercent" && data[it.id].percent >= 0 && data[it.id].percent < 50)) && !forcedChangeItems.has(it.id)));
-        if (authItems.length === 0) return null;
+        const authItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => {
+          if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
+          const d2 = data[it.id];
+          if (!d2) return false;
+          if (d2.status === "cambiar") return true;
+          if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
+          if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
+          if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
+          return false;
+        }));
         const existingAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
         const approvedAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
         const deniedAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "denied");
+        if (authItems.length === 0 && !existingAuth && !approvedAuth && !deniedAuth) return null;
         return (
-          <div style={{ ...card, padding: 20, marginTop: 20, borderColor: T.orange, borderLeft: `4px solid ${T.orange}` }}>
-            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12, color: T.orange }}>⚠️ Items que requieren autorización</div>
+          <div style={{ ...card, padding: 24, marginTop: 20, borderColor: T.red, borderLeft: "4px solid " + T.red, background: "rgba(229,57,53,0.04)" }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>🔔</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700, color: T.red }}>PEDIR AUTORIZACIÓN</div>
+              {authItems.length > 0 && <div style={{ fontSize: 14, color: T.grayLight, marginTop: 6 }}>{authItems.length} ítem{authItems.length !== 1 ? "s" : ""} requiere{authItems.length === 1 ? "" : "n"} cambio:</div>}
+            </div>
             {authItems.map((it, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < authItems.length - 1 ? `1px solid ${T.border}` : "none" }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{it.label}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>Requiere autorización del cliente</div>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginBottom: 8, borderRadius: 10, background: T.red + "10", border: "1px solid " + T.red + "30" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: T.red }} />
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>{it.label}</span>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: T.red, padding: "4px 10px", borderRadius: 6, background: `${T.red}15` }}>CAMBIAR</div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.red }}>CAMBIAR</span>
               </div>
             ))}
-            {existingAuth && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: `${T.orange}10`, border: `1px solid ${T.orange}30` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.orange }}>📤 Solicitud enviada — esperando respuesta</div>
+            {approvedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.green + "10", border: "1px solid " + T.green + "30", textAlign: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: T.green }}>✅ AUTORIZACIÓN APROBADA</div>
+              {approvedAuth.items && <div style={{ marginTop: 6 }}>{approvedAuth.items.map((it, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>• {it.label}</div>)}</div>}
             </div>}
-            {approvedAuth && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.green }}>✅ Autorización APROBADA</div>
+            {deniedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.red + "10", border: "1px solid " + T.red + "30", textAlign: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: T.red }}>❌ AUTORIZACIÓN DENEGADA</div>
+              <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>{deniedAuth.denyReason === "cliente" ? "Denegado por el cliente" : "Denegado por administración"}</div>
             </div>}
-            {deniedAuth && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: `${T.red}10`, border: `1px solid ${T.red}30` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.red }}>❌ Autorización DENEGADA</div>
+            {existingAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.orange + "10", border: "1px solid " + T.orange + "30", textAlign: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.orange }}>⏳ Solicitud enviada — esperando respuesta</div>
             </div>}
-            {!existingAuth && !approvedAuth && !deniedAuth && (
+            {!existingAuth && !approvedAuth && !deniedAuth && authItems.length > 0 && (
               <button onClick={() => {
                 const items = authItems.map(it => ({ id: it.id, label: it.label }));
-                const notif = { id: Date.now(), orderId: order.id, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
+                const notif = { id: Date.now(), orderId: order.id, domain: order.domain, clientId: order.clientId, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
                 setNotifications(prev => [...prev, notif]);
-                setShowAuthRequest(true);
-                setTimeout(() => setShowAuthRequest(false), 3000);
-              }} style={{ ...btnPrimary(T.orange), width: "100%", marginTop: 14, fontSize: 14, padding: "14px 0" }}>
+              }} style={{ ...btnPrimary(T.red), width: "100%", marginTop: 16, fontSize: 18, padding: "18px 0", fontFamily: fontD }}>
                 📤 Pedir Autorización
               </button>
             )}
-            {showAuthRequest && <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, fontWeight: 700, color: T.green }}>✅ Solicitud enviada al encargado</div>}
           </div>
         );
       })()}
