@@ -1942,7 +1942,57 @@ const DashboardScreen = (props) => {
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
           { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: canCreate },
           { icon: "🔧", label: "En Taller", action: "workshop", show: true },
-          ...(["dueño", "admin"].includes(user.role) ? [ []);
+          ...(["dueño", "admin"].includes(user.role) ? [
+            { icon: "📊", label: "Administración", action: "admin", show: true },
+          ] : []),
+          ...(["dueño", "admin"].includes(user.role) ? [
+            { icon: "⚙️", label: "Configuración", action: "config", show: true },
+          ] : []),
+        ].filter(b => b.show !== false).map((b, i) => (
+          <div key={i} onClick={() => onNavigate(b.action)}
+            style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center", transition: "all .2s" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>{b.icon}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{b.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* En Taller - últimos vehículos */}
+      {orders.filter(o => ["pending", "working", "done"].includes(o.status)).length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span>🔧</span> EN TALLER</div>
+            <div onClick={() => onNavigate("workshop")} style={{ fontSize: 13, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver todos →</div>
+          </div>
+          {orders.filter(o => ["pending", "working", "done"].includes(o.status)).slice(0, 5).map(o => {
+            const cl = clients.find(c => c.id === o.clientId);
+            const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+            return (
+              <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
+                style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: sc }} />
+                    <div>
+                      <span style={{ fontFamily: fontD, fontWeight: 700, fontSize: 16 }}>{fmtD(o.domain)}</span>
+                      <span style={{ fontSize: 13, color: T.gray, marginLeft: 8 }}>{vh ? vh.brand + " " + vh.model + " " + vh.year : ""}</span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SearchScreen = ({ clients, orders, onNavigate }) => {
+  const [q, setQ] = useState("");
+  const ref = useRef(null);
 
   const results = q.length > 1 ? clients.filter(c =>
     c.vehicles.some(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())) ||
@@ -1987,8 +2037,6 @@ const DashboardScreen = (props) => {
   );
 };
 
-);
-};
 
 const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
   const [filter, setFilter] = useState("all");
