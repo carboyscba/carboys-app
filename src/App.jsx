@@ -3016,15 +3016,15 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
 
   const TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
-    { key: "pagos", icon: "💳", l: "Medios de Pago" },
+    
     { key: "ctacte", icon: "📒", l: "Cta. Corriente" },
     { key: "caja", icon: "💰", l: "Caja" },
     { key: "facturas", icon: "🧾", l: "Facturación" },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
     { key: "stats", icon: "📈", l: "Estadísticas" },
-    { key: "marketing", icon: "📣", l: "Marketing" },
-    { key: "productividad", icon: "⚡", l: "Productividad" },
+    
+    
   ];
 
   return (
@@ -3049,8 +3049,10 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       {/* Tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(t => (
-          <div key={t.key} onClick={() => setTab(t.key)} style={{ padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.key ? T.accent : T.bg2, color: tab === t.key ? "#fff" : T.gray, border: `1px solid ${tab === t.key ? T.accent : T.border}` }}>
-            {t.icon} {t.l}
+          <div key={t.key} onClick={() => setTab(t.key)}
+            style={{ ...card, padding: "16px 8px", cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2 }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>{t.icon}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: tab === t.key ? T.accent : T.gray }}>{t.l}</div>
           </div>
         ))}
       </div>
@@ -3096,32 +3098,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       </div>)}
 
       {/* ══════ MEDIOS DE PAGO ══════ */}
-      {tab === "pagos" && (<div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
-        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Distribución por método</div>
-          {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
-            const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
-            const color = payColors[method] || T.grayLight;
-            return (
-              <div key={method} style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color }}>{fmt(amount)} <span style={{ fontSize: 11, color: T.gray }}>({pct}%)</span></span>
-                </div>
-                <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", borderRadius: 5, background: color, transition: "width .5s" }} />
-                </div>
-              </div>
-            );
-          }) : <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
-          <div style={{ height: 1, background: T.border, margin: "16px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-            <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(totalIngresos)}</span>
-          </div>
-        </div>
-      </div>)}
-
+      
       {/* ══════ CUENTA CORRIENTE ══════ */}
       {tab === "ctacte" && (<div>
         <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
@@ -3403,127 +3380,164 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       </div>)}
 
       {/* ══════ ESTADÍSTICAS ══════ */}
-      {tab === "stats" && (<div>
-        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>🔧 Trabajos más realizados</div>
-          {topWorks.slice(0, 10).map(([type, count], i) => {
-            const maxC = topWorks[0][1];
-            return (
-              <div key={type} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 14 }}>{i + 1}. {type}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{count}</span>
+      {tab === "stats" && (() => {
+        const [statView, setStatView] = useState(null);
+        const STAT_ITEMS = [
+          { key: "pagos", icon: "💳", label: "Medios de Pago" },
+          { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
+          { key: "clientes", icon: "👥", label: "Clientes Frecuentes" },
+          { key: "productividad", icon: "⚡", label: "Productividad" },
+          { key: "retencion", icon: "📈", label: "Retención" },
+          { key: "campanas", icon: "📣", label: "Campañas" },
+        ];
+
+        if (!statView) return (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {STAT_ITEMS.map(s => (
+                <div key={s.key} onClick={() => setStatView(s.key)}
+                  style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>{s.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.label}</div>
                 </div>
-                <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.round(count * 100 / maxC)}%`, height: "100%", borderRadius: 4, background: T.accent }} />
-                </div>
-              </div>
-            );
-          })}
-          {topWorks.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
-        </div>
-        <div style={{ ...card, padding: 20 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👥 Clientes más frecuentes</div>
-          {topClients.map((c, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
-              <span style={{ fontSize: 14 }}>{i + 1}. {c.name}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "#9C27B0" }}>{c.count} orden{c.count !== 1 ? "es" : ""}</span>
+              ))}
             </div>
-          ))}
-          {topClients.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
-        </div>
-      </div>)}
-
-      {/* ══════ MARKETING ══════ */}
-      {tab === "marketing" && (<div>
-        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📣 Campañas Activas</div>
-          <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>Creá campañas de WhatsApp para fidelizar clientes</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            {[
-              { name: "Service Recordatorio", desc: "Clientes con +6 meses sin service", target: completed.filter(o => { const d = new Date(o.date); return (Date.now() - d.getTime()) > 180 * 86400000; }).length, color: T.accent, icon: "🔔" },
-              { name: "Oferta Temporada", desc: "Todos los clientes activos", target: clients.length, color: T.green, icon: "🎯" },
-              { name: "Cumpleaños", desc: "Clientes del mes", target: 0, color: "#9C27B0", icon: "🎂" },
-              { name: "Revisión Pre-Viaje", desc: "Antes de finde largo", target: clients.length, color: T.orange, icon: "🚗" },
-            ].map(c => (
-              <div key={c.name} style={{ ...card, padding: 16 }}>
-                <div style={{ fontSize: 28, marginBottom: 6 }}>{c.icon}</div>
-                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{c.name}</div>
-                <div style={{ fontSize: 11, color: T.gray, marginBottom: 8 }}>{c.desc}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.target} destinatarios</span>
-                  <button style={{ ...btnPrimary(c.color), fontSize: 11, padding: "6px 12px" }}>Enviar</button>
-                </div>
-              </div>
-            ))}
           </div>
-        </div>
-        <div style={{ ...card, padding: 20 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📊 Métricas de Retención</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {[
-              { l: "Clientes Totales", v: clients.length, c: T.accent },
-              { l: "Recurrentes (2+ visitas)", v: Object.values(clientStats).filter(v => v >= 2).length, c: T.green },
-              { l: "Tasa Retención", v: clients.length > 0 ? Math.round(Object.values(clientStats).filter(v => v >= 2).length * 100 / clients.length) + "%" : "0%", c: "#9C27B0" },
-            ].map(s => (
-              <div key={s.l} style={{ ...card, padding: 14, textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: T.gray }}>{s.l}</div>
-                <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: s.c }}>{s.v}</div>
+        );
+
+        return (
+          <div>
+            <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Estadísticas</button>
+
+            {statView === "pagos" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+              <div style={{ ...card, padding: 20 }}>
+                {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
+                  const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
+                  const color = payColors[method] || T.grayLight;
+                  return (
+                    <div key={method} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color }}>{fmt(amount)} <span style={{ fontSize: 11, color: T.gray }}>({pct}%)</span></span>
+                      </div>
+                      <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 5, background: color }} />
+                      </div>
+                    </div>
+                  );
+                }) : <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
+                {payEntries.length > 0 && <div style={{ height: 1, background: T.border, margin: "16px 0" }} />}
+                {payEntries.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}><span>TOTAL</span><span style={{ color: T.accent }}>{fmt(totalIngresos)}</span></div>}
               </div>
-            ))}
+            </div>)}
+
+            {statView === "trabajos" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔧 Trabajos más Realizados</div>
+              <div style={{ ...card, padding: 20 }}>
+                {topWorks.slice(0, 10).map(([type, count], i) => {
+                  const maxC = topWorks[0][1];
+                  return (
+                    <div key={type} style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 14 }}>{i + 1}. {type}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{count}</span>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.round(count * 100 / maxC)}%`, height: "100%", borderRadius: 4, background: T.accent }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {topWorks.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+              </div>
+            </div>)}
+
+            {statView === "clientes" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>👥 Clientes Frecuentes</div>
+              <div style={{ ...card, padding: 20 }}>
+                {topClients.map((c, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <span style={{ fontSize: 14 }}>{i + 1}. {c.name}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#9C27B0" }}>{c.count} orden{c.count !== 1 ? "es" : ""}</span>
+                  </div>
+                ))}
+                {topClients.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+              </div>
+            </div>)}
+
+            {statView === "productividad" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>⚡ Productividad</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 16 }}>
+                {[
+                  { l: "Órdenes Hoy", v: orders.filter(o => o.date === today).length, c: T.accent, ic: "📋" },
+                  { l: "En Taller", v: orders.filter(o => ["pending", "working"].includes(o.status)).length, c: T.orange, ic: "🔧" },
+                  { l: "Finalizadas Hoy", v: orders.filter(o => o.status === "done" && o.date === today).length, c: T.green, ic: "✅" },
+                  { l: "Entregadas Hoy", v: orders.filter(o => o.status === "delivered" && o.date === today).length, c: "#9C27B0", ic: "🚗" },
+                ].map(s => (
+                  <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
+                    <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: s.c }}>{s.v}</div>
+                    <div style={{ fontSize: 12, color: T.gray }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ ...card, padding: 20 }}>
+                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>👤 Rendimiento por Mecánico</div>
+                {(() => {
+                  const ms = {}; completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; ms[m] = (ms[m] || 0) + 1; });
+                  return Object.entries(ms).sort((a, b) => b[1] - a[1]).map(([name, cnt]) => {
+                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+                    return (<div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                      <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{cnt} órdenes</div></div>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(rev)}</div>
+                    </div>);
+                  });
+                })()}
+              </div>
+            </div>)}
+
+            {statView === "retencion" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📈 Retención de Clientes</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+                {[
+                  { l: "Clientes Totales", v: clients.length, c: T.accent },
+                  { l: "Recurrentes (2+)", v: Object.values(clientStats).filter(v => v >= 2).length, c: T.green },
+                  { l: "Tasa Retención", v: clients.length > 0 ? Math.round(Object.values(clientStats).filter(v => v >= 2).length * 100 / clients.length) + "%" : "0%", c: "#9C27B0" },
+                ].map(s => (
+                  <div key={s.l} style={{ ...card, padding: 16, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: T.gray }}>{s.l}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: s.c }}>{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>)}
+
+            {statView === "campanas" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {[
+                  { name: "Service Recordatorio", desc: "Clientes con +6 meses sin service", target: completed.filter(o => { const d2 = new Date(o.date); return (Date.now() - d2.getTime()) > 180 * 86400000; }).length, color: T.accent, icon: "🔔" },
+                  { name: "Oferta Temporada", desc: "Todos los clientes activos", target: clients.length, color: T.green, icon: "🎯" },
+                  { name: "Revisión Pre-Viaje", desc: "Antes de finde largo", target: clients.length, color: T.orange, icon: "🚗" },
+                  { name: "Promo Personalizada", desc: "Campaña libre", target: 0, color: "#9C27B0", icon: "📣" },
+                ].map(c => (
+                  <div key={c.name} style={{ ...card, padding: 16 }}>
+                    <div style={{ fontSize: 28, marginBottom: 6 }}>{c.icon}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: T.gray, marginBottom: 8 }}>{c.desc}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.target} dest.</span>
+                      <button style={{ ...btnPrimary(c.color), fontSize: 11, padding: "6px 12px" }}>Enviar</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>)}
           </div>
-        </div>
-      </div>)}
-
-      {/* ══════ PRODUCTIVIDAD ══════ */}
-      {tab === "productividad" && (<div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
-          {[
-            { l: "Órdenes Hoy", v: orders.filter(o => o.date === today).length, c: T.accent, ic: "📋" },
-            { l: "En Taller Ahora", v: orders.filter(o => ["pending", "working"].includes(o.status)).length, c: T.orange, ic: "🔧" },
-            { l: "Finalizadas Hoy", v: orders.filter(o => o.status === "done" && o.date === today).length, c: T.green, ic: "✅" },
-            { l: "Entregadas Hoy", v: orders.filter(o => o.status === "delivered" && o.date === today).length, c: "#9C27B0", ic: "🚗" },
-          ].map(s => (
-            <div key={s.l} style={{ ...card, padding: 18, borderLeft: `4px solid ${s.c}` }}>
-              <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
-              <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: s.c }}>{s.v}</div>
-              <div style={{ fontSize: 12, color: T.gray }}>{s.l}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>⏱️ Tiempo Promedio por Tipo de Trabajo</div>
-          {topWorks.slice(0, 8).map(([type, count]) => {
-            const avgDays = type.includes("Service") ? 1 : type.includes("Tren") ? 2 : type.includes("Escape") ? 1.5 : 1;
-            return (
-              <div key={type} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
-                <span style={{ fontSize: 14 }}>{type}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 12, color: T.gray }}>{count} realizados</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: T.accent, fontFamily: fontD }}>{avgDays}d prom.</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ ...card, padding: 20 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👤 Rendimiento por Mecánico</div>
-          {(() => {
-            const mechStats = {};
-            completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; mechStats[m] = (mechStats[m] || 0) + 1; });
-            return Object.entries(mechStats).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
-              const revenue = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
-              return (
-                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
-                  <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{count} órdenes completadas</div></div>
-                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(revenue)}</div>
-                </div>
-              );
-            });
-          })()}
-        </div>
-      </div>)}
-
+        );
+      })()}
     </div>
   );
 };
@@ -6038,13 +6052,12 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "users", icon: "👥", label: "Gestión de Usuarios", desc: "Crear, editar y administrar usuarios", only: "dueño" },
     { key: "surcharges", icon: "💳", label: "Recargos Tarjeta", desc: "Cuotas e IVA" },
     { key: "whatsapp", icon: "📱", label: "WhatsApp Business", desc: "Mensajes y conexión" },
-    { key: "shop", icon: "🏪", label: "Datos del Taller", desc: "Nombre, dirección, CUIT" },
+    
     { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
     { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
     { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
-    { key: "arca", icon: "🏛️", label: "ARCA (AFIP)", desc: "Facturación electrónica" },
-    { key: "whatsapp", icon: "📱", label: "WhatsApp Business", desc: "Mensajes y plantillas" },
-    { key: "mensajes", icon: "📝", label: "Mensajes Predefinidos", desc: "Plantillas de WhatsApp" },
+    
+
   ].filter(s => !s.only || s.only === user.role);
 
   if (!section) return (
@@ -6224,81 +6237,57 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
   );
 
   
-  if (section === "arca") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🏛️ ARCA (AFIP)</div>
-        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
-      </div>
-      <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.accent }}>
-        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>🔐 Datos de acceso ARCA</div>
-        <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>Ingresá tus credenciales de AFIP/ARCA para facturación electrónica</div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>CUIT del Taller</label><input value={config.arcaCuit || ""} onChange={e => setConfig(prev => ({ ...prev, arcaCuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Punto de Venta</label><input inputMode="numeric" value={config.arcaPV || ""} onChange={e => setConfig(prev => ({ ...prev, arcaPV: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="Ej: 0001" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Razón Social</label><input value={config.arcaRazon || ""} onChange={e => setConfig(prev => ({ ...prev, arcaRazon: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS SRL" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Domicilio Fiscal</label><input value={config.arcaDom || ""} onChange={e => setConfig(prev => ({ ...prev, arcaDom: e.target.value }))} style={inputStyle} placeholder="Ej: Av. Recta Martinoli 8590" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Condición IVA</label>
-          <select value={config.arcaIva || ""} onChange={e => setConfig(prev => ({ ...prev, arcaIva: e.target.value }))} style={inputStyle}>
-            <option value="">Seleccionar</option><option>Responsable Inscripto</option><option>Monotributista</option><option>Exento</option>
-          </select>
-        </div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Inicio de Actividades</label><input type="date" value={config.arcaInicio || ""} onChange={e => setConfig(prev => ({ ...prev, arcaInicio: e.target.value }))} style={inputStyle} /></div>
-        <div style={{ ...card, padding: 14, marginTop: 16, borderColor: T.orange, background: "rgba(255,152,0,0.06)" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, marginBottom: 6 }}>⚠️ Nota</div>
-          <div style={{ fontSize: 11, color: T.grayLight, lineHeight: 1.5 }}>La integración directa con ARCA requiere certificado digital. Por ahora estos datos se usan para generar las facturas con el formato correcto. La emisión se realiza manualmente en la web de ARCA.</div>
-        </div>
-        <button onClick={() => showSaved("Datos de ARCA guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 14, fontSize: 13, width: "100%" }}>💾 Guardar</button>
-      </div>
-    </div>
-  );
-
   if (section === "whatsapp") return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📱 WhatsApp Business</div>
         <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
+
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>📞 Datos de WhatsApp</div>
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Número del Taller (con código país)</label><input inputMode="tel" value={config.whatsappNum || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappNum: e.target.value }))} style={inputStyle} placeholder="Ej: 5493547426967" /></div>
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
+        <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
       </div>
-      <div style={{ ...card, padding: 20, marginBottom: 16, cursor: "pointer", borderColor: T.accent }} onClick={() => setSection("mensajes")}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ fontSize: 32 }}>📝</div>
-            <div>
-              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>Mensajes Pre-guardados</div>
-              <div style={{ fontSize: 12, color: T.gray }}>Plantillas para autorización, bienvenida, entrega, etc.</div>
-            </div>
-          </div>
-          <div style={{ fontSize: 20, color: T.gray }}>→</div>
-        </div>
-      </div>
-      <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
-    </div>
-  );
 
-if (section === "mensajes") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📝 Mensajes Predefinidos</div>
-        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
-      </div>
+      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14, marginTop: 24, display: "flex", alignItems: "center", gap: 8 }}>📝 Mensajes Pre-guardados</div>
+
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 8 }}>📋 Mensaje de Autorización</div>
-        <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Se envía al cliente cuando un repuesto necesita autorización de cambio.</div>
-        <div style={{ fontSize: 11, color: T.accent, marginBottom: 8 }}>Variables disponibles: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{item}"} {"{precio}"} {"{precioIVA}"} {"{total}"}</div>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.accent }}>📋 Mensaje de Autorización de Cambio</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando un repuesto necesita autorización. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{item}"} {"{precio}"} {"{precioIVA}"} {"{total}"}</div>
         <textarea value={config.authMessage || ""} onChange={e => setConfig(prev => ({ ...prev, authMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 220, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
-          placeholder="Escribí el mensaje..." />
-        <div style={{ marginTop: 10, fontSize: 11, color: T.grayLight }}>💡 Usá * para negrita en WhatsApp (ej: *texto en negrita*)</div>
-        <button onClick={() => showSaved("Mensaje guardado ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 13 }}>💾 Guardar</button>
+          style={{ ...inputStyle, minHeight: 180, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
+          placeholder="Escribí el mensaje de autorización..." />
       </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.green }}>✅ Mensaje de Vehículo Listo</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando el vehículo está listo para retirar. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
+        <textarea value={config.readyMessage || "Hola {nombre}! Te informamos que tu {vehiculo} ({dominio}) ya está listo para retirar.\n\n¡Gracias por confiar en *CarBoys*! 🔧\n\nTe esperamos de Lunes a Viernes de 8 a 18hs.\nAv. Recta Martinoli 8590, Córdoba"} onChange={e => setConfig(prev => ({ ...prev, readyMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#9C27B0" }}>📋 Mensaje de Recepción</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando se recepciona su vehículo. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
+        <textarea value={config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\nGracias por confiar en nosotros!"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📣 Mensaje de Campaña / Promo</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Plantilla para campañas de marketing y promociones.</div>
+        <textarea value={config.promoMessage || "¡Hola {nombre}! Desde *CarBoys* te acercamos una promo especial:\n\n🔧 [COMPLETAR PROMO]\n\n📅 Válido hasta [FECHA]\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, promoMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ marginTop: 14, fontSize: 11, color: T.grayLight }}>💡 Tip: Usá * para negrita en WhatsApp (ej: *texto en negrita*). Usá \n para salto de línea.</div>
+      <button onClick={() => showSaved("Mensajes guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 14, width: "100%" }}>💾 Guardar Todo</button>
     </div>
   );
 
-    if (section === "surcharges") return (
+  if (section === "surcharges") return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
