@@ -171,7 +171,7 @@ const INITIAL_ORDERS = [
   { id: 101, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
   { id: 102, clientId: 2, domain: "AB 456 CD", status: "delivered", works: [{ type: "Service Full", price: 75000 }], payments: [{ method: "Efectivo", amount: 75000, withIva: false }], assignedTo: "Fabricio", date: "2026-01-20", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 103, clientId: 3, domain: "AE 789 FG", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 62000, escapeType: "original", trenItems: [{ key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Tarjeta", amount: 157000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-01-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 104, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "2", amount: 150000 }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 104, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "1", amount: 150000, withIva: true }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 105, clientId: 6, domain: "AH 901 NP", status: "delivered", works: [{ type: "Service Base", price: 45000 }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-05", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 106, clientId: 4, domain: "AD 012 HI", status: "delivered", works: [{ type: "Tren Delantero", price: 78000, trenItems: [{ key: "bieletas", label: "Bieletas", hasSide: true, selected: true, price: "38000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 42000, desc: "Ambos ejes", brakeEjes: { del: true, tra: true } }], payments: [{ method: "Cuenta Corriente", amount: 120000 }], assignedTo: "Fabricio", date: "2026-02-10", startedBy: "Fabricio", techNotes: [] },
   { id: 107, clientId: 7, domain: "AK 234 QR", status: "delivered", works: [{ type: "Service Full", price: 75000 }, { type: "Escobillas", price: 15000 }], payments: [{ method: "Transferencia", account: "1", amount: 90000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-14", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
@@ -180,7 +180,10 @@ const INITIAL_ORDERS = [
   { id: 110, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Mecánica", price: 45000, desc: "Cambio de bujías" }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-25", startedBy: "Fabricio", techNotes: [] },
   { id: 111, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Service Full", price: 70000 }, { type: "Aditivo", price: 8000 }], payments: [{ method: "Transferencia", account: "2", amount: 78000 }], assignedTo: "Fabricio", date: "2026-02-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 112, clientId: 12, domain: "AR 444 CD", status: "delivered", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Trasero", price: 55000, trenItems: [{ key: "amortiguadores_t", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }] }], payments: [{ method: "Tarjeta", amount: 135000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-03-01", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 113, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: FULL_SS, techNotes: ["Catalizador original agotado, se colocó compatible"] },
+  { id: 119, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Tren Delantero", price: 92000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 92000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-02", startedBy: "Fabricio", techNotes: [] },
+  { id: 120, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Service Full", price: 78000 }, { type: "Escape", price: 45000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "45000" }] }], payments: [{ method: "Efectivo", amount: 123000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 121, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Mecánica", price: 55000, desc: "Kit de embrague" }], payments: [{ method: "Tarjeta", amount: 55000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", techNotes: [] },
+    { id: 113, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: FULL_SS, techNotes: ["Catalizador original agotado, se colocó compatible"] },
   { id: 114, clientId: 9, domain: "AN 111 WX", status: "working", works: [{ type: "Service Full", price: 85000 }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }], payments: [{ method: "Transferencia", account: "1", amount: 123000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", startedAt: "2026-03-04 08:30", serviceSheet: {}, techNotes: [] },
   { id: 115, clientId: 1, domain: "AC 123 BD", status: "working", works: [{ type: "Mecánica", price: 35000, desc: "Cambio termostato" }], payments: [{ method: "Efectivo", amount: 35000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00", techNotes: [] },
   { id: 116, clientId: 2, domain: "AB 456 CD", status: "pending", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Delantero", price: 95000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 175000, withIva: true, invoiceType: "A" }], date: "2026-03-05", techNotes: [] },
@@ -2121,6 +2124,7 @@ const VehicleDetailScreen = (props) => {
   const [showEditOrder, setShowEditOrder] = useState(false);
   const [editClient, setEditClient] = useState(null);
   const [editWorks, setEditWorks] = useState([]);
+  const [editPayments, setEditPayments] = useState([]);
   const [showAddWork, setShowAddWork] = useState(false);
   const [newWorks, setNewWorks] = useState([]);
   const [showAccPopup2, setShowAccPopup2] = useState(false);
@@ -2356,12 +2360,12 @@ const VehicleDetailScreen = (props) => {
           }, bg: "rgba(229,57,53,.08)" }] : []),
           ...(order.status === "working" && canStartWork ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
-          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && canSeePrices, color: T.accent, action: () => {
+          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
-            setEditWorks(order.works.map(w => ({ ...w, price: String(w.price) })));
+            setEditWorks(order.works.map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
             setShowEditOrder(true);
           }, bg: "rgba(30,136,229,.08)" },
-          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && canSeePrices, color: T.accent, action: () => {
+          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setNewWorks([]);
             setShowAddWork(true);
           }, bg: "rgba(30,136,229,.08)" },
@@ -2377,7 +2381,7 @@ const VehicleDetailScreen = (props) => {
           ...(canBill && order.status === "done" ? [{ icon: "📄", label: "Facturar", show: true, color: T.accent, bg: "rgba(30,136,229,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => setShowDeliverPopup(true), bg: "rgba(0,200,83,.08)" }] : []),
-          ...(user.role === "dueño" ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(user.role === "dueño" && order.status !== "delivered" ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -2682,67 +2686,111 @@ const VehicleDetailScreen = (props) => {
 
       {showEditOrder && editClient && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }} onClick={() => setShowEditOrder(false)}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 500, width: "95%", maxHeight: "85vh", overflowY: "auto", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>✏️ Editar Orden</div>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 540, width: "95%", maxHeight: "90vh", overflowY: "auto", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700, marginBottom: 20 }}>✏️ Editar Orden — {fmtD(order.domain)}</div>
 
             {/* Client data */}
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8, textTransform: "uppercase" }}>Datos del Cliente</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>👤 Datos del Cliente</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-              <div>
-                <label style={labelStyle}>Nombre</label>
-                <input value={editClient.name} onChange={e => setEditClient(p => ({ ...p, name: e.target.value }))} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Apellido</label>
-                <input value={editClient.lastName} onChange={e => setEditClient(p => ({ ...p, lastName: e.target.value }))} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Celular</label>
-                <input inputMode="numeric" value={editClient.phone} onChange={e => setEditClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>DNI</label>
-                <input inputMode="numeric" value={editClient.dni} onChange={e => setEditClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={labelStyle}>CUIT</label>
-                <input inputMode="numeric" value={editClient.cuit} onChange={e => setEditClient(p => ({ ...p, cuit: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
-              </div>
+              <div><label style={labelStyle}>Nombre</label><input value={editClient.name} onChange={e => setEditClient(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Apellido</label><input value={editClient.lastName} onChange={e => setEditClient(p => ({ ...p, lastName: e.target.value }))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={editClient.phone} onChange={e => setEditClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={editClient.dni || ""} onChange={e => setEditClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
             </div>
 
             {/* Works */}
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8, textTransform: "uppercase" }}>Trabajos</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>🔧 Trabajos</div>
             {editWorks.map((w, i) => (
-              <div key={i} style={{ ...card, padding: 12, marginBottom: 8, borderLeft: `3px solid ${T.accent}` }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{w.type}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div>
-                    <label style={labelStyle}>Precio</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      <span style={{ fontSize: 14, color: T.accent, fontWeight: 700 }}>$</span>
-                      <input value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
-                        const raw = e.target.value.replace(/[^0-9]/g, "");
-                        setEditWorks(prev => prev.map((x, j) => j === i ? { ...x, price: raw } : x));
-                      }} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
+              <div key={i} style={{ ...card, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
+                      <input inputMode="numeric" value={w.price ? String(w.price) : ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, price: e.target.value.replace(/[^0-9]/g, "") } : x))}
+                        style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, textAlign: "right", padding: "8px 10px" }} />
                     </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Descripción</label>
-                    <input value={w.desc || ""} onChange={e => {
-                      setEditWorks(prev => prev.map((x, j) => j === i ? { ...x, desc: e.target.value } : x));
-                    }} placeholder="Agregar detalle..." style={inputStyle} />
+                    {editWorks.length > 1 && (
+                      <div onClick={() => setEditWorks(ws => ws.filter((_, j) => j !== i))}
+                        style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.red, fontSize: 16, borderRadius: 6, background: "rgba(229,57,53,0.08)", border: `1px solid ${T.red}30` }}>✕</div>
+                    )}
                   </div>
                 </div>
+                {w.trenItems && w.trenItems.filter(ti => ti.selected).length > 0 && (
+                  <div style={{ paddingLeft: 10 }}>
+                    {w.trenItems.filter(ti => ti.selected).map((ti, j) => (
+                      <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, padding: "2px 0" }}>
+                        <span>• {ti.label}</span>
+                        <span>{ti.price ? fmt(parseFloat(ti.price)) : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
+            <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 14, fontWeight: 700, color: T.accent, fontFamily: fontD, marginBottom: 16 }}>
+              Total: {fmt(editWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}
+            </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-              <button onClick={() => setShowEditOrder(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
+            {/* Payments */}
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago</div>
+            {(editPayments || []).map((pm, i) => (
+              <div key={i} style={{ ...card, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+                  <div><label style={labelStyle}>Método</label>
+                    <select value={pm.method || ""} onChange={e => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, method: e.target.value } : p))} style={inputStyle}>
+                      <option value="">Seleccionar</option>
+                      <option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cuenta Corriente</option>
+                    </select>
+                  </div>
+                  <div><label style={labelStyle}>Monto</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
+                      <input inputMode="numeric" value={pm.amount ? String(pm.amount) : ""} onChange={e => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))}
+                        style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
+                    </div>
+                  </div>
+                </div>
+                {pm.method === "Transferencia" && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    {[{ a: "1", l: "Cuenta 1 — Con IVA" }, { a: "2", l: "Cuenta 2 — Sin IVA" }].map(opt => (
+                      <div key={opt.a} onClick={() => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, account: opt.a, withIva: opt.a === "1", invoiceType: opt.a === "2" ? "C" : p.invoiceType } : p))}
+                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.a ? T.accent : T.border}`, color: pm.account === opt.a ? T.accent : T.gray, background: pm.account === opt.a ? `${T.accent}15` : T.bg }}>{opt.l}</div>
+                    ))}
+                  </div>
+                )}
+                {(pm.method === "Efectivo" || pm.method === "Tarjeta") && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <div onClick={() => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, withIva: true } : p))}
+                      style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === true ? T.accent : T.border}`, color: pm.withIva === true ? T.accent : T.gray }}>Con IVA</div>
+                    <div onClick={() => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, withIva: false } : p))}
+                      style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.accent : T.border}`, color: pm.withIva === false ? T.accent : T.gray }}>Sin IVA</div>
+                  </div>
+                )}
+                {pm.withIva && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["A", "B", "C"].map(ft => (
+                      <div key={ft} onClick={() => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, invoiceType: ft } : p))}
+                        style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${pm.invoiceType === ft ? T.accent : T.border}`, color: pm.invoiceType === ft ? T.accent : T.gray }}>Fact. {ft}</div>
+                    ))}
+                  </div>
+                )}
+                {(editPayments || []).length > 1 && (
+                  <div onClick={() => setEditPayments(ps => ps.filter((_, j) => j !== i))}
+                    style={{ marginTop: 8, fontSize: 12, color: T.red, cursor: "pointer", fontWeight: 700 }}>✕ Quitar este pago</div>
+                )}
+              </div>
+            ))}
+            <button onClick={() => setEditPayments(ps => [...(ps || []), { method: "", amount: "", account: "", withIva: null, invoiceType: "" }])}
+              style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, marginBottom: 16, color: T.orange }}>+ Agregar otro método de pago</button>
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowEditOrder(false)}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => {
-                if (client) {
-                  setClients(prev => prev.map(c => c.id === client.id ? { ...c, name: editClient.name, lastName: editClient.lastName, phone: editClient.phone, dni: editClient.dni, cuit: editClient.cuit } : c));
-                }
-                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, works: editWorks.map(w => ({ ...w, price: parseFloat(w.price) || 0 })) } : o));
+                setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: editClient.name, lastName: editClient.lastName, phone: editClient.phone, dni: editClient.dni } : c));
+                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, works: editWorks.map(w => ({ ...w, price: parseFloat(w.price) || 0 })), payments: (editPayments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
                 setShowEditOrder(false);
               }} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 13 }}>💾 Guardar Cambios</button>
             </div>
@@ -3016,9 +3064,11 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
 
   const TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
+    { key: "cobros", icon: "🧾", l: "Cobros" },
+    { key: "historial", icon: "📚", l: "Historial" },
     
-    { key: "ctacte", icon: "📒", l: "Cta. Corriente" },
-    { key: "caja", icon: "💰", l: "Caja" },
+    { key: "ctacte", icon: "💰", l: "Cta. Corriente" },
+    { key: "caja", icon: "📒", l: "Caja" },
     { key: "facturas", icon: "🧾", l: "Facturación" },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
@@ -3100,6 +3150,286 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       {/* ══════ MEDIOS DE PAGO ══════ */}
       
       {/* ══════ CUENTA CORRIENTE ══════ */}
+      
+      {/* ══════ COBROS ══════ */}
+      {tab === "cobros" && (<div>
+        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🧾 Cobros — Vehículos en Taller</div>
+        {(() => {
+          const inTaller = orders.filter(o => ["pending", "working", "done"].includes(o.status));
+          const [selCobro, setSelCobro] = useState(null);
+          const [cobroPay, setCobroPay] = useState([]);
+          if (selCobro) {
+            const o = selCobro;
+            const cl = clients.find(c => c.id === o.clientId);
+            const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+            const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+            const iva = config.ivaRate || 21;
+            return (
+              <div>
+                <button onClick={() => { setSelCobro(null); setCobroPay([]); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a lista</button>
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>{fmtD(o.domain)}</div>
+                      <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{vh ? vh.brand + " " + vh.model + " " + vh.year : ""}</div>
+                      <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{cl ? cl.name + " " + cl.lastName : "—"}</strong></div>
+                      {cl?.phone && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Tel: {cl.phone}</div>}
+                      {cl?.cuit && <div style={{ fontSize: 12, color: T.gray }}>CUIT: {cl.cuit}</div>}
+                    </div>
+                    <div style={{ padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red) + "20", color: o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red }}>
+                      {o.status === "done" ? "✅ LISTO" : o.status === "working" ? "🟡 EN CURSO" : "🔴 ESPERANDO"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>🔧 Trabajos Realizados</div>
+                  {o.works.map((w, i) => (
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                        <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
+                      </div>
+                      {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
+                        <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14, padding: "2px 0 2px 14px" }}>
+                          <span>• {ti.label}</span>
+                          {ti.price && <span>{fmt(parseFloat(ti.price))}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  <div style={{ height: 2, background: T.border, margin: "12px 0" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
+                    <span>TOTAL</span>
+                    <span style={{ color: T.accent }}>{fmt(total)}</span>
+                  </div>
+                </div>
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago</div>
+                  {cobroPay.map((pm, i) => (
+                    <div key={i} style={{ ...card, padding: 12, marginBottom: 8, background: T.bg }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+                        <div><label style={labelStyle}>Método</label>
+                          <select value={pm.method || ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, method: e.target.value } : p))} style={inputStyle}>
+                            <option value="">Seleccionar</option><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cuenta Corriente</option>
+                          </select>
+                        </div>
+                        <div><label style={labelStyle}>Monto</label>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
+                            <input inputMode="numeric" value={pm.amount ? String(pm.amount) : ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
+                          </div>
+                        </div>
+                      </div>
+                      {pm.method === "Transferencia" && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          {[{ a: "1", l: "Cta 1 — Con IVA" }, { a: "2", l: "Cta 2 — Sin IVA" }].map(opt => (
+                            <div key={opt.a} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, account: opt.a, withIva: opt.a === "1", invoiceType: opt.a === "2" ? "C" : p.invoiceType } : p))}
+                              style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.a ? T.accent : T.border}`, color: pm.account === opt.a ? T.accent : T.gray }}>{opt.l}</div>
+                          ))}
+                        </div>
+                      )}
+                      {(pm.method === "Efectivo" || pm.method === "Tarjeta") && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: true } : p))} style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === true ? T.accent : T.border}`, color: pm.withIva === true ? T.accent : T.gray }}>Con IVA</div>
+                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: false } : p))} style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.accent : T.border}`, color: pm.withIva === false ? T.accent : T.gray }}>Sin IVA</div>
+                        </div>
+                      )}
+                      {pm.withIva && (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {["A", "B", "C"].map(ft => (
+                            <div key={ft} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, invoiceType: ft } : p))} style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${pm.invoiceType === ft ? T.accent : T.border}`, color: pm.invoiceType === ft ? T.accent : T.gray }}>Fact. {ft}</div>
+                          ))}
+                        </div>
+                      )}
+                      {pm.withIva && parseFloat(pm.amount) > 0 && (
+                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: T.bg2 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>Subtotal</span><span style={{ fontWeight: 700 }}>{fmt(parseFloat(pm.amount))}</span></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>IVA {iva}%</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(pm.amount) * iva / 100)}</span></div>
+                          <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>Total con IVA</span><span style={{ color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(pm.amount) * (1 + iva / 100))}</span></div>
+                        </div>
+                      )}
+                      {cobroPay.length > 1 && <div onClick={() => setCobroPay(ps => ps.filter((_, j) => j !== i))} style={{ marginTop: 8, fontSize: 12, color: T.red, cursor: "pointer", fontWeight: 700 }}>✕ Quitar</div>}
+                    </div>
+                  ))}
+                  <button onClick={() => setCobroPay(ps => [...ps, { method: "", amount: "", account: "", withIva: null, invoiceType: "" }])} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método</button>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => {
+                    setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, payments: cobroPay.map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o2));
+                    setSelCobro(null); setCobroPay([]);
+                  }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>💾 Guardar Cobro</button>
+                  <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 Facturar</button>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div>
+              {inTaller.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>No hay vehículos en taller</div>}
+              {inTaller.map(o => {
+                const cl = clients.find(c => c.id === o.clientId);
+                const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+                const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO";
+                const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                return (
+                  <div key={o.id} onClick={() => { setSelCobro(o); setCobroPay((o.payments || []).map(p => ({ ...p }))); }}
+                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: sc }} />
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                          <div style={{ fontSize: 13, color: T.grayLight }}>{cl ? cl.name + " " + cl.lastName : "—"}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>{vh ? vh.brand + " " + vh.model : ""} • {o.works.map(w => w.type).join(", ")}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: sc }}>{sl}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>)}
+
+      
+      {/* ══════ HISTORIAL ══════ */}
+      {tab === "historial" && (<div>
+        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📚 Historial de Vehículos</div>
+        {(() => {
+          const [histYear, setHistYear] = useState(new Date().getFullYear());
+          const [histMonth, setHistMonth] = useState(null);
+          const [histDetail, setHistDetail] = useState(null);
+          const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          const years = [...new Set(allOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
+          const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+          if (histDetail) {
+            const o = histDetail;
+            const cl = clients.find(c => c.id === o.clientId);
+            const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+            const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+            const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+            return (
+              <div>
+                <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
+                <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${sc}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>{fmtD(o.domain)}</div>
+                      <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{vh ? vh.brand + " " + vh.model + " " + vh.year : ""}</div>
+                      <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{cl ? cl.name + " " + cl.lastName : "—"}</strong></div>
+                      {cl?.phone && <div style={{ fontSize: 12, color: T.gray }}>Tel: {cl.phone}</div>}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, color: T.gray }}>{o.date}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
+                      {o.assignedTo && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Mecánico: {o.assignedTo}</div>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>🔧 Trabajos</div>
+                  {o.works.map((w, i) => (
+                    <div key={i} style={{ marginBottom: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                        <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
+                      </div>
+                      {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
+                        <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14 }}>
+                          <span>• {ti.label}</span>{ti.price && <span>{fmt(parseFloat(ti.price))}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  <div style={{ height: 2, background: T.border, margin: "10px 0" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}><span>TOTAL</span><span style={{ color: T.accent }}>{fmt(total)}</span></div>
+                </div>
+                {o.payments && o.payments.length > 0 && (
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Pago</div>
+                    {o.payments.map((pm, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                        <span>{pm.method || "—"}{pm.account ? " — Cta " + pm.account : ""}{pm.withIva ? " (con IVA)" : ""}{pm.invoiceType ? " Fact. " + pm.invoiceType : ""}</span>
+                        <span style={{ fontWeight: 700, color: T.accent }}>{fmt(pm.amount || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {o.techNotes && o.techNotes.length > 0 && o.techNotes.some(n => n) && (
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.orange, marginBottom: 10 }}>📝 Notas Técnicas</div>
+                    {o.techNotes.filter(n => n).map((n, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginBottom: 4 }}>• {n}</div>)}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          const yearOrders = allOrders.filter(o => new Date(o.date || Date.now()).getFullYear() === histYear);
+          const monthOrders = histMonth !== null ? yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === histMonth) : null;
+
+          return (
+            <div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                {years.map(y => (
+                  <div key={y} onClick={() => { setHistYear(y); setHistMonth(null); }}
+                    style={{ padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, fontFamily: fontD, background: histYear === y ? T.accent : T.bg2, color: histYear === y ? "#fff" : T.gray, border: `1px solid ${histYear === y ? T.accent : T.border}` }}>{y}</div>
+                ))}
+              </div>
+              <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>{histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  {months.map((m, mi) => {
+                    const cnt = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).length;
+                    return (
+                      <div key={mi} onClick={() => setHistMonth(histMonth === mi ? null : mi)}
+                        style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${histMonth === mi ? T.accent : T.border}`, background: histMonth === mi ? `${T.accent}15` : cnt > 0 ? T.bg : T.bg2 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: histMonth === mi ? T.accent : cnt > 0 ? T.text : T.gray }}>{m.substring(0, 3)}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: cnt > 0 ? T.accent : T.gray }}>{cnt}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {(monthOrders || yearOrders).map(o => {
+                const cl = clients.find(c => c.id === o.clientId);
+                const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+                const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                return (
+                  <div key={o.id} onClick={() => setHistDetail(o)}
+                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                          <div style={{ fontSize: 12, color: T.grayLight }}>{cl ? cl.name + " " + cl.lastName : "—"} • {vh ? vh.brand + " " + vh.model : ""}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{o.works.map(w => w.type).join(", ")}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontSize: 11, color: T.gray }}>{o.date}</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: sc }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {(monthOrders || yearOrders).length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin órdenes en este período</div>}
+            </div>
+          );
+        })()}
+      </div>)}
+
       {tab === "ctacte" && (<div>
         <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
           <input value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
