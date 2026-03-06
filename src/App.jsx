@@ -3425,7 +3425,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                     if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
                     setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o2));
                     setSelCobro(null); setCobroPay([]); setCobroClient(null);
-                  }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>✅ FINALIZADO</button>
+                  }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>✅ COBRADO</button>
                   {(cobroPay || []).some(p => p.withIva || p.method === "Tarjeta" || p.method === "Transferencia") && (
                   <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 EMITIR FACTURA</button>
                 )}
@@ -3454,9 +3454,9 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                           <div style={{ fontSize: 12, color: T.gray }}>{vh ? vh.brand + " " + vh.model : ""} • {o.works.map(w => w.type).join(", ")}</div>
                         </div>
                       </div>
-                      {o.cobrado && <div style={{ padding: "6px 14px", borderRadius: 8, background: "#9E9E9E20", border: "2px solid #9E9E9E", fontSize: 13, fontWeight: 800, color: "#9E9E9E", letterSpacing: 1 }}>COBRADO</div>}
+                      {o.cobrado && <div style={{ padding: "10px 20px", borderRadius: 10, background: `${T.accent}12`, border: `1px solid ${T.accent}`, fontSize: 22, fontWeight: 700, color: T.accent }}>COBRADO</div>}
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: o.cobrado ? "#9E9E9E" : T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: sc }}>{sl}</div>
                       </div>
                     </div>
