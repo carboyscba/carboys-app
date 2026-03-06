@@ -6814,6 +6814,9 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
     { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
     { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
+    { key: "taller", icon: "🏠", label: "Datos del Taller", desc: "Nombre, dirección, CUIT" },
+    { key: "cuentas", icon: "🏦", label: "Cuentas Bancarias", desc: "CBU y Alias" },
+    { key: "categorias", icon: "📦", label: "Categorías de Trabajo", desc: "Tipos de servicio" },
     
 
   ].filter(s => !s.only || s.only === user.role);
@@ -7042,6 +7045,86 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
 
       <div style={{ marginTop: 14, fontSize: 11, color: T.grayLight }}>💡 Tip: Usá * para negrita en WhatsApp (ej: *texto en negrita*). Usá \n para salto de línea.</div>
       <button onClick={() => showSaved("Mensajes guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 14, width: "100%" }}>💾 Guardar Todo</button>
+    </div>
+  );
+
+  if (section === "taller") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🏠 Datos del Taller</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+      <div style={{ ...card, padding: 20 }}>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre del Taller</label><input value={config.tallerNombre || ""} onChange={e => setConfig(prev => ({ ...prev, tallerNombre: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Razón Social</label><input value={config.tallerRazon || ""} onChange={e => setConfig(prev => ({ ...prev, tallerRazon: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys SRL" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>CUIT</label><input value={config.tallerCuit || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Dirección</label><input value={config.tallerDir || ""} onChange={e => setConfig(prev => ({ ...prev, tallerDir: e.target.value }))} style={inputStyle} placeholder="Ej: Av. Recta Martinoli 8590" /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <div><label style={labelStyle}>Ciudad</label><input value={config.tallerCiudad || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCiudad: e.target.value }))} style={inputStyle} placeholder="Córdoba" /></div>
+          <div><label style={labelStyle}>Teléfono</label><input value={config.tallerTel || ""} onChange={e => setConfig(prev => ({ ...prev, tallerTel: e.target.value }))} style={inputStyle} placeholder="351-1234567" /></div>
+        </div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Email</label><input value={config.tallerEmail || ""} onChange={e => setConfig(prev => ({ ...prev, tallerEmail: e.target.value }))} style={inputStyle} placeholder="info@carboys.com" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Condición IVA</label>
+          <select value={config.tallerIva || ""} onChange={e => setConfig(prev => ({ ...prev, tallerIva: e.target.value }))} style={inputStyle}>
+            <option value="">Seleccionar</option><option>Responsable Inscripto</option><option>Monotributista</option><option>Exento</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Inicio de Actividades</label><input type="date" value={config.tallerInicio || ""} onChange={e => setConfig(prev => ({ ...prev, tallerInicio: e.target.value }))} style={inputStyle} /></div>
+        <button onClick={() => showSaved("Datos del taller guardados ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginTop: 8 }}>💾 Guardar</button>
+      </div>
+    </div>
+  );
+
+  if (section === "cuentas") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🏦 Cuentas Bancarias</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.accent }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 4, color: T.accent }}>Cuenta 1 — Con IVA</div>
+        <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Se usa para pagos con factura A o B</div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Banco</label><input value={config.cta1Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Galicia" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Titular</label><input value={config.cta1Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>CBU</label><input value={config.cta1Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Alias</label><input value={config.cta1Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Alias: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS.IVA" /></div>
+        <div><label style={labelStyle}>CUIT</label><input value={config.cta1Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cuit: e.target.value }))} style={inputStyle} placeholder="20-12345678-9" /></div>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.orange }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 4, color: T.orange }}>Cuenta 2 — Sin IVA</div>
+        <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Se usa para pagos con factura C o sin factura</div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Banco</label><input value={config.cta2Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Nación" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Titular</label><input value={config.cta2Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>CBU</label><input value={config.cta2Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Alias</label><input value={config.cta2Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Alias: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS.SINIVA" /></div>
+        <div><label style={labelStyle}>CUIT</label><input value={config.cta2Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cuit: e.target.value }))} style={inputStyle} placeholder="20-12345678-9" /></div>
+      </div>
+      <button onClick={() => showSaved("Cuentas bancarias guardadas ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
+    </div>
+  );
+
+  if (section === "categorias") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📦 Categorías de Trabajo</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 12 }}>Categorías actuales</div>
+        {(config.workCategories || ["Service Full","Service Base","Tren Delantero","Tren Trasero","Pastillas de Freno","Escape","Baterías","Escobillas","Lámpara","Mecánica","Repro","Aditivo"]).map((cat, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{cat}</span>
+            {i >= 12 && <div onClick={() => setConfig(prev => ({ ...prev, workCategories: (prev.workCategories || []).filter((_, j) => j !== i) }))} style={{ fontSize: 12, color: T.red, cursor: "pointer", fontWeight: 700 }}>✕</div>}
+          </div>
+        ))}
+      </div>
+      <div style={{ ...card, padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.green, marginBottom: 10 }}>+ Agregar categoría</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <input id="newCatInput" style={{ ...inputStyle, flex: 1 }} placeholder="Nombre de la nueva categoría..." />
+          <button onClick={() => { const inp = document.getElementById("newCatInput"); if (inp.value.trim()) { const existing = config.workCategories || ["Service Full","Service Base","Tren Delantero","Tren Trasero","Pastillas de Freno","Escape","Baterías","Escobillas","Lámpara","Mecánica","Repro","Aditivo"]; setConfig(prev => ({ ...prev, workCategories: [...existing, inp.value.trim()] })); inp.value = ""; showSaved("Categoría agregada ✓"); }}} style={{ ...btnPrimary(T.green), fontSize: 13 }}>Agregar</button>
+        </div>
+      </div>
     </div>
   );
 
