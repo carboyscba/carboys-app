@@ -1,5 +1,4 @@
-
-              {order.cobrado && <div style={{ marginTop: 6, padding: "4px 12px", borderRadius: 6, background: "#9E9E9E20", border: "1px solid #9E9E9E", fontSize: 11, fontWeight: 700, color: "#9E9E9E", textAlign: "center" }}>💰 COBRADO</div>}import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
 
 const T = {
   bg: "#080e1a", bg2: "#0d1526", bg3: "#131d33", border: "#1a2744",
@@ -6086,4 +6085,883 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: a ? "#1E88E5" : "#F7FAFC", border: `0.8px solid ${a ? "#E53935" : "#CBD5E0"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 1 }}>
                         {a && <span style={{ color: "#FFF", fontSize: 5, fontWeight: 800 }}>✓</span>}
                       </div>
-                      <div style={{ fontSize: 4, fontWeight: 700,
+                      <div style={{ fontSize: 4, fontWeight: 700, color: a ? "#E53935" : "#A0AEC0", lineHeight: 1 }}>SOPORTE</div>
+                    </div>
+                  );})()}
+                  {(() => { const a = isSelected("arreglo_esc", "Arreglo"); return (
+                    <div style={{ padding: "3px 2px", borderRadius: 3, border: `0.8px solid ${a ? "#E53935" : "#E2E8F0"}`, background: a ? "#FFF5F5" : "#FAFBFC", textAlign: "center" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: a ? "#1E88E5" : "#F7FAFC", border: `0.8px solid ${a ? "#E53935" : "#CBD5E0"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 1 }}>
+                        {a && <span style={{ color: "#FFF", fontSize: 5, fontWeight: 800 }}>✓</span>}
+                      </div>
+                      <div style={{ fontSize: 4, fontWeight: 700, color: a ? "#E53935" : "#A0AEC0", lineHeight: 1 }}>ARREGLO</div>
+                    </div>
+                  );})()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Work details */}
+          <div style={{ padding: "4px 22px 16px" }}>
+            <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
+              {order.works.filter(w => w.type === "Escape").map((w, wi) => {
+                let items = w.trenItems?.filter(ti => ti.isCustom ? ti.label : ti.selected) || [];
+                if (items.length === 0 && w.desc && w.trenItems) {
+                  const parts = w.desc.split(",").map(s => s.trim()).filter(Boolean);
+                  items = parts.map(p => {
+                    const match = w.trenItems.find(ti => ti.label && ti.label.toLowerCase() === p.toLowerCase());
+                    return match || { label: p, price: "" };
+                  });
+                } else if (items.length === 0 && w.desc) {
+                  items = w.desc.split(",").map(s => s.trim()).filter(Boolean).map(s => ({ label: s, price: "" }));
+                }
+                if (items.length > 0) {
+                  return items.map((ti, j) => (
+                    <div key={`${wi}-${j}`} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: "#0D1B2A" }}>• {ti.label}{ti.otroDesc ? ` — ${ti.otroDesc}` : ""}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: "#718096", fontFamily: fontD }}>{Number(ti.price) > 0 ? `$${Number(ti.price).toLocaleString("es-AR")}` : ""}</span>
+                    </div>
+                  ));
+                }
+                return (
+                  <div key={wi} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#0D1B2A" }}>{w.type}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                  </div>
+                );
+              })}
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: 6, paddingTop: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${order.works.filter(w => w.type === "Escape").reduce((s, w) => s + (parseFloat(w.price) || 0), 0).toLocaleString("es-AR")}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ background: "linear-gradient(90deg, #1E88E5, #1565C0)", padding: "12px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
+            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#FFF", letterSpacing: 3 }}>CARBOYS</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const sheet = order.serviceSheet || {};
+  const isBase = order.works.some(w => w.type === "Service Base");
+  const isPF = !order.works.some(w => w.type === "Service Full" || w.type === "Service Base") && order.works.some(w => w.type === "Pastillas de Freno" || w.type === "Tren Delantero" || w.type === "Tren Trasero");
+  const forceIntervention = fojaType === "intervention";
+  const hasTrenWorks = order.works.some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
+
+  if (forceIntervention && hasTrenWorks) {
+    const trenWorks = order.works.filter(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
+    return (
+      <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
+        <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
+          <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
+          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Informe</button>
+        </div>
+        <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+          {/* Header */}
+          <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: 4, lineHeight: 1 }}>CARBOYS</div>
+              <div style={{ fontSize: 7, letterSpacing: 3, color: "#64B5F6", marginTop: 2 }}>SERVICIO INTEGRAL DEL AUTOMOTOR</div>
+            </div>
+            <div style={{ textAlign: "right", fontSize: 6.5, color: "#90CAF9", lineHeight: 1.6 }}>
+              <div>Av. Recta Martinoli 8590, Córdoba</div>
+              <div>Tel: 03547-426967 · Cel: 3515095504</div>
+              <div>@carboys.cba</div>
+            </div>
+          </div>
+          {/* Title */}
+          <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>INFORME DE INTERVENCIÓN</div>
+            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {order.date}</div>
+          </div>
+          {/* Vehicle + Client */}
+          <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
+            <div style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
+              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
+              <div style={{ fontSize: 8, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              <div style={{ fontSize: 7.5, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
+            </div>
+            <div style={{ flex: 1.2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
+              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
+              <div style={{ fontSize: 8, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
+            </div>
+          </div>
+          {/* Intervention Diagram */}
+          <div style={{ padding: "8px 22px" }}>
+            <InterventionDiagram order={order} sheet={sheet} />
+          </div>
+          {/* Trabajos */}
+          <div style={{ padding: "8px 22px 16px" }}>
+            <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
+              {trenWorks.map((w, wi) => (
+                <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                  </div>
+                  {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
+                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px" }}>
+                      <span style={{ fontSize: 8.5, color: "#4A5568" }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}</span>
+                      {Number(ti.price) > 0 && <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: 6, paddingTop: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${trenWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0).toLocaleString("es-AR")}</span>
+              </div>
+            </div>
+          </div>
+          {/* Footer */}
+          <div style={{ background: "linear-gradient(90deg, #1E88E5, #1565C0)", padding: "12px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
+            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#FFF", letterSpacing: 3 }}>CARBOYS</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const pfDel = order.works.some(w => w.type === "Pastillas de Freno" && w.desc && w.desc.toLowerCase().includes("delantero"));
+  const pfTra = order.works.some(w => w.type === "Pastillas de Freno" && w.desc && w.desc.toLowerCase().includes("trasero"));
+  const FOJA_TPL = isBase ? SB_TEMPLATE : (isPF && !order.works.some(w => w.type === "Service Full")) ? (pfDel && pfTra ? PF_AMBOS_TEMPLATE : pfTra ? PF_TRA_TEMPLATE : PF_DEL_TEMPLATE) : SF_TEMPLATE;
+  const nextKm = (vehicle?.km || 0) + 10000;
+
+  const fojaColor = (item, d) => {
+    if (!d) return "#718096";
+    if (item.type === "check") return d.checked ? "#2E7D32" : "#718096";
+    if (item.type === "statusRC" || item.type === "optionalStatusRC") {
+      if (d.status === "bien") return "#2E7D32";
+      if (d.status === "regular") return "#E65100";
+      if (d.status === "cambiar") return "#C62828";
+      if (d.status === "cambiado") return "#1565C0";
+      return "#718096";
+    }
+    if (item.type === "binary" || item.type === "ternary" || item.type === "lavaparabrisas" || item.type === "optionalBinary" || item.type === "fluid" || item.type === "brakeFluid" || item.type === "lamp") {
+      if (d.fluidOk === "bien" || d.fluidOk === "ok" || d.fluidOk === "funciona") return "#2E7D32";
+      if (d.fluidOk === "mal" || d.fluidOk === "cambiar" || d.fluidOk === "no funciona") return "#C62828";
+      if (d.fluidOk === "cambiada") return "#1565C0";
+      return "#2E7D32";
+    }
+    if (item.type === "percentRC" || item.type === "batteryPercent" || item.type === "freno_trasero") {
+      const pct = d.percent;
+      if (pct >= 60) return "#2E7D32"; if (pct >= 30) return "#E65100"; return "#C62828";
+    }
+    if (item.type === "voltage") { const v = parseFloat(d.voltage) || 0; return v >= 13.5 && v <= 14.8 ? "#2E7D32" : "#C62828"; }
+    return "#718096";
+  };
+
+  const fojaLabel = (item, d) => {
+    if (!d) return { text: "", color: "#718096" };
+    if (item.type === "statusRC" || item.type === "optionalStatusRC") {
+      if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
+      const m = { bien: "Bien", regular: "Regular", cambiar: "Cambiar" };
+      const cm = { bien: "#2E7D32", regular: "#E65100", cambiar: "#C62828" };
+      return { text: m[d.status] || "", color: cm[d.status] || "#718096" };
+    }
+    if (item.type === "fluid") {
+      if (d.fluidOk === "bien") return { text: "Bien", color: "#2E7D32", subText: d.added ? "Se niveló" : null, subColor: "#1565C0" };
+      if (d.fluidOk === "cambiar") return { text: "Cambiar", color: "#C62828" };
+      return { text: d.fluidOk || "", color: "#C62828" };
+    }
+    if (item.type === "brakeFluid") {
+      const pct = d.percent >= 0 ? d.percent : null;
+      const pctColor = pct !== null ? (pct <= 2 ? "#2E7D32" : pct === 3 ? "#E65100" : "#C62828") : "#718096";
+      const pctLabel = pct !== null ? (pct <= 2 ? "OK" : pct === 3 ? "Crítico" : "Mal") : "";
+      const statusText = d.fluidOk === "bien" ? "Bien" : d.fluidOk === "cambiar" ? "Cambiar" : "";
+      const statusColor = d.fluidOk === "bien" ? "#2E7D32" : "#C62828";
+      return { text: statusText, color: statusColor, subText: d.added ? "Se niveló" : null, subColor: "#1565C0", pctVal: pct, pctColor, pctLabel };
+    }
+    if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
+      if (d.fluidOk === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
+      return { text: d.fluidOk === "bien" ? "Bien" : d.fluidOk === "mal" ? "Mal" : (d.fluidOk || ""), color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
+    }
+    if (item.type === "lavaparabrisas") {
+      if (d.fluidOk === "nivelado") return { text: "Completado", color: "#1565C0" };
+      return { text: "", color: "#718096" };
+    }
+    if (item.type === "percentRC") {
+      if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
+      if (d.status === "cambiar") return { text: `${d.percent >= 0 ? d.percent + "% — " : ""}Cambiar`, color: "#C62828" };
+      return { text: d.percent >= 0 ? `${d.percent}%` : "", color: d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : "#C62828" };
+    }
+    if (item.type === "freno_trasero") {
+      if (d.status === "cambiado") return { text: `${d.toggle || "Pastillas"} — Sustituida`, color: "#1565C0", wasChanged: true };
+      if (d.toggle) return { text: `${d.toggle} ${d.percent >= 0 ? d.percent + "%" : ""}`, color: d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : "#C62828" };
+      return { text: "", color: "#718096" };
+    }
+    if (item.type === "batteryPercent") {
+      if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
+      return { text: d.percent >= 0 ? `${d.percent}%` : "", color: d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828" };
+    }
+    if (item.type === "lamp") {
+      if (d.fluidOk === "funciona") return { text: "OK", color: "#2E7D32" };
+      if (d.fluidOk === "cambiada") return { text: "Sustituida", color: "#1565C0", wasChanged: true, prevText: "Quemada", prevColor: "#C62828" };
+      if (d.fluidOk === "no funciona") return { text: "Quemada", color: "#C62828" };
+      return { text: d.fluidOk || "", color: "#718096" };
+    }
+    if (item.type === "check") return { text: d.checked ? "Realizado" : "", color: "#2E7D32" };
+    if (item.type === "serviceReset") return { text: d.resetStatus === "realizado" ? "Se realizó" : d.resetStatus === "no_equipado" ? "No equipado" : "", color: d.resetStatus === "realizado" ? "#2E7D32" : "#C62828" };
+    if (item.type === "voltage") { const v = parseFloat(d.voltage) || 0; const ok = v >= 13.5 && v <= 14.8; return { text: d.voltage ? `${d.voltage}V` : "", color: ok ? "#2E7D32" : "#C62828" }; }
+    if (item.type === "toggle") return { text: d.toggle || "", color: "#718096" };
+    if (item.type === "dtc") return { text: d.dtcStatus === "sin_fallos" ? "Sin fallos" : d.dtcStatus === "con_fallos" ? `${(d.dtcEntries||[]).length} fallo(s)` : "", color: d.dtcStatus === "sin_fallos" ? "#2E7D32" : "#C62828" };
+    return { text: "", color: "#718096" };
+  };
+
+  const isItemVisible = (item, d) => {
+    if (!d) return false;
+    if (item.type === "optionalStatusRC" || item.type === "optionalBinary") return !!d.checked;
+    if (item.type === "tires") return false;
+    if (item.type === "check") return d.checked;
+    if (item.type === "serviceReset") return !!d.resetStatus;
+    if (d.status || d.fluidOk || d.checked || d.toggle || d.voltage || d.dtcStatus || d.percent >= 0) return true;
+    return false;
+  };
+
+  const sections = FOJA_TPL.map(sec => {
+    const items = sec.items.filter(it => isItemVisible(it, sheet[it.id])).map(it => {
+      const d = sheet[it.id] || {};
+      const isSustituida = d.status === "cambiado" || d.fluidOk === "cambiado";
+      const hasPct = !isSustituida && (it.type === "percentRC" || it.type === "batteryPercent" || (it.type === "freno_trasero" && d.percent >= 0));
+      const info = hasPct ? null : fojaLabel(it, d);
+      let pctChanged = false;
+      if (hasPct && d.status === "cambiado") pctChanged = true;
+      return {
+        label: it.type === "freno_trasero" ? `Freno (${d.toggle || ""})` : it.label,
+        color: info ? info.color : fojaColor(it, d),
+        text: info ? info.text : null,
+        wasChanged: info ? info.wasChanged : pctChanged,
+        prevText: info?.prevText || null,
+        prevColor: info?.prevColor || null,
+        subText: info?.subText || null,
+        subColor: info?.subColor || null,
+        pct: hasPct ? d.percent : null,
+        pctChanged,
+        brakePct: info?.pctVal ?? null,
+        brakePctColor: info?.pctColor || null,
+        brakePctLabel: info?.pctLabel || null,
+      };
+    });
+    return { ...sec, items };
+  }).filter(s => s.items.length > 0);
+
+  const tiresD = sheet.estado_cubiertas || {};
+  const tires = [tiresD.tires?.del_izq ?? 0, tiresD.tires?.del_der ?? 0, tiresD.tires?.tra_izq ?? 0, tiresD.tires?.tra_der ?? 0];
+  const hasTires = tires.some(t => t > 0);
+  const techNotes = (order.techNotes || []).filter(n => n && n.trim());
+  const totalItems = sections.reduce((s, sec) => s + sec.items.length, 0);
+  const goodItems = sections.reduce((s, sec) => s + sec.items.filter(it => it.color === "#2E7D32" || it.color === "#1565C0" || it.wasChanged).length, 0);
+  const score = totalItems > 0 ? Math.round((goodItems / totalItems) * 100) : 0;
+  const scoreColor = score >= 80 ? "#2E7D32" : score >= 60 ? "#E65100" : "#C62828";
+  const isCompact = totalItems > 35;
+  const itemFs = isCompact ? 8 : 9;
+  const secPad = isCompact ? "6px 8px" : "8px 10px";
+  const gapSize = isCompact ? 4 : 6;
+
+  return (
+    <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
+      <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
+        <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
+        <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Foja</button>
+      </div>
+      <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+        <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: 4, lineHeight: 1 }}>CARBOYS</div>
+            <div style={{ fontSize: 7, letterSpacing: 3, color: "#64B5F6", marginTop: 2 }}>SERVICIO INTEGRAL DEL AUTOMOTOR</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 8, color: "#90CAF9", lineHeight: 1.7 }}>
+            <div>Av. Recta Martinolli 8590, Córdoba</div>
+            <div>Tel: 03547-426967 · Cel: 3515995504</div>
+            <div style={{ color: "#64B5F6" }}>@carboys.cba</div>
+          </div>
+        </div>
+        <div style={{ background: "#F7F9FC", padding: "6px 22px", borderBottom: "1px solid #E8ECF2", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: "#1B2D45", letterSpacing: 1 }}>{isPF ? "INFORME DE INTERVENCIÓN" : `FOJA DE SERVICIO — ${isBase ? "Service Base" : "Service Full"}`}</div>
+          <div style={{ fontSize: 9, color: "#718096" }}>Fecha: {new Date().toLocaleDateString("es-AR")} · {isBase ? "Service Base" : "Service Full"}</div>
+        </div>
+        <div style={{ padding: "12px 18px" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div style={{ flex: 1, background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1px solid #E8ECF2" }}>
+              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 600, letterSpacing: 1.5, marginBottom: 1 }}>VEHÍCULO</div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: "#1B2D45", letterSpacing: 1 }}>{fmtD(order.domain)}</div>
+              <div style={{ fontSize: 10, color: "#4A5568", fontWeight: 600 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
+              <div style={{ fontSize: 9, color: "#718096" }}>Kilometraje: {(vehicle?.km || 0).toLocaleString("es-AR")} km</div>
+            </div>
+            <div style={{ flex: 1, background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1px solid #E8ECF2" }}>
+              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 600, letterSpacing: 1.5, marginBottom: 1 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 700, color: "#1B2D45" }}>{client?.name} {client?.lastName}</div>
+              <div style={{ fontSize: 9, color: "#4A5568" }}>Tel: {client?.phone || "—"}</div>
+            </div>
+            {!isBase && !isPF && (<div style={{ width: 80, background: "#F7F9FC", borderRadius: 8, padding: 8, border: `2px solid ${scoreColor}25`, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 600, letterSpacing: 1 }}>SCORE</div>
+              <div style={{ position: "relative", width: 46, height: 46, margin: "3px 0" }}>
+                <svg viewBox="0 0 46 46" width="46" height="46">
+                  <circle cx="23" cy="23" r="19" fill="none" stroke="#E8ECF2" strokeWidth="3.5" />
+                  <circle cx="23" cy="23" r="19" fill="none" stroke={scoreColor} strokeWidth="3.5" strokeDasharray={`${(score / 100) * 119.4} 119.4`} strokeLinecap="round" transform="rotate(-90 23 23)" />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fontD, fontSize: 18, fontWeight: 800, color: scoreColor }}>{score}</div>
+              </div>
+              <div style={{ fontSize: 7, color: scoreColor, fontWeight: 700 }}>/ 100</div>
+            </div>)}
+          </div>
+          {(isPF || forceIntervention) && hasTrenWorks ? (
+            <InterventionDiagram order={order} sheet={sheet} />
+          ) : (forceIntervention && !hasTrenWorks) ? (
+            <div style={{ padding: 20, textAlign: "center", color: "#718096", fontSize: 10 }}>No hay trabajos de tren/pastillas en esta orden</div>
+          ) : (<>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: gapSize, marginBottom: 8 }}>
+            {sections.map((sec, i) => (
+              <div key={i} style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5" }}>
+                <div style={{ fontSize: 8, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
+                {sec.items.map((it, j) => (
+                  <div key={j} style={{ marginBottom: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: it.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: itemFs, color: "#4A5568", flex: 1 }}>{it.label}</span>
+                      {it.pct !== null ? (
+                        <div style={{ width: 40, display: "flex", alignItems: "center", gap: 3 }}>
+                          <FojaProgressBar pct={it.pct} color={it.color} h={3} />
+                          <span style={{ fontSize: 7, color: "#718096", width: 18, textAlign: "right" }}>{it.pct}%</span>
+                        </div>
+                      ) : (
+                        it.wasChanged ? (
+                        <span style={{ fontSize: 7, fontWeight: 700 }}>
+                          {it.prevText && <><span style={{ color: it.prevColor, textDecoration: "line-through" }}>{it.prevText}</span><span style={{ color: "#718096" }}> → </span></>}
+                          <span style={{ color: "#1565C0" }}>{it.text}</span>
+                          {it.pctChanged && <span style={{ color: "#1565C0" }}> Sustituida</span>}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 7, fontWeight: 700, color: it.color }}>{it.text}</span>
+                      )
+                      )}
+                    </div>
+                    {it.brakePct !== null && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 8, marginTop: 1 }}>
+                        <span style={{ fontSize: 6, color: "#718096" }}>Agua:</span>
+                        <div style={{ width: 30, height: 3, background: "#E2E8F0", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ width: `${it.brakePct * 25}%`, height: "100%", background: it.brakePctColor, borderRadius: 2 }} />
+                        </div>
+                        <span style={{ fontSize: 6, fontWeight: 700, color: it.brakePctColor }}>{it.brakePct}% — {it.brakePctLabel}</span>
+                      </div>
+                    )}
+                    {it.subText && <div style={{ fontSize: 5.5, color: it.subColor || "#1565C0", fontWeight: 600, paddingLeft: 8, marginTop: 0 }}>{it.subText}</div>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            {hasTires && (
+              <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "6px 10px", border: "1px solid #EDF0F5", textAlign: "center", width: 140 }}>
+                <div style={{ fontSize: 8, fontWeight: 700, color: "#1E88E5", marginBottom: 2, letterSpacing: .3 }}>🛞 CUBIERTAS</div>
+                <FojaTireDiagram tires={tires} size={85} />
+              </div>
+            )}
+            {techNotes.length > 0 ? (
+              <div style={{ flex: 1, background: "#FAFBFD", borderRadius: 6, padding: "6px 10px", border: "1px solid #EDF0F5" }}>
+                <div style={{ fontSize: 8, fontWeight: 700, color: "#E65100", marginBottom: 4, letterSpacing: .3 }}>📝 OBSERVACIONES</div>
+                {techNotes.map((o, i) => (
+                  <div key={i} style={{ fontSize: 8, color: "#4A5568", marginBottom: 4, paddingLeft: 6, borderLeft: "2px solid #E65100", lineHeight: 1.3 }}>{o}</div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ flex: 1, background: "#FAFBFD", borderRadius: 6, padding: "10px", border: "1px solid #EDF0F5", textAlign: "center", color: "#A0AEC0", fontSize: 9 }}>Sin observaciones adicionales</div>
+            )}
+          </div>
+          </>)}
+                    {/* TRABAJOS Y TOTAL */}
+          <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "8px 12px", border: "1px solid #EDF0F5", marginBottom: 10 }}>
+            <div style={{ fontSize: 8, fontWeight: 700, color: "#1B2D45", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>TRABAJOS REALIZADOS</div>
+            {order.works.map((w, i) => (
+              <div key={i} style={{ padding: "3px 0", borderBottom: i < order.works.length - 1 ? "1px solid #F0F2F5" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 9, color: "#1B2D45", fontWeight: 700 }}>{w.type}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+w.price.toLocaleString("es-AR")}</span>
+                </div>
+                {w.trenItems && w.trenItems.filter(ti => ti.isCustom ? ti.label : ti.selected).length > 0 ? (
+                  <div style={{ paddingLeft: 8, marginTop: 1 }}>
+                    {w.trenItems.filter(ti => ti.isCustom ? ti.label : ti.selected).map((ti, j) => (
+                      <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1px 0" }}>
+                        <span style={{ fontSize: 7.5, color: "#4A5568" }}>• {ti.isCustom ? ti.label : ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.otroDesc ? ` — ${ti.otroDesc}` : ""}</span>
+                        {ti.price && <span style={{ fontSize: 7.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+                      </div>
+                    ))}
+                  </div>
+                ) : w.desc ? (
+                  <div style={{ paddingLeft: 8, marginTop: 1 }}>
+                    <span style={{ fontSize: 7.5, color: "#4A5568" }}>• {w.desc}</span>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+            <div style={{ borderTop: "2px solid #1E88E5", marginTop: 4, paddingTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+order.works.reduce((s,w)=>s+w.price,0).toLocaleString("es-AR")}</span>
+            </div>
+          </div>
+
+          {!isPF && <div style={{ background: "linear-gradient(135deg, #1E88E5, #0D47A1)", borderRadius: 8, padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 8, letterSpacing: 2, color: "#90CAF9" }}>PRÓXIMO SERVICE RECOMENDADO</div>
+              <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: "#FFF", letterSpacing: 1 }}>{nextKm.toLocaleString("es-AR")} km</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 8, color: "#90CAF9" }}>Gracias por confiar en</div>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#FFF", letterSpacing: 2 }}>CARBOYS</div>
+            </div>
+          </div>}
+        </div>
+        <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 7, color: "#A0AEC0" }}>
+          <span>CarBoys - Servicio Integral del Automotor</span>
+          <span>Av. Recta Martinolli 8590 · 03547-426967 · @carboys.cba</span>
+        </div>
+      </div>
+      <style>{`@media print { .no-print { display: none !important; } body { margin:0!important; background:#fff!important; } #foja-print { box-shadow:none!important; border-radius:0!important; max-width:none!important; } }`}</style>
+    </div>
+  );
+};
+
+const Placeholder = ({ title, icon, desc }) => (
+  <div style={{ padding: 24, textAlign: "center", paddingTop: 80, animation: "fadeUp .3s ease" }}>
+    <div style={{ fontSize: 64, marginBottom: 16 }}>{icon}</div>
+    <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+    <div style={{ color: T.gray, fontSize: 14, maxWidth: 400, margin: "0 auto" }}>{desc}</div>
+  </div>
+);
+
+const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) => {
+  const [section, setSection] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showNewUser, setShowNewUser] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", role: "mecánico", pin: "0000" });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [savedMsg, setSavedMsg] = useState("");
+
+  const showSaved = (msg) => { setSavedMsg(msg); setTimeout(() => setSavedMsg(""), 2000); };
+
+  const ROLES = [
+    { key: "dueño", label: "Dueño", desc: "Acceso total al sistema", color: T.red, icon: "👑" },
+    { key: "admin", label: "Administración", desc: "Todo excepto gestión de usuarios", color: T.orange, icon: "🛡️" },
+    { key: "encargado", label: "Encargado", desc: "Crea órdenes, ve precios, entrega", color: T.accent, icon: "📋" },
+    { key: "mecánico", label: "Mecánico", desc: "Solo ve y trabaja en órdenes asignadas", color: T.green, icon: "🔧" },
+  ];
+
+  const ROLE_PERMS = {
+    dueño: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: true, config: true, cancelar: true },
+    admin: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: true, config: true, cancelar: false },
+    encargado: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: false, config: false, cancelar: false },
+    mecánico: { precios: false, crearOrden: false, finalizar: true, entregar: false, presupuesto: false, admin: false, config: false, cancelar: false },
+  };
+
+  const PERM_LABELS = {
+    precios: "💰 Ver precios y montos",
+    crearOrden: "📝 Crear/editar órdenes",
+    finalizar: "✅ Finalizar trabajos",
+    entregar: "🚗 Entregar vehículos",
+    presupuesto: "📤 Enviar presupuestos",
+    admin: "📊 Acceder a Administración",
+    config: "⚙️ Acceder a Configuración",
+    cancelar: "🗑️ Cancelar órdenes",
+  };
+
+  const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#00BCD4", "#FF5722", "#795548"];
+
+  const sections = [
+    { key: "users", icon: "👥", label: "Gestión de Usuarios", desc: "Crear, editar y administrar usuarios", only: "dueño" },
+    { key: "surcharges", icon: "💳", label: "Recargos Tarjeta", desc: "Cuotas e IVA" },
+    { key: "whatsapp", icon: "📱", label: "WhatsApp Business", desc: "Mensajes y conexión" },
+    
+    { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
+    { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
+    { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
+    
+
+  ].filter(s => !s.only || s.only === user.role);
+
+  if (!section) return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => onNavigate("dashboard")} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>⚙️ Configuración</div>
+          <div style={{ fontSize: 12, color: T.gray }}>Administrá tu taller</div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        {sections.map(s => (
+          <div key={s.key} onClick={() => setSection(s.key)}
+            style={{ ...card, padding: 20, cursor: "pointer", transition: "all .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.transform = "translateY(-2px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>{s.icon}</div>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 11, color: T.gray }}>{s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (section === "users") return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => editingUser ? setEditingUser(null) : setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>👥 {editingUser ? "Editar Usuario" : "Gestión de Usuarios"}</div>
+        </div>
+        {!editingUser && <div onClick={() => { setNewUser({ name: "", role: "mecánico", pin: "0000" }); setShowNewUser(true); }}
+          style={{ ...btnPrimary(T.accent), padding: "8px 16px", fontSize: 12 }}>+ Nuevo</div>}
+      </div>
+
+      {savedMsg && <div style={{ ...card, padding: 12, marginBottom: 16, borderColor: T.green, background: "rgba(67,160,71,0.08)", textAlign: "center", fontSize: 13, fontWeight: 700, color: T.green }}>{savedMsg}</div>}
+
+      {editingUser ? (
+        <div>
+          {/* Edit user form */}
+          <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: editingUser.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 800, color: "#FFF" }}>
+                {editingUser.initial || editingUser.name[0]}
+              </div>
+              <div style={{ flex: 1 }}>
+                <input value={editingUser.name} onChange={e => setEditingUser(u => ({ ...u, name: e.target.value, initial: e.target.value[0]?.toUpperCase() || "" }))}
+                  style={{ ...inputStyle, fontSize: 18, fontWeight: 700, padding: "6px 10px" }} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>ROL</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 20 }}>
+              {ROLES.filter(r => r.key !== "dueño" || editingUser.role === "dueño").map(r => (
+                <div key={r.key} onClick={() => setEditingUser(u => ({ ...u, role: r.key }))}
+                  style={{ padding: 12, borderRadius: 10, cursor: "pointer", border: `2px solid ${editingUser.role === r.key ? r.color : T.border}`, background: editingUser.role === r.key ? `${r.color}15` : T.bg, transition: "all .15s" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <span>{r.icon}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: editingUser.role === r.key ? r.color : T.text }}>{r.label}</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: T.gray }}>{r.desc}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>COLOR</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+              {COLORS.map(c => (
+                <div key={c} onClick={() => setEditingUser(u => ({ ...u, color: c }))}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: c, cursor: "pointer", border: editingUser.color === c ? "3px solid #FFF" : "3px solid transparent", boxShadow: editingUser.color === c ? `0 0 0 2px ${c}` : "none" }} />
+              ))}
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>PIN DE ACCESO</div>
+            <input inputMode="numeric" value={editingUser.pin} onChange={e => setEditingUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+              maxLength={4} style={{ ...inputStyle, fontSize: 28, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 12, width: 160, padding: "8px 12px" }} />
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS DEL ROL: {ROLES.find(r => r.key === editingUser.role)?.label}</div>
+            <div style={{ ...card, padding: 14 }}>
+              {Object.entries(PERM_LABELS).map(([k, label]) => {
+                const has = ROLE_PERMS[editingUser.role]?.[k];
+                return (
+                  <div key={k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${T.border}22` }}>
+                    <span style={{ fontSize: 13, color: has ? T.text : T.gray }}>{label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: has ? T.green : T.red }}>{has ? "✓ Sí" : "✕ No"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setEditingUser(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+            <button onClick={() => {
+              setUsers(prev => prev.map(u => u.id === editingUser.id ? editingUser : u));
+              setEditingUser(null);
+              showSaved("✅ Usuario actualizado");
+            }} style={{ ...btnPrimary(T.accent), flex: 1 }}>💾 Guardar</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {/* Users list */}
+          {users.map(u => (
+            <div key={u.id} style={{ ...card, padding: 16, marginBottom: 8, opacity: u.active === false ? 0.5 : 1, borderLeft: `4px solid ${u.color}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: u.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#FFF" }}>
+                  {u.initial || u.name[0]}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{u.name} {u.active === false && <span style={{ fontSize: 10, color: T.red, background: `${T.red}15`, padding: "2px 6px", borderRadius: 4, marginLeft: 6 }}>INACTIVO</span>}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{ROLES.find(r => r.key === u.role)?.icon} {ROLES.find(r => r.key === u.role)?.label} • PIN: {u.pin}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {u.role !== "dueño" && (
+                    <div onClick={() => {
+                      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: x.active === false ? true : false } : x));
+                      showSaved(u.active === false ? "✅ Usuario activado" : "⏸️ Usuario desactivado");
+                    }} style={{ padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700, border: `1px solid ${T.border}`, color: u.active === false ? T.green : T.orange }}>
+                      {u.active === false ? "Activar" : "Pausar"}
+                    </div>
+                  )}
+                  <div onClick={() => setEditingUser({ ...u })}
+                    style={{ padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700, border: `1px solid ${T.accent}`, color: T.accent }}>
+                    Editar
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* New user popup */}
+      {showNewUser && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)" }} onClick={() => setShowNewUser(false)}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>👤 Nuevo Usuario</div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: T.grayLight }}>NOMBRE</label>
+              <input value={newUser.name} onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
+                placeholder="Nombre del usuario" style={{ ...inputStyle, fontSize: 16, fontWeight: 600, padding: "10px 12px", marginTop: 4 }} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: T.grayLight }}>ROL</label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginTop: 4 }}>
+                {ROLES.filter(r => r.key !== "dueño").map(r => (
+                  <div key={r.key} onClick={() => setNewUser(u => ({ ...u, role: r.key }))}
+                    style={{ padding: 10, borderRadius: 8, cursor: "pointer", border: `2px solid ${newUser.role === r.key ? r.color : T.border}`, background: newUser.role === r.key ? `${r.color}15` : T.bg, textAlign: "center" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: newUser.role === r.key ? r.color : T.gray }}>{r.icon} {r.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: T.grayLight }}>PIN (4 dígitos)</label>
+              <input inputMode="numeric" value={newUser.pin} onChange={e => setNewUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+                maxLength={4} placeholder="0000" style={{ ...inputStyle, fontSize: 22, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 10, width: 140, padding: "8px 12px", marginTop: 4 }} />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowNewUser(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+              <button onClick={() => {
+                if (!newUser.name || !newUser.pin || newUser.pin.length < 4) return;
+                const color = COLORS[users.length % COLORS.length];
+                setUsers(prev => [...prev, { id: Date.now(), name: newUser.name, role: newUser.role, pin: newUser.pin, initial: newUser.name[0].toUpperCase(), color, active: true }]);
+                setShowNewUser(false);
+                showSaved("✅ Usuario creado");
+              }} disabled={!newUser.name || newUser.pin.length < 4}
+                style={{ ...btnPrimary(T.accent), flex: 1, opacity: (newUser.name && newUser.pin.length >= 4) ? 1 : 0.4 }}>Crear Usuario</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  
+  if (section === "whatsapp") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📱 WhatsApp Business</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>📞 Datos de WhatsApp</div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Número del Taller (con código país)</label><input inputMode="tel" value={config.whatsappNum || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappNum: e.target.value }))} style={inputStyle} placeholder="Ej: 5493547426967" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
+        <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
+      </div>
+
+      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14, marginTop: 24, display: "flex", alignItems: "center", gap: 8 }}>📝 Mensajes Pre-guardados</div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.accent }}>📋 Mensaje de Autorización de Cambio</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando un repuesto necesita autorización. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{item}"} {"{precio}"} {"{precioIVA}"} {"{total}"}</div>
+        <textarea value={config.authMessage || ""} onChange={e => setConfig(prev => ({ ...prev, authMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 180, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
+          placeholder="Escribí el mensaje de autorización..." />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.green }}>✅ Mensaje de Vehículo Listo</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando el vehículo está listo para retirar. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
+        <textarea value={config.readyMessage || "Hola {nombre}! Te informamos que tu {vehiculo} ({dominio}) ya está listo para retirar.\n\n¡Gracias por confiar en *CarBoys*! 🔧\n\nTe esperamos de Lunes a Viernes de 8 a 18hs.\nAv. Recta Martinoli 8590, Córdoba"} onChange={e => setConfig(prev => ({ ...prev, readyMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#9C27B0" }}>📋 Mensaje de Recepción</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando se recepciona su vehículo. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
+        <textarea value={config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\nGracias por confiar en nosotros!"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📣 Mensaje de Campaña / Promo</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Plantilla para campañas de marketing y promociones.</div>
+        <textarea value={config.promoMessage || "¡Hola {nombre}! Desde *CarBoys* te acercamos una promo especial:\n\n🔧 [COMPLETAR PROMO]\n\n📅 Válido hasta [FECHA]\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, promoMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ marginTop: 14, fontSize: 11, color: T.grayLight }}>💡 Tip: Usá * para negrita en WhatsApp (ej: *texto en negrita*). Usá \n para salto de línea.</div>
+      <button onClick={() => showSaved("Mensajes guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 14, width: "100%" }}>💾 Guardar Todo</button>
+    </div>
+  );
+
+  if (section === "surcharges") return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>💳 Recargos Tarjeta</div>
+      </div>
+      {savedMsg && <div style={{ ...card, padding: 12, marginBottom: 16, borderColor: T.green, background: "rgba(67,160,71,0.08)", textAlign: "center", fontSize: 13, fontWeight: 700, color: T.green }}>{savedMsg}</div>}
+      <div style={{ ...card, padding: 20 }}>
+        {[
+          { key: "surcharge3", label: "Recargo 3 cuotas", icon: "3️⃣" },
+          { key: "surcharge6", label: "Recargo 6 cuotas", icon: "6️⃣" },
+          { key: "ivaRate", label: "IVA", icon: "🏛️" },
+        ].map(f => (
+          <div key={f.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", borderBottom: `1px solid ${T.border}22` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 24 }}>{f.icon}</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{f.label}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="text" value={config[f.key]} onChange={e => {
+                const val = e.target.value.replace(/[^0-9.]/g, "");
+                setConfig(c => ({ ...c, [f.key]: parseFloat(val) || 0 }));
+              }} style={{ ...inputStyle, width: 70, fontSize: 20, fontWeight: 700, fontFamily: fontD, textAlign: "center", padding: "6px 8px" }} />
+              <span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>%</span>
+            </div>
+          </div>
+        ))}
+        <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: T.bg, fontSize: 12, color: T.gray }}>
+          <div style={{ fontWeight: 700, marginBottom: 6, color: T.grayLight }}>📐 Ejemplo con $100.000:</div>
+          <div>3 cuotas: {fmt(100000 * (1 + config.surcharge3 / 100))} ({fmt(100000 * (1 + config.surcharge3 / 100) / 3)} c/u)</div>
+          <div>6 cuotas: {fmt(100000 * (1 + config.surcharge6 / 100))} ({fmt(100000 * (1 + config.surcharge6 / 100) / 6)} c/u)</div>
+          <div>+ IVA: {fmt(100000 * (1 + config.ivaRate / 100))}</div>
+        </div>
+      </div>
+      <button onClick={() => { setSection(null); showSaved("✅ Recargos guardados"); }} style={{ ...btnPrimary(T.accent), width: "100%", marginTop: 16, fontSize: 14 }}>💾 Guardar</button>
+    </div>
+  );
+
+  const placeholderSection = {
+    whatsapp: { icon: "📱", title: "WhatsApp Business", desc: "Conectá tu WhatsApp Business para enviar mensajes automáticos a clientes." },
+    shop: { icon: "🏪", title: "Datos del Taller", desc: "Nombre, dirección, CUIT y logo del taller para facturas y fojas." },
+    hours: { icon: "🕐", title: "Horarios de Atención", desc: "Configurá los días y horarios de atención del taller." },
+    notifs: { icon: "🔔", title: "Notificaciones", desc: "Configurá alertas internas, sonidos y recordatorios." },
+    backup: { icon: "💾", title: "Backup / Exportar", desc: "Descargá toda la información del taller en Excel o PDF." },
+  }[section];
+
+  if (placeholderSection) return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{placeholderSection.icon} {placeholderSection.title}</div>
+      </div>
+      <div style={{ ...card, padding: 40, textAlign: "center" }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>{placeholderSection.icon}</div>
+        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{placeholderSection.title}</div>
+        <div style={{ fontSize: 14, color: T.gray, marginBottom: 24, lineHeight: 1.5 }}>{placeholderSection.desc}</div>
+        <div style={{ fontSize: 12, color: T.accent, fontWeight: 600 }}>🚧 Próximamente</div>
+      </div>
+    </div>
+  );
+
+  return null;
+};
+
+export default function App() {
+  useEffect(() => {
+    const handleFocus = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, []);
+
+  const [user, setUser] = useState(null);
+  const [screen, setScreen] = useState("dashboard");
+  const [selOrder, setSelOrder] = useState(null);
+  const [clients, setClients] = useState(INITIAL_CLIENTS);
+  const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const [config, setConfig] = useState(INITIAL_CONFIG);
+  const [users, setUsers] = useState(USERS);
+  const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
+  const [notifications, setNotifications] = useState([]);
+
+  const nav = useCallback((target, data = null) => {
+    if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient") && data) setSelOrder(data);
+    setScreen(target);
+    window.scrollTo?.(0, 0);
+  }, []);
+
+  if (!user) return <><FontLoader /><LoginScreen onLogin={setUser} /></>;
+
+  const _foundOrder = selOrder ? orders.find(o => o.id === selOrder.id) : null;
+  const currentOrder = selOrder ? (_foundOrder ? (selOrder._fojaType ? { ..._foundOrder, _fojaType: selOrder._fojaType } : _foundOrder) : selOrder) : null;
+
+  const renderScreen = () => {
+    switch (screen) {
+      case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
+      case "search": return <SearchScreen clients={clients} orders={orders} onNavigate={nav} />;
+      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
+      case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
+      case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
+      case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
+      case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
+      case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
+      case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
+      case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} config={config} onNavigate={nav} /> : null;
+      case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} onNavigate={nav} /> : null;
+            case "config": return ["dueño", "admin"].includes(user.role) ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
+      default: return null;
+    }
+  };
+
+  return (
+    <><FontLoader />
+      <div style={{ background: T.bg, minHeight: "100vh", fontFamily: font, color: T.white, display: "flex", flexDirection: "column" }}>
+        {/* Top bar */}
+        <div style={{ background: "rgba(6,10,22,.95)", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${T.border}`, backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 100 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {screen !== "dashboard" && (
+              <div onClick={() => nav("dashboard")}
+                style={{ width: 36, height: 36, borderRadius: 10, background: T.bg2, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, transition: "all .15s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>←</div>
+            )}
+            <div onClick={() => nav("dashboard")} style={{ cursor: "pointer" }}>
+              <span style={{ fontFamily: fontD, fontSize: 28, fontWeight: 700, letterSpacing: 1 }}>
+                <span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: T.red }}>Boys</span>
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: T.gray }}>Sesión activa</div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{user.name}</div>
+            </div>
+            <div onClick={() => { setUser(null); setScreen("dashboard"); }}
+              style={{ width: 38, height: 38, borderRadius: "50%", background: user.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 17, cursor: "pointer", fontFamily: fontD }} title="Cerrar sesión">
+              {user.initial}
+            </div>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: "auto" }}>{renderScreen()}</div>
+      </div>
+    </>
+  );
+}
