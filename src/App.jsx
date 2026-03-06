@@ -3260,12 +3260,12 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       )}
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 5, marginBottom: 20, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: 6, marginBottom: 20 }}>
         {TABS.map(t => (
           <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); }}
-            style={{ ...card, width: 80, padding: 8, cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 65, flexShrink: 0 }}>
-            <div style={{ fontSize: 24, lineHeight: 1, marginBottom: 4 }}>{t.icon}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: tab === t.key ? T.accent : T.gray, lineHeight: 1.2 }}>{t.l}</div>
+            style={{ ...card, padding: 8, cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 65 }}>
+            <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{t.icon}</div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: tab === t.key ? T.accent : T.gray, lineHeight: 1.2 }}>{t.l}</div>
           </div>
         ))}
       </div>
@@ -3433,8 +3433,8 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                     onMouseLeave={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
                     style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none" }}>
                     <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${holdProgress}%`, background: "rgba(255,255,255,0.3)", transition: "width 0.04s linear", borderRadius: 10 }} />
-                    <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "✅ COBRADO"}</span>
-                    {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 2 seg</div>}
+                    <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "COBRAR"}</span>
+                    {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 1.5 seg</div>}
                   </button>
                   {(cobroPay || []).some(p => p.withIva || p.method === "Tarjeta" || p.method === "Transferencia") && (
                   <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 EMITIR FACTURA</button>
