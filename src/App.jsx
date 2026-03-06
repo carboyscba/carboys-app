@@ -3115,7 +3115,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       {/* Tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(t => (
-          <div key={t.key} onClick={() => setTab(t.key); setSelCobro(null); setCobroPay([]); setHistDetail(null); setHistMonth(null); setStatView(null)}
+          <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setHistDetail(null); setHistMonth(null); setStatView(null); }}
             style={{ ...card, padding: "16px 8px", cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2 }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>{t.icon}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: tab === t.key ? T.accent : T.gray }}>{t.l}</div>
