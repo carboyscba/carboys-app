@@ -140,28 +140,18 @@ const USERS = [
 ];
 
 const INITIAL_CLIENTS = [
-  { id: 1, name: "Carlos", lastName: "Pérez", dni: "30456789", cuit: "20304567891", phone: "3514567890", vehicles: [
-    { domain: "AC 123 BD", brand: "Volkswagen", model: "Golf", year: 2020, km: 45000 }
-  ]},
-  { id: 2, name: "María", lastName: "López", dni: "28123456", cuit: "", phone: "3519876543", vehicles: [
-    { domain: "AB 456 CD", brand: "Toyota", model: "Corolla", year: 2019, km: 62000 }
-  ]},
-  { id: 3, name: "Juan", lastName: "García", dni: "33789012", cuit: "20337890123", phone: "3517891234", vehicles: [
-    { domain: "AE 789 FG", brand: "Ford", model: "Ranger", year: 2022, km: 28000 }
-  ]},
-  { id: 4, name: "Ana", lastName: "Martínez", dni: "31567890", cuit: "", phone: "3516543210", vehicles: [
-    { domain: "AD 012 HI", brand: "Fiat", model: "Cronos", year: 2021, km: 35000 },
-    { domain: "AG 678 LM", brand: "Renault", model: "Sandero", year: 2018, km: 89000 }
-  ]},
-  { id: 5, name: "Roberto", lastName: "Silva", dni: "", cuit: "20278901239", phone: "3512345678", vehicles: [
-    { domain: "AF 345 JK", brand: "Chevrolet", model: "Cruze", year: 2020, km: 51000 }
-  ]},
-  { id: 6, name: "Diego", lastName: "Fernández", dni: "32456789", cuit: "20324567892", phone: "3516781234", vehicles: [
-    { domain: "AH 901 NP", brand: "Volkswagen", model: "Vento", year: 2021, km: 38000 }
-  ]},
-  { id: 7, name: "Ignacio", lastName: "Karqui", dni: "34441217", cuit: "", phone: "3515201053", vehicles: [
-    { domain: "AE360ML", brand: "Volkswagen", model: "Amarok", year: 2021, km: 45000 }
-  ]},
+  { id: 1, name: "Carlos", lastName: "Pérez", phone: "3515551001", dni: "30555100", cuit: "20-30555100-5", vehicles: [{ domain: "AC 123 BD", brand: "Volkswagen", model: "Golf", year: 2020, km: 45000 }] },
+  { id: 2, name: "María", lastName: "López", phone: "3515551002", dni: "28555200", cuit: "", vehicles: [{ domain: "AB 456 CD", brand: "Toyota", model: "Corolla", year: 2019, km: 62000 }] },
+  { id: 3, name: "Juan", lastName: "García", phone: "3515551003", dni: "35555300", cuit: "20-35555300-8", vehicles: [{ domain: "AE 789 FG", brand: "Ford", model: "Ranger", year: 2022, km: 28000 }, { domain: "AE 360 ML", brand: "Volkswagen", model: "Amarok", year: 2021, km: 45000 }] },
+  { id: 4, name: "Ana", lastName: "Martínez", phone: "3515551004", dni: "32555400", cuit: "", vehicles: [{ domain: "AD 012 HI", brand: "Fiat", model: "Cronos", year: 2021, km: 38000 }] },
+  { id: 5, name: "Roberto", lastName: "Sánchez", phone: "3515551005", dni: "29555500", cuit: "20-29555500-3", vehicles: [{ domain: "AF 345 JK", brand: "Chevrolet", model: "Cruze", year: 2018, km: 95000 }] },
+  { id: 6, name: "Laura", lastName: "Fernández", phone: "3515551006", dni: "33555600", cuit: "", vehicles: [{ domain: "AH 901 NP", brand: "Renault", model: "Sandero", year: 2020, km: 52000 }] },
+  { id: 7, name: "Diego", lastName: "Romero", phone: "3515551007", dni: "31555700", cuit: "20-31555700-1", vehicles: [{ domain: "AK 234 QR", brand: "Peugeot", model: "208", year: 2022, km: 19000 }] },
+  { id: 8, name: "Sofía", lastName: "Gutiérrez", phone: "3515551008", dni: "34555800", cuit: "", vehicles: [{ domain: "AL 567 ST", brand: "Hyundai", model: "Creta", year: 2023, km: 12000 }] },
+  { id: 9, name: "Martín", lastName: "Díaz", phone: "3515551009", dni: "27555900", cuit: "20-27555900-6", vehicles: [{ domain: "AM 890 UV", brand: "Toyota", model: "Hilux", year: 2021, km: 67000 }, { domain: "AN 111 WX", brand: "Fiat", model: "Strada", year: 2020, km: 78000 }] },
+  { id: 10, name: "Valentina", lastName: "Torres", phone: "3515551010", dni: "36555000", cuit: "", vehicles: [{ domain: "AP 222 YZ", brand: "Jeep", model: "Renegade", year: 2022, km: 25000 }] },
+  { id: 11, name: "Federico", lastName: "Morales", phone: "3515551011", dni: "30555110", cuit: "20-30555110-2", vehicles: [{ domain: "AQ 333 AB", brand: "Nissan", model: "Kicks", year: 2023, km: 8000 }] },
+  { id: 12, name: "Luciana", lastName: "Castro", phone: "3515551012", dni: "32555120", cuit: "", vehicles: [{ domain: "AR 444 CD", brand: "Chevrolet", model: "Tracker", year: 2022, km: 31000 }] },
 ];
 
 const FULL_SS = {
@@ -178,39 +168,24 @@ const FULL_SS = {
 };
 
 const INITIAL_ORDERS = [
-  { id: 1, clientId: 1, domain: "AC 123 BD", status: "done", works: [
-    { type: "Service Full", price: 85000, desc: "" },
-    { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos de dirección, Alineado", trenItems: [
-      { key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" },
-      { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" },
-      { key: "axiales", label: "Axiales", hasSide: true, selected: false, price: "" },
-      { key: "bieletas", label: "Bieletas", hasSide: true, selected: false, price: "" },
-      { key: "parrilla", label: "Parrilla completa", hasSide: true, selected: false, price: "" },
-      { key: "rotulas", label: "Rótulas", hasSide: true, selected: false, price: "" },
-      { key: "bujes", label: "Bujes", hasSide: true, selected: false, price: "" },
-      { key: "alineado", label: "Alineado", selected: true, price: "18000" },
-      { key: "balanceado", label: "Balanceado", selected: false, price: "" },
-      { key: "rotacion", label: "Rotación", selected: false, price: "" },
-      { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }
-    ]},
-    { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } },
-    { type: "Escape", price: 98000, desc: "Flexible, Silenciador trasero", escapeType: "original", trenItems: [
-      { key: "multiple_esc", label: "Múltiple", selected: false, price: "" },
-      { key: "flexible", label: "Flexible", selected: true, price: "36000" },
-      { key: "catalizador_esc", label: "Catalizador", selected: false, price: "" },
-      { key: "silenciador_int", label: "Silenciador intermedio", selected: false, price: "" },
-      { key: "cano_intermedio", label: "Caño intermedio", selected: false, price: "" },
-      { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" },
-      { key: "soporte_esc", label: "Soporte", selected: false, price: "" },
-      { key: "cola_esc", label: "Cola", selected: false, price: "" },
-      { key: "arreglo_esc", label: "Arreglo", selected: false, price: "" },
-      { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }
-    ]}
-  ], payments: [{ method: "transferencia", account: "1", amount: 356000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00",
-    serviceSheet: { ...FULL_SS, td_amortiguadores:{status:"cambiado",checked:true}, td_rotulas:{status:"cambiado",checked:true}, td_pastillas:{percent:20,status:"cambiado",checked:true}, silenciador_trasero:{status:"cambiado",checked:true}, flexible_escape:{status:"cambiado",checked:true} },
-    techNotes: ["Discos delanteros con desgaste leve - recomendar cambio próximo service"]
-  },
-
+  { id: 101, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
+  { id: 102, clientId: 2, domain: "AB 456 CD", status: "delivered", works: [{ type: "Service Full", price: 75000 }], payments: [{ method: "Efectivo", amount: 75000, withIva: false }], assignedTo: "Fabricio", date: "2026-01-20", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 103, clientId: 3, domain: "AE 789 FG", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 62000, escapeType: "original", trenItems: [{ key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Tarjeta", amount: 157000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-01-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 104, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "2", amount: 150000 }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 105, clientId: 6, domain: "AH 901 NP", status: "delivered", works: [{ type: "Service Base", price: 45000 }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-05", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 106, clientId: 4, domain: "AD 012 HI", status: "delivered", works: [{ type: "Tren Delantero", price: 78000, trenItems: [{ key: "bieletas", label: "Bieletas", hasSide: true, selected: true, price: "38000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 42000, desc: "Ambos ejes", brakeEjes: { del: true, tra: true } }], payments: [{ method: "Cuenta Corriente", amount: 120000 }], assignedTo: "Fabricio", date: "2026-02-10", startedBy: "Fabricio", techNotes: [] },
+  { id: 107, clientId: 7, domain: "AK 234 QR", status: "delivered", works: [{ type: "Service Full", price: 75000 }, { type: "Escobillas", price: 15000 }], payments: [{ method: "Transferencia", account: "1", amount: 90000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-14", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 108, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Service Full", price: 70000 }], payments: [{ method: "Tarjeta", amount: 70000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-02-18", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 109, clientId: 9, domain: "AM 890 UV", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Tren Delantero", price: 110000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "rotulas", label: "Rótulas", hasSide: true, selected: true, price: "30000", side: "ambos" }] }], payments: [{ method: "Transferencia", account: "1", amount: 205000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-22", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: ["Revisar tren trasero próximo service"] },
+  { id: 110, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Mecánica", price: 45000, desc: "Cambio de bujías" }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-25", startedBy: "Fabricio", techNotes: [] },
+  { id: 111, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Service Full", price: 70000 }, { type: "Aditivo", price: 8000 }], payments: [{ method: "Transferencia", account: "2", amount: 78000 }], assignedTo: "Fabricio", date: "2026-02-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 112, clientId: 12, domain: "AR 444 CD", status: "delivered", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Trasero", price: 55000, trenItems: [{ key: "amortiguadores_t", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }] }], payments: [{ method: "Tarjeta", amount: 135000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-03-01", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 113, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: FULL_SS, techNotes: ["Catalizador original agotado, se colocó compatible"] },
+  { id: 114, clientId: 9, domain: "AN 111 WX", status: "working", works: [{ type: "Service Full", price: 85000 }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }], payments: [{ method: "Transferencia", account: "1", amount: 123000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", startedAt: "2026-03-04 08:30", serviceSheet: {}, techNotes: [] },
+  { id: 115, clientId: 1, domain: "AC 123 BD", status: "working", works: [{ type: "Mecánica", price: 35000, desc: "Cambio termostato" }], payments: [{ method: "Efectivo", amount: 35000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00", techNotes: [] },
+  { id: 116, clientId: 2, domain: "AB 456 CD", status: "pending", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Delantero", price: 95000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 175000, withIva: true, invoiceType: "A" }], date: "2026-03-05", techNotes: [] },
+  { id: 117, clientId: 4, domain: "AD 012 HI", status: "pending", works: [{ type: "Service Base", price: 48000 }], payments: [{ method: "Efectivo", amount: 48000 }], date: "2026-03-05", techNotes: [] },
+  { id: 118, clientId: 7, domain: "AK 234 QR", status: "pending", works: [{ type: "Repro", price: 25000, desc: "Reprogramación ECU" }], payments: [{ method: "Transferencia", account: "2", amount: 25000 }], date: "2026-03-05", techNotes: [] },
 ];
 
 const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
@@ -1967,105 +1942,7 @@ const DashboardScreen = (props) => {
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
           { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: canCreate },
           { icon: "🔧", label: "En Taller", action: "workshop", show: true },
-          ...(["dueño", "admin"].includes(user.role) ? [{ icon: "📄", label: "Facturación", action: "billing", show: true }] : []),
-          ...(["dueño", "admin"].includes(user.role) ? [{ icon: "🏢", label: "Administración", action: "admin", show: true }] : []),
-          ...(isOwner ? [{ icon: "⚙️", label: "Configuración", action: "config", show: true }] : []),
-        ].filter(x => x.show).map((item, i) => (
-          <div key={i} onClick={() => onNavigate(item.action)}
-            style={{ ...card, padding: "24px 20px", cursor: "pointer", textAlign: "center", animation: `fadeUp .4s ease ${.2+i*.06}s both`, transition: "all .2s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(30,136,229,.15)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
-            <div style={{ fontSize: 34, marginBottom: 8 }}>{item.icon}</div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{item.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Vehicles in workshop */}
-      {/* Authorization alerts */}
-      {canManageAuth && pendingNotifs.length > 0 && (
-        <div style={{ marginBottom: 24, animation: "fadeUp .4s ease .4s both" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 18 }}>🔔</span>
-            <span style={{ fontWeight: 700, fontSize: 17, fontFamily: fontD, letterSpacing: .5 }}>AUTORIZACIONES PENDIENTES</span>
-            <span style={{ padding: "2px 10px", borderRadius: 10, background: T.red, color: "#fff", fontSize: 12, fontWeight: 800 }}>{pendingNotifs.length}</span>
-          </div>
-          {pendingNotifs.map(n => {
-            const nClient = clients.find(c => c.id === n.clientId);
-            const nVehicle = nClient?.vehicles.find(v => v.domain === n.domain);
-            const nOrder = orders.find(o => o.id === n.orderId);
-            return (
-              <div key={n.id} onClick={() => onNavigate("authManage", nOrder)}
-                style={{ ...card, padding: "14px 18px", marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${T.red}`, display: "flex", alignItems: "center", gap: 14, transition: "background .15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }}
-                onMouseLeave={e => { e.currentTarget.style.background = T.bg2; }}>
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: T.red, animation: "pulse 2s infinite", flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontFamily: fontD, fontSize: 16 }}>{fmtD(n.domain)}</span>
-                    <span style={{ fontSize: 12, color: T.gray }}>{nVehicle ? `${nVehicle.brand} ${nVehicle.model}` : ""}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>
-                    {n.requestedBy} solicita cambio de {n.items.length} ítem{n.items.length !== 1 ? "s" : ""}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                    {n.items.slice(0, 4).map(it => (
-                      <span key={it.id} style={{ padding: "2px 8px", borderRadius: 4, background: `${T.red}15`, color: T.red, fontSize: 10, fontWeight: 700 }}>{it.label}</span>
-                    ))}
-                    {n.items.length > 4 && <span style={{ fontSize: 10, color: T.gray }}>+{n.items.length - 4} más</span>}
-                  </div>
-                </div>
-                <span style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>Gestionar →</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div style={{ animation: "fadeUp .4s ease .5s both" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 18 }}>🔧</span>
-            <span style={{ fontWeight: 700, fontSize: 17, fontFamily: fontD, letterSpacing: .5 }}>EN TALLER</span>
-          </div>
-          <div onClick={() => onNavigate("workshop")} style={{ fontSize: 12, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver todos →</div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
-          {[...active].sort((a, b) => {
-            const priority = { pending: 0, working: 1, done: 2 };
-            return (priority[a.status] ?? 3) - (priority[b.status] ?? 3);
-          }).slice(0, 6).map((o, i) => {
-            const info = getVehicleInfo(o);
-            const sc = getStatusColor(o.status);
-            return (
-            <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
-              style={{ ...card, padding: "14px 16px", cursor: "pointer", borderLeft: `3px solid ${sc}`, display: "flex", alignItems: "center", gap: 12, animation: `slideIn .3s ease ${.5+i*.05}s both`, transition: "background .15s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }}
-              onMouseLeave={e => { e.currentTarget.style.background = T.bg2; }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: sc, boxShadow: `0 0 8px ${sc}`, animation: o.status === "working" ? "pulse 2s infinite" : "none", flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15, fontFamily: fontD, letterSpacing: .5 }}>{fmtD(o.domain)}</span>
-                  <span style={{ fontSize: 11, color: sc, fontWeight: 700 }}>
-                    {getStatusLabel(o.status)}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>{info.brand} {info.model} {info.year}</div>
-                <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>{info.clientName}</div>
-              </div>
-            </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SearchScreen = ({ clients, orders, onNavigate }) => {
-  const [q, setQ] = useState("");
-  const ref = useRef(null);
-  useEffect(() => { ref.current?.focus(); }, []);
+          ...(["dueño", "admin"].includes(user.role) ? [ []);
 
   const results = q.length > 1 ? clients.filter(c =>
     c.vehicles.some(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())) ||
@@ -2108,6 +1985,9 @@ const SearchScreen = ({ clients, orders, onNavigate }) => {
       ))}
     </div>
   );
+};
+
+);
 };
 
 const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
@@ -3027,630 +2907,579 @@ const PieChart = ({ data, size = 180 }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, onNavigate }) => {
-  const [section, setSection] = useState("home"); // home, metrics, charts, productivity, marketing, campaign, history
-  const [campaignType, setCampaignType] = useState(null);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [sent, setSent] = useState(false);
-  const [histSearch, setHistSearch] = useState("");
-  const [histYear, setHistYear] = useState("all");
+const AdminScreen = ({ orders, clients, config, onNavigate }) => {
+  const [tab, setTab] = useState("resumen");
+  const [period, setPeriod] = useState("dia");
+  const [egresos, setEgresos] = useState([]);
+  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0] });
+  const [showEgreso, setShowEgreso] = useState(false);
+  const [saldoReal, setSaldoReal] = useState("");
+  const [showCierre, setShowCierre] = useState(false);
+  const [cierres, setCierres] = useState([]);
+  const [ctaFilter, setCtaFilter] = useState("");
+  const [proveedores, setProveedores] = useState([]);
+  const [showProv, setShowProv] = useState(false);
+  const [provForm, setProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
+  const [factProv, setFactProv] = useState([]);
+  const [showFactProv, setShowFactProv] = useState(false);
+  const [factProvForm, setFactProvForm] = useState({ provId: "", nroFactura: "", monto: "", fechaEmision: new Date().toISOString().split("T")[0], fechaVenc: "", estado: "pendiente" });
+  const [servicios, setServicios] = useState([]);
+  const [showServ, setShowServ] = useState(false);
+  const [servForm, setServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
 
-  const CHART_COLORS = ["#1e88e5", "#e53935", "#43a047", "#ff9800", "#ab47bc", "#00acc1", "#8d6e63", "#ec407a", "#7cb342", "#5c6bc0"];
+  const today = new Date().toISOString().split("T")[0];
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : monthAgo;
 
-  const today = "2026-03-02";
-  const todayOrders = orders.filter(o => o.date === today);
-  const weekStart = "2026-02-24";
-  const weekOrders = orders.filter(o => o.date >= weekStart);
-  const monthOrders = orders.filter(o => o.date?.startsWith("2026-03") || o.date?.startsWith("2026-02"));
+  const completed = orders.filter(o => o.status === "done" || o.status === "delivered");
+  const periodOrders = completed.filter(o => (o.date || "") >= startDate);
+  const totalVentas = periodOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+  const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const periodEgresos = egresos.filter(e => e.fecha >= startDate);
+  const totalEgr = periodEgresos.reduce((s, e) => s + (e.monto || 0), 0);
 
-  const revenue = (list) => list.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + w.price, 0), 0);
-  const todayRev = revenue(todayOrders);
-  const weekRev = revenue(weekOrders);
-  const monthRev = revenue(monthOrders);
-  const totalOrders = orders.length;
-  const ticketAvg = totalOrders > 0 ? revenue(orders) / totalOrders : 0;
-  const vehicleCount = orders.length;
+  const payTotals = {};
+  periodOrders.forEach(o => (o.payments || []).forEach(p => { payTotals[p.method || "Sin definir"] = (payTotals[p.method || "Sin definir"] || 0) + (p.amount || 0); }));
+  const payEntries = Object.entries(payTotals).sort((a, b) => b[1] - a[1]);
+  const payColors = { "Efectivo": "#43a047", "Transferencia": "#1E88E5", "Tarjeta": "#9C27B0", "Cuenta Corriente": "#FF9800" };
 
-  const workDist = {};
-  orders.forEach(o => o.works.forEach(w => { workDist[w.type] = (workDist[w.type] || 0) + 1; }));
-  const workPieData = Object.entries(workDist).map(([name, value], i) => ({ label: name, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
+  const ctaCte = orders.filter(o => (o.payments || []).some(p => p.method === "Cuenta Corriente"));
+  const ctaFiltered = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
+  const ctaTotal = ctaCte.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
 
-  const payDist = {};
-  orders.forEach(o => (o.payments || []).forEach(p => {
-    const method = p.method || "Sin especificar";
-    payDist[method] = (payDist[method] || 0) + 1;
-  }));
-  const payPieData = Object.entries(payDist).map(([name, value], i) => ({ label: name, value, color: CHART_COLORS[(i + 3) % CHART_COLORS.length] }));
+  const conFactura = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== ""));
+  const sinFactura = periodOrders.filter(o => !(o.payments || []).some(p => p.invoiceType && p.invoiceType !== ""));
+  const factA = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "A"));
+  const factB = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B"));
+  const factC = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "C"));
 
-  const clientOrderCount = {};
-  orders.forEach(o => { clientOrderCount[o.clientId] = (clientOrderCount[o.clientId] || 0) + 1; });
-  const newClients = Object.values(clientOrderCount).filter(c => c === 1).length;
-  const returningClients = Object.values(clientOrderCount).filter(c => c > 1).length;
+  const provVencidas = factProv.filter(f => f.estado === "pendiente" && f.fechaVenc && f.fechaVenc < today);
+  const provPorVencer = factProv.filter(f => f.estado === "pendiente" && f.fechaVenc && f.fechaVenc >= today && f.fechaVenc <= new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]);
 
-  const mechOrders = {};
-  orders.forEach(o => { mechOrders[o.assignedTo] = (mechOrders[o.assignedTo] || 0) + 1; });
-  const mechSorted = Object.entries(mechOrders).sort((a, b) => b[1] - a[1]);
-  const maxMech = mechSorted[0]?.[1] || 1;
+  const workStats = {};
+  completed.forEach(o => o.works.forEach(w => { workStats[w.type] = (workStats[w.type] || 0) + 1; }));
+  const topWorks = Object.entries(workStats).sort((a, b) => b[1] - a[1]);
+  const clientStats = {};
+  completed.forEach(o => { clientStats[o.clientId] = (clientStats[o.clientId] || 0) + 1; });
+  const topClients = Object.entries(clientStats).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => x.id === parseInt(id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
 
-  const serviceClients = [];
-  clients.forEach(c => {
-    const clientOrds = orders.filter(o => o.clientId === c.id);
-    const hasService = clientOrds.some(o => o.works.some(w => w.type === "Service Full" || w.type === "Service Base"));
-    if (hasService && clientOrds.length > 0) {
-      const lastDate = clientOrds.sort((a, b) => b.date?.localeCompare(a.date))[0].date;
-      serviceClients.push({ ...c, lastDate, orderCount: clientOrds.length, lastWorks: clientOrds[0]?.works.map(w => w.type).join(", ") });
-    }
-  });
-  const inactiveClients = serviceClients.filter(c => c.lastDate < "2025-09-02");
+  const PB = (k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>;
 
-  const upcomingService = [];
-  clients.forEach(c => {
-    c.vehicles.forEach(v => {
-      const lastServiceOrder = orders
-        .filter(o => o.domain === v.domain && o.works.some(w => w.type.includes("Service")))
-        .sort((a, b) => b.date?.localeCompare(a.date))[0];
-      if (lastServiceOrder && v.km) {
-        const estimatedKmSinceService = Math.floor(Math.random() * 4000) + 6000;
-        if (estimatedKmSinceService >= 7500) {
-          upcomingService.push({ client: `${c.name} ${c.lastName}`, domain: v.domain, vehicle: `${v.brand} ${v.model}`, currentKm: v.km, estimatedNext: v.km + (9000 - estimatedKmSinceService % 9000), kmSince: estimatedKmSinceService });
-        }
-      }
-    });
-  });
-
-  const getCampaignClients = (workType) => {
-    const result = [];
-    clients.forEach(c => {
-      const clientOrds = orders.filter(o => o.clientId === c.id && o.works.some(w => w.type === workType));
-      if (clientOrds.length > 0) {
-        const workDescs = new Set();
-        clientOrds.forEach(o => o.works.filter(w => w.type === workType).forEach(w => { if (w.desc) workDescs.add(w.desc); }));
-        result.push({ ...c, orderCount: clientOrds.length, subWorks: [...workDescs] });
-      }
-    });
-    return result;
-  };
-
-  if (section === "home") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-      <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 700, marginBottom: 24, letterSpacing: .5 }}>🏢 Administración</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-        {[
-          { icon: "📊", label: "Métricas", sub: "Facturación, tickets, vehículos", action: "metrics" },
-          { icon: "📈", label: "Gráficos", sub: "Trabajos, pagos, clientes", action: "charts" },
-          { icon: "👨‍🔧", label: "Productividad", sub: "Rendimiento por empleado", action: "productivity" },
-          { icon: "📣", label: "Marketing", sub: "Campañas, inactivos, alertas", action: "marketing" },
-          { icon: "🗂️", label: "Historial", sub: "Todos los vehículos atendidos", action: "history" },
-        ].map((item, i) => (
-          <div key={i} onClick={() => setSection(item.action)}
-            style={{ ...card, padding: "28px 20px", cursor: "pointer", textAlign: "center", animation: `fadeUp .3s ease ${i*.08}s both`, transition: "all .2s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.transform = "translateY(-3px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
-            <div style={{ fontSize: 38, marginBottom: 10 }}>{item.icon}</div>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{item.label}</div>
-            <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{item.sub}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const BackBtn = ({ to = "home" }) => (
-    <div onClick={() => { setSection(to); setCampaignType(null); }}
-      style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", color: T.accent, fontWeight: 600, fontSize: 13, marginBottom: 20 }}>
-      ← Volver
-    </div>
-  );
-
-  if (section === "metrics") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-      <BackBtn />
-      <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 24 }}>📊 Métricas Generales</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-        {[
-          { icon: "📅", label: "Facturación hoy", value: fmt(todayRev), color: T.accent },
-          { icon: "📆", label: "Facturación semana", value: fmt(weekRev), color: "#42a5f5" },
-          { icon: "🗓️", label: "Facturación mes", value: fmt(monthRev), color: T.green },
-        ].map((m, i) => (
-          <div key={i} style={{ ...card, padding: 20, animation: `fadeUp .3s ease ${i*.08}s both` }}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>{m.icon}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, fontFamily: fontD, color: m.color, lineHeight: 1 }}>{m.value}</div>
-            <div style={{ fontSize: 11, color: T.gray, marginTop: 4, fontWeight: 600, textTransform: "uppercase" }}>{m.label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <div style={{ ...card, padding: 20 }}>
-          <div style={{ fontSize: 20, marginBottom: 6 }}>🎫</div>
-          <div style={{ fontSize: 30, fontWeight: 800, fontFamily: fontD, color: T.orange, lineHeight: 1 }}>{fmt(ticketAvg)}</div>
-          <div style={{ fontSize: 11, color: T.gray, marginTop: 4, fontWeight: 600, textTransform: "uppercase" }}>Ticket promedio</div>
-        </div>
-        <div style={{ ...card, padding: 20 }}>
-          <div style={{ fontSize: 20, marginBottom: 6 }}>🚗</div>
-          <div style={{ fontSize: 30, fontWeight: 800, fontFamily: fontD, color: T.accent, lineHeight: 1 }}>{vehicleCount}</div>
-          <div style={{ fontSize: 11, color: T.gray, marginTop: 4, fontWeight: 600, textTransform: "uppercase" }}>Vehículos ingresados</div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (section === "charts") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-      <BackBtn />
-      <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 24 }}>📈 Gráficos</div>
-
-      <div style={{ ...card, padding: 24, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, fontFamily: fontD }}>🔧 TRABAJOS REALIZADOS</div>
-        <PieChart data={workPieData} size={180} />
-      </div>
-
-      <div style={{ ...card, padding: 24, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, fontFamily: fontD }}>💳 DISTRIBUCIÓN DE PAGOS</div>
-        <PieChart data={payPieData} size={180} />
-      </div>
-
-      <div style={{ ...card, padding: 24 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, fontFamily: fontD }}>👥 CLIENTES NUEVOS VS RECURRENTES</div>
-        <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-          <PieChart data={[
-            { label: "Nuevos", value: newClients, color: T.accent },
-            { label: "Recurrentes", value: returningClients, color: T.green },
-          ]} size={160} />
-        </div>
-      </div>
-    </div>
-  );
-
-  if (section === "productivity") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-      <BackBtn />
-      <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 24 }}>👨‍🔧 Productividad</div>
-
-      <div style={{ ...card, padding: 24, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, fontFamily: fontD }}>ÓRDENES POR EMPLEADO</div>
-        {mechSorted.map(([name, count], i) => (
-          <div key={i} style={{ marginBottom: 14, animation: `slideIn .3s ease ${i*.08}s both` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{name}</span>
-              <span style={{ fontSize: 14, color: T.accent, fontWeight: 800 }}>{count} órdenes</span>
-            </div>
-            <div style={{ height: 12, background: T.bg, borderRadius: 6, overflow: "hidden" }}>
-              <div style={{
-                height: "100%", borderRadius: 6,
-                background: `linear-gradient(90deg, ${T.accent}, #42a5f5)`,
-                width: `${(count/maxMech)*100}%`, transition: "width .5s",
-              }} />
-            </div>
-            <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>
-              Facturado: {fmt(orders.filter(o => o.assignedTo === name).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + w.price, 0), 0))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ ...card, padding: 24 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, fontFamily: fontD }}>RESUMEN</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {mechSorted.map(([name, count], i) => {
-            const rev = orders.filter(o => o.assignedTo === name).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + w.price, 0), 0);
-            return (
-              <div key={i} style={{ ...card, padding: 16, background: T.bg }}>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{name}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: T.gray }}>Órdenes</span><span style={{ fontWeight: 700 }}>{count}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: T.gray }}>Facturado</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(rev)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: T.gray }}>Ticket prom.</span><span style={{ fontWeight: 700, color: T.orange }}>{count > 0 ? fmt(rev / count) : "$0"}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (section === "campaign" && campaignType) {
-    const campClients = getCampaignClients(campaignType);
-    const toggleAll = () => {
-      if (selectedIds.size === campClients.length) setSelectedIds(new Set());
-      else setSelectedIds(new Set(campClients.map(c => c.id)));
-    };
-    const toggle = (id) => {
-      const next = new Set(selectedIds);
-      next.has(id) ? next.delete(id) : next.add(id);
-      setSelectedIds(next);
-    };
-
-    if (sent) return (
-      <div style={{ padding: 24, textAlign: "center", paddingTop: 60, animation: "scaleIn .4s ease" }}>
-        <div style={{ fontSize: 72, marginBottom: 16 }}>📱</div>
-        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 700, marginBottom: 8 }}>¡Oferta Enviada!</div>
-        <div style={{ color: T.gray, fontSize: 14, marginBottom: 24 }}>Se envió a {selectedIds.size} cliente{selectedIds.size !== 1 ? "s" : ""} por WhatsApp</div>
-        <button onClick={() => { setSent(false); setSection("marketing"); setCampaignType(null); }} style={btnPrimary()}>← Volver a Marketing</button>
-      </div>
-    );
-
-    return (
-      <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-        <BackBtn to="marketing" />
-        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 6 }}>📩 Campaña: {campaignType}</div>
-        <div style={{ fontSize: 13, color: T.gray, marginBottom: 20 }}>Seleccioná clientes para enviarles una oferta por WhatsApp</div>
-
-        {campClients.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: T.gray }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
-            <div>No hay clientes que hayan realizado "{campaignType}"</div>
-          </div>
-        ) : (
-          <>
-            <div onClick={toggleAll} style={{ ...card, padding: "12px 16px", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, borderColor: selectedIds.size === campClients.length ? T.accent : T.border }}>
-              <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${selectedIds.size === campClients.length ? T.accent : T.border}`, background: selectedIds.size === campClients.length ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>
-                {selectedIds.size === campClients.length ? "✓" : ""}
-              </div>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>Seleccionar todos ({campClients.length})</span>
-            </div>
-
-            {campClients.map((c, i) => (
-              <div key={c.id} onClick={() => toggle(c.id)}
-                style={{ ...card, padding: "14px 16px", marginBottom: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, borderColor: selectedIds.has(c.id) ? T.accent : T.border, animation: `slideIn .3s ease ${i*.04}s both` }}>
-                <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${selectedIds.has(c.id) ? T.accent : T.border}`, background: selectedIds.has(c.id) ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", flexShrink: 0 }}>
-                  {selectedIds.has(c.id) ? "✓" : ""}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.name} {c.lastName}</div>
-                  <div style={{ fontSize: 12, color: T.gray }}>{c.orderCount} visita{c.orderCount !== 1 ? "s" : ""}{c.subWorks.length > 0 ? ` — ${c.subWorks.join(", ")}` : ""}</div>
-                </div>
-              </div>
-            ))}
-
-            {selectedIds.size > 0 && (
-              <button onClick={() => setSent(true)}
-                style={{ ...btnPrimary(T.green), width: "100%", marginTop: 16, padding: "16px", fontSize: 16 }}>
-                📱 Enviar oferta a {selectedIds.size} cliente{selectedIds.size !== 1 ? "s" : ""}
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
-
-  if (section === "history") {
-    const allOrders = orders.filter(o => o.status === "done" || o.status === "delivered");
-
-    const years = [...new Set(allOrders.map(o => o.date?.split("-")[0]).filter(Boolean))].sort((a, b) => b - a);
-
-    const filtered = allOrders.filter(o => {
-      const cl = clients.find(c => c.id === o.clientId);
-      const v = cl?.vehicles.find(v => v.domain === o.domain);
-      const matchSearch = !histSearch || 
-        o.domain.toLowerCase().includes(histSearch.toLowerCase()) ||
-        (cl?.name + " " + (cl?.lastName || "")).toLowerCase().includes(histSearch.toLowerCase()) ||
-        (v?.brand + " " + v?.model).toLowerCase().includes(histSearch.toLowerCase()) ||
-        o.works.some(w => w.type.toLowerCase().includes(histSearch.toLowerCase()));
-      const matchYear = histYear === "all" || o.date?.startsWith(histYear);
-      return matchSearch && matchYear;
-    }).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-
-    const grouped = {};
-    filtered.forEach(o => {
-      const key = o.date ? o.date.substring(0, 7) : "sin-fecha";
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(o);
-    });
-    const months = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-    const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-
-    return (
-      <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-        <BackBtn />
-        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 16 }}>🗂️ Historial de Vehículos</div>
-        <div style={{ fontSize: 13, color: T.gray, marginBottom: 20 }}>{filtered.length} vehículos atendidos en total</div>
-
-        {/* Search + Year filter */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <input value={histSearch} onChange={e => setHistSearch(e.target.value)}
-              placeholder="🔍 Buscar dominio, cliente, marca, trabajo..."
-              style={{ ...inputStyle, width: "100%", paddingLeft: 14 }} />
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            <div onClick={() => setHistYear("all")}
-              style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 700, borderColor: histYear === "all" ? T.accent : T.border, background: histYear === "all" ? "rgba(30,136,229,0.1)" : T.bg2, color: histYear === "all" ? T.accent : T.grayLight }}>
-              Todos
-            </div>
-            {years.map(y => (
-              <div key={y} onClick={() => setHistYear(y)}
-                style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 700, borderColor: histYear === y ? T.accent : T.border, background: histYear === y ? "rgba(30,136,229,0.1)" : T.bg2, color: histYear === y ? T.accent : T.grayLight }}>
-                {y}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Grouped by month */}
-        {months.map(m => {
-          const [yr, mo] = m.split("-");
-          const label = monthNames[parseInt(mo) - 1] + " " + yr;
-          const monthOrders = grouped[m];
-          const monthTotal = monthOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
-          return (
-            <div key={m} style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "8px 12px", background: T.bg, borderRadius: 8 }}>
-                <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>📅 {label}</div>
-                <div style={{ display: "flex", gap: 12, fontSize: 12 }}>
-                  <span style={{ color: T.gray }}>{monthOrders.length} vehículo{monthOrders.length !== 1 ? "s" : ""}</span>
-                  <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(monthTotal)}</span>
-                </div>
-              </div>
-              {monthOrders.map((o, i) => {
-                const cl = clients.find(c => c.id === o.clientId);
-                const v = cl?.vehicles.find(v => v.domain === o.domain);
-                return (
-                  <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
-                    style={{ ...card, padding: "14px 16px", marginBottom: 6, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all .15s", animation: `slideIn .3s ease ${i*.03}s both` }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.background = T.bg3; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.background = T.bg2; }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: o.status === "delivered" ? "#00C853" : T.green, flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, fontFamily: fontD }}>{fmtD(o.domain)}</div>
-                        <div style={{ fontSize: 12, color: T.grayLight }}>{v?.brand || "?"} {v?.model || ""} {v?.year || ""}</div>
-                        <div style={{ fontSize: 11, color: T.gray }}>{cl?.name || "?"} {cl?.lastName || ""} — {o.date}</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end", marginBottom: 4 }}>
-                        {o.works.map((w, j) => (
-                          <span key={j} style={{ background: T.bg3, padding: "2px 8px", borderRadius: 4, fontSize: 10, color: T.grayLight, border: `1px solid ${T.border}` }}>{w.type}</span>
-                        ))}
-                      </div>
-                      <div style={{ fontWeight: 700, color: T.accent, fontFamily: fontD, fontSize: 14 }}>{fmt(o.works.reduce((s, w) => s + (w.price || 0), 0))}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-        {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, color: T.gray }}>No se encontraron resultados</div>}
-      </div>
-    );
-  }
-
-  if (section === "marketing") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
-      <BackBtn />
-      <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700, marginBottom: 24 }}>📣 Marketing</div>
-
-      {/* Inactive clients */}
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, fontFamily: fontD, color: T.red }}>⚠️ CLIENTES INACTIVOS (+6 MESES)</div>
-          <span style={{ fontSize: 12, color: T.gray }}>Hicieron Service Full o Base</span>
-        </div>
-        {inactiveClients.length === 0 ? (
-          <div style={{ color: T.gray, fontSize: 13, padding: 10 }}>✅ No hay clientes inactivos — ¡bien!</div>
-        ) : inactiveClients.map((c, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < inactiveClients.length - 1 ? `1px solid ${T.border}` : "none" }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{c.name} {c.lastName}</div>
-              <div style={{ fontSize: 12, color: T.gray }}>Última visita: {c.lastDate} — {c.lastWorks}</div>
-            </div>
-            <div style={{ ...btnPrimary(T.red), padding: "6px 12px", fontSize: 11 }}>📱 Contactar</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Upcoming service */}
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, fontFamily: fontD, color: T.orange }}>🔔 PRÓXIMOS A SERVICE (9.000 KM)</div>
-        </div>
-        {upcomingService.length === 0 ? (
-          <div style={{ color: T.gray, fontSize: 13, padding: 10 }}>Sin alertas por ahora</div>
-        ) : upcomingService.map((c, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < upcomingService.length - 1 ? `1px solid ${T.border}` : "none" }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{c.client}</div>
-              <div style={{ fontSize: 12, color: T.gray }}>{c.domain} — {c.vehicle} — ~{c.kmSince.toLocaleString()} km desde último service</div>
-            </div>
-            <div style={{ ...btnPrimary(T.orange), padding: "6px 12px", fontSize: 11 }}>📱 Avisar</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Campaigns by work type */}
-      <div style={{ ...card, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, fontFamily: fontD, color: T.accent }}>📩 CAMPAÑAS POR SERVICIO</div>
-        <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>Seleccioná un servicio para enviar ofertas a los clientes que lo realizaron</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {WORK_TYPES.map((wt, i) => {
-            const count = getCampaignClients(wt.name).length;
-            return (
-              <div key={i} onClick={() => { setCampaignType(wt.name); setSection("campaign"); setSelectedIds(new Set()); setSent(false); }}
-                style={{ ...card, padding: "16px 10px", cursor: "pointer", textAlign: "center", transition: "all .2s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
-                <div style={{ fontSize: 28, marginBottom: 6 }}>{wt.icon}</div>
-                <div style={{ fontSize: 12, fontWeight: 700 }}>{wt.name}</div>
-                <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{count} cliente{count !== 1 ? "s" : ""}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-
-  return null;
-};
-
-const S4_COLORS = { bien: T.green, regular: T.orange, cambiar: T.red, cambiado: T.accent };
-const S4_ICONS = { bien: "🟢", regular: "🟡", cambiar: "🔴", cambiado: "🔵" };
-
-const SF_TEMPLATE = [
-  { section: "MOTOR", icon: "🔧", items: [
-    { id: "aceite", label: "Aceite", type: "check" },
-    { id: "filtro_aceite", label: "Filtro de aceite", type: "check" },
-    { id: "filtro_aire", label: "Filtro de aire", type: "check" },
-    { id: "filtro_habitaculo", label: "Filtro de habitáculo", type: "check" },
-    { id: "filtro_combustible", label: "Filtro de combustible", type: "check" },
-  ]},
-  { section: "TREN DELANTERO", icon: "⚙️", items: [
-    { id: "td_amortiguadores", label: "Amortiguadores", type: "statusRC", needsAuth: true },
-    { id: "td_bujes_parrilla", label: "Bujes de parrilla", type: "statusRC", needsAuth: true },
-    { id: "td_rotulas", label: "Rótulas", type: "statusRC", needsAuth: true },
-    { id: "td_bieletas", label: "Bieletas", type: "statusRC", needsAuth: true },
-    { id: "td_discos", label: "Discos", type: "statusRC", needsAuth: true },
-    { id: "td_pastillas", label: "Pastillas de freno", type: "percentRC", percentLabel: "Desgaste", needsAuth: true },
-    { id: "td_rulemanes", label: "Rulemanes", type: "binary", needsAuth: true },
-  ]},
-  { section: "TREN TRASERO", icon: "⚙️", items: [
-    { id: "tt_amortiguadores", label: "Amortiguadores", type: "statusRC", needsAuth: true },
-    { id: "tt_freno", label: "Freno trasero", type: "freno_trasero", needsAuth: true },
-    { id: "tt_bujes", label: "Bujes", type: "statusRC", needsAuth: true },
-    { id: "tt_rulemanes", label: "Rulemanes", type: "binary", needsAuth: true },
-  ]},
-  { section: "FLUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
-    { id: "liq_direccion", label: "Líquido de dirección", type: "fluid" },
-    { id: "liq_refrigerante", label: "Líquido refrigerante", type: "fluid", needsAuth: true },
-    { id: "aceite_caja", label: "Aceite de caja", type: "fluid", needsAuth: true },
-    { id: "agua_lavaparabrisas", label: "Líquido lavaparabrisas", type: "lavaparabrisas" },
-  ]},
-  { section: "CONTROL VISUAL", icon: "👁️", items: [
-    { id: "correa_distribucion", label: "Correa de distribución", type: "optionalStatusRC", needsAuth: true },
-    { id: "bomba_agua", label: "Bomba de agua", type: "optionalStatusRC", needsAuth: true },
-    { id: "correa_poliv", label: "Correa poly-V", type: "statusRC", needsAuth: true },
-    { id: "tensores_poliv", label: "Tensores poly-V", type: "statusRC", needsAuth: true },
-    { id: "mangueras_refrig", label: "Mangueras refrigeración", type: "binary" },
-    { id: "perdidas_aceite", label: "Pérdidas de aceite", type: "binary", labels: ["NO", "SÍ"], invert: true },
-    { id: "luz_baja", label: "Luz baja", type: "lamp" },
-    { id: "luz_alta", label: "Luz alta", type: "lamp" },
-    { id: "luz_pos_del", label: "Luz posición delantera", type: "lamp" },
-    { id: "luz_pos_tra", label: "Luz posición trasera", type: "lamp" },
-    { id: "luz_stop", label: "Luz stop", type: "lamp" },
-    { id: "guinos", label: "Guiños", type: "lamp" },
-  ]},
-  { section: "ESCAPE", icon: "💨", items: [
-    { id: "silenciador_trasero", label: "Silenciador trasero", type: "statusRC", needsAuth: true },
-    { id: "silenciador_intermedio", label: "Silenciador intermedio", type: "statusRC", needsAuth: true },
-    { id: "flexible_escape", label: "Flexible", type: "statusRC", needsAuth: true },
-    { id: "multiple_escape", label: "Múltiple", type: "statusRC", needsAuth: true },
-    { id: "cano_escape", label: "Caño", type: "statusRC", needsAuth: true },
-    { id: "soporte_escape", label: "Soporte", type: "statusRC", needsAuth: true },
-    { id: "catalizador", label: "Catalizador", type: "optionalBinary" },
-  ]},
-  { section: "DIAGNÓSTICO COMPUTARIZADO", icon: "💻", items: [
-    { id: "reinicio_service", label: "Reiniciación de luz de service", type: "serviceReset" },
-    { id: "dtc_fallos", label: "Revisión de fallos (DTC)", type: "dtc" },
-  ]},
-  { section: "BATERÍA", icon: "🔋", items: [
-    { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true, needsAuth: true },
-    { id: "carga_alternador", label: "Carga de alternador", type: "voltage" },
-  ]},
-  { section: "BUJÍAS", icon: "⚡", items: [
-    { id: "bujias_estado", label: "Estado bujías", type: "binary", needsAuth: true },
-  ]},
-  { section: "ESCOBILLAS", icon: "🪟", items: [
-    { id: "escobillas_estado", label: "Estado escobillas", type: "ternary", needsAuth: true },
-  ]},
-  { section: "CUBIERTAS", icon: "🛞", items: [
-    { id: "rotacion_cubiertas", label: "Rotación de cubiertas", type: "toggle", toggleOptions: ["Sí", "No"] },
-    { id: "estado_cubiertas", label: "Estado de cubiertas", type: "tires" },
-  ]},
-];
-
-const SB_TEMPLATE = [
-  { section: "MOTOR", icon: "🔧", items: [
-    { id: "aceite", label: "Aceite", type: "check" },
-    { id: "filtro_aceite", label: "Filtro de aceite", type: "check" },
-    { id: "filtro_aire", label: "Filtro de aire", type: "check" },
-  ]},
-  { section: "DIAGNÓSTICO", icon: "💻", items: [
-    { id: "reinicio_service", label: "Reiniciación de luz de service", type: "serviceReset" },
-  ]},
-];
-
-const PF_DEL_TEMPLATE = [
-  { section: "TREN DELANTERO", icon: "⚙️", items: [
-    { id: "td_pastillas", label: "Pastillas de freno", type: "check" },
-    { id: "td_discos", label: "Discos", type: "statusRC", needsAuth: true },
-  ]},
-  { section: "LÍQUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
-  ]},
-];
-
-const PF_TRA_TEMPLATE = [
-  { section: "TREN TRASERO", icon: "⚙️", items: [
-    { id: "tt_freno", label: "Freno trasero", type: "check" },
-  ]},
-  { section: "LÍQUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
-  ]},
-];
-
-const PF_AMBOS_TEMPLATE = [
-  { section: "TREN DELANTERO", icon: "⚙️", items: [
-    { id: "td_pastillas", label: "Pastillas de freno", type: "check" },
-    { id: "td_discos", label: "Discos", type: "statusRC", needsAuth: true },
-  ]},
-  { section: "TREN TRASERO", icon: "⚙️", items: [
-    { id: "tt_freno", label: "Freno trasero", type: "check" },
-  ]},
-  { section: "LÍQUIDOS", icon: "💧", items: [
-    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
-  ]},
-];
-
-const CarTiresDiagram = ({ tires, onChange }) => {
-  const positions = [
-    { key: "del_izq", label: "Del. Izq", x: 18, y: 25 },
-    { key: "del_der", label: "Del. Der", x: 82, y: 25 },
-    { key: "tra_izq", label: "Tra. Izq", x: 18, y: 75 },
-    { key: "tra_der", label: "Tra. Der", x: 82, y: 75 },
+  const TABS = [
+    { key: "resumen", icon: "📊", l: "Resumen" },
+    { key: "pagos", icon: "💳", l: "Medios de Pago" },
+    { key: "ctacte", icon: "📒", l: "Cta. Corriente" },
+    { key: "caja", icon: "💰", l: "Caja" },
+    { key: "facturas", icon: "🧾", l: "Facturación" },
+    { key: "proveedores", icon: "📦", l: "Proveedores" },
+    { key: "servicios", icon: "🔧", l: "Servicios" },
+    { key: "stats", icon: "📈", l: "Estadísticas" },
+    { key: "marketing", icon: "📣", l: "Marketing" },
+    { key: "productividad", icon: "⚡", l: "Productividad" },
   ];
-  const gc = (p) => p >= 60 ? T.green : p >= 30 ? T.orange : T.red;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-      <div style={{ position: "relative", width: 200, height: 160, background: T.bg, borderRadius: 14, border: `1px solid ${T.border}` }}>
-        <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-          <rect x="30" y="15" width="40" height="70" rx="12" fill="none" stroke={T.border} strokeWidth="1.5" />
-          <rect x="35" y="10" width="30" height="15" rx="6" fill="none" stroke={T.border} strokeWidth="1" />
-          <rect x="35" y="75" width="30" height="15" rx="6" fill="none" stroke={T.border} strokeWidth="1" />
-        </svg>
-        {positions.map(p => {
-          const v = tires[p.key] ?? 0;
-          return (
-            <div key={p.key} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%, -50%)", textAlign: "center" }}>
-              <div style={{ width: 36, height: 50, borderRadius: 6, border: `2px solid ${gc(v)}`, background: `${gc(v)}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: gc(v) }}>{v}%</div>
-              </div>
-              <div style={{ fontSize: 8, color: T.gray, marginTop: 2, fontWeight: 600 }}>{p.label}</div>
-            </div>
-          );
-        })}
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Administración</div>
+        <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%" }}>
-        {positions.map(p => (
-          <div key={p.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, color: T.grayLight, width: 50, fontWeight: 600 }}>{p.label}</span>
-            <input type="range" min="0" max="100" value={tires[p.key] ?? 0}
-              onChange={e => onChange({ ...tires, [p.key]: parseInt(e.target.value) })}
-              style={{ flex: 1, accentColor: gc(tires[p.key] ?? 0), height: 6 }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: gc(tires[p.key] ?? 0), width: 32, textAlign: "right" }}>{tires[p.key] ?? 0}%</span>
+
+      {/* Alertas */}
+      {provVencidas.length > 0 && (
+        <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: T.red, background: "rgba(229,57,53,0.06)" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.red }}>🚨 {provVencidas.length} factura{provVencidas.length !== 1 ? "s" : ""} de proveedores vencida{provVencidas.length !== 1 ? "s" : ""}</div>
+        </div>
+      )}
+      {provPorVencer.length > 0 && (
+        <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: T.orange, background: "rgba(255,152,0,0.06)" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.orange }}>⚠️ {provPorVencer.length} factura{provPorVencer.length !== 1 ? "s" : ""} por vencer esta semana</div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+        {TABS.map(t => (
+          <div key={t.key} onClick={() => setTab(t.key)} style={{ padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.key ? T.accent : T.bg2, color: tab === t.key ? "#fff" : T.gray, border: `1px solid ${tab === t.key ? T.accent : T.border}` }}>
+            {t.icon} {t.l}
           </div>
         ))}
       </div>
+
+      {/* ══════ RESUMEN ══════ */}
+      {tab === "resumen" && (<div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
+          {[
+            { l: "Total Ventas", v: fmt(totalVentas), c: T.accent, ic: "💰" },
+            { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "✅" },
+            { l: "Ticket Promedio", v: fmt(periodOrders.length > 0 ? totalVentas / periodOrders.length : 0), c: "#9C27B0", ic: "🎯" },
+            { l: "Pendiente Cobro", v: fmt(ctaTotal), c: T.orange, ic: "⏳" },
+          ].map(s => (
+            <div key={s.l} style={{ ...card, padding: 20, borderLeft: `4px solid ${s.c}` }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>{s.ic}</div>
+              <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: s.c }}>{s.v}</div>
+              <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...card, padding: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Últimas órdenes completadas</div>
+          {periodOrders.slice(-8).reverse().map(o => {
+            const c = clients.find(x => x.id === o.clientId);
+            const v = c?.vehicles?.find(x => x.domain === o.domain);
+            const tot = o.works.reduce((s, w) => s + (w.price || 0), 0);
+            return (
+              <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{fmtD(o.domain)}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(tot)}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{o.date}</div>
+                </div>
+              </div>
+            );
+          })}
+          {periodOrders.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin órdenes en este período</div>}
+        </div>
+      </div>)}
+
+      {/* ══════ MEDIOS DE PAGO ══════ */}
+      {tab === "pagos" && (<div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Distribución por método</div>
+          {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
+            const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
+            const color = payColors[method] || T.grayLight;
+            return (
+              <div key={method} style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color }}>{fmt(amount)} <span style={{ fontSize: 11, color: T.gray }}>({pct}%)</span></span>
+                </div>
+                <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", borderRadius: 5, background: color, transition: "width .5s" }} />
+                </div>
+              </div>
+            );
+          }) : <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
+          <div style={{ height: 1, background: T.border, margin: "16px 0" }} />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
+            <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(totalIngresos)}</span>
+          </div>
+        </div>
+      </div>)}
+
+      {/* ══════ CUENTA CORRIENTE ══════ */}
+      {tab === "ctacte" && (<div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
+          <input value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
+          <div style={{ ...card, padding: "12px 20px", borderColor: T.orange }}>
+            <div style={{ fontSize: 11, color: T.gray }}>Total pendiente</div>
+            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(ctaTotal)}</div>
+          </div>
+        </div>
+        {ctaFiltered.map(o => {
+          const c = clients.find(x => x.id === o.clientId);
+          const v = c?.vehicles?.find(x => x.domain === o.domain);
+          const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+          return (
+            <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                  <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{v ? v.brand + " " + v.model + " " + v.year : ""}</div>
+                  <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{o.works.map(w => w.type).join(", ")}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(ctaMonto)}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{o.date}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: o.status === "delivered" ? T.green : T.orange, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : "EN TALLER"}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {ctaFiltered.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin cuentas corrientes{ctaFilter ? " para ese filtro" : ""}</div>}
+      </div>)}
+
+      {/* ══════ CAJA ══════ */}
+      {tab === "caja" && (<div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}>
+            <div style={{ fontSize: 11, color: T.gray }}>Ingresos</div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.green }}>{fmt(totalIngresos)}</div>
+          </div>
+          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.red}` }}>
+            <div style={{ fontSize: 11, color: T.gray }}>Egresos</div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.red }}>{fmt(totalEgr)}</div>
+          </div>
+          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.accent}` }}>
+            <div style={{ fontSize: 11, color: T.gray }}>Saldo</div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: (totalIngresos - totalEgr) >= 0 ? T.green : T.red }}>{fmt(totalIngresos - totalEgr)}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowEgreso(true)} style={{ ...btnPrimary(T.red), fontSize: 13, flex: 1 }}>➖ Registrar Egreso</button>
+          <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, flex: 1 }}>📋 Cierre de Caja</button>
+        </div>
+
+        <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Movimientos del período</div>
+          {periodOrders.map(o => (
+            <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
+              <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> Orden {fmtD(o.domain)}</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <span style={{ color: T.gray }}>{o.date}</span>
+                <span style={{ fontWeight: 700, color: T.green }}>{fmt((o.payments || []).reduce((s, p) => s + (p.amount || 0), 0))}</span>
+              </div>
+            </div>
+          ))}
+          {periodEgresos.map(e => (
+            <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
+              <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> {e.desc}</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <span style={{ color: T.gray }}>{e.fecha}</span>
+                <span style={{ fontWeight: 700, color: T.red }}>-{fmt(e.monto)}</span>
+              </div>
+            </div>
+          ))}
+          {periodOrders.length === 0 && periodEgresos.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos</div>}
+        </div>
+
+        {cierres.length > 0 && (
+          <div style={{ ...card, padding: 16 }}>
+            <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Historial de cierres</div>
+            {cierres.slice(-5).reverse().map((c, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
+                <span>{c.fecha}</span>
+                <span>Sistema: {fmt(c.saldoSistema)}</span>
+                <span>Real: {fmt(c.saldoReal)}</span>
+                <span style={{ fontWeight: 700, color: c.diferencia >= 0 ? T.green : T.red }}>Dif: {fmt(c.diferencia)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showEgreso && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowEgreso(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>➖ Nuevo Egreso</div>
+              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción *</label><input value={egresoForm.desc} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Compra de insumos" /></div>
+              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
+              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Fecha</label><input type="date" value={egresoForm.fecha} onChange={e => setEgresoForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowEgreso(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => { if (egresoForm.desc && egresoForm.monto) { setEgresos(p => [...p, { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0 }]); setEgresoForm({ desc: "", monto: "", fecha: today }); setShowEgreso(false); }}} style={{ ...btnPrimary(T.red), flex: 1 }}>Registrar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showCierre && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowCierre(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📋 Cierre de Caja</div>
+              <div style={{ ...card, padding: 14, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}><span style={{ color: T.gray }}>Saldo sistema</span><span style={{ fontWeight: 700, fontFamily: fontD }}>{fmt(totalIngresos - totalEgr)}</span></div>
+              </div>
+              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Saldo real en caja *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={saldoReal} onChange={e => setSaldoReal(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="Contar efectivo..." /></div></div>
+              {saldoReal && (
+                <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: (parseFloat(saldoReal) || 0) - (totalIngresos - totalEgr) >= 0 ? T.green : T.red }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}>
+                    <span>Diferencia</span>
+                    <span style={{ color: (parseFloat(saldoReal) || 0) - (totalIngresos - totalEgr) >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt((parseFloat(saldoReal) || 0) - (totalIngresos - totalEgr))}</span>
+                  </div>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => { const real = parseFloat(saldoReal) || 0; setCierres(p => [...p, { fecha: today, saldoSistema: totalIngresos - totalEgr, saldoReal: real, diferencia: real - (totalIngresos - totalEgr) }]); setSaldoReal(""); setShowCierre(false); }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>)}
+
+      {/* ══════ FACTURACIÓN ══════ */}
+      {tab === "facturas" && (<div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
+          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}><div style={{ fontSize: 11, color: T.gray }}>Con factura</div><div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: T.green }}>{conFactura.length}</div></div>
+          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.red}` }}><div style={{ fontSize: 11, color: T.gray }}>Sin factura</div><div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: T.red }}>{sinFactura.length}</div></div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+          {[{ l: "Factura A", v: factA.length, c: T.accent }, { l: "Factura B", v: factB.length, c: "#9C27B0" }, { l: "Factura C", v: factC.length, c: T.orange }].map(s => (
+            <div key={s.l} style={{ ...card, padding: 14, textAlign: "center" }}><div style={{ fontSize: 11, color: T.gray }}>{s.l}</div><div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: s.c }}>{s.v}</div></div>
+          ))}
+        </div>
+        <div style={{ ...card, padding: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Órdenes sin factura</div>
+          {sinFactura.map(o => {
+            const c = clients.find(x => x.id === o.clientId);
+            const tot = o.works.reduce((s, w) => s + (w.price || 0), 0);
+            return (<div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
+              <div><div style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{fmtD(o.domain)}</div><div style={{ fontSize: 12, color: T.gray }}>{c ? c.name + " " + c.lastName : "—"}</div></div>
+              <div style={{ textAlign: "right" }}><div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(tot)}</div><div style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>SIN FACTURA</div></div>
+            </div>);
+          })}
+          {sinFactura.length === 0 && <div style={{ fontSize: 13, color: T.green, padding: 10 }}>✅ Todas las órdenes tienen factura</div>}
+        </div>
+      </div>)}
+
+      {/* ══════ PROVEEDORES ══════ */}
+      {tab === "proveedores" && (<div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowProv(true)} style={{ ...btnPrimary(T.accent), fontSize: 13 }}>+ Nuevo Proveedor</button>
+          <button onClick={() => setShowFactProv(true)} style={{ ...btnPrimary(T.green), fontSize: 13 }}>+ Nueva Factura</button>
+        </div>
+
+        {proveedores.length > 0 && proveedores.map(pv => {
+          const pvFacts = factProv.filter(f => f.provId === pv.id);
+          const pvPend = pvFacts.filter(f => f.estado === "pendiente");
+          const pvTotal = pvPend.reduce((s, f) => s + (f.monto || 0), 0);
+          return (
+            <div key={pv.id} style={{ ...card, padding: 16, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{pv.nombre}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{pv.rubro} • Pago a {pv.diasPago} días{pv.cuit ? ` • CUIT: ${pv.cuit}` : ""}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: T.gray }}>Pendiente</div>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: pvTotal > 0 ? T.orange : T.green }}>{fmt(pvTotal)}</div>
+                </div>
+              </div>
+              {pvFacts.length > 0 && pvFacts.slice(-5).reverse().map(f => (
+                <div key={f.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
+                  <span>Fact. #{f.nroFactura}</span>
+                  <span style={{ color: T.gray }}>Em: {f.fechaEmision}</span>
+                  <span style={{ color: f.fechaVenc < today && f.estado === "pendiente" ? T.red : T.gray }}>Venc: {f.fechaVenc}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(f.monto)}</span>
+                  <span onClick={() => setFactProv(prev => prev.map(x => x.id === f.id ? { ...x, estado: x.estado === "pendiente" ? "pagada" : "pendiente" } : x))} style={{ cursor: "pointer", fontWeight: 700, color: f.estado === "pagada" ? T.green : T.orange }}>{f.estado === "pagada" ? "✅ PAGADA" : "⏳ PENDIENTE"}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        {proveedores.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin proveedores cargados. Tocá "Nuevo Proveedor" para agregar.</div>}
+
+        {showProv && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowProv(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📦 Nuevo Proveedor</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={provForm.nombre} onChange={e => setProvForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Borur" /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Rubro</label><input value={provForm.rubro} onChange={e => setProvForm(f => ({ ...f, rubro: e.target.value }))} style={inputStyle} placeholder="Ej: Repuestos" /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div><label style={labelStyle}>Días de pago</label><input inputMode="numeric" value={provForm.diasPago} onChange={e => setProvForm(f => ({ ...f, diasPago: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>CUIT</label><input value={provForm.cuit} onChange={e => setProvForm(f => ({ ...f, cuit: e.target.value }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Teléfono</label><input inputMode="tel" value={provForm.tel} onChange={e => setProvForm(f => ({ ...f, tel: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowProv(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => { if (provForm.nombre) { setProveedores(p => [...p, { ...provForm, id: Date.now() }]); setProvForm({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" }); setShowProv(false); }}} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showFactProv && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowFactProv(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🧾 Nueva Factura Proveedor</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Proveedor *</label>
+                <select value={factProvForm.provId} onChange={e => { const pv = proveedores.find(p => p.id === parseInt(e.target.value)); setFactProvForm(f => ({ ...f, provId: e.target.value, fechaVenc: pv ? new Date(Date.now() + parseInt(pv.diasPago || 30) * 86400000).toISOString().split("T")[0] : "" })); }} style={inputStyle}>
+                  <option value="">Seleccionar proveedor</option>
+                  {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div><label style={labelStyle}>N° Factura *</label><input value={factProvForm.nroFactura} onChange={e => setFactProvForm(f => ({ ...f, nroFactura: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={factProvForm.monto} onChange={e => setFactProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={factProvForm.fechaEmision} onChange={e => setFactProvForm(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Fecha vencimiento</label><input type="date" value={factProvForm.fechaVenc} onChange={e => setFactProvForm(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowFactProv(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => { if (factProvForm.provId && factProvForm.nroFactura && factProvForm.monto) { setFactProv(p => [...p, { ...factProvForm, id: Date.now(), monto: parseFloat(factProvForm.monto) || 0 }]); setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente" }); setShowFactProv(false); }}} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>)}
+
+      {/* ══════ SERVICIOS ══════ */}
+      {tab === "servicios" && (<div>
+        <button onClick={() => setShowServ(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, marginBottom: 16 }}>+ Nuevo Servicio</button>
+        {servicios.map(s => (
+          <div key={s.id} style={{ ...card, padding: 16, marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{s.nombre}</div>
+                <div style={{ fontSize: 12, color: T.gray }}>{s.desc}{s.metodo ? ` • ${s.metodo}` : ""}</div>
+                {s.vencimiento && <div style={{ fontSize: 11, color: s.vencimiento < today ? T.red : T.gray }}>Vence: {s.vencimiento}{s.vencimiento < today ? " ⚠️ VENCIDO" : ""}</div>}
+              </div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.accent }}>{fmt(parseFloat(s.monto) || 0)}</div>
+            </div>
+          </div>
+        ))}
+        {servicios.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin servicios cargados. Ej: Alquiler, Internet, Luz, etc.</div>}
+
+        {showServ && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServ(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔧 Nuevo Servicio</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Alquiler, Internet" /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
+                <div><label style={labelStyle}>Método pago</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
+              </div>
+              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Vencimiento</label><input type="date" value={servForm.vencimiento} onChange={e => setServForm(f => ({ ...f, vencimiento: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => { if (servForm.nombre && servForm.monto) { setServicios(p => [...p, { ...servForm, id: Date.now() }]); setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" }); setShowServ(false); }}} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>)}
+
+      {/* ══════ ESTADÍSTICAS ══════ */}
+      {tab === "stats" && (<div>
+        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>🔧 Trabajos más realizados</div>
+          {topWorks.slice(0, 10).map(([type, count], i) => {
+            const maxC = topWorks[0][1];
+            return (
+              <div key={type} style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 14 }}>{i + 1}. {type}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{count}</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                  <div style={{ width: `${Math.round(count * 100 / maxC)}%`, height: "100%", borderRadius: 4, background: T.accent }} />
+                </div>
+              </div>
+            );
+          })}
+          {topWorks.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+        </div>
+        <div style={{ ...card, padding: 20 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👥 Clientes más frecuentes</div>
+          {topClients.map((c, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
+              <span style={{ fontSize: 14 }}>{i + 1}. {c.name}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#9C27B0" }}>{c.count} orden{c.count !== 1 ? "es" : ""}</span>
+            </div>
+          ))}
+          {topClients.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+        </div>
+      </div>)}
+
+      {/* ══════ MARKETING ══════ */}
+      {tab === "marketing" && (<div>
+        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📣 Campañas Activas</div>
+          <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>Creá campañas de WhatsApp para fidelizar clientes</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            {[
+              { name: "Service Recordatorio", desc: "Clientes con +6 meses sin service", target: completed.filter(o => { const d = new Date(o.date); return (Date.now() - d.getTime()) > 180 * 86400000; }).length, color: T.accent, icon: "🔔" },
+              { name: "Oferta Temporada", desc: "Todos los clientes activos", target: clients.length, color: T.green, icon: "🎯" },
+              { name: "Cumpleaños", desc: "Clientes del mes", target: 0, color: "#9C27B0", icon: "🎂" },
+              { name: "Revisión Pre-Viaje", desc: "Antes de finde largo", target: clients.length, color: T.orange, icon: "🚗" },
+            ].map(c => (
+              <div key={c.name} style={{ ...card, padding: 16 }}>
+                <div style={{ fontSize: 28, marginBottom: 6 }}>{c.icon}</div>
+                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{c.name}</div>
+                <div style={{ fontSize: 11, color: T.gray, marginBottom: 8 }}>{c.desc}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.target} destinatarios</span>
+                  <button style={{ ...btnPrimary(c.color), fontSize: 11, padding: "6px 12px" }}>Enviar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ ...card, padding: 20 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📊 Métricas de Retención</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {[
+              { l: "Clientes Totales", v: clients.length, c: T.accent },
+              { l: "Recurrentes (2+ visitas)", v: Object.values(clientStats).filter(v => v >= 2).length, c: T.green },
+              { l: "Tasa Retención", v: clients.length > 0 ? Math.round(Object.values(clientStats).filter(v => v >= 2).length * 100 / clients.length) + "%" : "0%", c: "#9C27B0" },
+            ].map(s => (
+              <div key={s.l} style={{ ...card, padding: 14, textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: T.gray }}>{s.l}</div>
+                <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: s.c }}>{s.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>)}
+
+      {/* ══════ PRODUCTIVIDAD ══════ */}
+      {tab === "productividad" && (<div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
+          {[
+            { l: "Órdenes Hoy", v: orders.filter(o => o.date === today).length, c: T.accent, ic: "📋" },
+            { l: "En Taller Ahora", v: orders.filter(o => ["pending", "working"].includes(o.status)).length, c: T.orange, ic: "🔧" },
+            { l: "Finalizadas Hoy", v: orders.filter(o => o.status === "done" && o.date === today).length, c: T.green, ic: "✅" },
+            { l: "Entregadas Hoy", v: orders.filter(o => o.status === "delivered" && o.date === today).length, c: "#9C27B0", ic: "🚗" },
+          ].map(s => (
+            <div key={s.l} style={{ ...card, padding: 18, borderLeft: `4px solid ${s.c}` }}>
+              <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
+              <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: s.c }}>{s.v}</div>
+              <div style={{ fontSize: 12, color: T.gray }}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>⏱️ Tiempo Promedio por Tipo de Trabajo</div>
+          {topWorks.slice(0, 8).map(([type, count]) => {
+            const avgDays = type.includes("Service") ? 1 : type.includes("Tren") ? 2 : type.includes("Escape") ? 1.5 : 1;
+            return (
+              <div key={type} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
+                <span style={{ fontSize: 14 }}>{type}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: T.gray }}>{count} realizados</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: T.accent, fontFamily: fontD }}>{avgDays}d prom.</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ ...card, padding: 20 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👤 Rendimiento por Mecánico</div>
+          {(() => {
+            const mechStats = {};
+            completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; mechStats[m] = (mechStats[m] || 0) + 1; });
+            return Object.entries(mechStats).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
+              const revenue = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+              return (
+                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                  <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{count} órdenes completadas</div></div>
+                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(revenue)}</div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      </div>)}
+
     </div>
   );
 };
+
 
 const InspectionScreen = (props) => {
   const { order, clients, user, orders, setOrders, config, onNavigate } = props;
@@ -6165,6 +5994,8 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
     { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
     { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
+    { key: "arca", icon: "🏛️", label: "ARCA (AFIP)", desc: "Facturación electrónica" },
+    { key: "whatsapp", icon: "📱", label: "WhatsApp Business", desc: "Mensajes y plantillas" },
     { key: "mensajes", icon: "📝", label: "Mensajes Predefinidos", desc: "Plantillas de WhatsApp" },
   ].filter(s => !s.only || s.only === user.role);
 
@@ -6344,7 +6175,63 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     </div>
   );
 
-  if (section === "mensajes") return (
+  
+  if (section === "arca") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🏛️ ARCA (AFIP)</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.accent }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>🔐 Datos de acceso ARCA</div>
+        <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>Ingresá tus credenciales de AFIP/ARCA para facturación electrónica</div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>CUIT del Taller</label><input value={config.arcaCuit || ""} onChange={e => setConfig(prev => ({ ...prev, arcaCuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Punto de Venta</label><input inputMode="numeric" value={config.arcaPV || ""} onChange={e => setConfig(prev => ({ ...prev, arcaPV: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="Ej: 0001" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Razón Social</label><input value={config.arcaRazon || ""} onChange={e => setConfig(prev => ({ ...prev, arcaRazon: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS SRL" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Domicilio Fiscal</label><input value={config.arcaDom || ""} onChange={e => setConfig(prev => ({ ...prev, arcaDom: e.target.value }))} style={inputStyle} placeholder="Ej: Av. Recta Martinoli 8590" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Condición IVA</label>
+          <select value={config.arcaIva || ""} onChange={e => setConfig(prev => ({ ...prev, arcaIva: e.target.value }))} style={inputStyle}>
+            <option value="">Seleccionar</option><option>Responsable Inscripto</option><option>Monotributista</option><option>Exento</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Inicio de Actividades</label><input type="date" value={config.arcaInicio || ""} onChange={e => setConfig(prev => ({ ...prev, arcaInicio: e.target.value }))} style={inputStyle} /></div>
+        <div style={{ ...card, padding: 14, marginTop: 16, borderColor: T.orange, background: "rgba(255,152,0,0.06)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, marginBottom: 6 }}>⚠️ Nota</div>
+          <div style={{ fontSize: 11, color: T.grayLight, lineHeight: 1.5 }}>La integración directa con ARCA requiere certificado digital. Por ahora estos datos se usan para generar las facturas con el formato correcto. La emisión se realiza manualmente en la web de ARCA.</div>
+        </div>
+        <button onClick={() => showSaved("Datos de ARCA guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 14, fontSize: 13, width: "100%" }}>💾 Guardar</button>
+      </div>
+    </div>
+  );
+
+  if (section === "whatsapp") return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📱 WhatsApp Business</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>📞 Datos de WhatsApp</div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Número del Taller (con código país)</label><input inputMode="tel" value={config.whatsappNum || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappNum: e.target.value }))} style={inputStyle} placeholder="Ej: 5493547426967" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
+      </div>
+      <div style={{ ...card, padding: 20, marginBottom: 16, cursor: "pointer", borderColor: T.accent }} onClick={() => setSection("mensajes")}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 32 }}>📝</div>
+            <div>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>Mensajes Pre-guardados</div>
+              <div style={{ fontSize: 12, color: T.gray }}>Plantillas para autorización, bienvenida, entrega, etc.</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 20, color: T.gray }}>→</div>
+        </div>
+      </div>
+      <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
+    </div>
+  );
+
+if (section === "mensajes") return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📝 Mensajes Predefinidos</div>
@@ -6472,10 +6359,9 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} onNavigate={nav} /> : null;
+      case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} config={config} onNavigate={nav} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} onNavigate={nav} /> : null;
-      case "billing": return <Placeholder icon="📄" title="Facturación" desc="Módulo de facturación con ARCA. Próximo paso." />;
-      case "config": return ["dueño", "admin"].includes(user.role) ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
+            case "config": return ["dueño", "admin"].includes(user.role) ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
     }
   };
