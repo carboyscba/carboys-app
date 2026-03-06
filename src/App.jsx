@@ -1992,7 +1992,7 @@ const DashboardScreen = (props) => {
                       <span style={{ fontSize: 13, color: T.gray, marginLeft: 8 }}>{vh ? vh.brand + " " + vh.model + " " + vh.year : ""}</span>
                     </div>
                   </div>
-                  {o.cobrado && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.green}15`, color: T.green, border: `1px solid ${T.green}`, marginRight: 8 }}>COBRADO</span>}
+                  {o.cobrado && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1px solid ${T.green}60`, marginRight: 8 }}>COBRADO</span>}
                   <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}</span>
                 </div>
               </div>
@@ -2223,7 +2223,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
             <div style={{ padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: "uppercase", background: `${sc}20`, color: sc }}>
               {getStatusLabel(o.status)}
             </div>
-            {o.cobrado && <div style={{ padding: "6px 16px", borderRadius: 8, fontSize: 14, fontWeight: 700, background: `${T.green}15`, color: T.green, border: `2px solid ${T.green}` }}>COBRADO</div>}
+            {o.cobrado && <div style={{ padding: "6px 16px", borderRadius: 8, fontSize: 14, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1.5px solid ${T.green}60` }}>COBRADO</div>}
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             {o.works.map((w, j) => (
@@ -3156,7 +3156,7 @@ const PieChart = ({ data, size = 180 }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, config, onNavigate }) => {
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate }) => {
   const [tab, setTab] = useState("resumen");
   const [showTotalVentas, setShowTotalVentas] = useState(false);
   const [selCobro, setSelCobro] = useState(null);
@@ -3425,10 +3425,13 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                   <button onClick={() => setCobroPay(ps => [...ps, { method: "", amount: "", account: "", withIva: null, invoiceType: "" }])} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método</button>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
+                  {o.cobrado ? (
+                    <div style={{ flex: 1, padding: "16px 0", borderRadius: 10, textAlign: "center", fontSize: 15, fontWeight: 700, background: `${T.green}15`, border: `2px solid ${T.green}`, color: T.green }}>✅ COBRADO</div>
+                  ) : (
                   <button
-                    onTouchStart={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 3.4; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHoldProgress(0); } }, 40); }}
+                    onTouchStart={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro({...o, cobrado: true}); setHoldProgress(0); } }, 40); }}
                     onTouchEnd={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
-                    onMouseDown={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 3.4; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHoldProgress(0); } }, 40); }}
+                    onMouseDown={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro({...o, cobrado: true}); setHoldProgress(0); } }, 40); }}
                     onMouseUp={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
                     onMouseLeave={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
                     style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none" }}>
@@ -3436,6 +3439,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                     <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "COBRAR"}</span>
                     {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 1.5 seg</div>}
                   </button>
+                  )}
                   {(cobroPay || []).some(p => p.withIva || p.method === "Tarjeta" || p.method === "Transferencia") && (
                   <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 EMITIR FACTURA</button>
                 )}
@@ -3464,7 +3468,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                           <div style={{ fontSize: 12, color: T.gray }}>{vh ? vh.brand + " " + vh.model : ""} • {o.works.map(w => w.type).join(", ")}</div>
                         </div>
                       </div>
-                      {o.cobrado && <div style={{ padding: "8px 18px", borderRadius: 10, background: `${T.green}15`, border: `2px solid ${T.green}`, fontSize: 20, fontWeight: 700, color: T.green, flexShrink: 0 }}>COBRADO</div>}
+                      {o.cobrado && <div style={{ padding: "8px 18px", borderRadius: 10, background: `${T.green}10`, border: `1.5px solid ${T.green}60`, fontSize: 20, fontWeight: 700, color: `${T.green}bb`, flexShrink: 0 }}>COBRADO</div>}
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: sc }}>{sl}</div>
@@ -3507,7 +3511,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 12, color: T.gray }}>{o.date}</div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
-                    {o.cobrado && <div style={{ fontSize: 11, fontWeight: 700, color: T.green, marginTop: 3, padding: "2px 8px", borderRadius: 4, background: `${T.green}15`, border: `1px solid ${T.green}` }}>COBRADO</div>}
+                    {o.cobrado && <div style={{ fontSize: 11, fontWeight: 700, color: `${T.green}bb`, marginTop: 3, padding: "2px 8px", borderRadius: 4, background: `${T.green}10`, border: `1px solid ${T.green}60` }}>COBRADO</div>}
                       {o.assignedTo && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Mecánico: {o.assignedTo}</div>}
                     </div>
                   </div>
@@ -3572,7 +3576,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${histMonth === mi ? T.accent : T.border}`, background: histMonth === mi ? `${T.accent}15` : cnt > 0 ? T.bg : T.bg2 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: histMonth === mi ? T.accent : cnt > 0 ? T.text : T.gray }}>{m.substring(0, 3)}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: cnt > 0 ? T.accent : T.gray }}>{cnt}</div>
-                        {cnt > 0 && <div style={{ fontSize: 8, color: T.green, fontWeight: 700, marginTop: 2 }}>{fmt(yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0))}</div>}
+                        <div style={{ fontSize: 11, color: cnt > 0 ? T.green : T.gray, fontWeight: 700, marginTop: 3 }}>{cnt > 0 ? fmt(yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0)) : "$0"}</div>
                       </div>
                     );
                   })}
@@ -3704,30 +3708,35 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowEgreso(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>➖ Registrar Egreso</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Categoría</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 8 }}>Categoría</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 12 }}>
                 {[
-                  { key: "proveedor", icon: "📦", label: "Pago Proveedor" },
-                  { key: "uber", icon: "🚕", label: "Uber / Flete" },
+                  { key: "proveedor", icon: "📦", label: "Proveedor" },
+                  { key: "uber", icon: "🚕", label: "Uber/Flete" },
                   { key: "comida", icon: "🍔", label: "Comida" },
-                  { key: "sueldo", icon: "👤", label: "Pago Sueldo" },
-                  { key: "repuesto", icon: "🔩", label: "Compra Repuesto" },
+                  { key: "sueldo", icon: "👤", label: "Sueldo" },
+                  { key: "repuesto", icon: "🔩", label: "Repuesto" },
                   { key: "alquiler", icon: "🏠", label: "Alquiler" },
                   { key: "otro", icon: "📝", label: "Otro" },
                 ].map(cat => (
-                  <div key={cat.key} onClick={() => setEgresoForm(f => ({ ...f, categoria: cat.key, categoriaLabel: cat.label }))}
-                    style={{ ...card, padding: 12, cursor: "pointer", textAlign: "center", borderColor: egresoForm.categoria === cat.key ? T.accent : T.border, background: egresoForm.categoria === cat.key ? `${T.accent}12` : T.bg }}>
-                    <div style={{ fontSize: 24, marginBottom: 4 }}>{cat.icon}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: egresoForm.categoria === cat.key ? T.accent : T.gray }}>{cat.label}</div>
+                  <div key={cat.key} onClick={() => setEgresoForm(f => ({ ...f, categoria: cat.key, categoriaLabel: cat.label, detalle: "" }))}
+                    style={{ ...card, padding: "8px 4px", cursor: "pointer", textAlign: "center", borderColor: egresoForm.categoria === cat.key ? T.accent : T.border, background: egresoForm.categoria === cat.key ? `${T.accent}12` : T.bg }}>
+                    <div style={{ fontSize: 18, lineHeight: 1, marginBottom: 2 }}>{cat.icon}</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: egresoForm.categoria === cat.key ? T.accent : T.gray }}>{cat.label}</div>
                   </div>
                 ))}
               </div>
-              {egresoForm.categoria === "proveedor" && proveedores.length > 0 && (
-                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Proveedor</label>
+              {egresoForm.categoria === "proveedor" && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Proveedor</label>
                   <select value={egresoForm.detalle || ""} onChange={e => setEgresoForm(f => ({ ...f, detalle: e.target.value }))} style={inputStyle}>
                     <option value="">Seleccionar proveedor</option>
                     {proveedores.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                    <option value="__nuevo__">+ Nuevo (esporádico)</option>
                   </select>
+                  {egresoForm.detalle === "__nuevo__" && (
+                    <input value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre del proveedor..." />
+                  )}
                 </div>
               )}
               {egresoForm.categoria === "sueldo" && (
@@ -6934,7 +6943,7 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} config={config} onNavigate={nav} /> : null;
+      case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} onNavigate={nav} /> : null;
             case "config": return ["dueño", "admin"].includes(user.role) ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
