@@ -3234,17 +3234,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
     { key: "cobros", icon: "🧾", l: "Cobros" },
-    { key: "historial", icon: "📚", l: "Historial" },
-    
-    { key: "ctacte", icon: "💰", l: "Cta. Cte." },
     { key: "caja", icon: "📒", l: "Caja" },
     { key: "facturas", icon: "🧾", l: "Facturación" },
+    { key: "historial", icon: "📚", l: "Historial" },
+    { key: "stats", icon: "📈", l: "Estadísticas" },
+    { key: "ctacte", icon: "💰", l: "Cta. Cte." },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
-    { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "ignacio", icon: "👑", l: "Ignacio" },
-    
-    
   ];
 
   return (
@@ -3267,10 +3264,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
       )}
 
       {/* Tabs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: 6, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 20 }}>
         {TABS.map(t => (
           <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); setSelProv(null); setSelServ(null); setSelIgnacio(null); }}
-            style={{ ...card, padding: 8, cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 65, gridColumn: t.key === "ignacio" ? "9" : "span 1" }}>
+            style={{ ...card, padding: 8, cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 65, gridColumn: "span 1" }}>
             <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{t.icon}</div>
             <div style={{ fontSize: t.half ? 12 : 8, fontWeight: 700, color: tab === t.key ? T.accent : T.gray, lineHeight: 1.2 }}>{t.l}</div>
           </div>
