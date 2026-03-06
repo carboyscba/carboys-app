@@ -2006,50 +2006,173 @@ const DashboardScreen = (props) => {
 const SearchScreen = ({ clients, orders, onNavigate }) => {
   const [q, setQ] = useState("");
   const ref = useRef(null);
+  const [selVehicle, setSelVehicle] = useState(null);
+  const [selClient, setSelClient] = useState(null);
 
   const results = q.length > 1 ? clients.filter(c =>
     c.vehicles.some(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())) ||
     c.name.toLowerCase().includes(q.toLowerCase()) ||
     c.lastName.toLowerCase().includes(q.toLowerCase()) ||
-    c.dni.includes(q)
+    (c.dni && c.dni.includes(q)) ||
+    (c.cuit && c.cuit.includes(q))
   ) : [];
 
+  const isDniSearch = q.length > 1 && /^[0-9\-]+$/.test(q.trim());
+
+  // Vehicle history view
+  if (selVehicle) {
+    const vOrders = orders.filter(o => o.domain === selVehicle.domain && o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const cl = clients.find(c => c.vehicles.some(v => v.domain === selVehicle.domain));
+    return (
+      <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
+        <button onClick={() => { setSelVehicle(null); setSelClient(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
+        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>{fmtD(selVehicle.domain)}</div>
+              <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{selVehicle.brand} {selVehicle.model} {selVehicle.year}</div>
+              {cl && <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{cl.name} {cl.lastName}</strong></div>}
+              {selVehicle.km && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Km: {Number(selVehicle.km).toLocaleString("es-AR")}</div>}
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: fontD, fontSize: 36, fontWeight: 800, color: T.accent }}>{vOrders.length}</div>
+              <div style={{ fontSize: 12, color: T.gray }}>ingreso{vOrders.length !== 1 ? "s" : ""}</div>
+            </div>
+          </div>
+        </div>
+        {vOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
+        {vOrders.map(o => {
+          const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+          const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+          const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
+          return (
+            <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{o.date}</div>
+                  <div style={{ fontSize: 12, color: sc, fontWeight: 700, marginTop: 2 }}>{sl}</div>
+                  {o.assignedTo && <div style={{ fontSize: 11, color: T.gray }}>Mecánico: {o.assignedTo}</div>}
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                  {o.payments && o.payments.length > 0 && <div style={{ fontSize: 11, color: T.gray }}>{o.payments.map(p => p.method).filter(Boolean).join(", ")}</div>}
+                </div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Trabajos:</div>
+              {o.works.map((w, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", paddingLeft: 10, borderBottom: i < o.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                  <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price || 0)}</span>
+                </div>
+              ))}
+              {o.works.some(w => w.trenItems) && o.works.filter(w => w.trenItems).map((w, wi) => (
+                w.trenItems.filter(ti => ti.selected).map((ti, j) => (
+                  <div key={wi + "-" + j} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.gray, paddingLeft: 20 }}>
+                    <span>• {ti.label}</span>{ti.price && <span>{fmt(parseFloat(ti.price))}</span>}
+                  </div>
+                ))
+              ))}
+              {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
+                <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: `${T.orange}08`, border: `1px solid ${T.orange}20` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.orange, marginBottom: 4 }}>📝 Notas:</div>
+                  {o.techNotes.filter(n => n).map((n, i) => <div key={i} style={{ fontSize: 11, color: T.grayLight }}>• {n}</div>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Client vehicles selection (when searching by DNI/CUIT)
+  if (selClient) {
+    return (
+      <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
+        <button onClick={() => setSelClient(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
+        <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 6 }}>👤 Cliente</div>
+          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selClient.name} {selClient.lastName}</div>
+          <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>DNI: {selClient.dni || "—"} {selClient.cuit ? " • CUIT: " + selClient.cuit : ""}</div>
+          <div style={{ fontSize: 13, color: T.gray }}>Tel: {selClient.phone || "—"}</div>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🚗 Vehículos registrados ({selClient.vehicles.length})</div>
+        {selClient.vehicles.map((v, i) => {
+          const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
+          return (
+            <div key={i} onClick={() => setSelVehicle(v)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
+                  <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
+                  {v.km && <div style={{ fontSize: 12, color: T.gray }}>Km: {Number(v.km).toLocaleString("es-AR")}</div>}
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
       <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700, marginBottom: 20 }}>🔍 Buscar Dominio / Cliente</div>
-      <input ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Dominio, nombre o DNI/CUIT..."
+      <input ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Dominio, nombre, DNI o CUIT..."
         style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", marginBottom: 20, borderColor: q ? T.accent : T.border }} autoFocus />
 
       {q.length > 1 && results.length === 0 && (
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🔎</div>
-          <div style={{ color: T.gray, fontSize: 15, marginBottom: 16 }}>No se encontraron resultados</div>
-          <button onClick={() => onNavigate("newOrder")} style={btnPrimary()}>+ Crear Nuevo Cliente</button>
+        <div style={{ ...card, padding: 20, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 10 }}>🔍</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Sin resultados</div>
+          <div style={{ fontSize: 13, color: T.gray }}>No se encontró ningún vehículo o cliente con "{q}"</div>
         </div>
       )}
 
-      {results.map((c, i) => (
-        <div key={c.id} style={{ ...card, padding: 16, marginBottom: 10, animation: `slideIn .3s ease ${i*.05}s both` }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{c.name} {c.lastName} <span style={{ color: T.gray, fontWeight: 400, fontSize: 12 }}>DNI: {c.dni}</span></div>
-          {c.vehicles.map((v, j) => {
-            const activeOrder = orders.find(o => o.domain === v.domain && (o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "budget_sent" || o.status === "budget_approved" || o.status === "delivered"));
-            return (
-              <div key={j} onClick={() => activeOrder ? onNavigate("vehicleDetail", activeOrder) : null}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", cursor: activeOrder ? "pointer" : "default", borderTop: j > 0 ? `1px solid ${T.border}` : "none" }}>
-                <span style={{ fontFamily: fontD, fontWeight: 700, fontSize: 16, color: T.accent }}>{v.domain}</span>
-                <span style={{ fontSize: 13, color: T.gray }}>{v.brand} {v.model} {v.year} — {v.km.toLocaleString()} km</span>
-                {activeOrder && <span style={{ fontSize: 11, fontWeight: 700, color: activeOrder.status === "done" ? T.green : activeOrder.status === "working" ? T.orange : T.red, marginLeft: "auto" }}>
-                  {activeOrder.status === "delivered" ? "🚗 ENTREGADO" : activeOrder.status === "done" ? "✅ LISTO" : activeOrder.status === "working" ? "🟡 EN CURSO" : activeOrder.status === "inspection" ? "🔍 INSPECCIÓN" : activeOrder.status === "budget_sent" ? "📩 PRESUPUESTO" : activeOrder.status === "budget_approved" ? "✅ APROBADO" : "🔴 ESPERANDO"}
-                </span>}
+      {results.map(c => (
+        <div key={c.id}>
+          {isDniSearch ? (
+            <div onClick={() => setSelClient(c)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{c.name} {c.lastName}</div>
+                  <div style={{ fontSize: 13, color: T.gray }}>DNI: {c.dni || "—"}{c.cuit ? " • CUIT: " + c.cuit : ""}</div>
+                  <div style={{ fontSize: 12, color: T.grayLight, marginTop: 4 }}>{c.vehicles.length} vehículo{c.vehicles.length !== 1 ? "s" : ""}: {c.vehicles.map(v => fmtD(v.domain)).join(", ")}</div>
+                </div>
+                <div style={{ fontSize: 20, color: T.gray }}>→</div>
               </div>
-            );
-          })}
+            </div>
+          ) : (
+            c.vehicles.filter(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())).map(v => {
+              const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
+              const activeOrder = orders.find(o => o.domain === v.domain && !["delivered", "cancelled"].includes(o.status));
+              return (
+                <div key={v.domain} onClick={() => setSelVehicle(v)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
+                      <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
+                      <div style={{ fontSize: 12, color: T.gray }}>{c.name} {c.lastName}</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
+                      <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
+                      {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.green, marginTop: 4 }}>EN TALLER</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       ))}
     </div>
   );
 };
-
 
 const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
   const [filter, setFilter] = useState("all");
@@ -3015,6 +3138,7 @@ const PieChart = ({ data, size = 180 }) => {
 
 const AdminScreen = ({ orders, clients, config, onNavigate }) => {
   const [tab, setTab] = useState("resumen");
+  const [showTotalVentas, setShowTotalVentas] = useState(false);
   const [selCobro, setSelCobro] = useState(null);
   const [cobroPay, setCobroPay] = useState([]);
   const [cobroClient, setCobroClient] = useState(null);
@@ -3024,7 +3148,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
   const [statView, setStatView] = useState(null);
   const [period, setPeriod] = useState("dia");
   const [egresos, setEgresos] = useState([]);
-  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0] });
+  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [saldoReal, setSaldoReal] = useState("");
   const [showCierre, setShowCierre] = useState(false);
@@ -3129,12 +3253,12 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
           {[
-            { l: "Total Ventas", v: fmt(totalVentas), c: T.accent, ic: "💰" },
-            { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "✅" },
+            { l: "Total Ventas", v: showTotalVentas ? fmt(totalVentas) : "• • • • •", c: T.accent, ic: "💰", tap: true },
             { l: "Ticket Promedio", v: fmt(periodOrders.length > 0 ? totalVentas / periodOrders.length : 0), c: "#9C27B0", ic: "🎯" },
-            { l: "Pendiente Cobro", v: fmt(ctaTotal), c: T.orange, ic: "⏳" },
+            { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "✅" },
+            { l: "Vehículos Entregados", v: periodOrders.filter(o => o.status === "delivered").length, c: T.orange, ic: "🚗" },
           ].map(s => (
-            <div key={s.l} style={{ ...card, padding: 20, borderLeft: `4px solid ${s.c}` }}>
+            <div key={s.l} onClick={() => { if (s.tap) setShowTotalVentas(!showTotalVentas); }} style={{ ...card, padding: 20, borderLeft: `4px solid ${s.c}`, cursor: s.tap ? "pointer" : "default" }}>
               <div style={{ fontSize: 28, marginBottom: 6 }}>{s.ic}</div>
               <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: s.c }}>{s.v}</div>
               <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{s.l}</div>
@@ -3416,7 +3540,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                 ))}
               </div>
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>{histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>{histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0))}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
                     const cnt = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).length;
@@ -3425,6 +3549,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${histMonth === mi ? T.accent : T.border}`, background: histMonth === mi ? `${T.accent}15` : cnt > 0 ? T.bg : T.bg2 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: histMonth === mi ? T.accent : cnt > 0 ? T.text : T.gray }}>{m.substring(0, 3)}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: cnt > 0 ? T.accent : T.gray }}>{cnt}</div>
+                        {cnt > 0 && <div style={{ fontSize: 8, color: T.green, fontWeight: 700, marginTop: 2 }}>{fmt(yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0))}</div>}
                       </div>
                     );
                   })}
@@ -3499,50 +3624,48 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
           <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}>
-            <div style={{ fontSize: 11, color: T.gray }}>Ingresos</div>
-            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.green }}>{fmt(totalIngresos)}</div>
+            <div style={{ fontSize: 11, color: T.gray }}>Ingresos Efectivo</div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.green }}>{fmt(periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0))}</div>
           </div>
           <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.red}` }}>
             <div style={{ fontSize: 11, color: T.gray }}>Egresos</div>
             <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.red }}>{fmt(totalEgr)}</div>
           </div>
           <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.accent}` }}>
-            <div style={{ fontSize: 11, color: T.gray }}>Saldo</div>
-            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: (totalIngresos - totalEgr) >= 0 ? T.green : T.red }}>{fmt(totalIngresos - totalEgr)}</div>
+            <div style={{ fontSize: 11, color: T.gray }}>Saldo en Caja</div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: (periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr) >= 0 ? T.green : T.red }}>{fmt(periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr)}</div>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <button onClick={() => setShowEgreso(true)} style={{ ...btnPrimary(T.red), fontSize: 13, flex: 1 }}>➖ Registrar Egreso</button>
-          <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, flex: 1 }}>📋 Cierre de Caja</button>
-        </div>
+        <button onClick={() => setShowEgreso(true)} style={{ ...btnPrimary(T.red), fontSize: 14, width: "100%", marginBottom: 16, padding: "14px 0" }}>➖ Registrar Egreso</button>
 
         <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Movimientos del período</div>
-          {periodOrders.map(o => (
-            <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-              <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> Orden {fmtD(o.domain)}</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <span style={{ color: T.gray }}>{o.date}</span>
-                <span style={{ fontWeight: 700, color: T.green }}>{fmt((o.payments || []).reduce((s, p) => s + (p.amount || 0), 0))}</span>
+          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📋 Movimientos del período</div>
+          {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Efectivo")).map(o => {
+            const efAmount = (o.payments || []).filter(p => p.method === "Efectivo").reduce((s, p) => s + (p.amount || 0), 0);
+            return (
+              <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
+                <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> Cobro {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
+                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{o.date}</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(efAmount)}</span></div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {periodEgresos.map(e => (
             <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-              <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> {e.desc}</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <span style={{ color: T.gray }}>{e.fecha}</span>
-                <span style={{ fontWeight: 700, color: T.red }}>-{fmt(e.monto)}</span>
-              </div>
+              <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> {e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
+              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.red }}>-{fmt(e.monto)}</span></div>
             </div>
           ))}
-          {periodOrders.length === 0 && periodEgresos.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos</div>}
+          {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Efectivo")).length === 0 && periodEgresos.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos de efectivo</div>}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, flex: 1 }}>📋 Cierre de Caja</button>
         </div>
 
         {cierres.length > 0 && (
           <div style={{ ...card, padding: 16 }}>
-            <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Historial de cierres</div>
+            <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📜 Historial de cierres</div>
             {cierres.slice(-5).reverse().map((c, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
                 <span>{c.fecha}</span>
@@ -3556,14 +3679,50 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
 
         {showEgreso && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowEgreso(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>➖ Nuevo Egreso</div>
-              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción *</label><input value={egresoForm.desc} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Compra de insumos" /></div>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>➖ Registrar Egreso</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Categoría</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 14 }}>
+                {[
+                  { key: "proveedor", icon: "📦", label: "Pago Proveedor" },
+                  { key: "uber", icon: "🚕", label: "Uber / Flete" },
+                  { key: "comida", icon: "🍔", label: "Comida" },
+                  { key: "sueldo", icon: "👤", label: "Pago Sueldo" },
+                  { key: "repuesto", icon: "🔩", label: "Compra Repuesto" },
+                  { key: "alquiler", icon: "🏠", label: "Alquiler" },
+                  { key: "otro", icon: "📝", label: "Otro" },
+                ].map(cat => (
+                  <div key={cat.key} onClick={() => setEgresoForm(f => ({ ...f, categoria: cat.key, categoriaLabel: cat.label }))}
+                    style={{ ...card, padding: 12, cursor: "pointer", textAlign: "center", borderColor: egresoForm.categoria === cat.key ? T.accent : T.border, background: egresoForm.categoria === cat.key ? `${T.accent}12` : T.bg }}>
+                    <div style={{ fontSize: 24, marginBottom: 4 }}>{cat.icon}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: egresoForm.categoria === cat.key ? T.accent : T.gray }}>{cat.label}</div>
+                  </div>
+                ))}
+              </div>
+              {egresoForm.categoria === "proveedor" && proveedores.length > 0 && (
+                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Proveedor</label>
+                  <select value={egresoForm.detalle || ""} onChange={e => setEgresoForm(f => ({ ...f, detalle: e.target.value }))} style={inputStyle}>
+                    <option value="">Seleccionar proveedor</option>
+                    {proveedores.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+              {egresoForm.categoria === "sueldo" && (
+                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Empleado</label>
+                  <select value={egresoForm.detalle || ""} onChange={e => setEgresoForm(f => ({ ...f, detalle: e.target.value }))} style={inputStyle}>
+                    <option value="">Seleccionar empleado</option>
+                    {["Ignacio", "Chiara", "Kevin", "Fabricio"].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              )}
+              {(egresoForm.categoria === "otro" || egresoForm.categoria === "repuesto" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida") && (
+                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle del gasto..." /></div>
+              )}
               <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
               <div style={{ marginBottom: 16 }}><label style={labelStyle}>Fecha</label><input type="date" value={egresoForm.fecha} onChange={e => setEgresoForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowEgreso(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { if (egresoForm.desc && egresoForm.monto) { setEgresos(p => [...p, { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0 }]); setEgresoForm({ desc: "", monto: "", fecha: today }); setShowEgreso(false); }}} style={{ ...btnPrimary(T.red), flex: 1 }}>Registrar</button>
+                <button onClick={() => { if (egresoForm.categoria && egresoForm.monto) { setEgresos(p => [...p, { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0 }]); setEgresoForm({ desc: "", monto: "", fecha: today, categoria: "", categoriaLabel: "", detalle: "" }); setShowEgreso(false); }}} style={{ ...btnPrimary(T.red), flex: 1 }}>Registrar</button>
               </div>
             </div>
           </div>
@@ -3574,27 +3733,23 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📋 Cierre de Caja</div>
               <div style={{ ...card, padding: 14, marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}><span style={{ color: T.gray }}>Saldo sistema</span><span style={{ fontWeight: 700, fontFamily: fontD }}>{fmt(totalIngresos - totalEgr)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}><span style={{ color: T.gray }}>Saldo sistema</span><span style={{ fontWeight: 700, fontFamily: fontD }}>{fmt(periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr)}</span></div>
               </div>
               <div style={{ marginBottom: 16 }}><label style={labelStyle}>Saldo real en caja *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={saldoReal} onChange={e => setSaldoReal(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="Contar efectivo..." /></div></div>
-              {saldoReal && (
-                <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: (parseFloat(saldoReal) || 0) - (totalIngresos - totalEgr) >= 0 ? T.green : T.red }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}>
-                    <span>Diferencia</span>
-                    <span style={{ color: (parseFloat(saldoReal) || 0) - (totalIngresos - totalEgr) >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt((parseFloat(saldoReal) || 0) - (totalIngresos - totalEgr))}</span>
-                  </div>
+              {saldoReal && (() => { const sist = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr; const dif = (parseFloat(saldoReal) || 0) - sist; return (
+                <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: dif >= 0 ? T.green : T.red }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}><span>Diferencia</span><span style={{ color: dif >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt(dif)}</span></div>
                 </div>
-              )}
+              ); })()}
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { const real = parseFloat(saldoReal) || 0; setCierres(p => [...p, { fecha: today, saldoSistema: totalIngresos - totalEgr, saldoReal: real, diferencia: real - (totalIngresos - totalEgr) }]); setSaldoReal(""); setShowCierre(false); }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
+                <button onClick={() => { const sist = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr; setCierres(p => [...p, { fecha: today, saldoSistema: sist, saldoReal: parseFloat(saldoReal) || 0, diferencia: (parseFloat(saldoReal) || 0) - sist }]); setSaldoReal(""); setShowCierre(false); }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
               </div>
             </div>
           </div>
         )}
       </div>)}
 
-      {/* ══════ FACTURACIÓN ══════ */}
       {tab === "facturas" && (<div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
