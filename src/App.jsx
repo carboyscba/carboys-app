@@ -3017,6 +3017,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
   const [tab, setTab] = useState("resumen");
   const [selCobro, setSelCobro] = useState(null);
   const [cobroPay, setCobroPay] = useState([]);
+  const [cobroClient, setCobroClient] = useState(null);
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(null);
   const [histDetail, setHistDetail] = useState(null);
@@ -3115,7 +3116,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       {/* Tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(t => (
-          <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setHistDetail(null); setHistMonth(null); setStatView(null); }}
+          <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); }}
             style={{ ...card, padding: "16px 8px", cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2 }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>{t.icon}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: tab === t.key ? T.accent : T.gray }}>{t.l}</div>
@@ -3186,9 +3187,25 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                     <div>
                       <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>{fmtD(o.domain)}</div>
                       <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{vh ? vh.brand + " " + vh.model + " " + vh.year : ""}</div>
-                      <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{cl ? cl.name + " " + cl.lastName : "—"}</strong></div>
-                      {cl?.phone && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Tel: {cl.phone}</div>}
-                      {cl?.cuit && <div style={{ fontSize: 12, color: T.gray }}>CUIT: {cl.cuit}</div>}
+                    </div>
+                    <div style={{ padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red) + "20", color: o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red }}>
+                      {o.status === "done" ? "✅ LISTO" : o.status === "working" ? "🟡 EN CURSO" : "🔴 ESPERANDO"}
+                    </div>
+                  </div>
+                </div>
+                {cobroClient && <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>👤 Datos del Cliente</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    <div><label style={labelStyle}>Nombre</label><input value={cobroClient.name} onChange={e => setCobroClient(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Apellido</label><input value={cobroClient.lastName} onChange={e => setCobroClient(p => ({ ...p, lastName: e.target.value }))} style={inputStyle} /></div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={cobroClient.phone} onChange={e => setCobroClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={cobroClient.dni} onChange={e => setCobroClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
+                  </div>
+                  <div><label style={labelStyle}>CUIT</label><input value={cobroClient.cuit} onChange={e => setCobroClient(p => ({ ...p, cuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
+                </div>}
+                
                     </div>
                     <div style={{ padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red) + "20", color: o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red }}>
                       {o.status === "done" ? "✅ LISTO" : o.status === "working" ? "🟡 EN CURSO" : "🔴 ESPERANDO"}
@@ -3270,10 +3287,13 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => {
+                    if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
                     setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, payments: cobroPay.map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o2));
-                    setSelCobro(null); setCobroPay([]);
-                  }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>💾 Guardar Cobro</button>
-                  <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 Facturar</button>
+                    setSelCobro(null); setCobroPay([]); setCobroClient(null);
+                  }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>✅ FINALIZADO</button>
+                  {(cobroPay || []).some(p => p.withIva || p.method === "Tarjeta" || p.method === "Transferencia") && (
+                  <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 EMITIR FACTURA</button>
+                )}
                 </div>
               </div>
             );
@@ -3288,7 +3308,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                 const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO";
                 const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
                 return (
-                  <div key={o.id} onClick={() => { setSelCobro(o); setCobroPay((o.payments || []).map(p => ({ ...p }))); }}
+                  <div key={o.id} onClick={() => { setSelCobro(o); setCobroPay((o.payments || []).map(p => ({ ...p }))); const _cl = clients.find(c => c.id === o.clientId); setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null); }}
                     style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
