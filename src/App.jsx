@@ -3329,13 +3329,6 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                   </div>
                   <div><label style={labelStyle}>CUIT</label><input value={cobroClient.cuit} onChange={e => setCobroClient(p => ({ ...p, cuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
                 </div>}
-                
-                    </div>
-                    <div style={{ padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red) + "20", color: o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red }}>
-                      {o.status === "done" ? "✅ LISTO" : o.status === "working" ? "🟡 EN CURSO" : "🔴 ESPERANDO"}
-                    </div>
-                  </div>
-                </div>
                 <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>🔧 Trabajos Realizados</div>
                   {o.works.map((w, i) => (
