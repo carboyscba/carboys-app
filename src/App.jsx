@@ -2222,6 +2222,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
             <div style={{ padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: "uppercase", background: `${sc}20`, color: sc }}>
               {getStatusLabel(o.status)}
             </div>
+            {o.cobrado && <div style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.accent}15`, color: T.accent, border: `1px solid ${T.accent}` }}>💰 COBRADO</div>}
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             {o.works.map((w, j) => (
@@ -3164,6 +3165,8 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
   const [histMonth, setHistMonth] = useState(null);
   const [histDetail, setHistDetail] = useState(null);
   const [statView, setStatView] = useState(null);
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
   const [egresos, setEgresos] = useState([]);
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
@@ -3259,9 +3262,9 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(t => (
           <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); }}
-            style={{ ...card, padding: "16px 8px", cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2 }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>{t.icon}</div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: tab === t.key ? T.accent : T.gray }}>{t.l}</div>
+            style={{ ...card, padding: 14, cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 80 }}>
+            <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 6 }}>{t.icon}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: tab === t.key ? T.accent : T.gray, lineHeight: 1.2 }}>{t.l}</div>
           </div>
         ))}
       </div>
@@ -3421,11 +3424,17 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                   <button onClick={() => setCobroPay(ps => [...ps, { method: "", amount: "", account: "", withIva: null, invoiceType: "" }])} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método</button>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => {
-                    if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
-                    setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o2));
-                    setSelCobro(null); setCobroPay([]); setCobroClient(null);
-                  }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>✅ COBRADO</button>
+                  <button
+                    onTouchStart={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2; setHoldProgress(p); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHoldProgress(0); } }, 40); }}
+                    onTouchEnd={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
+                    onMouseDown={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2; setHoldProgress(p); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHoldProgress(0); } }, 40); }}
+                    onMouseUp={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
+                    onMouseLeave={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
+                    style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none" }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${holdProgress}%`, background: "rgba(255,255,255,0.3)", transition: "width 0.04s linear", borderRadius: 10 }} />
+                    <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "✅ COBRADO"}</span>
+                    {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 2 seg</div>}
+                  </button>
                   {(cobroPay || []).some(p => p.withIva || p.method === "Tarjeta" || p.method === "Transferencia") && (
                   <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 EMITIR FACTURA</button>
                 )}
@@ -3497,7 +3506,7 @@ const AdminScreen = ({ orders, clients, config, onNavigate }) => {
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 12, color: T.gray }}>{o.date}</div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
-                    {o.cobrado && <div style={{ fontSize: 10, fontWeight: 700, color: "#9E9E9E", marginTop: 2 }}>💰 COBRADO</div>}
+                    {o.cobrado && <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginTop: 3, padding: "2px 8px", borderRadius: 4, background: `${T.accent}15`, border: `1px solid ${T.accent}` }}>💰 COBRADO</div>}
                       {o.assignedTo && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Mecánico: {o.assignedTo}</div>}
                     </div>
                   </div>
