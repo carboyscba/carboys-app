@@ -4607,9 +4607,9 @@ const ServiceSheetScreen = (props) => {
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
 
   const serviceWorks = order.works.filter(w => w.type === "Service Full" || w.type === "Service Base");
-  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno") && !(hasService && embeddedWorkTypes.includes(w.type)));
   const hasService = serviceWorks.length > 0;
   const embeddedWorkTypes = ["Pastillas de Freno", "Escobillas", "Baterías", "Lámpara"];
+  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno") && !(hasService && embeddedWorkTypes.includes(w.type)));
   const embeddedWorks = hasService ? order.works.filter(w => embeddedWorkTypes.includes(w.type)) : [];
   const checklistWorks = order.works.filter(w => {
     if (["Service Full", "Service Base", "Tren Delantero", "Tren Trasero"].includes(w.type)) return false;
@@ -4620,7 +4620,7 @@ const ServiceSheetScreen = (props) => {
 
   const tabs = [
     ...serviceWorks.map(w => ({ type: "service", label: w.type, icon: w.type === "Service Full" ? "🛠️" : "🔧", work: w })),
-    ...embeddedWorks.map(w => ({ type: "embedded", label: w.type, icon: findWorkType(w.type)?.icon || "🔧", work: w })),
+    ...embeddedWorks.filter(w => w.type !== "Pastillas de Freno").map(w => ({ type: "embedded", label: w.type, icon: findWorkType(w.type)?.icon || "🔧", work: w })),
     ...interventionWorks.map(w => ({ type: "intervention", label: w.type, icon: "⚙️", work: w })),
     ...checklistWorks.map(w => ({ type: "checklist", label: w.type, icon: findWorkType(w.type)?.icon || "🔧", work: w })),
   ];
@@ -5327,6 +5327,7 @@ const ServiceSheetScreen = (props) => {
   };
 
   const renderChecklist = (work) => {
+    if (!work) return <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin datos</div>;
     const wKey = work.type + "_" + order.works.indexOf(work);
     const items = workChecklist[wKey] || [];
     const done = items.filter(it => it.done).length;
@@ -5534,7 +5535,7 @@ const ServiceSheetScreen = (props) => {
       )}
 
       {/* Render based on active tab type */}
-      {(currentTab?.type === "checklist" || currentTab?.type === "intervention") ? renderChecklist(currentTab.work) : (
+      {(!currentTab || currentTab.type === "service" || currentTab.type === "embedded") ? (
         <>
       <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${T.orange}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -5623,7 +5624,7 @@ const ServiceSheetScreen = (props) => {
       {/* Authorization request */}
 
       </>
-      )}
+      ) : renderChecklist(currentTab?.work)}
 
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={() => onNavigate("vehicleDetail", order)}
