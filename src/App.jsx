@@ -4607,7 +4607,7 @@ const ServiceSheetScreen = (props) => {
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
 
   const serviceWorks = order.works.filter(w => w.type === "Service Full" || w.type === "Service Base");
-  const interventionWorks = order.works.filter(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
+  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno") && !(hasService && embeddedWorkTypes.includes(w.type)));
   const hasService = serviceWorks.length > 0;
   const embeddedWorkTypes = ["Pastillas de Freno", "Escobillas", "Baterías", "Lámpara"];
   const embeddedWorks = hasService ? order.works.filter(w => embeddedWorkTypes.includes(w.type)) : [];
@@ -5534,7 +5534,7 @@ const ServiceSheetScreen = (props) => {
       )}
 
       {/* Render based on active tab type */}
-      {currentTab?.type === "checklist" ? renderChecklist(currentTab.work) : (
+      {(currentTab?.type === "checklist" || currentTab?.type === "intervention") ? renderChecklist(currentTab.work) : (
         <>
       <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${T.orange}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
