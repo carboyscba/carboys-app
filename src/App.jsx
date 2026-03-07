@@ -4541,20 +4541,20 @@ const SF_TEMPLATE = [
     { id: "agua_lavaparabrisas", label: "Agua lavaparabrisas", type: "fluid" },
   ]},
   { section: "MOTOR", icon: "🔧", items: [
-    { id: "correa_distribucion", label: "Correa de distribución", type: "binary" },
-    { id: "bomba_agua", label: "Bomba de agua", type: "binary" },
+    { id: "correa_distribucion", label: "Correa de distribución", type: "optionalBinary" },
+    { id: "bomba_agua", label: "Bomba de agua", type: "optionalBinary" },
     { id: "correa_poliv", label: "Correa poly-v", type: "binary" },
     { id: "tensores_poliv", label: "Tensores poly-v", type: "binary" },
     { id: "mangueras_refrig", label: "Mangueras de refrigeración", type: "binary" },
-    { id: "perdidas_aceite", label: "Pérdidas de aceite", type: "binary" },
+    { id: "perdidas_aceite", label: "Pérdidas de aceite", type: "binaryPresente" },
   ]},
   { section: "LUCES", icon: "💡", items: [
-    { id: "luz_baja", label: "Luz baja", type: "binary" },
-    { id: "luz_alta", label: "Luz alta", type: "binary" },
-    { id: "luz_pos_del", label: "Luz posición del.", type: "binary" },
-    { id: "luz_pos_tra", label: "Luz posición tra.", type: "binary" },
-    { id: "luz_stop", label: "Luz de stop", type: "binary" },
-    { id: "guinos", label: "Guiños", type: "binary" },
+    { id: "luz_baja", label: "Luz baja", type: "lamp" },
+    { id: "luz_alta", label: "Luz alta", type: "lamp" },
+    { id: "luz_pos_del", label: "Luz posición del.", type: "lamp" },
+    { id: "luz_pos_tra", label: "Luz posición tra.", type: "lamp" },
+    { id: "luz_stop", label: "Luz de stop", type: "lamp" },
+    { id: "guinos", label: "Guiños", type: "lamp" },
   ]},
   { section: "ESCAPE", icon: "💨", items: [
     { id: "silenciador_trasero", label: "Silenciador trasero", type: "statusRC", needsAuth: true },
@@ -4571,7 +4571,7 @@ const SF_TEMPLATE = [
     { id: "carga_alternador", label: "Carga alternador", type: "voltage" },
     { id: "bujias_estado", label: "Estado de bujías", type: "binary" },
     { id: "escobillas_estado", label: "Escobillas", type: "binary" },
-    { id: "rotacion_cubiertas", label: "Rotación de cubiertas", type: "toggle" },
+    { id: "rotacion_cubiertas", label: "Rotación de cubiertas", type: "toggle", toggleOptions: ["Realizada", "No realizada"] },
     { id: "estado_cubiertas", label: "Estado de cubiertas", type: "tires" },
   ]},
 ];
@@ -4601,10 +4601,31 @@ const PF_AMBOS_TEMPLATE = [
 ];
 
 
+const CarTiresDiagram = ({ tires, onChange }) => {
+  const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
+  const color = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
+  const keys = [["del_izq", "Del. Izq."], ["del_der", "Del. Der."], ["tra_izq", "Tra. Izq."], ["tra_der", "Tra. Der."]];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 300 }}>
+      {keys.map(([k, label]) => (
+        <div key={k} style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>{label}</div>
+          <input type="range" min="0" max="100" value={t[k]} onChange={e => onChange({ ...t, [k]: parseInt(e.target.value) })} style={{ width: "100%" }} />
+          <div style={{ fontSize: 14, fontWeight: 700, color: color(t[k]) }}>{t[k]}%</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const ServiceSheetScreen = (props) => {
   const { order, clients, user, orders, setOrders, notifications, setNotifications, onNavigate } = props;
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+
+  if (!order || !order.works || order.works.length === 0) {
+    return <div style={{ padding: 24, textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Sin trabajos asignados</div><button onClick={() => onNavigate("vehicleDetail", order)} style={{ padding: "10px 20px", borderRadius: 8, background: T.accent, color: "#fff", border: "none", cursor: "pointer" }}>← Volver</button></div>;
+  }
 
   const serviceWorks = order.works.filter(w => w.type === "Service Full" || w.type === "Service Base");
   const hasService = serviceWorks.length > 0;
@@ -4689,7 +4710,7 @@ const ServiceSheetScreen = (props) => {
   });
 
   const [data, setData] = useState(() => {
-    if (order.serviceSheet && Object.keys(order.serviceSheet).length > 0) return order.serviceSheet;
+    if (order.serviceSheet && typeof order.serviceSheet === "object" && Object.keys(order.serviceSheet).length > 0) return order.serviceSheet;
     const init = {};
     SHEET_TPL.forEach(sec => sec.items.forEach(item => {
       init[item.id] = { checked: false, status: "", obs: "", percent: -1, toggle: "", voltage: "", fluidOk: "", added: false, lampChanged: false, dtcStatus: "", dtcEntries: [], tires: { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 } };
@@ -4769,6 +4790,7 @@ const ServiceSheetScreen = (props) => {
       case "serviceReset": return !!d.resetStatus;
       case "statusRC": return !!d.status;
       case "binary": return !!d.fluidOk;
+      case "binaryPresente": return !!d.fluidOk && (d.fluidOk !== "mal" || !!d.obs);
       case "ternary": return !!d.fluidOk;
       case "lavaparabrisas": return !!d.fluidOk;
       case "fluid": return !!d.fluidOk;
@@ -4901,6 +4923,9 @@ const ServiceSheetScreen = (props) => {
 
   const hasError = (id) => showErrors && errorItems.includes(id);
 
+  const S4_COLORS = { bien: T.green, regular: T.orange, cambiar: T.red, cambiado: "#1E88E5", mal: T.red };
+  const S4_ICONS = { bien: "🟢", regular: "🟡", cambiar: "🔴", cambiado: "🔵", mal: "🔴" };
+
   const setStatus4 = (id, s) => {
     const d = data[id];
     if (d.status === s) {
@@ -4996,11 +5021,8 @@ const ServiceSheetScreen = (props) => {
                 style={{ flex: 1, accentColor: (d.percent >= 0 ? d.percent : 50) > 70 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 20 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 10 ? "#FF9800" : T.red, height: 6 }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 70 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 20 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 10 ? "#FF9800" : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
             </div>
-            <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "space-between" }}>
-              <span style={{ color: T.red }}>0-10% CAMBIAR</span>
-              <span style={{ color: "#FF9800" }}>10-20% CRÍTICO</span>
-              <span style={{ color: "#43a047" }}>20-70% BIEN</span>
-              <span style={{ color: "#43a047" }}>70-100% ÓPTIMO</span>
+            <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "center" }}>
+              {(() => { const p = d.percent >= 0 ? d.percent : -1; if (p < 0) return null; const label = p <= 10 ? "CAMBIAR" : p <= 20 ? "CRÍTICO" : p <= 70 ? "BIEN" : "ÓPTIMO"; const c = p <= 10 ? T.red : p <= 20 ? "#FF9800" : "#43a047"; return <span style={{ color: c, fontSize: 13 }}>{label}</span>; })()}
             </div>
             {d.percent >= 0 && d.percent <= 10 && (
               <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
@@ -5147,6 +5169,55 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
+        {item.type === "binaryPresente" && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
+            {[{k: "bien", l: "NO PRESENTE", c: T.green}, {k: "mal", l: "PRESENTE", c: T.red}].map(o => (
+              <div key={o.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === o.k ? "" : o.k, checked: true })}
+                style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === o.k ? `${o.c}20` : T.bg, color: d.fluidOk === o.k ? o.c : T.gray, border: `2px solid ${d.fluidOk === o.k ? o.c : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: o.c }} />{o.l}
+              </div>
+            ))}
+          </div>
+        )}
+        {item.type === "binaryPresente" && d.fluidOk === "mal" && (
+          <div style={{ marginLeft: 34, marginBottom: 8 }}>
+            <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
+              placeholder="⚠️ Describir la pérdida (obligatorio)..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px", width: "100%", borderColor: !d.obs ? T.red : T.border }} />
+          </div>
+        )}
+
+        {item.type === "lamp" && !isForced && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34, flexWrap: "wrap" }}>
+            {[{k: "bien", l: "BIEN", c: T.green}, {k: "mal", l: "MAL", c: T.red}].map(o => (
+              <div key={o.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === o.k ? "" : o.k, checked: true })}
+                style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === o.k ? `${o.c}20` : T.bg, color: d.fluidOk === o.k ? o.c : T.gray, border: `2px solid ${d.fluidOk === o.k ? o.c : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: o.c }} />{o.l}
+              </div>
+            ))}
+            {d.fluidOk === "mal" && (
+              <div onClick={() => upd(item.id, { fluidOk: "cambiada", lampChanged: true })}
+                style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "cambiada" ? "#1E88E520" : T.bg, color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 5 }}>
+                🔵 CAMBIADA
+              </div>
+            )}
+            {d.fluidOk === "cambiada" && (
+              <div style={{ padding: "8px 18px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: "#1E88E520", color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 5 }}>
+                🔵 CAMBIADA
+              </div>
+            )}
+          </div>
+        )}
+        {item.type === "lamp" && isForced && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
+            <div onClick={() => upd(item.id, { fluidOk: d.fluidOk === "cambiada" ? "" : "cambiada", lampChanged: true, checked: true })}
+              style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "cambiada" ? "#1E88E520" : T.bg, color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 5 }}>
+              🔵 CAMBIADA
+            </div>
+            <span style={{ fontSize: 10, color: T.orange, fontWeight: 600, display: "flex", alignItems: "center" }}>⚠️ Incluido en la orden</span>
+          </div>
+        )}
+
+
         {item.type === "ternary" && !isForced && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
             {[
@@ -5247,7 +5318,7 @@ const ServiceSheetScreen = (props) => {
 
         {item.type === "toggle" && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
-            {item.toggleOptions.map(opt => (
+            {(item.toggleOptions || ["Sí", "No"]).map(opt => (
               <div key={opt} onClick={() => upd(item.id, { toggle: d.toggle === opt ? "" : opt, checked: true })}
                 style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: d.toggle === opt ? "rgba(30,136,229,0.12)" : T.bg, color: d.toggle === opt ? T.accent : T.gray, border: `2px solid ${d.toggle === opt ? T.accent : T.border}` }}>
                 {opt}
@@ -5308,8 +5379,8 @@ const ServiceSheetScreen = (props) => {
         )}
 
         <div style={ml}>
-          <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
-            placeholder="Observación..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px" }} />
+          {item.type !== "binaryPresente" && <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
+            placeholder="Observación..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px" }} />}
         </div>
       </div>
     );
@@ -5643,7 +5714,7 @@ const ServiceSheetScreen = (props) => {
               La orden incluye trabajos que no fueron marcados como <strong style={{ color: T.accent }}>cambiados</strong> en la Foja de Servicio:
             </div>
             <div style={{ marginBottom: 20 }}>
-              {showMissingChangePopup.map((item, i) => (
+              {(showMissingChangePopup || []).map((item, i) => (
                 <div key={i} style={{ padding: "8px 14px", marginBottom: 4, borderRadius: 8, background: "rgba(255,152,0,0.08)", border: `1px solid ${T.orange}30`, fontSize: 14, fontWeight: 700, color: T.orange }}>
                   🔧 {item}
                 </div>
@@ -5700,7 +5771,7 @@ const ServiceSheetScreen = (props) => {
               <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700, color: T.red }}>PEDIR AUTORIZACIÓN</div>
               {authItems.length > 0 && <div style={{ fontSize: 14, color: T.grayLight, marginTop: 6 }}>{authItems.length} ítem{authItems.length !== 1 ? "s" : ""} requiere{authItems.length === 1 ? "" : "n"} cambio:</div>}
             </div>
-            {authItems.map((it, i) => (
+            {(authItems || []).map((it, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginBottom: 8, borderRadius: 10, background: T.red + "10", border: "1px solid " + T.red + "30" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: T.red }} />
@@ -5711,7 +5782,7 @@ const ServiceSheetScreen = (props) => {
             ))}
             {approvedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.green + "10", border: "1px solid " + T.green + "30", textAlign: "center" }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.green }}>✅ AUTORIZACIÓN APROBADA</div>
-              {approvedAuth.items && <div style={{ marginTop: 6 }}>{approvedAuth.items.map((it, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>• {it.label}</div>)}</div>}
+              {approvedAuth.items && <div style={{ marginTop: 6 }}>{(approvedAuth?.items || []).map((it, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>• {it.label}</div>)}</div>}
             </div>}
             {deniedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.red + "10", border: "1px solid " + T.red + "30", textAlign: "center" }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.red }}>❌ AUTORIZACIÓN DENEGADA</div>
@@ -6571,6 +6642,12 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
       if (d.status === "cambiado") return "#1565C0";
       return "#718096";
     }
+    if (item.type === "binaryPresente") {
+      return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "mal" ? "#C62828" : "#718096";
+    }
+    if (item.type === "lamp") {
+      return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "mal" ? "#C62828" : d.fluidOk === "cambiada" ? "#1565C0" : "#718096";
+    }
     if (item.type === "binary" || item.type === "ternary" || item.type === "lavaparabrisas" || item.type === "optionalBinary" || item.type === "fluid" || item.type === "brakeFluid" || item.type === "lamp") {
       if (d.fluidOk === "bien" || d.fluidOk === "ok" || d.fluidOk === "funciona") return "#2E7D32";
       if (d.fluidOk === "mal" || d.fluidOk === "cambiar" || d.fluidOk === "no funciona") return "#C62828";
@@ -6606,6 +6683,8 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
       const statusColor = d.fluidOk === "bien" ? "#2E7D32" : "#C62828";
       return { text: statusText, color: statusColor, subText: d.added ? "Se niveló" : null, subColor: "#1565C0", pctVal: pct, pctColor, pctLabel };
     }
+    if (item.type === "binaryPresente") return { text: d.fluidOk === "bien" ? "NO PRESENTE" : d.fluidOk === "mal" ? "PRESENTE" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
+    if (item.type === "lamp") return { text: d.fluidOk === "bien" ? "BIEN" : d.fluidOk === "mal" ? "MAL" : d.fluidOk === "cambiada" ? "CAMBIADA" : "", color: d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "cambiada" ? "#1565C0" : "#C62828" };
     if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
       if (d.fluidOk === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
       return { text: d.fluidOk === "bien" ? "Bien" : d.fluidOk === "mal" ? "Mal" : (d.fluidOk || ""), color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
@@ -6648,7 +6727,7 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
     if (item.type === "tires") return false;
     if (item.type === "check") return d.checked;
     if (item.type === "serviceReset") return !!d.resetStatus;
-    if (d.status || d.fluidOk || d.checked || d.toggle || d.voltage || d.dtcStatus || d.percent >= 0) return true;
+    if (d.status || d.fluidOk || d.checked || d.toggle || d.voltage || d.dtcStatus || d.percent >= 0 || d.lampChanged) return true;
     return false;
   };
 
