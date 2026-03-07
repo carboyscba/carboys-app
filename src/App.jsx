@@ -193,7 +193,7 @@ const INITIAL_ORDERS = [
   { id: 119, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Tren Delantero", price: 92000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 92000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-02", startedBy: "Fabricio", techNotes: [] },
   { id: 120, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Service Full", price: 78000 }, { type: "Escape", price: 45000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "45000" }] }], payments: [{ method: "Efectivo", amount: 123000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 121, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Mecánica", price: 55000, desc: "Kit de embrague" }], payments: [{ method: "Tarjeta", amount: 55000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", techNotes: [] },
-    { id: 113, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: FULL_SS, techNotes: ["Catalizador original agotado, se colocó compatible"] },
+    { id: 113, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: { ...FULL_SS, catalizador: { status: "cambiado", checked: true }, silenciador_trasero: { status: "bien", checked: true }, silenciador_intermedio: { status: "bien", checked: true }, multiple_escape: { status: "bien", checked: true }, cano_escape: { status: "bien", checked: true }, soporte_escape: { status: "bien", checked: true } }, techNotes: ["Catalizador original agotado, se colocó compatible"] },
   { id: 114, clientId: 9, domain: "AN 111 WX", status: "working", works: [{ type: "Service Full", price: 85000 }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }], payments: [{ method: "Transferencia", account: "1", amount: 123000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", startedAt: "2026-03-04 08:30", serviceSheet: {}, techNotes: [] },
   { id: 115, clientId: 1, domain: "AC 123 BD", status: "working", works: [{ type: "Mecánica", price: 35000, desc: "Cambio termostato" }], payments: [{ method: "Efectivo", amount: 35000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00", techNotes: [] },
   { id: 116, clientId: 2, domain: "AB 456 CD", status: "pending", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Delantero", price: 95000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 175000, withIva: true, invoiceType: "A" }], date: "2026-03-05", techNotes: [] },
@@ -4507,6 +4507,100 @@ const InspectionScreen = (props) => {
   );
 };
 
+
+
+// ── SERVICE TEMPLATES (shared between ServiceSheetScreen and FojaClientScreen) ──
+const SF_TEMPLATE = [
+  { section: "FILTROS", icon: "🛢️", items: [
+    { id: "aceite", label: "Aceite motor", type: "check" },
+    { id: "filtro_aceite", label: "Filtro de aceite", type: "check" },
+    { id: "filtro_aire", label: "Filtro de aire", type: "check" },
+    { id: "filtro_habitaculo", label: "Filtro de habitáculo", type: "check" },
+    { id: "filtro_combustible", label: "Filtro de combustible", type: "check" },
+  ]},
+  { section: "TREN DELANTERO", icon: "⚙️", items: [
+    { id: "td_amortiguadores", label: "Amortiguadores del.", type: "statusRC", needsAuth: true },
+    { id: "td_bujes_parrilla", label: "Bujes y parrilla", type: "statusRC", needsAuth: true },
+    { id: "td_rotulas", label: "Rótulas / Extremos", type: "statusRC", needsAuth: true },
+    { id: "td_bieletas", label: "Bieletas", type: "statusRC", needsAuth: true },
+    { id: "td_discos", label: "Discos de freno del.", type: "statusRC", needsAuth: true },
+    { id: "td_pastillas", label: "Pastillas de freno del.", type: "percentRC", percentLabel: "Desgaste", needsAuth: true },
+    { id: "td_rulemanes", label: "Rulemanes del.", type: "binary" },
+  ]},
+  { section: "TREN TRASERO", icon: "⚙️", items: [
+    { id: "tt_amortiguadores", label: "Amortiguadores tra.", type: "statusRC", needsAuth: true },
+    { id: "tt_freno", label: "Freno trasero", type: "freno_trasero", needsAuth: true },
+    { id: "tt_bujes", label: "Bujes traseros", type: "statusRC", needsAuth: true },
+    { id: "tt_rulemanes", label: "Rulemanes tra.", type: "binary" },
+  ]},
+  { section: "FLUIDOS", icon: "💧", items: [
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
+    { id: "liq_direccion", label: "Líquido de dirección", type: "fluid" },
+    { id: "liq_refrigerante", label: "Líquido refrigerante", type: "fluid", needsAuth: true },
+    { id: "aceite_caja", label: "Aceite de caja", type: "fluid" },
+    { id: "agua_lavaparabrisas", label: "Agua lavaparabrisas", type: "fluid" },
+  ]},
+  { section: "MOTOR", icon: "🔧", items: [
+    { id: "correa_distribucion", label: "Correa de distribución", type: "binary" },
+    { id: "bomba_agua", label: "Bomba de agua", type: "binary" },
+    { id: "correa_poliv", label: "Correa poly-v", type: "binary" },
+    { id: "tensores_poliv", label: "Tensores poly-v", type: "binary" },
+    { id: "mangueras_refrig", label: "Mangueras de refrigeración", type: "binary" },
+    { id: "perdidas_aceite", label: "Pérdidas de aceite", type: "binary" },
+  ]},
+  { section: "LUCES", icon: "💡", items: [
+    { id: "luz_baja", label: "Luz baja", type: "binary" },
+    { id: "luz_alta", label: "Luz alta", type: "binary" },
+    { id: "luz_pos_del", label: "Luz posición del.", type: "binary" },
+    { id: "luz_pos_tra", label: "Luz posición tra.", type: "binary" },
+    { id: "luz_stop", label: "Luz de stop", type: "binary" },
+    { id: "guinos", label: "Guiños", type: "binary" },
+  ]},
+  { section: "ESCAPE", icon: "💨", items: [
+    { id: "silenciador_trasero", label: "Silenciador trasero", type: "statusRC", needsAuth: true },
+    { id: "silenciador_intermedio", label: "Silenciador intermedio", type: "statusRC", needsAuth: true },
+    { id: "multiple_escape", label: "Múltiple de escape", type: "statusRC", needsAuth: true },
+    { id: "cano_escape", label: "Caño de escape", type: "statusRC", needsAuth: true },
+    { id: "soporte_escape", label: "Soporte de escape", type: "statusRC", needsAuth: true },
+    { id: "catalizador", label: "Catalizador", type: "optionalStatusRC", needsAuth: true },
+  ]},
+  { section: "VARIOS", icon: "🔋", items: [
+    { id: "reinicio_service", label: "Reinicio de service", type: "serviceReset" },
+    { id: "dtc_fallos", label: "Códigos de falla (DTC)", type: "dtc" },
+    { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true },
+    { id: "carga_alternador", label: "Carga alternador", type: "voltage" },
+    { id: "bujias_estado", label: "Estado de bujías", type: "binary" },
+    { id: "escobillas_estado", label: "Escobillas", type: "binary" },
+    { id: "rotacion_cubiertas", label: "Rotación de cubiertas", type: "toggle" },
+    { id: "estado_cubiertas", label: "Estado de cubiertas", type: "tires" },
+  ]},
+];
+
+const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["FILTROS", "FLUIDOS", "MOTOR", "LUCES", "VARIOS"].includes(s.section));
+
+const PF_DEL_TEMPLATE = [
+  { section: "TREN DELANTERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN DELANTERO").items },
+  { section: "FLUIDOS", icon: "💧", items: [
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
+  ]},
+];
+
+const PF_TRA_TEMPLATE = [
+  { section: "TREN TRASERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN TRASERO").items },
+  { section: "FLUIDOS", icon: "💧", items: [
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
+  ]},
+];
+
+const PF_AMBOS_TEMPLATE = [
+  { section: "TREN DELANTERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN DELANTERO").items },
+  { section: "TREN TRASERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN TRASERO").items },
+  { section: "FLUIDOS", icon: "💧", items: [
+    { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
+  ]},
+];
+
+
 const ServiceSheetScreen = (props) => {
   const { order, clients, user, orders, setOrders, notifications, setNotifications, onNavigate } = props;
   const client = clients.find(c => c.id === order.clientId);
@@ -4538,7 +4632,7 @@ const ServiceSheetScreen = (props) => {
   const isPastillas = order.works.some(w => w.type === "Pastillas de Freno");
   const pastillasDel = order.works.some(w => w.type === "Pastillas de Freno" && w.desc && w.desc.toLowerCase().includes("delantero"));
   const pastillasTra = order.works.some(w => w.type === "Pastillas de Freno" && w.desc && w.desc.toLowerCase().includes("trasero"));
-  const SHEET_TPL = isServiceBase ? SB_TEMPLATE : isPastillas && !order.works.some(w => w.type === "Service Full") ? (pastillasDel && pastillasTra ? PF_AMBOS_TEMPLATE : pastillasTra ? PF_TRA_TEMPLATE : PF_DEL_TEMPLATE) : SF_TEMPLATE;
+  const SHEET_TPL = (isServiceBase && !order.works.some(w => w.type === "Service Full")) ? SB_TEMPLATE : (!order.works.some(w => w.type === "Service Full" || w.type === "Service Base") && isPastillas) ? (pastillasDel && pastillasTra ? PF_AMBOS_TEMPLATE : pastillasTra ? PF_TRA_TEMPLATE : PF_DEL_TEMPLATE) : SF_TEMPLATE;
   const workDesc = order.works.find(w => w.type === "Service Full" || w.type === "Service Base")?.desc || "";
 
   const forcedChangeItems = new Set();
