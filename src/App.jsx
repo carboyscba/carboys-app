@@ -166,7 +166,7 @@ const INITIAL_CLIENTS = [
 
 const FULL_SS = {
   aceite:{checked:true}, filtro_aceite:{checked:true}, filtro_aire:{checked:true}, filtro_habitaculo:{checked:true}, filtro_combustible:{checked:true},
-  td_amortiguadores:{status:"bien",checked:true}, td_bujes_parrilla:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
+  td_amortiguadores:{status:"bien",checked:true}, td_parrilla:{status:"bien",checked:true}, td_bujes:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
   tt_amortiguadores:{status:"bien",checked:true}, tt_freno:{toggle:"Pastillas",percent:65,checked:true}, tt_bujes:{status:"bien",checked:true}, tt_rulemanes:{fluidOk:"bien",checked:true},
   liq_direccion:{fluidOk:"bien",checked:true}, liq_frenos:{fluidOk:"bien",checked:true,percent:2,added:true}, liq_refrigerante:{fluidOk:"bien",checked:true}, aceite_caja:{fluidOk:"bien",checked:true}, agua_lavaparabrisas:{fluidOk:"nivelado",checked:true},
   correa_distribucion:{status:"bien",checked:true}, bomba_agua:{fluidOk:"bien",checked:true}, correa_poliv:{status:"bien",checked:true}, tensores_poliv:{status:"bien",checked:true}, mangueras_refrig:{fluidOk:"bien",checked:true}, perdidas_aceite:{fluidOk:"bien",checked:true},
@@ -4622,15 +4622,16 @@ const SF_TEMPLATE = [
     { id: "filtro_combustible", label: "Filtro de combustible", type: "check", optional: true },
   ]},
   { section: "TREN DELANTERO", icon: "⚙️", items: [
-    { id: "td_amortiguadores", label: "Amortiguadores del.", type: "statusRC", needsAuth: true },
-    { id: "td_bujes_parrilla", label: "Bujes y parrilla", type: "statusRC", needsAuth: true },
+    { id: "td_amortiguadores", label: "Amortiguadores", type: "statusRC", needsAuth: true },
     { id: "td_extremos", label: "Extremos de dirección", type: "statusRC", needsAuth: true },
-    { id: "td_rotulas", label: "Rótulas", type: "statusRC", needsAuth: true },
     { id: "td_axiales", label: "Axiales", type: "statusRC", needsAuth: true },
     { id: "td_bieletas", label: "Bieletas", type: "statusRC", needsAuth: true },
-    { id: "td_discos", label: "Discos de freno del.", type: "statusRC", needsAuth: true },
-    { id: "td_pastillas", label: "Pastillas de freno del.", type: "percentRC", percentLabel: "Desgaste", needsAuth: true },
-    { id: "td_rulemanes", label: "Rulemanes del.", type: "binary" },
+    { id: "td_parrilla", label: "Parrilla completa", type: "statusRC", needsAuth: true, exclusive: ["td_rotulas", "td_bujes"] },
+    { id: "td_rotulas", label: "Rótulas", type: "statusRC", needsAuth: true, exclusive: ["td_parrilla"] },
+    { id: "td_bujes", label: "Bujes", type: "statusRC", needsAuth: true, exclusive: ["td_parrilla"] },
+    { id: "td_rulemanes", label: "Rulemanes", type: "binary" },
+    { id: "td_discos", label: "Discos de freno", type: "statusRC", needsAuth: true },
+    { id: "td_pastillas", label: "Pastillas de freno", type: "percentRC", percentLabel: "Desgaste", needsAuth: true },
   ]},
   { section: "TREN TRASERO", icon: "⚙️", items: [
     { id: "tt_amortiguadores", label: "Amortiguadores tra.", type: "statusRC", needsAuth: true },
@@ -4897,11 +4898,15 @@ const ServiceSheetScreen = (props) => {
     if (w.type === "Tren Delantero" && w.trenItems) {
       const TREN_DEL_MAP = {
         amortiguadores: "td_amortiguadores",
-        extremos: "td_rotulas", // extremos de dirección maps to rótulas section
+        extremos: "td_extremos",
         rotulas: "td_rotulas",
         bieletas: "td_bieletas",
-        bujes: "td_bujes_parrilla",
-        parrilla: "td_bujes_parrilla",
+        bujes: "td_bujes",
+        parrilla: "td_parrilla",
+        axiales: "td_axiales",
+        rulemanes: "td_rulemanes",
+        discos: "td_discos",
+        pastillas: "td_pastillas",
       };
       w.trenItems.filter(ti => ti.selected).forEach(ti => {
         const sheetKey = TREN_DEL_MAP[ti.key];
@@ -5032,6 +5037,8 @@ const ServiceSheetScreen = (props) => {
   const isComplete = (item) => {
     const d = data[item.id];
     if (!d) return false;
+    // Si el ítem está excluido por exclusión mutua, se considera completo
+    if (item.exclusive && item.exclusive.some(exId => (data[exId]?.status || "") !== "")) return true;
     switch (item.type) {
       case "check": return item.optional ? true : d.checked;
       case "serviceReset": return !!d.resetStatus;
@@ -5211,8 +5218,19 @@ const ServiceSheetScreen = (props) => {
     const errStyle = hasError(item.id) ? { outline: `2px solid ${T.red}`, outlineOffset: -1, borderRadius: 8, background: "rgba(229,57,53,0.04)" } : {};
     const isForced = forcedChangeItems.has(item.id);
 
+    // Exclusión mutua: parrilla ↔ rotulas+bujes
+    const isExcluded = item.exclusive && item.exclusive.some(exId => {
+      const exData = data[exId] || {};
+      return exData.status && exData.status !== "";
+    });
+
+    // Si está excluido, limpiar su status automáticamente
+    if (isExcluded && d.status && d.status !== "") {
+      setTimeout(() => upd(item.id, { status: "", checked: false }), 0);
+    }
+
     return (
-      <div key={item.id} id={`sheet-item-${item.id}`} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}`, ...errStyle }}>
+      <div key={item.id} id={`sheet-item-${item.id}`} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}`, ...errStyle, opacity: isExcluded ? 0.35 : 1, pointerEvents: isExcluded ? "none" : "auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           {item.type === "check" || item.type === "serviceReset" || item.type === "optionalBinary" || item.type === "optionalStatusRC" ? (
             <div onClick={() => {
@@ -5230,7 +5248,8 @@ const ServiceSheetScreen = (props) => {
             </div>
           )}
           <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{item.label}</span>
-          {hasError(item.id) && <span style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>⚠ Completar</span>}
+          {isExcluded && <span style={{ fontSize: 10, color: T.gray, fontWeight: 600 }}>— bloqueado</span>}
+          {hasError(item.id) && !isExcluded && <span style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>⚠ Completar</span>}
         </div>
 
         {item.type === "statusRC" && !isForced && (
@@ -6215,7 +6234,8 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   const notif = notifications.find(n => n.orderId === order.id && n.status === "pending");
   const [sent, setSent] = useState(false);
   const [showDenyPopup, setShowDenyPopup] = useState(false);
-  const [denyTarget, setDenyTarget] = useState(null); // null = todo, itemId = parcial
+  const [denyTarget, setDenyTarget] = useState(null);
+  const [priceError, setPriceError] = useState(false); // mostrar aviso precio faltante
 
   // Precios por ítem — inicializar desde notif si ya tienen precio
   const [itemPrices, setItemPrices] = useState(() => {
@@ -6241,7 +6261,6 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   const items = notif.items || [];
   const iva = config.ivaRate || 21;
 
-  // Totales calculados desde precios ingresados
   const approvedItems = items.filter(it => itemStatus[it.id] !== "denied");
   const totalSinIva = approvedItems.reduce((s, it) => s + (parseFloat(itemPrices[it.id]) || 0), 0);
   const totalConIva = totalSinIva * (1 + iva / 100);
@@ -6250,7 +6269,95 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   const someApproved = items.some(it => itemStatus[it.id] === "approved");
   const allDenied = items.every(it => itemStatus[it.id] === "denied");
 
+  // Todos los ítems NO denegados tienen precio cargado
+  const allPricesOk = items.every(it => itemStatus[it.id] === "denied" || (parseFloat(itemPrices[it.id]) > 0));
+
+  // Mapeo sheetId → work padre + trenItem key
+  const getParentWorkType = (id) => {
+    if (!id) return null;
+    if (id.startsWith("td_")) return "Tren Delantero";
+    if (id.startsWith("tt_")) return "Tren Trasero";
+    if (["silenciador_trasero","silenciador_intermedio","multiple_escape","cano_escape","soporte_escape","catalizador","flexible_escape"].includes(id)) return "Escape";
+    return null;
+  };
+  const SHEET_TO_KEY = {
+    // Tren Delantero
+    td_amortiguadores: "amortiguadores",
+    td_extremos:       "extremos",
+    td_axiales:        "axiales",
+    td_bieletas:       "bieletas",
+    td_parrilla:       "parrilla",
+    td_rotulas:        "rotulas",
+    td_bujes:          "bujes",
+    td_rulemanes:      "rulemanes",
+    td_discos:         "discos",
+    td_pastillas:      "pastillas",
+    // Tren Trasero
+    tt_amortiguadores: "amortiguadores_t",
+    tt_bujes:          "bujes_t",
+    tt_freno:          "freno_tra",
+    // Escape
+    silenciador_trasero:    "silenciador_tra",
+    silenciador_intermedio: "silenciador_int",
+    multiple_escape:        "multiple_esc",
+    cano_escape:            "cano_intermedio",
+    soporte_escape:         "soporte_esc",
+    catalizador:            "catalizador_esc",
+    flexible_escape:        "flexible",
+  };
+
+  // Aplica ítems aprobados a order.works y suma precio
+  const applyApprovedToOrder = (finalStatuses, finalPrices) => {
+    const approvedList = items.filter(it => finalStatuses[it.id] === "approved");
+    if (approvedList.length === 0) return;
+
+    setOrders(prev => prev.map(o => {
+      if (o.id !== order.id) return o;
+      let works = [...o.works];
+
+      approvedList.forEach(it => {
+        const price = parseFloat(finalPrices[it.id]) || 0;
+        const parentType = getParentWorkType(it.id);
+        const trenKey = SHEET_TO_KEY[it.id];
+
+        if (parentType && trenKey) {
+          // Buscar si ya existe el work padre
+          const existingIdx = works.findIndex(w => w.type === parentType);
+          if (existingIdx >= 0) {
+            // Agregar sub-item al work existente
+            const w = { ...works[existingIdx] };
+            const existing = (w.trenItems || []);
+            const alreadyThere = existing.some(ti => ti.key === trenKey || ti.label === it.label);
+            if (!alreadyThere) {
+              w.trenItems = [...existing, { key: trenKey, label: it.label, price, side: "ambos", selected: true, _fromAuth: true }];
+              w.price = (parseFloat(w.price) || 0) + price;
+            }
+            works[existingIdx] = w;
+          } else {
+            // Crear nuevo work padre con el sub-item
+            works = [...works, {
+              type: parentType,
+              price,
+              desc: "",
+              trenItems: [{ key: trenKey, label: it.label, price, side: "ambos", selected: true, _fromAuth: true }],
+              _fromAuth: true,
+            }];
+          }
+        } else {
+          // Ítem sin padre tren → agregar como work independiente si no existe
+          const alreadyWork = works.some(w => w.type === it.label);
+          if (!alreadyWork) {
+            works = [...works, { type: it.label, price, desc: "Aprobado por autorización", _fromAuth: true }];
+          }
+        }
+      });
+
+      return { ...o, works };
+    }));
+  };
+
   const sendWhatsApp = () => {
+    if (!allPricesOk) { setPriceError(true); return; }
     const ph = client?.phone || "";
     const approvedLabels = approvedItems.map(it => it.label).join(", ");
     let msg = config.authMessage || "Hola {nombre}, tu vehículo {dominio} necesita: {item}. Total: ${total}";
@@ -6267,10 +6374,10 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   };
 
   const doApproveAll = () => {
+    if (!allPricesOk) { setPriceError(true); return; }
     const finalStatuses = {};
     items.forEach(it => { finalStatuses[it.id] = itemStatus[it.id] || "approved"; });
     const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: finalStatuses[it.id] }));
-    const anyApproved = Object.values(finalStatuses).some(s => s === "approved");
     const allDen = Object.values(finalStatuses).every(s => s === "denied");
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: allDen ? "denied" : "approved", items: updatedItems } : n));
     if (order.serviceSheet) {
@@ -6280,6 +6387,7 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       });
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
     }
+    applyApprovedToOrder(finalStatuses, itemPrices);
     onNavigate("vehicleDetail", order);
   };
 
@@ -6290,7 +6398,7 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   };
 
   const doPartialResolve = (reason) => {
-    // Partial: some approved, some denied — save with "approved" status but items have individual status
+    if (!allPricesOk) { setPriceError(true); setShowDenyPopup(false); return; }
     const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: itemStatus[it.id] || "denied" }));
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: allDenied ? "denied" : "approved", denyReason: reason, items: updatedItems } : n));
     if (order.serviceSheet) {
@@ -6300,12 +6408,26 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       });
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
     }
+    const finalStatuses = {};
+    items.forEach(it => { finalStatuses[it.id] = itemStatus[it.id] || "denied"; });
+    applyApprovedToOrder(finalStatuses, itemPrices);
     setShowDenyPopup(false);
     onNavigate("vehicleDetail", order);
   };
 
   const statusColor = (s) => s === "approved" ? T.green : s === "denied" ? T.red : T.orange;
   const statusLabel = (s) => s === "approved" ? "✅ APROBADO" : s === "denied" ? "❌ DENEGADO" : "⏳ SIN DECIDIR";
+
+  // Aprobar/denegar individual — requiere precio si va a aprobar
+  const toggleItemStatus = (id, newStatus) => {
+    const cur = itemStatus[id];
+    if (newStatus === "approved" && !(parseFloat(itemPrices[id]) > 0)) {
+      setPriceError(true);
+      return;
+    }
+    setPriceError(false);
+    setItemStatus(prev => ({ ...prev, [id]: cur === newStatus ? null : newStatus }));
+  };
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 520, margin: "0 auto", paddingBottom: 40 }}>
@@ -6337,9 +6459,17 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: T.orange }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: T.orange, marginBottom: 12 }}>⚠️ Items que requieren cambio</div>
 
+        {/* Aviso precio obligatorio */}
+        {priceError && (
+          <div style={{ padding: "10px 14px", borderRadius: 9, background: `${T.red}15`, border: `1px solid ${T.red}40`, fontSize: 12, color: T.red, fontWeight: 700, marginBottom: 12, textAlign: "center", animation: "fadeUp .2s ease" }}>
+            ⚠️ Ingresá el precio del repuesto antes de aprobar o enviar
+          </div>
+        )}
+
         {items.map((it, i) => {
           const st = itemStatus[it.id];
           const price = itemPrices[it.id];
+          const missingPrice = !price || parseFloat(price) <= 0;
           const sc = st === "approved" ? T.green : st === "denied" ? T.red : T.border;
           return (
             <div key={i} style={{ padding: "14px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
@@ -6352,14 +6482,14 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
                 {st && <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(st), padding: "3px 10px", borderRadius: 6, background: `${statusColor(st)}18`, border: `1px solid ${statusColor(st)}40` }}>{statusLabel(st)}</span>}
               </div>
 
-              {/* Precio con NumPad — compacto */}
+              {/* Precio con NumPad — OBLIGATORIO */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <span style={{ fontSize: 11, color: T.gray, width: 44, flexShrink: 0 }}>Precio:</span>
-                <div onClick={() => openNumPad(`Precio — ${it.label}`, price, (v) => setItemPrices(prev => ({ ...prev, [it.id]: v })))}
-                  style={{ flex: 1, background: T.bg, border: `1.5px solid ${price ? T.accent : T.border}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, transition: "border-color .15s" }}>
+                <div onClick={() => { setPriceError(false); openNumPad(`Precio — ${it.label}`, price, (v) => setItemPrices(prev => ({ ...prev, [it.id]: v }))); }}
+                  style={{ flex: 1, background: T.bg, border: `1.5px solid ${missingPrice ? T.orange : T.green}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, transition: "border-color .15s" }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>$</span>
-                  <span style={{ flex: 1, fontFamily: fontD, fontSize: 14, fontWeight: 700, color: price ? T.white : T.gray }}>
-                    {price ? Number(price).toLocaleString("es-AR") : "Tocar para ingresar"}
+                  <span style={{ flex: 1, fontFamily: fontD, fontSize: 14, fontWeight: 700, color: missingPrice ? T.orange : T.white }}>
+                    {price ? Number(price).toLocaleString("es-AR") : "⚠ Obligatorio"}
                   </span>
                   <span style={{ fontSize: 10, color: T.gray }}>⌨</span>
                 </div>
@@ -6367,11 +6497,11 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
 
               {/* Botones aprobado/denegado por ítem */}
               <div style={{ display: "flex", gap: 8 }}>
-                <div onClick={() => setItemStatus(prev => ({ ...prev, [it.id]: prev[it.id] === "approved" ? null : "approved" }))}
-                  style={{ flex: 1, padding: "9px 0", borderRadius: 9, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${st === "approved" ? T.green : T.border}`, background: st === "approved" ? `${T.green}18` : T.bg, color: st === "approved" ? T.green : T.gray, transition: "all .15s" }}>
+                <div onClick={() => toggleItemStatus(it.id, "approved")}
+                  style={{ flex: 1, padding: "9px 0", borderRadius: 9, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${st === "approved" ? T.green : T.border}`, background: st === "approved" ? `${T.green}18` : T.bg, color: st === "approved" ? T.green : T.gray, transition: "all .15s", opacity: missingPrice ? 0.5 : 1 }}>
                   ✅ Aprobar
                 </div>
-                <div onClick={() => setItemStatus(prev => ({ ...prev, [it.id]: prev[it.id] === "denied" ? null : "denied" }))}
+                <div onClick={() => toggleItemStatus(it.id, "denied")}
                   style={{ flex: 1, padding: "9px 0", borderRadius: 9, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${st === "denied" ? T.red : T.border}`, background: st === "denied" ? `${T.red}18` : T.bg, color: st === "denied" ? T.red : T.gray, transition: "all .15s" }}>
                   ❌ Denegar
                 </div>
@@ -6472,6 +6602,7 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
               label={someApproved && items.some(it => itemStatus[it.id] === "denied") ? "⚠️ Aprobación Parcial" : "✅ Aprobar Todo"}
               color={someApproved && items.some(it => itemStatus[it.id] === "denied") ? T.orange : T.green}
               onComplete={() => {
+                if (!allPricesOk) { setPriceError(true); return; }
                 if (allDecided && allDenied) { setDenyTarget("all"); setShowDenyPopup(true); }
                 else { doApproveAll(); }
               }}
@@ -6633,7 +6764,7 @@ const InterventionDiagram = ({ order, sheet }) => {
   // Solo agregar si no están ya cubiertos por los trenItems originales de la orden
   if (sheet) {
     const alreadyInDelantero = (key) => order.works.some(w => w.type === "Tren Delantero" && w.trenItems?.some(ti => {
-      const MAP = { amortiguadores: "td_amortiguadores", extremos: "td_rotulas", rotulas: "td_rotulas", bieletas: "td_bieletas", bujes: "td_bujes_parrilla", parrilla: "td_bujes_parrilla" };
+      const MAP = { amortiguadores: "td_amortiguadores", extremos: "td_extremos", rotulas: "td_rotulas", bieletas: "td_bieletas", bujes: "td_bujes", parrilla: "td_parrilla", axiales: "td_axiales", discos: "td_discos", pastillas: "td_pastillas" };
       return MAP[ti.key] === key && ti.selected;
     }));
     const alreadyInTrasero = (key) => order.works.some(w => w.type === "Tren Trasero" && w.trenItems?.some(ti => {
@@ -6642,20 +6773,28 @@ const InterventionDiagram = ({ order, sheet }) => {
     }));
 
     if (sheet.td_rotulas?.status === "cambiado" && !alreadyInDelantero("td_rotulas")) {
-      zones[0].items.push({ name: "Rótula de dirección", status: "changed" });
-      zones[1].items.push({ name: "Rótula de dirección", status: "changed" });
+      zones[0].items.push({ name: "Rótulas", status: "changed" });
+      zones[1].items.push({ name: "Rótulas", status: "changed" });
     }
-    if (sheet.td_bujes_parrilla?.status === "cambiado" && !alreadyInDelantero("td_bujes_parrilla")) {
-      zones[0].items.push({ name: "Buje de parrilla", status: "changed" });
-      zones[1].items.push({ name: "Buje de parrilla", status: "changed" });
+    if (sheet.td_bujes?.status === "cambiado" && !alreadyInDelantero("td_bujes")) {
+      zones[0].items.push({ name: "Bujes", status: "changed" });
+      zones[1].items.push({ name: "Bujes", status: "changed" });
+    }
+    if (sheet.td_parrilla?.status === "cambiado" && !alreadyInDelantero("td_parrilla")) {
+      zones[0].items.push({ name: "Parrilla completa", status: "changed" });
+      zones[1].items.push({ name: "Parrilla completa", status: "changed" });
     }
     if (sheet.td_amortiguadores?.status === "cambiado" && !alreadyInDelantero("td_amortiguadores")) {
-      zones[0].items.push({ name: "Amortiguador", status: "changed" });
-      zones[1].items.push({ name: "Amortiguador", status: "changed" });
+      zones[0].items.push({ name: "Amortiguadores", status: "changed" });
+      zones[1].items.push({ name: "Amortiguadores", status: "changed" });
     }
     if (sheet.td_bieletas?.status === "cambiado" && !alreadyInDelantero("td_bieletas")) {
-      zones[0].items.push({ name: "Bieletas de estabilizadora", status: "changed" });
-      zones[1].items.push({ name: "Bieletas de estabilizadora", status: "changed" });
+      zones[0].items.push({ name: "Bieletas", status: "changed" });
+      zones[1].items.push({ name: "Bieletas", status: "changed" });
+    }
+    if (sheet.td_discos?.status === "cambiado" && !alreadyInDelantero("td_discos")) {
+      zones[0].items.push({ name: "Discos de freno", status: "changed" });
+      zones[1].items.push({ name: "Discos de freno", status: "changed" });
     }
     if (sheet.tt_amortiguadores?.status === "cambiado" && !alreadyInTrasero("tt_amortiguadores")) {
       zones[2].items.push({ name: "Amortiguador tra.", status: "changed" });
