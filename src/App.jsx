@@ -1156,23 +1156,13 @@ const NewOrderScreen = (props) => {
                       ))}
                     </div>
                     {w.trenItems.some(ti => ti.selected) && (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
-                        <div>
-                          <label style={labelStyle}>Descripción (marca/modelo) *</label>
-                          <input value={w.extraDesc || ""} onChange={e => {
-                            updateWork(i, "extraDesc", e.target.value);
-                            const sel = w.trenItems.find(x => x.selected);
-                            updateWork(i, "desc", (sel ? sel.label : "") + (e.target.value ? " - " + e.target.value : ""));
-                          }} placeholder="Ej: Moura 12x75" style={inputStyle} />
-                        </div>
-                        <div>
-                          <label style={labelStyle}>Precio *</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
-                            <input type="text" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
-                              updateWork(i, "price", e.target.value.replace(/[^0-9]/g, ""));
-                            }} placeholder="0" style={{ ...inputStyle, fontSize: 18, fontWeight: 700, fontFamily: fontD }} />
-                          </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={labelStyle}>Precio *</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
+                          <input type="text" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
+                            updateWork(i, "price", e.target.value.replace(/[^0-9]/g, ""));
+                          }} placeholder="0" style={{ ...inputStyle, fontSize: 18, fontWeight: 700, fontFamily: fontD }} />
                         </div>
                       </div>
                     )}
@@ -1948,6 +1938,62 @@ const DashboardScreen = (props) => {
           </div>
         ))}
       </div>
+
+      {/* ── ALERTA AUTORIZACIONES PENDIENTES ── */}
+      {pendingNotifs.length > 0 && (
+        <div style={{ marginBottom: 20, animation: "fadeUp .35s ease" }}>
+          <div style={{
+            background: "linear-gradient(135deg, rgba(229,57,53,0.13) 0%, rgba(255,152,0,0.10) 100%)",
+            border: `2px solid ${T.red}`,
+            borderRadius: 14,
+            padding: "16px 18px",
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden",
+          }} onClick={() => {
+            const firstNotifOrder = orders.find(o => o.id === pendingNotifs[0].orderId);
+            if (firstNotifOrder) onNavigate("authManage", firstNotifOrder);
+          }}>
+            {/* Pulso de fondo */}
+            <div style={{
+              position: "absolute", top: -20, right: -20,
+              width: 80, height: 80, borderRadius: "50%",
+              background: `${T.red}18`,
+              animation: "pulse 2s ease-in-out infinite",
+            }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {/* Icono pulsante */}
+              <div style={{
+                width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+                background: `${T.red}20`, border: `2px solid ${T.red}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 22, animation: "pulse 1.8s ease-in-out infinite",
+              }}>🔐</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: T.red, letterSpacing: .5, marginBottom: 3 }}>
+                  AUTORIZACIÓN REQUERIDA
+                </div>
+                <div style={{ fontSize: 13, color: T.white, fontWeight: 600 }}>
+                  {pendingNotifs.length === 1
+                    ? `${fmtD(pendingNotifs[0].domain)} necesita aprobación`
+                    : `${pendingNotifs.length} vehículos esperan autorización`}
+                </div>
+                {pendingNotifs.length > 1 && (
+                  <div style={{ marginTop: 5, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {pendingNotifs.slice(0, 3).map(n => (
+                      <span key={n.id} style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: `${T.red}20`, color: T.red, border: `1px solid ${T.red}40` }}>
+                        {fmtD(n.domain)}
+                      </span>
+                    ))}
+                    {pendingNotifs.length > 3 && <span style={{ fontSize: 11, color: T.gray }}>+{pendingNotifs.length - 3} más</span>}
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 18, color: T.red, flexShrink: 0 }}>→</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
         {[
@@ -4612,17 +4658,117 @@ const PF_AMBOS_TEMPLATE = [
 
 const CarTiresDiagram = ({ tires, onChange }) => {
   const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
-  const color = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
-  const keys = [["del_izq", "Del. Izq."], ["del_der", "Del. Der."], ["tra_izq", "Tra. Izq."], ["tra_der", "Tra. Der."]];
+  const [active, setActive] = React.useState(null);
+
+  const col = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
+  const label = (v) => v > 60 ? "BUENA" : v > 30 ? "DESGASTE" : "CAMBIAR";
+
+  const TIRES = [
+    { key: "del_izq", name: "Del. Izq.",  x: 30,  y: 52  },
+    { key: "del_der", name: "Del. Der.",  x: 110, y: 52  },
+    { key: "tra_izq", name: "Tra. Izq.",  x: 30,  y: 134 },
+    { key: "tra_der", name: "Tra. Der.",  x: 110, y: 134 },
+  ];
+
+  const activeTire = TIRES.find(t2 => t2.key === active);
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 300 }}>
-      {keys.map(([k, label]) => (
-        <div key={k} style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>{label}</div>
-          <input type="range" min="0" max="100" value={t[k]} onChange={e => onChange({ ...t, [k]: parseInt(e.target.value) })} style={{ width: "100%", accentColor: color(t[k]) }} />
-          <div style={{ fontSize: 14, fontWeight: 700, color: color(t[k]) }}>{t[k]}%</div>
+    <div style={{ maxWidth: 320 }}>
+      {/* SVG car + tires */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+        <svg width="170" height="210" viewBox="0 0 170 210" style={{ overflow: "visible" }}>
+          {/* Car body */}
+          <rect x="44" y="24" width="82" height="162" rx="18" fill={T.bg3} stroke={T.border} strokeWidth="1.5" />
+          {/* Windshields */}
+          <rect x="52" y="38" width="66" height="32" rx="6" fill="#1a2744" opacity="0.8" />
+          <rect x="52" y="140" width="66" height="32" rx="6" fill="#1a2744" opacity="0.8" />
+          {/* Center console line */}
+          <line x1="85" y1="80" x2="85" y2="130" stroke={T.border} strokeWidth="1" strokeDasharray="4,3" />
+          {/* Door lines */}
+          <line x1="44" y1="105" x2="126" y2="105" stroke={T.border} strokeWidth="1" />
+          {/* Headlights */}
+          <rect x="56" y="28" width="16" height="6" rx="2" fill="#ffd54f" opacity="0.7" />
+          <rect x="98" y="28" width="16" height="6" rx="2" fill="#ffd54f" opacity="0.7" />
+          {/* Taillights */}
+          <rect x="56" y="176" width="16" height="6" rx="2" fill={T.red} opacity="0.7" />
+          <rect x="98" y="176" width="16" height="6" rx="2" fill={T.red} opacity="0.7" />
+          {/* Direction arrow */}
+          <polygon points="85,8 80,18 90,18" fill={T.accent} opacity="0.6" />
+
+          {/* TIRES */}
+          {TIRES.map(({ key, name, x, y }) => {
+            const pct = t[key];
+            const c = col(pct);
+            const isActive = active === key;
+            return (
+              <g key={key} onClick={() => setActive(active === key ? null : key)} style={{ cursor: "pointer" }}>
+                {/* Tire shadow/glow when active */}
+                {isActive && <rect x={x - 3} y={y - 3} width="24" height="38" rx="6" fill={c} opacity="0.18" />}
+                {/* Tire body */}
+                <rect x={x} y={y} width="18" height="32" rx="5"
+                  fill={T.bg}
+                  stroke={isActive ? c : col(pct)}
+                  strokeWidth={isActive ? 2.5 : 1.5} />
+                {/* Fill bar inside tire */}
+                <rect x={x + 2} y={y + 2 + (28 * (1 - pct / 100))} width="14" height={28 * (pct / 100)} rx="3"
+                  fill={c} opacity="0.85" />
+                {/* % label */}
+                <text x={x + 9} y={y + 44} textAnchor="middle" fontSize="9" fill={c} fontWeight="700" fontFamily="Outfit,sans-serif">{pct}%</text>
+              </g>
+            );
+          })}
+
+          {/* Labels */}
+          <text x="25" y="48" textAnchor="end" fontSize="8.5" fill={T.gray} fontFamily="Outfit,sans-serif">IZQ</text>
+          <text x="145" y="48" textAnchor="start" fontSize="8.5" fill={T.gray} fontFamily="Outfit,sans-serif">DER</text>
+          <text x="10" y="72" textAnchor="middle" fontSize="8" fill={T.gray} fontFamily="Outfit,sans-serif" transform="rotate(-90,10,72)">DELANTERO</text>
+          <text x="10" y="155" textAnchor="middle" fontSize="8" fill={T.gray} fontFamily="Outfit,sans-serif" transform="rotate(-90,10,155)">TRASERO</text>
+        </svg>
+      </div>
+
+      {/* Active tire slider */}
+      {activeTire && (
+        <div style={{ background: T.bg, borderRadius: 12, padding: "14px 16px", border: `2px solid ${col(t[activeTire.key])}40`, animation: "fadeUp .2s ease", marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.white }}>🛞 {activeTire.name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, background: `${col(t[activeTire.key])}20`, color: col(t[activeTire.key]) }}>
+                {label(t[activeTire.key])}
+              </span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: col(t[activeTire.key]), fontFamily: fontD, minWidth: 44, textAlign: "right" }}>
+                {t[activeTire.key]}%
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 10, color: T.gray, width: 20 }}>0%</span>
+            <input type="range" min="0" max="100" value={t[activeTire.key]}
+              onChange={e => onChange({ ...t, [activeTire.key]: parseInt(e.target.value) })}
+              style={{ flex: 1, accentColor: col(t[activeTire.key]), height: 8, cursor: "pointer" }} />
+            <span style={{ fontSize: 10, color: T.gray, width: 28 }}>100%</span>
+          </div>
+          {/* Mini bar */}
+          <div style={{ marginTop: 8, height: 6, borderRadius: 4, background: T.bg3, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${t[activeTire.key]}%`, background: col(t[activeTire.key]), borderRadius: 4, transition: "width .15s, background .15s" }} />
+          </div>
         </div>
-      ))}
+      )}
+
+      {/* All 4 mini summary bars */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+        {TIRES.map(({ key, name }) => (
+          <div key={key} onClick={() => setActive(active === key ? null : key)}
+            style={{ padding: "8px 10px", borderRadius: 8, background: active === key ? `${col(t[key])}15` : T.bg, border: `1.5px solid ${active === key ? col(t[key]) : T.border}`, cursor: "pointer", transition: "all .15s" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+              <span style={{ fontSize: 10, color: T.grayLight, fontWeight: 600 }}>{name}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: col(t[key]), fontFamily: fontD }}>{t[key]}%</span>
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: T.bg3, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${t[key]}%`, background: col(t[key]), borderRadius: 3, transition: "width .15s" }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -5250,13 +5396,25 @@ const ServiceSheetScreen = (props) => {
 
 
         {item.type === "lamp" && !isForced && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
-            {[{k: "bien", l: "BIEN", c: T.green}, {k: "quemada", l: "QUEMADA", c: T.red}].map(o => (
-              <div key={o.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === o.k ? "" : o.k, checked: true })}
-                style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === o.k ? `${o.c}20` : T.bg, color: d.fluidOk === o.k ? o.c : T.gray, border: `2px solid ${d.fluidOk === o.k ? o.c : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 10, height: 10, borderRadius: "50%", background: o.c }} />{o.l}
+          <div style={{ marginBottom: 8, marginLeft: 34 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[{k: "bien", l: "BIEN", c: T.green}, {k: "quemada", l: "QUEMADA", c: T.red}].map(o => (
+                <div key={o.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === o.k ? "" : o.k, lampChanged: false, checked: true })}
+                  style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === o.k ? `${o.c}20` : T.bg, color: d.fluidOk === o.k ? o.c : T.gray, border: `2px solid ${d.fluidOk === o.k ? o.c : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: o.c }} />{o.l}
+                </div>
+              ))}
+            </div>
+            {d.fluidOk === "quemada" && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, animation: "fadeUp .2s ease" }}>
+                <div onClick={() => upd(item.id, { fluidOk: "quemada", lampChanged: !d.lampChanged, checked: true })}
+                  style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.lampChanged ? "#1E88E520" : T.bg, color: d.lampChanged ? "#1E88E5" : T.gray, border: `2px solid ${d.lampChanged ? "#1E88E5" : T.border}`, display: "flex", alignItems: "center", gap: 5, transition: "all .2s" }}>
+                  🔵 CAMBIADA
+                </div>
+                {!d.lampChanged && <span style={{ fontSize: 11, color: T.gray }}>¿Se cambió la lámpara?</span>}
+                {d.lampChanged && <span style={{ fontSize: 11, color: "#1E88E5", fontWeight: 600 }}>✓ Lámpara reemplazada</span>}
               </div>
-            ))}
+            )}
           </div>
         )}
         {item.type === "lamp" && isForced && (
