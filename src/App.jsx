@@ -6719,7 +6719,7 @@ const InterventionDiagram = ({ order, sheet }) => {
   );
 };
 
-const FojaClientScreen = ({ order, clients, onNavigate }) => {
+const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const fojaType = order._fojaType || null;
@@ -7155,20 +7155,49 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
           <div style={{ padding: "8px 22px 16px" }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              {trenWorks.map((w, wi) => (
-                <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
-                  </div>
-                  {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
-                    <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px" }}>
-                      <span style={{ fontSize: 8.5, color: "#4A5568" }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}</span>
-                      {Number(ti.price) > 0 && <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+              {(() => {
+                const authNotif = (order._notifications || notifications || []).find(n => n.orderId === order.id && (n.status === "approved" || n.status === "denied"));
+                const getItemAuthStatus = (label) => {
+                  if (!authNotif) return null;
+                  const match = (authNotif.items || []).find(it => it.label === label);
+                  if (!match) return null;
+                  if (authNotif.status === "denied") return "denied";
+                  return match.itemStatus || "approved";
+                };
+                return trenWorks.map((w, wi) => (
+                  <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
                     </div>
-                  ))}
-                </div>
-              ))}
+                    {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => {
+                      const authStatus = getItemAuthStatus(ti.label);
+                      const isApproved = authStatus === "approved";
+                      const isDenied = authStatus === "denied";
+                      const itemColor = isApproved ? "#2E7D32" : isDenied ? "#C62828" : "#4A5568";
+                      return (
+                        <div key={j}>
+                          <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px", alignItems: "center" }}>
+                            <span style={{ fontSize: 8.5, color: itemColor, fontWeight: isApproved || isDenied ? 700 : 400 }}>
+                              {isApproved ? "✓ " : isDenied ? "✗ " : "• "}
+                              {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}
+                              {isApproved ? " — SUSTITUIDO" : ""}
+                            </span>
+                            {Number(ti.price) > 0 && !isDenied && <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+                          </div>
+                          {isDenied && (
+                            <div style={{ padding: "1px 0 2px 20px" }}>
+                              <span style={{ fontSize: 7.5, color: "#C62828", fontStyle: "italic" }}>
+                                ⚠ Cambio no autorizado — {authNotif?.denyReason === "cliente" ? "Denegado por el cliente" : authNotif?.denyReason === "administracion" ? "Denegado por administración" : "Sin autorización"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: 6, paddingTop: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${trenWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0).toLocaleString("es-AR")}</span>
@@ -7995,7 +8024,7 @@ export default function App() {
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
       case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} /> : null;
-      case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} onNavigate={nav} /> : null;
+      case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
             case "config": return ["dueño", "admin"].includes(user.role) ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
     }
