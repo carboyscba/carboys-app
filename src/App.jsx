@@ -2556,7 +2556,7 @@ const VehicleDetailScreen = (props) => {
             window.open("https://wa.me/549" + phone, "_blank");
           }, bg: "rgba(30,136,229,.08)" },
           ...((order.status === "done" || order.status === "delivered") && (order.serviceSheet || isPureIntervention || isBatteryOrder || isEscapeOrder) ? [{ icon: "📑", label: "Fojas", show: true, color: T.accent, action: () => setShowFojaMenu(true), bg: "rgba(30,136,229,.08)" }] : []),
-          ...(canFinalize && order.status === "working" ? [{ icon: "✅", label: "Finalizar Orden", show: true, color: T.green, action: finalize, bg: "rgba(67,160,71,.08)" }] : []),
+          ...(user.canAuthorize && (notifications || []).some(n => n.orderId === order.id && n.status === "pending") ? [{ icon: "🔐", label: "Gestionar Auth", show: true, color: T.red, action: () => onNavigate("authManage", order), bg: `rgba(229,57,53,.10)` }] : []),
           ...(canNotify && order.status === "done" && !order.clientNotified ? [{ icon: "📱", label: "Avisar al Cliente", show: true, color: T.green, action: () => {
             setShowNotifyPopup(true);
           }, bg: "rgba(67,160,71,.08)" }] : []),
@@ -2575,8 +2575,41 @@ const VehicleDetailScreen = (props) => {
         ))}
       </div>
 
-      {/* Pending auth popup */}
-            {/* Deliver popup */}
+      {/* ── BANNER AUTH PENDIENTE EN VEHICLEDETAIL ── */}
+      {(() => {
+        const pendingAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
+        if (!pendingAuth) return null;
+        return (
+          <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", width: "92%", maxWidth: 500, zIndex: 500, animation: "fadeUp .3s ease" }}>
+            <div style={{
+              background: "linear-gradient(135deg, rgba(229,57,53,0.18) 0%, rgba(255,152,0,0.12) 100%)",
+              border: `2px solid ${T.red}`,
+              borderRadius: 16, padding: "14px 18px",
+              backdropFilter: "blur(12px)",
+              display: "flex", alignItems: "center", gap: 14,
+              boxShadow: `0 8px 32px rgba(229,57,53,0.25)`,
+            }}>
+              <div style={{ fontSize: 28, animation: "pulse 1.8s ease-in-out infinite" }}>🔐</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: T.red, letterSpacing: .5 }}>
+                  AUTORIZACIÓN PENDIENTE
+                </div>
+                <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>
+                  {pendingAuth.items?.map(i => i.label).join(", ")}
+                </div>
+              </div>
+              {user.canAuthorize && (
+                <button onClick={() => onNavigate("authManage", order)}
+                  style={{ ...btnPrimary(T.red), fontSize: 12, padding: "8px 14px", flexShrink: 0, borderRadius: 10 }}>
+                  Gestionar →
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Deliver popup */}
       {showAddWork && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }} onClick={() => setShowAddWork(false)}>
           <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 540, width: "95%", maxHeight: "85vh", overflowY: "auto", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
@@ -5988,11 +6021,8 @@ const ServiceSheetScreen = (props) => {
               <div style={{ fontSize: 14, fontWeight: 700, color: T.orange }}>⏳ Solicitud enviada — esperando respuesta</div>
             </div>}
             {!existingAuth && !approvedAuth && !deniedAuth && authItems.length > 0 && (
-              <button onClick={() => {
-                const items = authItems.map(it => ({ id: it.id, label: it.label }));
-                const notif = { id: Date.now(), orderId: order.id, domain: order.domain, clientId: order.clientId, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
-                setNotifications(prev => [...prev, notif]);
-              }} style={{ ...btnPrimary(T.red), width: "100%", marginTop: 16, fontSize: 18, padding: "18px 0", fontFamily: fontD }}>
+              <button onClick={() => setShowAuthRequest(true)}
+                style={{ ...btnPrimary(T.red), width: "100%", marginTop: 16, fontSize: 18, padding: "18px 0", fontFamily: fontD, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
                 📤 Pedir Autorización
               </button>
             )}
@@ -6000,15 +6030,93 @@ const ServiceSheetScreen = (props) => {
         );
       })()}
 
+      {/* ── POPUP CONFIRMACIÓN AUTORIZACIÓN ── */}
+      {showAuthRequest && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(6px)" }}
+          onClick={() => setShowAuthRequest(false)}>
+          <div style={{ background: T.bg2, borderRadius: 20, padding: 28, maxWidth: 380, width: "92%", border: `2px solid ${T.red}`, animation: "scaleIn .2s ease" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 52, marginBottom: 10 }}>📤</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.red, marginBottom: 8 }}>PEDIR AUTORIZACIÓN</div>
+              <div style={{ fontSize: 14, color: T.grayLight, lineHeight: 1.5 }}>
+                Se va a registrar una solicitud de autorización para los siguientes ítems:
+              </div>
+            </div>
+            {/* Items a autorizar */}
+            <div style={{ background: T.bg, borderRadius: 12, padding: "10px 14px", marginBottom: 20 }}>
+              {SHEET_TPL.flatMap(sec => sec.items.filter(it => {
+                if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
+                const d2 = data[it.id];
+                if (!d2) return false;
+                if (d2.status === "cambiar") return true;
+                if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
+                if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
+                if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
+                if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+                return false;
+              })).map((it, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{it.label}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowAuthRequest(false)}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>
+                Cancelar
+              </button>
+              <button onClick={() => {
+                const authItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => {
+                  if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
+                  const d2 = data[it.id];
+                  if (!d2) return false;
+                  if (d2.status === "cambiar") return true;
+                  if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
+                  if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
+                  if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
+                  if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+                  return false;
+                }));
+                const items = authItems.map(it => ({ id: it.id, label: it.label }));
+                const notif = { id: Date.now(), orderId: order.id, domain: order.domain, clientId: order.clientId, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
+                setNotifications(prev => [...prev, notif]);
+                setShowAuthRequest(false);
+              }} style={{ ...btnPrimary(T.red), flex: 2, fontSize: 15, fontWeight: 800 }}>
+                ✅ Confirmar envío
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
 
 const AuthManageScreen = ({ notification, order, clients, user, orders, setOrders, notifications, setNotifications, config, onNavigate }) => {
+  const { openNumPad } = useNumPad();
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const notif = notifications.find(n => n.orderId === order.id && n.status === "pending");
   const [sent, setSent] = useState(false);
+  const [showDenyPopup, setShowDenyPopup] = useState(false);
+  const [denyTarget, setDenyTarget] = useState(null); // null = todo, itemId = parcial
+
+  // Precios por ítem — inicializar desde notif si ya tienen precio
+  const [itemPrices, setItemPrices] = useState(() => {
+    const init = {};
+    (notif?.items || []).forEach(it => { init[it.id] = it.price ? String(it.price) : ""; });
+    return init;
+  });
+
+  // Estado por ítem: null | "approved" | "denied"
+  const [itemStatus, setItemStatus] = useState(() => {
+    const init = {};
+    (notif?.items || []).forEach(it => { init[it.id] = it.itemStatus || null; });
+    return init;
+  });
 
   if (!notif) return (
     <div style={{ padding: 24, textAlign: "center" }}>
@@ -6018,17 +6126,26 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   );
 
   const items = notif.items || [];
-  const totalSinIva = items.reduce((s, it) => s + (parseFloat(order.works.find(w => w.trenItems?.some(ti => ti.label === it.label))?.trenItems?.find(ti => ti.label === it.label)?.price) || 0), 0);
   const iva = config.ivaRate || 21;
+
+  // Totales calculados desde precios ingresados
+  const approvedItems = items.filter(it => itemStatus[it.id] !== "denied");
+  const totalSinIva = approvedItems.reduce((s, it) => s + (parseFloat(itemPrices[it.id]) || 0), 0);
   const totalConIva = totalSinIva * (1 + iva / 100);
+
+  const allDecided = items.every(it => itemStatus[it.id] === "approved" || itemStatus[it.id] === "denied");
+  const someApproved = items.some(it => itemStatus[it.id] === "approved");
+  const allDenied = items.every(it => itemStatus[it.id] === "denied");
 
   const sendWhatsApp = () => {
     const ph = client?.phone || "";
+    const approvedLabels = approvedItems.map(it => it.label).join(", ");
     let msg = config.authMessage || "Hola {nombre}, tu vehículo {dominio} necesita: {item}. Total: ${total}";
-    msg = msg.replace("{nombre}", client?.name || "")
+    msg = msg
+      .replace("{nombre}", client?.name || "")
       .replace("{dominio}", fmtD(order.domain))
       .replace("{vehiculo}", (vehicle?.brand || "") + " " + (vehicle?.model || ""))
-      .replace("{item}", items.map(it => it.label).join(", "))
+      .replace("{item}", approvedLabels)
       .replace("{precio}", fmt(totalSinIva))
       .replace("{precioIVA}", fmt(totalConIva))
       .replace("{total}", fmt(totalConIva));
@@ -6036,12 +6153,13 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
     setSent(true);
   };
 
-  const approve = () => {
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved" } : n));
-    // Enable "cambiado" status on approved items in service sheet
+  const doApproveAll = () => {
+    // Guardar precios en la notif y aprobar
+    const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: itemStatus[it.id] || "approved" }));
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved", items: updatedItems } : n));
     if (order.serviceSheet) {
       const updated = { ...order.serviceSheet };
-      items.forEach(it => {
+      items.filter(it => itemStatus[it.id] !== "denied").forEach(it => {
         if (updated[it.id]) updated[it.id] = { ...updated[it.id], authApproved: true };
       });
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
@@ -6049,78 +6167,195 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
     onNavigate("vehicleDetail", order);
   };
 
-  const deny = (reason) => {
+  const doDenyAll = (reason) => {
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "denied", denyReason: reason } : n));
+    setShowDenyPopup(false);
     onNavigate("vehicleDetail", order);
   };
 
-  const [showDenyPopup, setShowDenyPopup] = useState(false);
+  const doPartialResolve = (reason) => {
+    // Partial: some approved, some denied — save with "approved" status but items have individual status
+    const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: itemStatus[it.id] || "denied" }));
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: allDenied ? "denied" : "approved", denyReason: reason, items: updatedItems } : n));
+    if (order.serviceSheet) {
+      const updated = { ...order.serviceSheet };
+      items.filter(it => itemStatus[it.id] === "approved").forEach(it => {
+        if (updated[it.id]) updated[it.id] = { ...updated[it.id], authApproved: true };
+      });
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
+    }
+    setShowDenyPopup(false);
+    onNavigate("vehicleDetail", order);
+  };
+
+  const statusColor = (s) => s === "approved" ? T.green : s === "denied" ? T.red : T.orange;
+  const statusLabel = (s) => s === "approved" ? "✅ APROBADO" : s === "denied" ? "❌ DENEGADO" : "⏳ SIN DECIDIR";
 
   return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 500, margin: "0 auto" }}>
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 520, margin: "0 auto", paddingBottom: 40 }}>
+
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📋 Solicitud de Autorización</div>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🔐 Gestionar Autorización</div>
         <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
 
+      {/* Vehículo */}
       <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 6 }}>VEHÍCULO</div>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{fmtD(order.domain)}</div>
-        <div style={{ fontSize: 14, color: T.grayLight }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
-        <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>Cliente: {client?.name} {client?.lastName}</div>
-        <div style={{ fontSize: 12, color: T.gray }}>Solicitado por: {notif.requestedBy} — {notif.date}</div>
-      </div>
-
-      <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: T.orange }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: T.orange, marginBottom: 10 }}>⚠️ Items que requieren cambio</div>
-        {items.map((it, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{it.label}</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>CAMBIAR</span>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Vehículo</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, letterSpacing: 1 }}>{fmtD(order.domain)}</div>
+            <div style={{ fontSize: 13, color: T.grayLight }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
+            <div style={{ fontSize: 13, color: T.gray, marginTop: 2 }}>{client?.name} {client?.lastName}</div>
           </div>
-        ))}
-      </div>
-
-      <div style={{ ...card, padding: 16, marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8 }}>PRESUPUESTO</div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, color: T.gray }}>Subtotal (sin IVA)</span>
-          <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(totalSinIva)}</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, color: T.gray }}>IVA ({iva}%)</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(totalSinIva * iva / 100)}</span>
-        </div>
-        <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD }}>TOTAL</span>
-          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: T.accent }}>{fmt(totalConIva)}</span>
+          <div style={{ textAlign: "right", fontSize: 11, color: T.gray }}>
+            <div>Solicitado por</div>
+            <div style={{ fontWeight: 700, color: T.grayLight }}>{notif.requestedBy}</div>
+            <div style={{ marginTop: 2 }}>{notif.date}</div>
+          </div>
         </div>
       </div>
 
-      <button onClick={sendWhatsApp} style={{ ...btnPrimary(T.green), width: "100%", marginBottom: 12, fontSize: 15, padding: "16px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+      {/* Items con precio + decisión por ítem */}
+      <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: T.orange }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.orange, marginBottom: 12 }}>⚠️ Items que requieren cambio</div>
+
+        {items.map((it, i) => {
+          const st = itemStatus[it.id];
+          const price = itemPrices[it.id];
+          const sc = st === "approved" ? T.green : st === "denied" ? T.red : T.border;
+          return (
+            <div key={i} style={{ padding: "14px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
+              {/* Nombre + estado */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: st === "approved" ? T.green : st === "denied" ? T.red : T.orange, flexShrink: 0 }} />
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>{it.label}</span>
+                </div>
+                {st && <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(st), padding: "3px 10px", borderRadius: 6, background: `${statusColor(st)}18`, border: `1px solid ${statusColor(st)}40` }}>{statusLabel(st)}</span>}
+              </div>
+
+              {/* Precio con NumPad */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: T.gray, width: 48, flexShrink: 0 }}>Precio:</span>
+                <div onClick={() => openNumPad(`Precio — ${it.label}`, price, (v) => setItemPrices(prev => ({ ...prev, [it.id]: v })))}
+                  style={{ flex: 1, background: T.bg, border: `2px solid ${price ? T.accent : T.border}`, borderRadius: 10, padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "border-color .15s" }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>$</span>
+                  <span style={{ flex: 1, fontFamily: fontD, fontSize: 18, fontWeight: 800, color: price ? T.white : T.gray }}>
+                    {price ? Number(price).toLocaleString("es-AR") : "Tocar para ingresar"}
+                  </span>
+                  <span style={{ fontSize: 11, color: T.gray }}>⌨</span>
+                </div>
+              </div>
+
+              {/* Botones aprobado/denegado por ítem */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <div onClick={() => setItemStatus(prev => ({ ...prev, [it.id]: prev[it.id] === "approved" ? null : "approved" }))}
+                  style={{ flex: 1, padding: "9px 0", borderRadius: 9, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${st === "approved" ? T.green : T.border}`, background: st === "approved" ? `${T.green}18` : T.bg, color: st === "approved" ? T.green : T.gray, transition: "all .15s" }}>
+                  ✅ Aprobar
+                </div>
+                <div onClick={() => setItemStatus(prev => ({ ...prev, [it.id]: prev[it.id] === "denied" ? null : "denied" }))}
+                  style={{ flex: 1, padding: "9px 0", borderRadius: 9, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${st === "denied" ? T.red : T.border}`, background: st === "denied" ? `${T.red}18` : T.bg, color: st === "denied" ? T.red : T.gray, transition: "all .15s" }}>
+                  ❌ Denegar
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Resumen presupuesto */}
+      <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>Presupuesto</div>
+        {approvedItems.length > 0 ? (
+          <>
+            {approvedItems.map((it, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: T.grayLight }}>{it.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{fmt(parseFloat(itemPrices[it.id]) || 0)}</span>
+              </div>
+            ))}
+            <div style={{ height: 1, background: T.border, margin: "10px 0" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: T.gray }}>Subtotal (sin IVA)</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(totalSinIva)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: T.gray }}>IVA ({iva}%)</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(totalSinIva * iva / 100)}</span>
+            </div>
+            <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD }}>TOTAL</span>
+              <span style={{ fontSize: 20, fontWeight: 800, fontFamily: fontD, color: T.accent }}>{fmt(totalConIva)}</span>
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", padding: "12px 0", color: T.gray, fontSize: 13 }}>
+            Ingresá precios y aprobá ítems para ver el total
+          </div>
+        )}
+      </div>
+
+      {/* WhatsApp */}
+      <button onClick={sendWhatsApp} disabled={totalSinIva === 0}
+        style={{ ...btnPrimary(totalSinIva > 0 ? T.green : T.border), width: "100%", marginBottom: 12, fontSize: 15, padding: "15px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: totalSinIva === 0 ? 0.5 : 1, cursor: totalSinIva === 0 ? "not-allowed" : "pointer" }}>
         📱 Enviar Presupuesto por WhatsApp
       </button>
-      {sent && <div style={{ textAlign: "center", fontSize: 12, color: T.green, marginBottom: 12 }}>✅ Presupuesto enviado</div>}
+      {sent && <div style={{ textAlign: "center", fontSize: 12, color: T.green, marginBottom: 12, fontWeight: 700 }}>✅ Mensaje enviado al cliente</div>}
 
+      {/* Botones finales */}
       <div style={{ display: "flex", gap: 12 }}>
-        <button onClick={approve} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>
-          ✅ Autorizado
+        <button
+          onClick={() => {
+            if (allDecided && someApproved) { doApproveAll(); }
+            else if (allDecided && allDenied) { setDenyTarget("all"); setShowDenyPopup(true); }
+            else {
+              // Marcar todos los sin decidir como aprobados
+              const updated = {};
+              items.forEach(it => { updated[it.id] = itemStatus[it.id] || "approved"; });
+              setItemStatus(updated);
+            }
+          }}
+          style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0", fontWeight: 800 }}>
+          ✅ {allDecided && someApproved ? "Confirmar" : allDecided && allDenied ? "—" : "Aprobar Todo"}
         </button>
-        <button onClick={() => setShowDenyPopup(true)} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0" }}>
-          ❌ Denegado
+        <button onClick={() => { setDenyTarget("all"); setShowDenyPopup(true); }}
+          style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", fontWeight: 800 }}>
+          ❌ Denegar Todo
         </button>
       </div>
+      {allDecided && !allDenied && someApproved && items.some(it => itemStatus[it.id] === "denied") && (
+        <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: `${T.orange}12`, border: `1px solid ${T.orange}40`, fontSize: 12, color: T.orange, textAlign: "center", fontWeight: 600 }}>
+          ⚠️ Autorización parcial: {items.filter(it => itemStatus[it.id] === "approved").length} aprobados, {items.filter(it => itemStatus[it.id] === "denied").length} denegados
+        </div>
+      )}
 
+      {/* Popup motivo denegación */}
       {showDenyPopup && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)" }} onClick={() => setShowDenyPopup(false)}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 350, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 20, textAlign: "center", marginBottom: 12 }}>❌</div>
-            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", marginBottom: 16 }}>Motivo de denegación</div>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(5px)" }}
+          onClick={() => setShowDenyPopup(false)}>
+          <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 360, width: "92%", border: `2px solid ${T.red}` }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 10 }}>❌</div>
+            <div style={{ fontFamily: fontD, fontSize: 19, fontWeight: 800, textAlign: "center", marginBottom: 6 }}>Motivo de denegación</div>
+            <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 20 }}>
+              {denyTarget === "all" ? "¿Por qué se deniega la solicitud?" : "¿Por qué se deniega este ítem?"}
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => deny("cliente")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0" }}>👤 Denegado por el Cliente</button>
-              <button onClick={() => deny("administracion")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0" }}>🏢 Denegado por Administración</button>
-              <button onClick={() => setShowDenyPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "10px 0", color: T.gray }}>Cancelar</button>
+              <button onClick={() => allDecided && someApproved ? doPartialResolve("cliente") : doDenyAll("cliente")}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0", fontWeight: 700 }}>
+                👤 Denegado por el Cliente
+              </button>
+              <button onClick={() => allDecided && someApproved ? doPartialResolve("administracion") : doDenyAll("administracion")}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0", fontWeight: 700 }}>
+                🏢 Denegado por Administración
+              </button>
+              <button onClick={() => setShowDenyPopup(false)}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "10px 0", color: T.gray }}>
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
