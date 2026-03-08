@@ -4634,7 +4634,7 @@ const SF_TEMPLATE = [
   ]},
 ];
 
-const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section))
+const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section));
 const PF_DEL_TEMPLATE = [
   { section: "TREN DELANTERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN DELANTERO").items },
   { section: "FLUIDOS", icon: "💧", items: [
