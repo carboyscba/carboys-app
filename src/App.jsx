@@ -5009,7 +5009,7 @@ const ServiceSheetScreen = (props) => {
     return denied?.items?.some(it => it.id === itemId) || false;
   };
 
-const renderItem = (item) => {
+  const renderItem = (item) => {
     const d = data[item.id] || {};
     const ml = { marginLeft: 34 };
     const errStyle = hasError(item.id) ? { outline: `2px solid ${T.red}`, outlineOffset: -1, borderRadius: 8, background: "rgba(229,57,53,0.04)" } : {};
