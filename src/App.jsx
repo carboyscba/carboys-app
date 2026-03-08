@@ -142,6 +142,33 @@ const buildTrenItems = (category) => {
   return [...fixed, { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }];
 };
 
+const DEFAULT_PERMS = {
+  "dueño": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: true, canAuthorize: true, configuracion: true, comenzarTrabajo: true },
+  "encargado": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: true, configuracion: false, comenzarTrabajo: true },
+  "admin": { crearOrdenes: false, verTaller: true, buscarDominio: true, ventaRapida: false, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
+  "mecánico": { crearOrdenes: false, verTaller: true, buscarDominio: false, ventaRapida: false, administracion: false, adminCobros: false, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
+};
+const PERM_LABELS = [
+  { key: "crearOrdenes", label: "Crear Órdenes", icon: "📋" },
+  { key: "verTaller", label: "Ver Taller", icon: "🔧" },
+  { key: "buscarDominio", label: "Buscar Dominio", icon: "🔍" },
+  { key: "ventaRapida", label: "Venta Rápida", icon: "🛒" },
+  { key: "comenzarTrabajo", label: "Comenzar Trabajo", icon: "▶️" },
+  { key: "canAuthorize", label: "Autorizar Cambios", icon: "🔐" },
+  { key: "administracion", label: "Administración", icon: "📊", sep: true },
+  { key: "adminCobros", label: "Cobros", icon: "🧾", sub: true },
+  { key: "adminCaja", label: "Caja", icon: "📒", sub: true },
+  { key: "adminHistorial", label: "Historial", icon: "📚", sub: true },
+  { key: "adminCtaCte", label: "Cta. Corriente", icon: "💰", sub: true },
+  { key: "adminFacturacion", label: "Facturación", icon: "🧾", sub: true },
+  { key: "adminProveedores", label: "Proveedores", icon: "📦", sub: true },
+  { key: "adminServicios", label: "Servicios", icon: "🔧", sub: true },
+  { key: "adminEstadisticas", label: "Estadísticas", icon: "📈", sub: true },
+  { key: "adminIgnacio", label: "Ignacio", icon: "👑", sub: true },
+  { key: "configuracion", label: "Configuración", icon: "⚙️" },
+];
+
+
 const USERS = [
   { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red, perms: DEFAULT_PERMS["dueño"] },
   { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent, perms: DEFAULT_PERMS["encargado"] },
@@ -7051,32 +7078,6 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "mecánico", label: "Mecánico", desc: "Solo ve y trabaja en órdenes asignadas", color: T.green, icon: "🔧" },
   ];
 
-const DEFAULT_PERMS = {
-  "dueño": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: true, canAuthorize: true, configuracion: true, comenzarTrabajo: true },
-  "encargado": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: true, configuracion: false, comenzarTrabajo: true },
-  "admin": { crearOrdenes: false, verTaller: true, buscarDominio: true, ventaRapida: false, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
-  "mecánico": { crearOrdenes: false, verTaller: true, buscarDominio: false, ventaRapida: false, administracion: false, adminCobros: false, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
-};
-const PERM_LABELS = [
-  { key: "crearOrdenes", label: "Crear Órdenes", icon: "📋" },
-  { key: "verTaller", label: "Ver Taller", icon: "🔧" },
-  { key: "buscarDominio", label: "Buscar Dominio", icon: "🔍" },
-  { key: "ventaRapida", label: "Venta Rápida", icon: "🛒" },
-  { key: "comenzarTrabajo", label: "Comenzar Trabajo", icon: "▶️" },
-  { key: "canAuthorize", label: "Autorizar Cambios", icon: "🔐" },
-  { key: "administracion", label: "Administración", icon: "📊", sep: true },
-  { key: "adminCobros", label: "Cobros", icon: "🧾", sub: true },
-  { key: "adminCaja", label: "Caja", icon: "📒", sub: true },
-  { key: "adminHistorial", label: "Historial", icon: "📚", sub: true },
-  { key: "adminCtaCte", label: "Cta. Corriente", icon: "💰", sub: true },
-  { key: "adminFacturacion", label: "Facturación", icon: "🧾", sub: true },
-  { key: "adminProveedores", label: "Proveedores", icon: "📦", sub: true },
-  { key: "adminServicios", label: "Servicios", icon: "🔧", sub: true },
-  { key: "adminEstadisticas", label: "Estadísticas", icon: "📈", sub: true },
-  { key: "adminIgnacio", label: "Ignacio", icon: "👑", sub: true },
-  { key: "configuracion", label: "Configuración", icon: "⚙️" },
-];
-
   const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#00BCD4", "#FF5722", "#795548"];
 
   const sections = [
@@ -7557,3 +7558,5 @@ export default function App() {
     </>
   );
 }
+
+
