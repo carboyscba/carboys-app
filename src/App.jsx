@@ -4850,11 +4850,18 @@ const ServiceSheetScreen = (props) => {
     return true;
   });
 
-  // Ítems aprobados por auth que NO están ya en order.works → tabs dinámicos
+  // Ítems aprobados por auth
   const approvedAuthNotif = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
   const approvedAuthItems = (approvedAuthNotif?.items || []).filter(it => it.itemStatus !== "denied");
+
+  // Separar: ítems que pertenecen a Tren Del/Tra van dentro de ese tab como nuevos items del checklist
+  // Ítems que no pertenecen a ningún trabajo existente → tab nuevo
+  const authItemsBelongingToTren = approvedAuthItems.filter(it =>
+    it.id && (it.id.startsWith("td_") || it.id.startsWith("tt_")) &&
+    order.works.some(w => (it.id.startsWith("td_") ? w.type === "Tren Delantero" : w.type === "Tren Trasero"))
+  );
   const authTabWorks = approvedAuthItems
-    .filter(it => !order.works.some(w => w.type === it.label))
+    .filter(it => !order.works.some(w => w.type === it.label) && !authItemsBelongingToTren.includes(it))
     .map(it => ({ type: it.label, price: it.price || 0, desc: "", _fromAuth: true }));
 
   const tabs = [
@@ -4982,6 +4989,27 @@ const ServiceSheetScreen = (props) => {
   const saveChecklist = (newCl) => {
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, workChecklist: newCl } : o));
   };
+
+  // Inject auth-approved items that belong to Tren Del/Tra into their existing checklist
+  useEffect(() => {
+    if (authItemsBelongingToTren.length === 0) return;
+    setWorkChecklist(prev => {
+      const newCl = { ...prev };
+      authItemsBelongingToTren.forEach(authIt => {
+        const isTrenDel = authIt.id.startsWith("td_");
+        const parentWork = order.works.find(w => w.type === (isTrenDel ? "Tren Delantero" : "Tren Trasero"));
+        if (!parentWork) return;
+        const wKey = parentWork.type + "_" + order.works.indexOf(parentWork);
+        const existing = newCl[wKey] || [];
+        const alreadyAdded = existing.some(it => it._authId === authIt.id);
+        if (!alreadyAdded) {
+          newCl[wKey] = [...existing, { label: authIt.label, desc: "Aprobado por autorización", done: false, note: "", _authId: authIt.id }];
+        }
+      });
+      saveChecklist(newCl);
+      return newCl;
+    });
+  }, [approvedAuthNotif?.id]);
 
   const updateCheckItem = (wKey, idx, updates) => {
     setWorkChecklist(prev => {
@@ -6015,17 +6043,22 @@ const ServiceSheetScreen = (props) => {
       {/* Pending auth popup */}
       {showPendingAuthPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}`, textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 10 }}>Autorizaciones pendientes</div>
-            <div style={{ fontSize: 14, color: T.grayLight, marginBottom: 24, lineHeight: 1.5 }}>
-              Tenés solicitudes de autorización que aún no fueron respondidas. ¿Deseás finalizar la orden de todos modos?
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `2px solid ${T.orange}`, textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔐</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 10, color: T.orange }}>Autorización pendiente</div>
+            <div style={{ fontSize: 14, color: T.grayLight, marginBottom: 8, lineHeight: 1.5 }}>
+              Hay ítems que requieren autorización antes de poder finalizar la orden.
+            </div>
+            <div style={{ fontSize: 13, color: T.gray, marginBottom: 24, lineHeight: 1.5 }}>
+              Pedí la autorización al dueño o encargado, y esperá que sea aprobada o denegada para continuar.
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowPendingAuthPopup(false)}
-                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>Cancelar</button>
-              <button onClick={doFinalize}
-                style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 14 }}>Finalizar igual</button>
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>← Volver</button>
+              {user.canAuthorize && (
+                <button onClick={() => { setShowPendingAuthPopup(false); onNavigate("authManage", order); }}
+                  style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 14 }}>🔐 Gestionar Auth</button>
+              )}
             </div>
           </div>
         </div>
