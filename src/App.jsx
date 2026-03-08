@@ -143,10 +143,10 @@ const buildTrenItems = (category) => {
 };
 
 const USERS = [
-  { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red },
-  { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent },
-  { id: 3, name: "Chiara", role: "admin", pin: "0000", initial: "C", color: T.orange },
-  { id: 4, name: "Fabricio", role: "mecánico", pin: "0000", initial: "F", color: T.green },
+  { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red, perms: DEFAULT_PERMS["dueño"] },
+  { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent, perms: DEFAULT_PERMS["encargado"] },
+  { id: 3, name: "Chiara", role: "admin", pin: "0000", initial: "C", color: T.orange, perms: DEFAULT_PERMS["admin"] },
+  { id: 4, name: "Fabricio", role: "mecánico", pin: "0000", initial: "F", color: T.green, perms: DEFAULT_PERMS["mecánico"] },
 ];
 
 const INITIAL_CLIENTS = [
@@ -166,7 +166,7 @@ const INITIAL_CLIENTS = [
 
 const FULL_SS = {
   aceite:{checked:true}, filtro_aceite:{checked:true}, filtro_aire:{checked:true}, filtro_habitaculo:{checked:true}, filtro_combustible:{checked:true},
-  td_amortiguadores:{status:"bien",checked:true}, td_bujes_parrilla:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
+  td_amortiguadores:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_parrilla:{status:"bien",checked:true}, td_bujes:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
   tt_amortiguadores:{status:"bien",checked:true}, tt_freno:{toggle:"Pastillas",percent:65,checked:true}, tt_bujes:{status:"bien",checked:true}, tt_rulemanes:{fluidOk:"bien",checked:true},
   liq_direccion:{fluidOk:"bien",checked:true}, liq_frenos:{fluidOk:"bien",checked:true,percent:2,added:true}, liq_refrigerante:{fluidOk:"bien",checked:true}, aceite_caja:{fluidOk:"bien",checked:true}, agua_lavaparabrisas:{fluidOk:"nivelado",checked:true},
   correa_distribucion:{status:"bien",checked:true}, bomba_agua:{fluidOk:"bien",checked:true}, correa_poliv:{status:"bien",checked:true}, tensores_poliv:{status:"bien",checked:true}, mangueras_refrig:{fluidOk:"bien",checked:true}, perdidas_aceite:{fluidOk:"bien",checked:true},
@@ -1949,7 +1949,25 @@ const DashboardScreen = (props) => {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
+      
+      {/* Pending Auth Alert */}
+      {(() => {
+        const pendingAuths = user.perms?.canAuthorize ? (notifications || []).filter(n => n.status === "pending") : [];
+        if (pendingAuths.length === 0) return null;
+        return (
+          <div onClick={() => { const o = orders.find(o2 => o2.id === pendingAuths[0].orderId); if (o) onNavigate("authManage", o); }}
+            style={{ padding: 16, borderRadius: 12, background: `${T.red}10`, border: `1.5px solid ${T.red}30`, marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 28 }}>🔔</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: T.red }}>Autorizaciones Pendientes ({pendingAuths.length})</div>
+              <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>{pendingAuths.map(n => fmtD(n.domain)).join(", ")}</div>
+            </div>
+            <div style={{ fontSize: 20, color: T.red }}>→</div>
+          </div>
+        );
+      })()}
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
         {[
           { icon: "🔍", label: "Buscar Dominio", action: "search", show: true },
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
@@ -1993,6 +2011,7 @@ const DashboardScreen = (props) => {
                     </div>
                   </div>
                   {o.cobrado && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1px solid ${T.green}60`, marginRight: 8 }}>COBRADO</span>}
+                  {(() => { const hasAuth = notifications.find(n => n.orderId === o.id); if (!hasAuth) return null; if (hasAuth.status === "pending") return <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, color: T.red, background: `${T.red}15`, marginRight: 6 }}>PEND. AUTORIZ.</span>; if (hasAuth.status === "approved") { const ad = hasAuth.itemDecisions || {}; const items = hasAuth.items || []; const appr = items.filter(it => ad[it.id] === "approved").length; const partial = appr > 0 && appr < items.length; return <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, color: partial ? T.orange : T.green, background: partial ? `${T.orange}15` : `${T.green}15`, marginRight: 6 }}>{partial ? "AUTORIZ. PARCIAL" : "AUTORIZADO"}</span>; } return null; })()}
                   <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}</span>
                 </div>
               </div>
@@ -2175,7 +2194,7 @@ const SearchScreen = ({ clients, orders, onNavigate }) => {
   );
 };
 
-const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
+const WorkshopScreen = ({ orders, clients, user, notifications, onNavigate }) => {
   const [filter, setFilter] = useState("all");
   const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "budget_sent" || o.status === "budget_approved");
   const statusPriority = { inspection: 0, budget_sent: 1, budget_approved: 2, pending: 3, working: 4, done: 5, delivered: 6 };
@@ -2224,6 +2243,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
               {getStatusLabel(o.status)}
             </div>
             {o.cobrado && <div style={{ padding: "6px 16px", borderRadius: 8, fontSize: 14, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1.5px solid ${T.green}60` }}>COBRADO</div>}
+            {(() => { const hasAuth = notifications.find(n => n.orderId === o.id); if (!hasAuth) return null; if (hasAuth.status === "pending") return <div style={{ padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, color: T.red, background: `${T.red}15`, border: `1px solid ${T.red}30` }}>PENDIENTE DE AUTORIZACIÓN</div>; if (hasAuth.status === "approved") { const ad = hasAuth.itemDecisions || {}; const items = hasAuth.items || []; const approved = items.filter(it => ad[it.id] === "approved").length; const total = items.length; const partial = approved > 0 && approved < total; return <div style={{ padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, color: partial ? T.orange : T.green, background: partial ? `${T.orange}15` : `${T.green}15`, border: `1px solid ${partial ? T.orange : T.green}30` }}>{partial ? `AUTORIZ. PARCIAL (${approved}/${total})` : "AUTORIZADO"}</div>; } return null; })()}
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             {o.works.map((w, j) => (
@@ -2469,13 +2489,13 @@ const VehicleDetailScreen = (props) => {
         const isApproved = authNotif.status === "approved";
         const isDenied = authNotif.status === "denied";
         const isPending = authNotif.status === "pending";
-        const color = isApproved ? T.green : isDenied ? T.red : T.orange;
-        const label = isApproved ? "✅ AUTORIZACIÓN APROBADA" : isDenied ? "❌ AUTORIZACIÓN DENEGADA" : "⏳ PENDIENTE DE AUTORIZACIÓN";
+        const label = isApproved ? (() => { const ad = authNotif.itemDecisions || {}; const its = authNotif.items || []; const appr = its.filter(it => ad[it.id] === "approved").length; return appr > 0 && appr < its.length ? `⚠️ AUTORIZACIÓN PARCIAL (${appr}/${its.length})` : "✅ AUTORIZACIÓN APROBADA"; })() : isDenied ? "❌ AUTORIZACIÓN DENEGADA" : "⏳ PENDIENTE DE AUTORIZACIÓN";
+        const color = isApproved ? (() => { const ad = authNotif.itemDecisions || {}; const its = authNotif.items || []; const appr = its.filter(it => ad[it.id] === "approved").length; return appr > 0 && appr < its.length ? T.orange : T.green; })() : isDenied ? T.red : T.orange;
         return (
           <div style={{ ...card, padding: "14px 20px", marginBottom: 16, borderLeft: `4px solid ${color}`, background: `${color}08` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14, color }}>{label}</div>
-              {isPending && (user.role === "dueño" || user.role === "encargado") && (
+              {isPending && (user.perms?.canAuthorize) && (
                 <button onClick={() => onNavigate("authManage", order)} style={{ ...btnPrimary(color), fontSize: 12, padding: "8px 16px" }}>Gestionar</button>
               )}
             </div>
@@ -4520,14 +4540,15 @@ const SF_TEMPLATE = [
   ]},
   { section: "TREN DELANTERO", icon: "⚙️", items: [
     { id: "td_amortiguadores", label: "Amortiguadores del.", type: "statusRC", needsAuth: true },
-    { id: "td_bujes_parrilla", label: "Bujes y parrilla", type: "statusRC", needsAuth: true },
+    { id: "td_parrilla", label: "Parrilla de suspensión", type: "optionalStatusRC", needsAuth: true },
+    { id: "td_rotulas", label: "Rótulas", type: "optionalStatusRC", needsAuth: true },
+    { id: "td_bujes", label: "Bujes", type: "optionalStatusRC", needsAuth: true },
     { id: "td_extremos", label: "Extremos de dirección", type: "statusRC", needsAuth: true },
-    { id: "td_rotulas", label: "Rótulas", type: "statusRC", needsAuth: true },
     { id: "td_axiales", label: "Axiales", type: "statusRC", needsAuth: true },
     { id: "td_bieletas", label: "Bieletas", type: "statusRC", needsAuth: true },
-    { id: "td_discos", label: "Discos de freno del.", type: "statusRC", needsAuth: true },
     { id: "td_pastillas", label: "Pastillas de freno del.", type: "percentRC", percentLabel: "Desgaste", needsAuth: true },
-    { id: "td_rulemanes", label: "Rulemanes del.", type: "binary" },
+    { id: "td_discos", label: "Discos de freno del.", type: "statusRC", needsAuth: true },
+    { id: "td_rulemanes", label: "Rulemanes del.", type: "optionalBinary" },
   ]},
   { section: "TREN TRASERO", icon: "⚙️", items: [
     { id: "tt_amortiguadores", label: "Amortiguadores tra.", type: "statusRC", needsAuth: true },
@@ -4683,8 +4704,8 @@ const ServiceSheetScreen = (props) => {
         extremos: "td_rotulas", // extremos de dirección maps to rótulas section
         rotulas: "td_rotulas",
         bieletas: "td_bieletas",
-        bujes: "td_bujes_parrilla",
-        parrilla: "td_bujes_parrilla",
+        bujes: "td_bujes",
+        parrilla: "td_parrilla",
       };
       w.trenItems.filter(ti => ti.selected).forEach(ti => {
         const sheetKey = TREN_DEL_MAP[ti.key];
@@ -4734,7 +4755,7 @@ const ServiceSheetScreen = (props) => {
   const [workChecklist, setWorkChecklist] = useState(() => {
     const saved = order.workChecklist || {};
     const result = {};
-    checklistWorks.forEach(w => {
+    [...checklistWorks, ...interventionWorks].forEach(w => {
       const wKey = w.type + "_" + (order.works.indexOf(w));
       if (saved[wKey]) {
         result[wKey] = saved[wKey];
@@ -4938,6 +4959,7 @@ const ServiceSheetScreen = (props) => {
 
   const setStatus4 = (id, s) => {
     const d = data[id];
+    if (s === "cambiado" && !isItemApproved(id)) return;
     if (d.status === s) {
       upd(id, { status: "", checked: false });
     } else {
@@ -4952,7 +4974,8 @@ const ServiceSheetScreen = (props) => {
 
     const isItemApproved = (itemId) => {
     const approved = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
-    return approved?.items?.some(it => it.id === itemId) || false;
+    if (!approved) return false;
+    return approved.itemDecisions?.[itemId] === "approved";
   };
   const isItemDenied = (itemId) => {
     const denied = (notifications || []).find(n => n.orderId === order.id && n.status === "denied");
@@ -5007,15 +5030,6 @@ const renderItem = (item) => {
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: S4_COLORS.cambiado }} />SUSTITUIDA
                 </div>
               )}
-            </div>
-            {d.status === "cambiar" && (
-              <div style={{ marginTop: 8 }}>
-                <div onClick={() => setStatus4(item.id, "cambiado")}
-                  style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? `${T.accent}20` : T.bg, color: d.status === "cambiado" ? T.accent : T.gray, border: `1.5px solid ${d.status === "cambiado" ? T.accent : T.border}`, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  🔵 SUSTITUIDA
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -5818,9 +5832,10 @@ const renderItem = (item) => {
                 <span style={{ fontSize: 12, fontWeight: 700, color: T.red }}>CAMBIAR</span>
               </div>
             ))}
-            {approvedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.green + "10", border: "1px solid " + T.green + "30", textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: T.green }}>✅ AUTORIZACIÓN APROBADA</div>
-              {approvedAuth.items && <div style={{ marginTop: 6 }}>{(approvedAuth?.items || []).map((it, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>• {it.label}</div>)}</div>}
+            {approvedAuth && <div onClick={() => onNavigate("authManage", order)} style={{ cursor: "pointer", marginTop: 14, padding: 14, borderRadius: 10, background: T.green + "10", border: "1px solid " + T.green + "30", textAlign: "center" }}>
+              {(() => { const ad = approvedAuth?.itemDecisions || {}; const its = approvedAuth?.items || []; const appr = its.filter(it => ad[it.id] === "approved").length; const partial = appr > 0 && appr < its.length; return <div style={{ fontSize: 16, fontWeight: 700, color: partial ? T.orange : T.green }}>{partial ? `⚠️ AUTORIZACIÓN PARCIAL (${appr}/${its.length})` : "✅ AUTORIZACIÓN APROBADA"}</div>; })()}
+              
+              {approvedAuth.items && <div style={{ marginTop: 6 }}>{(approvedAuth?.items || []).map((it, i) => { const dec = approvedAuth.itemDecisions?.[it.id] || "approved"; return <div key={i} style={{ fontSize: 13, color: dec === "approved" ? T.green : T.red, marginTop: 2 }}>{dec === "approved" ? "✅" : "❌"} {it.label}</div>; })}</div>}
             </div>}
             {deniedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.red + "10", border: "1px solid " + T.red + "30", textAlign: "center" }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.red }}>❌ AUTORIZACIÓN DENEGADA</div>
@@ -5831,7 +5846,10 @@ const renderItem = (item) => {
             </div>}
             {!existingAuth && !approvedAuth && !deniedAuth && authItems.length > 0 && (
               <button onClick={() => {
-                const items = authItems.map(it => ({ id: it.id, label: it.label }));
+                const items = authItems.map(it => {
+                  const sec = SHEET_TPL.find(s => s.items.some(i => i.id === it.id));
+                  return { id: it.id, label: it.label, section: sec?.section || "" };
+                });
                 const notif = { id: Date.now(), orderId: order.id, domain: order.domain, clientId: order.clientId, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
                 setNotifications(prev => [...prev, notif]);
               }} style={{ ...btnPrimary(T.red), width: "100%", marginTop: 16, fontSize: 18, padding: "18px 0", fontFamily: fontD }}>
@@ -5849,7 +5867,7 @@ const renderItem = (item) => {
 const AuthManageScreen = ({ notification, order, clients, user, orders, setOrders, notifications, setNotifications, config, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
-  const notif = notifications.find(n => n.orderId === order.id && n.status === "pending");
+  const notif = notifications.find(n => n.orderId === order.id && (n.status === "pending" || n.status === "approved"));
   const [sent, setSent] = useState(false);
 
   if (!notif) return (
@@ -5860,116 +5878,137 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   );
 
   const items = notif.items || [];
-  const totalSinIva = items.reduce((s, it) => s + (parseFloat(order.works.find(w => w.trenItems?.some(ti => ti.label === it.label))?.trenItems?.find(ti => ti.label === it.label)?.price) || 0), 0);
+
+  const [itemPrices, setItemPrices] = useState(() => {
+    const p = {};
+    items.forEach(it => { p[it.id] = notif.itemPrices?.[it.id] || ""; });
+    return p;
+  });
+
+  const [itemDecisions, setItemDecisions] = useState(() => {
+    const d = {};
+    items.forEach(it => { d[it.id] = notif.itemDecisions?.[it.id] || "pending"; });
+    return d;
+  });
+
+  const total = items.reduce((s, it) => s + (parseFloat(itemPrices[it.id]) || 0), 0);
   const iva = config.ivaRate || 21;
-  const totalConIva = totalSinIva * (1 + iva / 100);
+  const totalConIva = total * (1 + iva / 100);
+  const allDecided = items.every(it => itemDecisions[it.id] !== "pending");
+  const approvedCount = items.filter(it => itemDecisions[it.id] === "approved").length;
 
   const sendWhatsApp = () => {
     const ph = client?.phone || "";
-    let msg = config.authMessage || "Hola {nombre}, tu vehículo {dominio} necesita: {item}. Total: ${total}";
+    const itemsList = items.map(it => {
+      const price = parseFloat(itemPrices[it.id]) || 0;
+      return `• ${it.label}: ${fmt(price)}`;
+    }).join("\n");
+    let msg = config.authMessage || "Hola {nombre}, tu vehículo {dominio} ({vehiculo}) necesita:\n{item}\n\nTotal sin IVA: {precio}\nTotal con IVA: {precioIVA}";
     msg = msg.replace("{nombre}", client?.name || "")
       .replace("{dominio}", fmtD(order.domain))
       .replace("{vehiculo}", (vehicle?.brand || "") + " " + (vehicle?.model || ""))
-      .replace("{item}", items.map(it => it.label).join(", "))
-      .replace("{precio}", fmt(totalSinIva))
+      .replace("{item}", itemsList)
+      .replace("{precio}", fmt(total))
       .replace("{precioIVA}", fmt(totalConIva))
       .replace("{total}", fmt(totalConIva));
     if (ph) window.open("https://wa.me/549" + ph + "?text=" + encodeURIComponent(msg), "_blank");
     setSent(true);
   };
 
-  const approve = () => {
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved" } : n));
-    // Enable "cambiado" status on approved items in service sheet
+  const confirmDecisions = () => {
+    if (!allDecided) return;
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved", itemDecisions: { ...itemDecisions }, itemPrices: { ...itemPrices } } : n));
     if (order.serviceSheet) {
       const updated = { ...order.serviceSheet };
       items.forEach(it => {
-        if (updated[it.id]) updated[it.id] = { ...updated[it.id], authApproved: true };
+        if (itemDecisions[it.id] === "approved" && updated[it.id]) {
+          updated[it.id] = { ...updated[it.id], status: "cambiado", authApproved: true };
+        }
       });
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
     }
     onNavigate("vehicleDetail", order);
   };
 
-  const deny = (reason) => {
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "denied", denyReason: reason } : n));
-    onNavigate("vehicleDetail", order);
-  };
-
-  const [showDenyPopup, setShowDenyPopup] = useState(false);
-
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 500, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📋 Solicitud de Autorización</div>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📋 Autorización</div>
         <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
 
-      <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 6 }}>VEHÍCULO</div>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{fmtD(order.domain)}</div>
-        <div style={{ fontSize: 14, color: T.grayLight }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
-        <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>Cliente: {client?.name} {client?.lastName}</div>
-        <div style={{ fontSize: 12, color: T.gray }}>Solicitado por: {notif.requestedBy} — {notif.date}</div>
+      {/* Vehicle + Client info */}
+      <div style={{ ...card, padding: 16, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{fmtD(order.domain)}</div>
+          <div style={{ fontSize: 13, color: T.gray }}>{vehicle ? vehicle.brand + " " + vehicle.model + " " + vehicle.year : ""}</div>
+          <div style={{ fontSize: 12, color: T.grayLight }}>{client ? client.name + " " + client.lastName : ""} • {client?.phone || ""}</div>
+        </div>
+        {notif.status === "pending" 
+          ? <div style={{ fontSize: 11, fontWeight: 700, color: T.orange, padding: "4px 12px", borderRadius: 6, background: `${T.orange}15` }}>⏳ PENDIENTE</div>
+          : <div style={{ fontSize: 11, fontWeight: 700, color: T.green, padding: "4px 12px", borderRadius: 6, background: `${T.green}15`, cursor: "pointer" }}>✅ EDITANDO</div>
+        }
       </div>
 
-      <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: T.orange }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: T.orange, marginBottom: 10 }}>⚠️ Items que requieren cambio</div>
+      {/* Items with prices */}
+      <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 12 }}>🔧 Items a presupuestar</div>
         {items.map((it, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{it.label}</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>CAMBIAR</span>
+          <div key={i} style={{ padding: "14px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{it.label}</div>
+                <div style={{ fontSize: 10, color: T.gray }}>{it.section || ""}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
+                <input inputMode="numeric" value={itemPrices[it.id] || ""} onChange={e => setItemPrices(prev => ({ ...prev, [it.id]: e.target.value.replace(/[^0-9]/g, "") }))}
+                  placeholder="Precio..." style={{ ...inputStyle, fontSize: 14, fontWeight: 700, padding: "8px 10px" }} />
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <div onClick={() => setItemDecisions(prev => ({ ...prev, [it.id]: prev[it.id] === "approved" ? "pending" : "approved" }))}
+                  style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: itemDecisions[it.id] === "approved" ? `${T.green}20` : T.bg, color: itemDecisions[it.id] === "approved" ? T.green : T.gray, border: `2px solid ${itemDecisions[it.id] === "approved" ? T.green : T.border}` }}>
+                  ✅
+                </div>
+                <div onClick={() => setItemDecisions(prev => ({ ...prev, [it.id]: prev[it.id] === "denied" ? "pending" : "denied" }))}
+                  style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: itemDecisions[it.id] === "denied" ? `${T.red}20` : T.bg, color: itemDecisions[it.id] === "denied" ? T.red : T.gray, border: `2px solid ${itemDecisions[it.id] === "denied" ? T.red : T.border}` }}>
+                  ❌
+                </div>
+              </div>
+            </div>
           </div>
         ))}
-      </div>
 
-      <div style={{ ...card, padding: 16, marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8 }}>PRESUPUESTO</div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, color: T.gray }}>Subtotal (sin IVA)</span>
-          <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(totalSinIva)}</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, color: T.gray }}>IVA ({iva}%)</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(totalSinIva * iva / 100)}</span>
-        </div>
-        <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD }}>TOTAL</span>
-          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: T.accent }}>{fmt(totalConIva)}</span>
+        {/* Total */}
+        <div style={{ marginTop: 14, padding: "14px 0", borderTop: `2px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 12, color: T.gray }}>Total sin IVA</div>
+            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 12, color: T.gray }}>Total con IVA ({iva}%)</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, color: T.green }}>{fmt(totalConIva)}</div>
+          </div>
         </div>
       </div>
 
+      {/* WhatsApp button */}
       <button onClick={sendWhatsApp} style={{ ...btnPrimary(T.green), width: "100%", marginBottom: 12, fontSize: 15, padding: "16px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         📱 Enviar Presupuesto por WhatsApp
       </button>
       {sent && <div style={{ textAlign: "center", fontSize: 12, color: T.green, marginBottom: 12 }}>✅ Presupuesto enviado</div>}
 
-      <div style={{ display: "flex", gap: 12 }}>
-        <button onClick={approve} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>
-          ✅ Autorizado
-        </button>
-        <button onClick={() => setShowDenyPopup(true)} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0" }}>
-          ❌ Denegado
-        </button>
-      </div>
-
-      {showDenyPopup && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)" }} onClick={() => setShowDenyPopup(false)}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 350, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 20, textAlign: "center", marginBottom: 12 }}>❌</div>
-            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", marginBottom: 16 }}>Motivo de denegación</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => deny("cliente")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0" }}>👤 Denegado por el Cliente</button>
-              <button onClick={() => deny("administracion")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0" }}>🏢 Denegado por Administración</button>
-              <button onClick={() => setShowDenyPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "10px 0", color: T.gray }}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirm button */}
+      <button onClick={confirmDecisions} disabled={!allDecided}
+        style={{ ...btnPrimary(allDecided ? T.accent : T.gray), width: "100%", fontSize: 16, padding: "16px 0" }}>
+        {allDecided ? `✅ Confirmar (${approvedCount} aprobado${approvedCount !== 1 ? "s" : ""}, ${items.length - approvedCount} denegado${items.length - approvedCount !== 1 ? "s" : ""})` : `⏳ Decidir todos los items (${items.filter(it => itemDecisions[it.id] === "pending").length} pendiente${items.filter(it => itemDecisions[it.id] === "pending").length !== 1 ? "s" : ""})`}
+      </button>
     </div>
   );
 };
+
 
 const FojaProgressBar = ({ pct, color, h = 4 }) => (
   <div style={{ width: "100%", height: h, borderRadius: h, background: `${color}18`, overflow: "hidden" }}>
@@ -6087,7 +6126,7 @@ const InterventionDiagram = ({ order, sheet }) => {
       zones[0].items.push({ name: "Rótula de dirección", status: "changed" });
       zones[1].items.push({ name: "Rótula de dirección", status: "changed" });
     }
-    if (sheet.td_bujes_parrilla?.checked && (sheet.td_bujes_parrilla.status === "cambiado" || sheet.td_bujes_parrilla.status === "cambiar")) {
+    if ((sheet.td_bujes?.checked && (sheet.td_bujes.status === "cambiado" || sheet.td_bujes.status === "cambiar")) || (sheet.td_parrilla?.checked && (sheet.td_parrilla.status === "cambiado" || sheet.td_parrilla.status === "cambiar"))) {
       zones[0].items.push({ name: "Buje de parrilla", status: "changed" });
       zones[1].items.push({ name: "Buje de parrilla", status: "changed" });
     }
@@ -7012,23 +7051,31 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "mecánico", label: "Mecánico", desc: "Solo ve y trabaja en órdenes asignadas", color: T.green, icon: "🔧" },
   ];
 
-  const ROLE_PERMS = {
-    dueño: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: true, config: true, cancelar: true },
-    admin: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: true, config: true, cancelar: false },
-    encargado: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: false, config: false, cancelar: false },
-    mecánico: { precios: false, crearOrden: false, finalizar: true, entregar: false, presupuesto: false, admin: false, config: false, cancelar: false },
-  };
-
-  const PERM_LABELS = {
-    precios: "💰 Ver precios y montos",
-    crearOrden: "📝 Crear/editar órdenes",
-    finalizar: "✅ Finalizar trabajos",
-    entregar: "🚗 Entregar vehículos",
-    presupuesto: "📤 Enviar presupuestos",
-    admin: "📊 Acceder a Administración",
-    config: "⚙️ Acceder a Configuración",
-    cancelar: "🗑️ Cancelar órdenes",
-  };
+const DEFAULT_PERMS = {
+  "dueño": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: true, canAuthorize: true, configuracion: true, comenzarTrabajo: true },
+  "encargado": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: true, configuracion: false, comenzarTrabajo: true },
+  "admin": { crearOrdenes: false, verTaller: true, buscarDominio: true, ventaRapida: false, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
+  "mecánico": { crearOrdenes: false, verTaller: true, buscarDominio: false, ventaRapida: false, administracion: false, adminCobros: false, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
+};
+const PERM_LABELS = [
+  { key: "crearOrdenes", label: "Crear Órdenes", icon: "📋" },
+  { key: "verTaller", label: "Ver Taller", icon: "🔧" },
+  { key: "buscarDominio", label: "Buscar Dominio", icon: "🔍" },
+  { key: "ventaRapida", label: "Venta Rápida", icon: "🛒" },
+  { key: "comenzarTrabajo", label: "Comenzar Trabajo", icon: "▶️" },
+  { key: "canAuthorize", label: "Autorizar Cambios", icon: "🔐" },
+  { key: "administracion", label: "Administración", icon: "📊", sep: true },
+  { key: "adminCobros", label: "Cobros", icon: "🧾", sub: true },
+  { key: "adminCaja", label: "Caja", icon: "📒", sub: true },
+  { key: "adminHistorial", label: "Historial", icon: "📚", sub: true },
+  { key: "adminCtaCte", label: "Cta. Corriente", icon: "💰", sub: true },
+  { key: "adminFacturacion", label: "Facturación", icon: "🧾", sub: true },
+  { key: "adminProveedores", label: "Proveedores", icon: "📦", sub: true },
+  { key: "adminServicios", label: "Servicios", icon: "🔧", sub: true },
+  { key: "adminEstadisticas", label: "Estadísticas", icon: "📈", sub: true },
+  { key: "adminIgnacio", label: "Ignacio", icon: "👑", sub: true },
+  { key: "configuracion", label: "Configuración", icon: "⚙️" },
+];
 
   const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#00BCD4", "#FF5722", "#795548"];
 
@@ -7078,7 +7125,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>👥 {editingUser ? "Editar Usuario" : "Gestión de Usuarios"}</div>
         </div>
-        {!editingUser && <div onClick={() => { setNewUser({ name: "", role: "mecánico", pin: "0000" }); setShowNewUser(true); }}
+        {!editingUser && <div onClick={() => { setNewUser({ name: "", role: "mecánico", pin: "0000", perms: { ...DEFAULT_PERMS["mecánico"] } }); setShowNewUser(true); }}
           style={{ ...btnPrimary(T.accent), padding: "8px 16px", fontSize: 12 }}>+ Nuevo</div>}
       </div>
 
@@ -7101,7 +7148,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>ROL</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 20 }}>
               {ROLES.filter(r => r.key !== "dueño" || editingUser.role === "dueño").map(r => (
-                <div key={r.key} onClick={() => setEditingUser(u => ({ ...u, role: r.key }))}
+                <div key={r.key} onClick={() => setEditingUser(u => ({ ...u, role: r.key, perms: { ...DEFAULT_PERMS[r.key] } }))}
                   style={{ padding: 12, borderRadius: 10, cursor: "pointer", border: `2px solid ${editingUser.role === r.key ? r.color : T.border}`, background: editingUser.role === r.key ? `${r.color}15` : T.bg, transition: "all .15s" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                     <span>{r.icon}</span>
@@ -7124,18 +7171,24 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             <input inputMode="numeric" value={editingUser.pin} onChange={e => setEditingUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
               maxLength={4} style={{ ...inputStyle, fontSize: 28, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 12, width: 160, padding: "8px 12px" }} />
 
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS DEL ROL: {ROLES.find(r => r.key === editingUser.role)?.label}</div>
-            <div style={{ ...card, padding: 14 }}>
-              {Object.entries(PERM_LABELS).map(([k, label]) => {
-                const has = ROLE_PERMS[editingUser.role]?.[k];
-                return (
-                  <div key={k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${T.border}22` }}>
-                    <span style={{ fontSize: 13, color: has ? T.text : T.gray }}>{label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: has ? T.green : T.red }}>{has ? "✓ Sí" : "✕ No"}</span>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS</div>
+            {editingUser.role === "dueño" ? (
+              <div style={{ ...card, padding: 14, textAlign: "center", color: T.green, fontWeight: 700 }}>👑 Acceso total</div>
+            ) : (
+              <div style={{ ...card, padding: 10 }}>
+                <div onClick={() => setEditingUser(u => ({ ...u, perms: { ...DEFAULT_PERMS[u.role] } }))}
+                  style={{ fontSize: 10, color: T.accent, cursor: "pointer", marginBottom: 8, fontWeight: 600 }}>↺ Restaurar por defecto</div>
+                {PERM_LABELS.map(p => (
+                  <div key={p.key} onClick={() => setEditingUser(u => ({ ...u, perms: { ...u.perms, [p.key]: !u.perms?.[p.key] } }))}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${T.border}22`, cursor: "pointer", paddingLeft: p.sub ? 16 : 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: p.sep ? 800 : 600, color: p.sep ? T.accent : T.text }}>{p.icon} {p.label}</span>
+                    <div style={{ width: 36, height: 20, borderRadius: 10, background: editingUser.perms?.[p.key] ? T.green : T.bg3, padding: 2 }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 8, background: "#FFF", transform: editingUser.perms?.[p.key] ? "translateX(16px)" : "translateX(0)", transition: "all .2s" }} />
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
@@ -7458,7 +7511,7 @@ export default function App() {
       case "search": return <SearchScreen clients={clients} orders={orders} onNavigate={nav} />;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
-      case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
+      case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} notifications={notifications} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
