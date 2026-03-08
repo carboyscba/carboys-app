@@ -202,6 +202,18 @@ const INITIAL_ORDERS = [
   { id: 118, km: 41500, clientId: 7, domain: "AK 234 QR", status: "pending", works: [{ type: "Repro", price: 25000, desc: "Reprogramación ECU" }], payments: [{ method: "Transferencia", account: "2", amount: 25000 }], date: "2026-03-05", techNotes: [] },
 ];
 
+const ROLE_PERMS_DEFAULTS = {
+  dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true  },
+  admin:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: false },
+  encargado:{ precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false },
+  mecánico: { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false },
+};
+const getPerm = (user, key) => {
+  if (!user) return false;
+  if (user.perms && key in user.perms) return user.perms[key];
+  return ROLE_PERMS_DEFAULTS[user.role]?.[key] ?? false;
+};
+
 const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
 
 const FontLoader = () => (
@@ -2245,7 +2257,7 @@ const DashboardScreen = (props) => {
   const pending = active.filter(o => o.status === "pending").length;
   const working = active.filter(o => o.status === "working").length;
   const done = active.filter(o => o.status === "done").length;
-  const canCreate = ["dueño", "encargado", "mecánico", "admin"].includes(user.role);
+  const canCreate = getPerm(user, "crearOrden");
   const isOwner = user.role === "dueño";
   const canManageAuth = user.canAuthorize === true;
   const pendingNotifs = (notifications || []).filter(n => n.status === "pending");
@@ -2334,14 +2346,14 @@ const DashboardScreen = (props) => {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
         {[
-          { icon: "🔍", label: "Buscar Dominio", action: "search", show: true },
+          { icon: "🔍", label: "Buscar Dominio", action: "search", show: user.role !== "mecánico" },
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
           { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: canCreate },
           { icon: "🔧", label: "En Taller", action: "workshop", show: true },
-          ...(["dueño", "admin"].includes(user.role) ? [
+          ...(getPerm(user, "admin") ? [
             { icon: "📊", label: "Administración", action: "admin", show: true },
           ] : []),
-          ...(["dueño", "admin"].includes(user.role) ? [
+          ...(getPerm(user, "config") ? [
             { icon: "⚙️", label: "Configuración", action: "config", show: true },
           ] : []),
         ].filter(b => b.show !== false).map((b, i) => (
@@ -2632,7 +2644,7 @@ const VehicleDetailScreen = (props) => {
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const canStartWork = ["dueño", "encargado", "mecánico"].includes(user.role);
   const canFinalize = ["dueño", "encargado", "mecánico"].includes(user.role);
-  const canBill = ["dueño", "admin"].includes(user.role);
+  const canBill = getPerm(user, "admin");
   const canNotify = ["dueño", "encargado", "admin"].includes(user.role);
   const canSeePrices = user.role !== "mecánico";
   const isPureIntervention = !order.works.some(w => w.type === "Service Full" || w.type === "Service Base") && order.works.some(w => w.type === "Pastillas de Freno" || w.type === "Tren Delantero" || w.type === "Tren Trasero");
@@ -2932,7 +2944,7 @@ const VehicleDetailScreen = (props) => {
           ...(canBill && order.status === "done" ? [{ icon: "📄", label: "Facturar", show: true, color: T.accent, bg: "rgba(30,136,229,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(user.role === "dueño" && order.status !== "delivered" ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && order.status !== "delivered" ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -5677,7 +5689,27 @@ const SF_TEMPLATE = [
   ]},
 ];
 
-const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section))
+const SB_REQUIRED_IDS = ["aceite", "filtro_aceite", "filtro_aire"];
+const SB_TEMPLATE = SF_TEMPLATE
+  .filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section))
+  .map(s => ({
+    ...s,
+    items: s.items.filter(item => item.id !== "estado_cubiertas").map(item => SB_REQUIRED_IDS.includes(item.id)
+      ? { ...item, optional: false }          // obligatorio
+      : { ...item, optional: true,            // todo lo demás: opcional
+          type: item.type === "check" ? "check" :
+                item.type === "statusRC" ? "optionalStatusRC" :
+                item.type === "binary" ? "optionalBinary" :
+                item.type === "percentRC" ? "optionalBinary" :
+                item.type === "batteryPercent" ? "optionalBinary" :
+                item.type === "brakeFluid" ? "optionalBinary" :
+                item.type === "fluid" ? "optionalBinary" :
+                item.type === "lamp" ? "optionalBinary" :
+                item.type === "freno_trasero" ? "optionalBinary" :
+                item.type
+        }
+    )
+  }))
 const PF_DEL_TEMPLATE = [
   { section: "TREN DELANTERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN DELANTERO").items },
   { section: "FLUIDOS", icon: "💧", items: [
@@ -6040,8 +6072,10 @@ const ServiceSheetScreen = (props) => {
     if (!d) return false;
     // Si el ítem está excluido por exclusión mutua, se considera completo
     if (item.exclusive && item.exclusive.some(exId => (data[exId]?.status || "") !== "")) return true;
+    // Si el ítem es opcional, siempre se considera completo
+    if (item.optional === true) return true;
     switch (item.type) {
-      case "check": return item.optional ? true : d.checked;
+      case "check": return d.checked;
       case "serviceReset": return !!d.resetStatus;
       case "statusRC": return !!d.status;
       case "binary": return !!d.fluidOk;
@@ -6248,7 +6282,10 @@ const ServiceSheetScreen = (props) => {
               {(d.checked || isComplete(item)) ? "✓" : ""}
             </div>
           )}
-          <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{item.label}</span>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>{item.label}</span>
+            {isServiceBase && SB_REQUIRED_IDS.includes(item.id) && <span style={{ fontSize: 9, fontWeight: 800, color: T.green, background: `${T.green}18`, padding: "2px 6px", borderRadius: 4, letterSpacing: .3 }}>OBLIGATORIO</span>}
+          </div>
           {isExcluded && <span style={{ fontSize: 10, color: T.gray, fontWeight: 600 }}>— bloqueado</span>}
           {hasError(item.id) && !isExcluded && <span style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>⚠ Completar</span>}
         </div>
@@ -8773,12 +8810,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
     { key: "mecánico", label: "Mecánico", desc: "Solo ve y trabaja en órdenes asignadas", color: T.green, icon: "🔧" },
   ];
 
-  const ROLE_PERMS = {
-    dueño: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: true, config: true, cancelar: true },
-    admin: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: true, config: true, cancelar: false },
-    encargado: { precios: true, crearOrden: true, finalizar: true, entregar: true, presupuesto: true, admin: false, config: false, cancelar: false },
-    mecánico: { precios: false, crearOrden: false, finalizar: true, entregar: false, presupuesto: false, admin: false, config: false, cancelar: false },
-  };
+  const ROLE_PERMS = ROLE_PERMS_DEFAULTS;
 
   const PERM_LABELS = {
     precios: "💰 Ver precios y montos",
@@ -8897,14 +8929,36 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
               </div>
             </div>
 
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS DEL ROL: {ROLES.find(r => r.key === editingUser.role)?.label}</div>
-            <div style={{ ...card, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, marginTop: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight }}>PERMISOS — {ROLES.find(r => r.key === editingUser.role)?.label}</div>
+              <div onClick={() => setEditingUser(u => ({ ...u, perms: ROLE_PERMS[u.role] || {} }))}
+                style={{ fontSize: 10, color: T.accent, cursor: "pointer", fontWeight: 700, padding: "3px 8px", border: `1px solid ${T.accent}40`, borderRadius: 4 }}>
+                ↺ Resetear rol
+              </div>
+            </div>
+            <div style={{ ...card, padding: 8 }}>
               {Object.entries(PERM_LABELS).map(([k, label]) => {
-                const has = ROLE_PERMS[editingUser.role]?.[k];
+                const roleDefault = ROLE_PERMS[editingUser.role]?.[k] || false;
+                const current = editingUser.perms ? (k in editingUser.perms ? editingUser.perms[k] : roleDefault) : roleDefault;
+                const isOverridden = editingUser.perms && (k in editingUser.perms) && editingUser.perms[k] !== roleDefault;
                 return (
-                  <div key={k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${T.border}22` }}>
-                    <span style={{ fontSize: 13, color: has ? T.text : T.gray }}>{label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: has ? T.green : T.red }}>{has ? "✓ Sí" : "✕ No"}</span>
+                  <div key={k} onClick={() => setEditingUser(u => {
+                    const base = u.perms || { ...ROLE_PERMS[u.role] };
+                    return { ...u, perms: { ...base, [k]: !current } };
+                  })}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 8px", borderRadius: 8, marginBottom: 2, cursor: "pointer",
+                      background: current ? `${T.green}08` : `${T.bg}`,
+                      border: `1px solid ${isOverridden ? T.orange + "60" : "transparent"}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, color: current ? T.text : T.gray }}>{label}</span>
+                      {isOverridden && <span style={{ fontSize: 9, color: T.orange, fontWeight: 700, padding: "1px 5px", background: `${T.orange}20`, borderRadius: 3 }}>CUSTOM</span>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: current ? T.green : T.red }}>{current ? "✓ Sí" : "✕ No"}</span>
+                      <div style={{ width: 38, height: 20, borderRadius: 10, background: current ? T.green : T.border, padding: 2, transition: "all .2s", flexShrink: 0 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 8, background: "#FFF", transform: current ? "translateX(18px)" : "translateX(0)", transition: "transform .2s" }} />
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -9228,7 +9282,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return <SearchScreen clients={clients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} />;
+      case "search": return user.role === "mecánico" ? null : <SearchScreen clients={clients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} />;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
@@ -9236,9 +9290,9 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return ["dueño", "admin"].includes(user.role) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} /> : null;
+      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
-            case "config": return ["dueño", "admin"].includes(user.role) ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
+            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
     }
   };
