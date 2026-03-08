@@ -5048,10 +5048,12 @@ const ServiceSheetScreen = (props) => {
   };
 
   useEffect(() => {
-    if (checklistWorks.length === 0) return;
+    if (checklistWorks.length === 0 && interventionWorks.length === 0) return;
     let updated = false;
     const newCl = { ...workChecklist };
     Object.entries(SHEET_TO_WORK_MAP).forEach(([sheetKey, workType]) => {
+      // Skip embedded work types — they're handled directly in the service sheet with isForced
+      if (hasService && embeddedWorkTypes.includes(workType)) return;
       const sheetItem = data[sheetKey];
       if (!sheetItem) return;
       const isCambiado = sheetItem.fluidOk === "cambiado" || sheetItem.fluidOk === "cambiada" || sheetItem.status === "cambiado";
@@ -5412,7 +5414,7 @@ const ServiceSheetScreen = (props) => {
         )}
 
         {item.type === "binary" && !isForced && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml, flexWrap: "wrap" }}>
             {[
               { k: "bien", label: item.labels?.[0] || "BIEN", color: T.green },
               { k: "mal", label: item.labels?.[1] || "MAL", color: T.red },
@@ -5422,6 +5424,17 @@ const ServiceSheetScreen = (props) => {
                 <div style={{ width: 12, height: 12, borderRadius: "50%", background: s.color }} />{s.label}
               </div>
             ))}
+            {d.fluidOk === "mal" && item.needsAuth && isItemApproved(item.id) && (
+              <div onClick={() => setBinary(item.id, "cambiado")}
+                style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `2px solid ${S4_COLORS.cambiado}`, display: "flex", alignItems: "center", gap: 6, animation: "fadeUp .2s ease" }}>
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: S4_COLORS.cambiado }} />🔵 CAMBIADA
+              </div>
+            )}
+            {d.fluidOk === "cambiado" && (
+              <div style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `2px solid ${S4_COLORS.cambiado}`, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: S4_COLORS.cambiado }} />✓ CAMBIADA
+              </div>
+            )}
           </div>
         )}
 
