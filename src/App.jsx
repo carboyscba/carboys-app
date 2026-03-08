@@ -4841,21 +4841,28 @@ const ServiceSheetScreen = (props) => {
 
   const serviceWorks = order.works.filter(w => w.type === "Service Full" || w.type === "Service Base");
   const hasService = serviceWorks.length > 0;
-  const embeddedWorkTypes = ["Pastillas de Freno", "Escobillas", "Baterías", "Lámpara"];
-  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno") && !(hasService && embeddedWorkTypes.includes(w.type)));
+  const embeddedWorkTypes = ["Escobillas", "Baterías", "Lámpara"]; // Pastillas siempre tab propio
+  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno"));
   const embeddedWorks = hasService ? order.works.filter(w => embeddedWorkTypes.includes(w.type)) : [];
   const checklistWorks = order.works.filter(w => {
-    if (["Service Full", "Service Base", "Tren Delantero", "Tren Trasero"].includes(w.type)) return false;
-    if (hasService && embeddedWorkTypes.includes(w.type)) return false; // handled inside service sheet
-    if (w.type === "Pastillas de Freno" && !hasService) return false; // handled by intervention
+    if (["Service Full", "Service Base", "Tren Delantero", "Tren Trasero", "Pastillas de Freno"].includes(w.type)) return false;
+    if (hasService && embeddedWorkTypes.includes(w.type)) return false;
     return true;
   });
 
+  // Ítems aprobados por auth que NO están ya en order.works → tabs dinámicos
+  const approvedAuthNotif = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+  const approvedAuthItems = (approvedAuthNotif?.items || []).filter(it => it.itemStatus !== "denied");
+  const authTabWorks = approvedAuthItems
+    .filter(it => !order.works.some(w => w.type === it.label))
+    .map(it => ({ type: it.label, price: it.price || 0, desc: "", _fromAuth: true }));
+
   const tabs = [
     ...serviceWorks.map(w => ({ type: "service", label: w.type, icon: w.type === "Service Full" ? "🛠️" : "🔧", work: w })),
-    ...embeddedWorks.filter(w => w.type !== "Pastillas de Freno").map(w => ({ type: "embedded", label: w.type, icon: findWorkType(w.type)?.icon || "🔧", work: w })),
+    ...embeddedWorks.map(w => ({ type: "embedded", label: w.type, icon: findWorkType(w.type)?.icon || "🔧", work: w })),
     ...interventionWorks.map(w => ({ type: "intervention", label: w.type, icon: "⚙️", work: w })),
     ...checklistWorks.map(w => ({ type: "checklist", label: w.type, icon: findWorkType(w.type)?.icon || "🔧", work: w })),
+    ...authTabWorks.map(w => ({ type: "checklist", label: w.type, icon: findWorkType(w.type)?.icon || "✅", work: w, fromAuth: true })),
   ];
 
   const [activeTab, setActiveTab] = useState(0);
@@ -4937,8 +4944,8 @@ const ServiceSheetScreen = (props) => {
   const [workChecklist, setWorkChecklist] = useState(() => {
     const saved = order.workChecklist || {};
     const result = {};
-    checklistWorks.forEach(w => {
-      const wKey = w.type + "_" + (order.works.indexOf(w));
+    [...checklistWorks, ...interventionWorks, ...authTabWorks].forEach(w => {
+      const wKey = w._fromAuth ? w.type + "_auth" : w.type + "_" + (order.works.indexOf(w));
       if (saved[wKey]) {
         result[wKey] = saved[wKey];
       } else {
@@ -5157,12 +5164,15 @@ const ServiceSheetScreen = (props) => {
   };
 
   const isItemApproved = (itemId) => {
-    const approved = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
-    return approved?.items?.some(it => it.id === itemId) || false;
+    const notif = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+    if (!notif) return false;
+    return notif.items?.some(it => it.id === itemId && it.itemStatus !== "denied") || false;
   };
   const isItemDenied = (itemId) => {
-    const denied = (notifications || []).find(n => n.orderId === order.id && n.status === "denied");
-    return denied?.items?.some(it => it.id === itemId) || false;
+    const notif = (notifications || []).find(n => n.orderId === order.id && (n.status === "denied" || n.status === "approved"));
+    if (!notif) return false;
+    if (notif.status === "denied") return notif.items?.some(it => it.id === itemId) || false;
+    return notif.items?.some(it => it.id === itemId && it.itemStatus === "denied") || false;
   };
 
   const renderItem = (item) => {
@@ -5649,7 +5659,7 @@ const ServiceSheetScreen = (props) => {
 
   const renderChecklist = (work) => {
     if (!work) return <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin datos</div>;
-    const wKey = work.type + "_" + order.works.indexOf(work);
+    const wKey = work._fromAuth ? work.type + "_auth" : work.type + "_" + order.works.indexOf(work);
     const items = workChecklist[wKey] || [];
     const done = items.filter(it => it.done).length;
     const pct = items.length > 0 ? Math.round(done / items.length * 100) : 0;
@@ -5801,14 +5811,14 @@ const ServiceSheetScreen = (props) => {
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
-      {/* Tab navigation when multiple works */}
-      {tabs.length > 1 && (
+      {/* Tab navigation */}
+      {tabs.length >= 1 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
           {tabs.map((tab, idx) => {
             const isActive = activeTab === idx;
             const tabDone = (tab.type === "service" || tab.type === "embedded") ? progress === 100 :
-              tab.type === "checklist" ? getCheckProgress(tab.work.type + "_" + order.works.indexOf(tab.work)) === 100 : false;
+              tab.type === "checklist" ? getCheckProgress(tab.work._fromAuth ? tab.work.type + "_auth" : tab.work.type + "_" + order.works.indexOf(tab.work)) === 100 : false;
             return (
               <div key={idx} onClick={() => {
                 setActiveTab(idx);
@@ -6043,10 +6053,33 @@ const ServiceSheetScreen = (props) => {
                 <span style={{ fontSize: 12, fontWeight: 700, color: T.red }}>CAMBIAR</span>
               </div>
             ))}
-            {approvedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.green + "10", border: "1px solid " + T.green + "30", textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: T.green }}>✅ AUTORIZACIÓN APROBADA</div>
-              {approvedAuth.items && <div style={{ marginTop: 6 }}>{(approvedAuth?.items || []).map((it, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>• {it.label}</div>)}</div>}
-            </div>}
+            {approvedAuth && (() => {
+              const appItems = (approvedAuth.items || []).filter(it => it.itemStatus !== "denied");
+              const denItems = (approvedAuth.items || []).filter(it => it.itemStatus === "denied");
+              const isPartial = appItems.length > 0 && denItems.length > 0;
+              const isAllDenied = appItems.length === 0 && denItems.length > 0;
+              const bannerColor = isPartial ? T.orange : isAllDenied ? T.red : T.green;
+              const bannerTitle = isPartial ? "⚠️ AUTORIZACIÓN PARCIAL" : isAllDenied ? "❌ ARREGLO DENEGADO" : "✅ AUTORIZACIÓN APROBADA";
+              return (
+                <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: bannerColor + "10", border: "1px solid " + bannerColor + "30" }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: bannerColor, textAlign: "center", marginBottom: appItems.length + denItems.length > 0 ? 10 : 0 }}>{bannerTitle}</div>
+                  {appItems.map((it, i) => (
+                    <div key={"a"+i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: T.green, fontWeight: 700 }}>{it.label}</span>
+                      <span style={{ fontSize: 11, color: T.green, marginLeft: "auto" }}>APROBADO</span>
+                    </div>
+                  ))}
+                  {denItems.map((it, i) => (
+                    <div key={"d"+i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: T.red, fontWeight: 700 }}>{it.label}</span>
+                      <span style={{ fontSize: 11, color: T.red, marginLeft: "auto" }}>DENEGADO</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
             {deniedAuth && <div style={{ marginTop: 14, padding: 14, borderRadius: 10, background: T.red + "10", border: "1px solid " + T.red + "30", textAlign: "center" }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.red }}>❌ AUTORIZACIÓN DENEGADA</div>
               <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>{deniedAuth.denyReason === "cliente" ? "Denegado por el cliente" : "Denegado por administración"}</div>
@@ -6342,27 +6375,70 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       </button>
       {sent && <div style={{ textAlign: "center", fontSize: 12, color: T.green, marginBottom: 12, fontWeight: 700 }}>✅ Mensaje enviado al cliente</div>}
 
-      {/* Botones finales */}
-      <div style={{ display: "flex", gap: 12 }}>
-        <button
-          onClick={() => {
-            if (allDecided && someApproved) { doApproveAll(); }
-            else if (allDecided && allDenied) { setDenyTarget("all"); setShowDenyPopup(true); }
-            else {
-              // Marcar todos los sin decidir como aprobados
-              const updated = {};
-              items.forEach(it => { updated[it.id] = itemStatus[it.id] || "approved"; });
-              setItemStatus(updated);
-            }
-          }}
-          style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0", fontWeight: 800 }}>
-          ✅ {allDecided && someApproved ? "Confirmar" : allDecided && allDenied ? "—" : "Aprobar Todo"}
-        </button>
-        <button onClick={() => { setDenyTarget("all"); setShowDenyPopup(true); }}
-          style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", fontWeight: 800 }}>
-          ❌ Denegar Todo
-        </button>
-      </div>
+      {/* Botones finales — pulsación sostenida 1.5s */}
+      {(() => {
+        const HoldButton = ({ label, color, onComplete }) => {
+          const [progress, setProgress] = React.useState(0);
+          const intervalRef = React.useRef(null);
+          const DURATION = 1500;
+          const STEP = 30;
+
+          const startHold = () => {
+            intervalRef.current = setInterval(() => {
+              setProgress(prev => {
+                const next = prev + (STEP / DURATION * 100);
+                if (next >= 100) {
+                  clearInterval(intervalRef.current);
+                  setTimeout(() => onComplete(), 50);
+                  return 100;
+                }
+                return next;
+              });
+            }, STEP);
+          };
+
+          const stopHold = () => {
+            clearInterval(intervalRef.current);
+            setProgress(0);
+          };
+
+          return (
+            <div
+              onMouseDown={startHold} onMouseUp={stopHold} onMouseLeave={stopHold}
+              onTouchStart={startHold} onTouchEnd={stopHold} onTouchCancel={stopHold}
+              style={{ flex: 1, borderRadius: 12, overflow: "hidden", position: "relative", cursor: "pointer", userSelect: "none", WebkitUserSelect: "none" }}>
+              {/* Fondo base */}
+              <div style={{ background: `${color}22`, border: `2px solid ${color}`, borderRadius: 12, padding: "16px 0", textAlign: "center", position: "relative", overflow: "hidden" }}>
+                {/* Barra de progreso */}
+                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${progress}%`, background: `${color}55`, transition: progress === 0 ? "width .15s" : "none", borderRadius: 12 }} />
+                {/* Texto */}
+                <span style={{ position: "relative", zIndex: 1, fontSize: 14, fontWeight: 800, color, fontFamily: font }}>
+                  {progress > 0 && progress < 100 ? `${Math.round(progress)}%` : label}
+                </span>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div style={{ display: "flex", gap: 12 }}>
+            <HoldButton
+              label={someApproved && items.some(it => itemStatus[it.id] === "denied") ? "⚠️ Aprobación Parcial" : "✅ Aprobar Todo"}
+              color={someApproved && items.some(it => itemStatus[it.id] === "denied") ? T.orange : T.green}
+              onComplete={() => {
+                if (allDecided && allDenied) { setDenyTarget("all"); setShowDenyPopup(true); }
+                else { doApproveAll(); }
+              }}
+            />
+            <HoldButton
+              label="❌ Denegar Todo"
+              color={T.red}
+              onComplete={() => { setDenyTarget("all"); setShowDenyPopup(true); }}
+            />
+          </div>
+        );
+      })()}
+
       {allDecided && !allDenied && someApproved && items.some(it => itemStatus[it.id] === "denied") && (
         <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: `${T.orange}12`, border: `1px solid ${T.orange}40`, fontSize: 12, color: T.orange, textAlign: "center", fontWeight: 600 }}>
           ⚠️ Autorización parcial: {items.filter(it => itemStatus[it.id] === "approved").length} aprobados, {items.filter(it => itemStatus[it.id] === "denied").length} denegados
