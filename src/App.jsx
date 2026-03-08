@@ -4607,7 +4607,10 @@ const SF_TEMPLATE = [
   ]},
 ];
 
-const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section));
+const SB_TEMPLATE = SF_TEMPLATE.filter(s => {
+  const keep = ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "ESCOBILLAS", "CUBIERTAS"];
+  return keep.includes(s.section) || s.section.startsWith("DIAGN") || s.section.startsWith("BUJ") || s.section.startsWith("BATER");
+});
 const PF_DEL_TEMPLATE = [
   { section: "TREN DELANTERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN DELANTERO").items },
   { section: "FLUIDOS", icon: "💧", items: [
@@ -4631,24 +4634,25 @@ const PF_AMBOS_TEMPLATE = [
 ];
 
 
-const CarTiresDiagram = ({ tires, onChange }) => {
-  const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
-  const color = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
-  const keys = [["del_izq", "Del. Izq."], ["del_der", "Del. Der."], ["tra_izq", "Tra. Izq."], ["tra_der", "Tra. Der."]];
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 300 }}>
-      {keys.map(([k, label]) => (
-        <div key={k} style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>{label}</div>
-          <input type="range" min="0" max="100" value={t[k]} onChange={e => onChange({ ...t, [k]: parseInt(e.target.value) })} style={{ width: "100%", accentColor: color(t[k]) }} />
-          <div style={{ fontSize: 14, fontWeight: 700, color: color(t[k]) }}>{t[k]}%</div>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const ServiceSheetScreen = (props) => {
+  const CarTiresDiagram = ({ tires, onChange }) => {
+    const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
+    const color = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
+    const keys = [["del_izq", "Del. Izq."], ["del_der", "Del. Der."], ["tra_izq", "Tra. Izq."], ["tra_der", "Tra. Der."]];
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 300 }}>
+        {keys.map(([k, label]) => (
+          <div key={k} style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>{label}</div>
+            <input type="range" min="0" max="100" value={t[k]} onChange={e => onChange({ ...t, [k]: parseInt(e.target.value) })} style={{ width: "100%", accentColor: color(t[k]) }} />
+            <div style={{ fontSize: 14, fontWeight: 700, color: color(t[k]) }}>{t[k]}%</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const { order, clients, user, orders, setOrders, notifications, setNotifications, onNavigate } = props;
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
