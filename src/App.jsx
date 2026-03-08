@@ -179,27 +179,27 @@ const FULL_SS = {
 };
 
 const INITIAL_ORDERS = [
-  { id: 101, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_extremos: { status: "bien", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
-  { id: 102, clientId: 2, domain: "AB 456 CD", status: "delivered", works: [{ type: "Service Full", price: 75000 }], payments: [{ method: "Efectivo", amount: 75000, withIva: false }], assignedTo: "Fabricio", date: "2026-01-20", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 103, clientId: 3, domain: "AE 789 FG", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 62000, escapeType: "original", trenItems: [{ key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Tarjeta", amount: 157000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-01-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 104, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "1", amount: 150000, withIva: true }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 105, clientId: 6, domain: "AH 901 NP", status: "delivered", works: [{ type: "Service Base", price: 45000 }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-05", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 106, clientId: 4, domain: "AD 012 HI", status: "delivered", works: [{ type: "Tren Delantero", price: 78000, trenItems: [{ key: "bieletas", label: "Bieletas", hasSide: true, selected: true, price: "38000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 42000, desc: "Ambos ejes", brakeEjes: { del: true, tra: true } }], payments: [{ method: "Cuenta Corriente", amount: 120000 }], assignedTo: "Fabricio", date: "2026-02-10", startedBy: "Fabricio", techNotes: [] },
-  { id: 107, clientId: 7, domain: "AK 234 QR", status: "delivered", works: [{ type: "Service Full", price: 75000 }, { type: "Escobillas", price: 15000 }], payments: [{ method: "Transferencia", account: "1", amount: 90000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-14", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 108, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Service Full", price: 70000 }], payments: [{ method: "Tarjeta", amount: 70000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-02-18", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 109, clientId: 9, domain: "AM 890 UV", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Tren Delantero", price: 110000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "rotulas", label: "Rótulas", hasSide: true, selected: true, price: "30000", side: "ambos" }] }], payments: [{ method: "Transferencia", account: "1", amount: 205000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-22", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: ["Revisar tren trasero próximo service"] },
-  { id: 110, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Mecánica", price: 45000, desc: "Cambio de bujías" }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-25", startedBy: "Fabricio", techNotes: [] },
-  { id: 111, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Service Full", price: 70000 }, { type: "Aditivo", price: 8000 }], payments: [{ method: "Transferencia", account: "2", amount: 78000 }], assignedTo: "Fabricio", date: "2026-02-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 112, clientId: 12, domain: "AR 444 CD", status: "delivered", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Trasero", price: 55000, trenItems: [{ key: "amortiguadores_t", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }] }], payments: [{ method: "Tarjeta", amount: 135000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-03-01", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 119, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Tren Delantero", price: 92000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 92000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-02", startedBy: "Fabricio", techNotes: [] },
-  { id: 120, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Service Full", price: 78000 }, { type: "Escape", price: 45000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "45000" }] }], payments: [{ method: "Efectivo", amount: 123000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 121, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Mecánica", price: 55000, desc: "Kit de embrague" }], payments: [{ method: "Tarjeta", amount: 55000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", techNotes: [] },
-    { id: 113, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: { ...FULL_SS, catalizador: { status: "cambiado", checked: true }, silenciador_trasero: { status: "bien", checked: true }, silenciador_intermedio: { status: "bien", checked: true }, multiple_escape: { status: "bien", checked: true }, cano_escape: { status: "bien", checked: true }, soporte_escape: { status: "bien", checked: true } }, techNotes: ["Catalizador original agotado, se colocó compatible"] },
-  { id: 114, clientId: 9, domain: "AN 111 WX", status: "working", works: [{ type: "Service Full", price: 85000 }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }], payments: [{ method: "Transferencia", account: "1", amount: 123000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", startedAt: "2026-03-04 08:30", serviceSheet: null, techNotes: [] },
-  { id: 115, clientId: 1, domain: "AC 123 BD", status: "working", works: [{ type: "Mecánica", price: 35000, desc: "Cambio termostato" }], payments: [{ method: "Efectivo", amount: 35000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00", techNotes: [] },
-  { id: 116, clientId: 2, domain: "AB 456 CD", status: "pending", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Delantero", price: 95000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 175000, withIva: true, invoiceType: "A" }], date: "2026-03-05", techNotes: [] },
-  { id: 117, clientId: 4, domain: "AD 012 HI", status: "pending", works: [{ type: "Service Base", price: 48000 }], payments: [{ method: "Efectivo", amount: 48000 }], date: "2026-03-05", techNotes: [] },
-  { id: 118, clientId: 7, domain: "AK 234 QR", status: "pending", works: [{ type: "Repro", price: 25000, desc: "Reprogramación ECU" }], payments: [{ method: "Transferencia", account: "2", amount: 25000 }], date: "2026-03-05", techNotes: [] },
+  { id: 101, km: 47200, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_extremos: { status: "bien", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
+  { id: 102, km: 83500, clientId: 2, domain: "AB 456 CD", status: "delivered", works: [{ type: "Service Full", price: 75000 }], payments: [{ method: "Efectivo", amount: 75000, withIva: false }], assignedTo: "Fabricio", date: "2026-01-20", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 103, km: 28400, clientId: 3, domain: "AE 789 FG", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 62000, escapeType: "original", trenItems: [{ key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Tarjeta", amount: 157000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-01-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 104, km: 61800, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "1", amount: 150000, withIva: true }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 105, km: 112300, clientId: 6, domain: "AH 901 NP", status: "delivered", works: [{ type: "Service Base", price: 45000 }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-05", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 106, km: 74600, clientId: 4, domain: "AD 012 HI", status: "delivered", works: [{ type: "Tren Delantero", price: 78000, trenItems: [{ key: "bieletas", label: "Bieletas", hasSide: true, selected: true, price: "38000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 42000, desc: "Ambos ejes", brakeEjes: { del: true, tra: true } }], payments: [{ method: "Cuenta Corriente", amount: 120000 }], assignedTo: "Fabricio", date: "2026-02-10", startedBy: "Fabricio", techNotes: [] },
+  { id: 107, km: 39100, clientId: 7, domain: "AK 234 QR", status: "delivered", works: [{ type: "Service Full", price: 75000 }, { type: "Escobillas", price: 15000 }], payments: [{ method: "Transferencia", account: "1", amount: 90000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-14", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 108, km: 55700, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Service Full", price: 70000 }], payments: [{ method: "Tarjeta", amount: 70000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-02-18", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 109, km: 93200, clientId: 9, domain: "AM 890 UV", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Tren Delantero", price: 110000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "rotulas", label: "Rótulas", hasSide: true, selected: true, price: "30000", side: "ambos" }] }], payments: [{ method: "Transferencia", account: "1", amount: 205000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-22", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: ["Revisar tren trasero próximo service"] },
+  { id: 110, km: 148900, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Mecánica", price: 45000, desc: "Cambio de bujías" }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-25", startedBy: "Fabricio", techNotes: [] },
+  { id: 111, km: 22400, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Service Full", price: 70000 }, { type: "Aditivo", price: 8000 }], payments: [{ method: "Transferencia", account: "2", amount: 78000 }], assignedTo: "Fabricio", date: "2026-02-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 112, km: 67300, clientId: 12, domain: "AR 444 CD", status: "delivered", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Trasero", price: 55000, trenItems: [{ key: "amortiguadores_t", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }] }], payments: [{ method: "Tarjeta", amount: 135000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-03-01", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 119, km: 57100, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Tren Delantero", price: 92000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 92000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-02", startedBy: "Fabricio", techNotes: [] },
+  { id: 120, km: 151200, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Service Full", price: 78000 }, { type: "Escape", price: 45000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "45000" }] }], payments: [{ method: "Efectivo", amount: 123000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
+  { id: 121, km: 24800, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Mecánica", price: 55000, desc: "Kit de embrague" }], payments: [{ method: "Tarjeta", amount: 55000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", techNotes: [] },
+    { id: 113, km: 45600, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: { ...FULL_SS, catalizador: { status: "cambiado", checked: true }, silenciador_trasero: { status: "bien", checked: true }, silenciador_intermedio: { status: "bien", checked: true }, multiple_escape: { status: "bien", checked: true }, cano_escape: { status: "bien", checked: true }, soporte_escape: { status: "bien", checked: true } }, techNotes: ["Catalizador original agotado, se colocó compatible"] },
+  { id: 114, km: 94500, clientId: 9, domain: "AN 111 WX", status: "working", works: [{ type: "Service Full", price: 85000 }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }], payments: [{ method: "Transferencia", account: "1", amount: 123000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", startedAt: "2026-03-04 08:30", serviceSheet: null, techNotes: [] },
+  { id: 115, km: 49300, clientId: 1, domain: "AC 123 BD", status: "working", works: [{ type: "Mecánica", price: 35000, desc: "Cambio termostato" }], payments: [{ method: "Efectivo", amount: 35000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00", techNotes: [] },
+  { id: 116, km: 86200, clientId: 2, domain: "AB 456 CD", status: "pending", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Delantero", price: 95000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 175000, withIva: true, invoiceType: "A" }], date: "2026-03-05", techNotes: [] },
+  { id: 117, km: 76800, clientId: 4, domain: "AD 012 HI", status: "pending", works: [{ type: "Service Base", price: 48000 }], payments: [{ method: "Efectivo", amount: 48000 }], date: "2026-03-05", techNotes: [] },
+  { id: 118, km: 41500, clientId: 7, domain: "AK 234 QR", status: "pending", works: [{ type: "Repro", price: 25000, desc: "Reprogramación ECU" }], payments: [{ method: "Transferencia", account: "2", amount: 25000 }], date: "2026-03-05", techNotes: [] },
 ];
 
 const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
@@ -303,6 +303,7 @@ const btnPrimary = (c = T.accent) => ({
 
 const fmt = (n) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 const fmtD = (d) => d ? d.replace(/\s/g, "") : "";
+const fmtDate = (d) => { if (!d) return "—"; const p = String(d).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
 
 
 // ── NUMPAD COMPONENT ──
@@ -497,6 +498,8 @@ const NewOrderScreen = (props) => {
   const [foundVehicle, setFoundVehicle] = useState(null);
   const [isNew, setIsNew] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [historyVehicle, setHistoryVehicle] = useState(null); // { client, vehicle, orders }
+  const [historyOrderDetail, setHistoryOrderDetail] = useState(null); // order to show full detail
 
   const [form, setForm] = useState({ name: "", lastName: "", dni: "", cuit: "", phone: "", brand: "", model: "", year: "", km: "", currentKm: "", lastKm: "", domain: "" });
   const [manualModel, setManualModel] = useState(false);
@@ -516,13 +519,17 @@ const NewOrderScreen = (props) => {
     for (const c of clients) {
       const v = c.vehicles.find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
       if (v) {
+        // Vehicle found — show history panel first
+        const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled")
+          .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
         setFoundClient(c);
         setFoundVehicle(v);
         setForm({ name: c.name, lastName: c.lastName, dni: c.dni || "", cuit: c.cuit || "", phone: c.phone || "", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
-        setStep(2);
         return;
       }
     }
+    setHistoryVehicle(null);
     setFoundClient(null);
     setFoundVehicle(null);
     setIsNew(true);
@@ -691,89 +698,312 @@ const NewOrderScreen = (props) => {
 
           {/* Domain search */}
           {searchMode === "domain" && (
-            <div style={{ display: "flex", gap: 10 }}>
-              <input value={domainSearch} onChange={e => setDomainSearch(e.target.value.toUpperCase())}
+            <div>
+              <input value={domainSearch} onChange={e => { setDomainSearch(e.target.value.toUpperCase()); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
                 onKeyDown={e => e.key === "Enter" && searchDomain()}
-                placeholder="Ej: AC 123 BD" style={{ ...inputStyle, flex: 1, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px" }} autoFocus />
-              <button onClick={searchDomain} style={btnPrimary()}>Buscar</button>
+                placeholder="Ej: AC 123 BD" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
+
+              {/* Predictivo por dominio */}
+              {domainSearch.length > 1 && !historyVehicle && (() => {
+                const matches = [];
+                for (const c of clients) {
+                  for (const v of c.vehicles) {
+                    if (v.domain.replace(/\s/g,"").toLowerCase().includes(domainSearch.replace(/\s/g,"").toLowerCase())) {
+                      const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
+                      const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled"].includes(o.status));
+                      matches.push({ c, v, vCount, activeOrder });
+                    }
+                  }
+                }
+                if (matches.length === 0) return (
+                  <div style={{ ...card, padding: 20, textAlign: "center", marginTop: 12 }}>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Sin resultados</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>No existe "{domainSearch}" — ¿Es un cliente nuevo?</div>
+                    <button onClick={searchDomain} style={btnPrimary()}>+ Crear nuevo cliente</button>
+                  </div>
+                );
+                return (
+                  <div style={{ marginTop: 12 }}>
+                    {matches.map(({ c, v, vCount, activeOrder }) => (
+                      <div key={v.domain} onClick={() => {
+                        const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").sort((a, b) => (b.date||"").localeCompare(a.date||""));
+                        setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
+                        setFoundClient(c);
+                        setFoundVehicle(v);
+                        setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
+                      }} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${T.accent}` }}
+                        onMouseEnter={e => e.currentTarget.style.background = T.bg3}
+                        onMouseLeave={e => e.currentTarget.style.background = T.bg2}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
+                            <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
+                            <div style={{ fontSize: 12, color: T.gray }}>{c.name} {c.lastName}</div>
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
+                            {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.orange, marginTop: 4 }}>EN TALLER</div>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* ── HISTORIAL DE VISITAS ── */}
+              {historyVehicle && !historyOrderDetail && (() => {
+                const { client: hc, vehicle: hv, orders: hOrders } = historyVehicle;
+                const activeOrder = hOrders.find(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+                return (
+                  <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
+                    {/* Vehicle header — mismo formato que SearchScreen */}
+                    <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>{fmtD(hv.domain)}</div>
+                          <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{hv.brand} {hv.model} {hv.year}</div>
+                          <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{hc.name} {hc.lastName}</strong></div>
+                          {hv.km && <div style={{ fontSize: 13, color: T.grayLight, marginTop: 4 }}>KM de su última visita: <strong style={{ color: T.text }}>{Number(hv.km).toLocaleString("es-AR")} km</strong></div>}
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontFamily: fontD, fontSize: 36, fontWeight: 800, color: T.accent }}>{hOrders.length}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>ingreso{hOrders.length !== 1 ? "s" : ""}</div>
+                        </div>
+                      </div>
+                      {/* Botón Nueva Visita — exclusivo de este flujo */}
+                      <div style={{ marginTop: 16 }}>
+                        {activeOrder && (
+                          <div style={{ fontSize: 12, color: T.orange, fontWeight: 600, padding: "10px 14px", background: `${T.orange}10`, borderRadius: 8, marginBottom: 10 }}>
+                            ⚠️ Este vehículo ya tiene una orden activa en taller
+                          </div>
+                        )}
+                        <button onClick={() => { setHistoryVehicle(null); setHistoryOrderDetail(null); setStep(2); }}
+                          style={{ ...btnPrimary(), width: "100%", padding: "14px 0", fontSize: 15, fontWeight: 700 }}>
+                          ➕ Nueva Visita
+                        </button>
+                      </div>
+                    </div>
+
+                    {hOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
+
+                    {hOrders.map(o => {
+                      const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+                      const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
+                      return (
+                        <div key={o.id} onClick={() => setHistoryOrderDetail(o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
+                          {/* KM en blanco, centrado, arriba */}
+                          {o.km && (
+                            <div style={{ textAlign: "center", marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}>
+                              <span style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: "#FFFFFF" }}>{Number(o.km).toLocaleString("es-AR")} km</span>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmtDate(o.date)}</div>
+                              <div style={{ fontSize: 12, color: sc, fontWeight: 700, marginTop: 2 }}>{sl}</div>
+                              {o.assignedTo && <div style={{ fontSize: 11, color: T.gray }}>Mecánico: {o.assignedTo}</div>}
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                              {o.payments && o.payments.length > 0 && <div style={{ fontSize: 11, color: T.gray }}>{o.payments.map(p => p.method).filter(Boolean).join(", ")}</div>}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Trabajos:</div>
+                          {o.works.map((w, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", paddingLeft: 10, borderBottom: i < o.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                              <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                              <span style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price || 0)}</span>
+                            </div>
+                          ))}
+                          {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
+                            <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: `${T.orange}08`, border: `1px solid ${T.orange}20` }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: T.orange, marginBottom: 4 }}>📝 Notas:</div>
+                              {o.techNotes.filter(n => n).map((n, i) => <div key={i} style={{ fontSize: 11, color: T.grayLight }}>• {n}</div>)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* ── DETALLE DE VISITA ── */}
+              {historyOrderDetail && (() => {
+                const o = historyOrderDetail;
+                const hv = historyVehicle?.vehicle;
+                const hc = historyVehicle?.client;
+                const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+                return (
+                  <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
+                    <button onClick={() => setHistoryOrderDetail(null)}
+                      style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver al historial</button>
+
+                    {/* Header */}
+                    <div style={{ ...card, padding: 20, marginBottom: 14, borderLeft: `4px solid ${statusColor}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800 }}>{fmtD(o.domain)}</div>
+                          <div style={{ fontSize: 14, color: T.grayLight }}>{hv ? hv.brand + " " + hv.model + " " + hv.year : ""}</div>
+                          <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{hc ? hc.name + " " + hc.lastName : ""}</div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginTop: 3 }}>
+                            {o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}
+                          </div>
+                          <div style={{ fontSize: 12, color: T.gray, marginTop: 3 }}>{fmtDate(o.date)}</div>
+                          {o.km && <div style={{ fontSize: 15, fontWeight: 800, color: "#FFFFFF", marginTop: 6, fontFamily: fontD }}>{Number(o.km).toLocaleString("es-AR")} km</div>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Trabajos */}
+                    <div style={{ ...card, padding: 20, marginBottom: 14 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 12 }}>🔧 Trabajos realizados</div>
+                      {o.works.map((w, i) => (
+                        <div key={i} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}>
+                            <span>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                            <span style={{ color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
+                          </div>
+                          {w.trenItems?.filter(ti => ti.selected).map((ti, j) => (
+                            <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14, marginTop: 3 }}>
+                              <span>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}</span>
+                              {ti.price && <span>{fmt(parseFloat(ti.price))}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagos */}
+                    {o.payments?.length > 0 && (
+                      <div style={{ ...card, padding: 20, marginBottom: 14 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 12 }}>💳 Pagos</div>
+                        {o.payments.map((p, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                            <span>{p.method}{p.installments > 1 ? ` (${p.installments} cuotas)` : ""}</span>
+                            <span style={{ fontWeight: 700, fontFamily: fontD, color: T.green }}>{fmt(p.amount || 0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Notas del mecánico */}
+                    {o.techNotes?.length > 0 && (
+                      <div style={{ ...card, padding: 20, marginBottom: 14 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 8 }}>📝 Notas del mecánico</div>
+                        {o.techNotes.map((n, i) => (
+                          <div key={i} style={{ fontSize: 13, color: T.grayLight, padding: "4px 0", borderBottom: `1px solid ${T.border}` }}>• {n}</div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Fojas disponibles */}
+                    {(() => {
+                      const fojas = [];
+                      if (o.works.some(w => w.type === "Service Full")) fojas.push({ icon: "🛠️", label: "Foja de Service Full", key: "service" });
+                      if (o.works.some(w => w.type === "Service Base")) fojas.push({ icon: "🛠️", label: "Foja de Service Base", key: "service" });
+                      if (o.works.some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno")) fojas.push({ icon: "⚙️", label: "Informe de Intervención", key: "intervention" });
+                      if (o.works.some(w => w.type === "Baterías")) fojas.push({ icon: "🔋", label: "Foja de Batería", key: "battery" });
+                      if (o.works.some(w => w.type === "Escape")) fojas.push({ icon: "💨", label: "Foja de Escape", key: "escape" });
+                      if (!fojas.length) return null;
+                      return (
+                        <div style={{ ...card, padding: 20, marginBottom: 14 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 14 }}>📑 Fojas</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {fojas.map(f => (
+                              <div key={f.key} style={{ display: "flex", gap: 10 }}>
+                                <button onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("fojaClient", { ...o, _fojaType: f.key }); }}
+                                  style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 22 }}>{f.icon}</span> {f.label}
+                                </button>
+                                <button onClick={() => {
+                                  const phone = hc?.phone || "";
+                                  const msg = `Hola ${hc?.name || ""}! Te enviamos la ${f.label.toLowerCase()} de tu ${hv?.brand || ""} ${hv?.model || ""} (${fmtD(o.domain)}).\n\n¡Gracias por confiar en *CarBoys*! 🔧`;
+                                  window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                                }} style={{ ...btnPrimary(T.green), padding: "14px 16px", fontSize: 18 }}>📱</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
           {/* DNI search */}
           {searchMode === "dni" && (
             <div>
-              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                <input inputMode="numeric" value={dniSearch} onChange={e => setDniSearch(e.target.value.replace(/[^0-9]/g, ""))}
-                  onKeyDown={e => e.key === "Enter" && searchDni()}
-                  placeholder="Ingrese DNI o CUIT sin guiones" style={{ ...inputStyle, flex: 1, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px" }} autoFocus />
-                <button onClick={searchDni} style={btnPrimary()}>Buscar</button>
-              </div>
+              <input inputMode="numeric" value={dniSearch} onChange={e => setDniSearch(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="Ingrese DNI o CUIT sin guiones" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: dniSearch ? T.accent : T.border }} autoFocus />
 
-              {/* DNI results */}
-              {dniSearch.length > 3 && !dniFoundClient && (
-                <div style={{ textAlign: "center", padding: 30 }}>
-                  <div style={{ fontSize: 40, marginBottom: 8 }}>🔎</div>
-                  <div style={{ color: T.gray, fontSize: 14, marginBottom: 14 }}>No se encontró cliente con ese DNI/CUIT</div>
-                  <button onClick={() => { setIsNew(true); const v = dniSearch; setForm(f => ({ ...f, dni: v.length <= 8 ? v : "", cuit: v.length > 8 ? v : "" })); setStep(2); }} style={btnPrimary()}>+ Crear Nuevo Cliente</button>
-                </div>
-              )}
-
-              {dniFoundClient && (
-                <div style={{ ...card, padding: 20, animation: "fadeUp .2s ease" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: `${T.accent}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👤</div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 16 }}>{dniFoundClient.name} {dniFoundClient.lastName}</div>
-                      <div style={{ fontSize: 12, color: T.gray }}>DNI/CUIT: {dniFoundClient.dni}</div>
-                    </div>
+              {/* Predictivo DNI/CUIT */}
+              {dniSearch.length > 2 && (() => {
+                const matches = clients.filter(c =>
+                  (c.dni && c.dni.includes(dniSearch)) || (c.cuit && c.cuit.includes(dniSearch))
+                );
+                if (matches.length === 0) return (
+                  <div style={{ ...card, padding: 20, textAlign: "center", marginTop: 12 }}>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>🔎</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Sin resultados</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>No se encontró cliente con ese DNI/CUIT</div>
+                    <button onClick={() => { setIsNew(true); const v = dniSearch; setForm(f => ({ ...f, dni: v.length <= 8 ? v : "", cuit: v.length > 8 ? v : "" })); setStep(2); }} style={btnPrimary()}>+ Crear Nuevo Cliente</button>
                   </div>
-
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 10, textTransform: "uppercase", letterSpacing: .5 }}>Vehículos registrados</div>
-
-                  {dniFoundClient.vehicles.map((v, i) => {
-                    const activeOrder = orders.find(o => o.domain === v.domain && (o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "budget_sent" || o.status === "budget_approved"));
-                    return (
-                      <div key={i} onClick={() => !activeOrder && selectVehicleFromDni(dniFoundClient, v)}
-                        style={{ ...card, padding: 14, marginBottom: 8, cursor: activeOrder ? "not-allowed" : "pointer", borderColor: activeOrder ? T.orange : T.border, opacity: activeOrder ? 0.6 : 1, transition: "all .15s" }}
-                        onMouseEnter={e => { if (!activeOrder) e.currentTarget.style.borderColor = T.accent; }}
-                        onMouseLeave={e => { if (!activeOrder) e.currentTarget.style.borderColor = T.border; }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontSize: 22 }}>🚗</span>
-                            <div>
-                              <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 16, letterSpacing: .5 }}>{fmtD(v.domain)}</div>
-                              <div style={{ fontSize: 12, color: T.gray }}>{v.brand} {v.model} {v.year} — {v.km.toLocaleString()} km</div>
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            {activeOrder ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: T.orange, background: `${T.orange}20`, padding: "4px 10px", borderRadius: 6 }}>EN TALLER</span>
-                            ) : (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: T.accent, background: `${T.accent}20`, padding: "4px 10px", borderRadius: 6 }}>SELECCIONAR</span>
-                            )}
-                            {!activeOrder && (
-                              <div onClick={e => { e.stopPropagation(); setUnlinkVehicle({ client: dniFoundClient, vehicle: v }); }}
-                                style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${T.red}40`, background: "rgba(229,57,53,0.08)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all .15s" }}
-                                onMouseEnter={e => { e.currentTarget.style.background = "rgba(229,57,53,0.2)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = "rgba(229,57,53,0.08)"; }}>
-                                <span style={{ color: T.red, fontSize: 12, fontWeight: 800 }}>✕</span>
-                              </div>
-                            )}
+                );
+                return (
+                  <div style={{ marginTop: 12 }}>
+                    {matches.map(c => (
+                      <div key={c.id} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${T.accent}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name} {c.lastName}</div>
+                            <div style={{ fontSize: 12, color: T.gray }}>DNI: {c.dni || "—"}{c.cuit ? " • CUIT: " + c.cuit : ""}</div>
                           </div>
                         </div>
+                        {c.vehicles.map((v, i) => {
+                          const activeOrder = orders.find(o => o.domain === v.domain && ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+                          const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
+                          return (
+                            <div key={i} onClick={() => {
+                              if (activeOrder) return;
+                              const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").sort((a, b) => (b.date||"").localeCompare(a.date||""));
+                              setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
+                              setFoundClient(c);
+                              setFoundVehicle(v);
+                              setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
+                            }} style={{ ...card, padding: 14, marginBottom: 8, cursor: activeOrder ? "not-allowed" : "pointer", borderColor: activeOrder ? T.orange : T.border, opacity: activeOrder ? 0.6 : 1 }}
+                              onMouseEnter={e => { if (!activeOrder) e.currentTarget.style.borderColor = T.accent; }}
+                              onMouseLeave={e => { if (!activeOrder) e.currentTarget.style.borderColor = T.border; }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                  <div style={{ fontFamily: fontD, fontWeight: 700, fontSize: 16 }}>{fmtD(v.domain)}</div>
+                                  <div style={{ fontSize: 12, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
+                                </div>
+                                <div style={{ textAlign: "center" }}>
+                                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.accent }}>{vCount}</div>
+                                  <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
+                                  {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.orange, marginTop: 2 }}>EN TALLER</div>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-
-                  <div onClick={() => startAddNewVehicle(dniFoundClient)}
-                    style={{ ...card, padding: 14, marginTop: 4, cursor: "pointer", borderColor: T.green, borderStyle: "dashed", textAlign: "center", transition: "all .15s" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = `${T.green}10`; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = T.bg2; }}>
-                    <span style={{ fontSize: 20, marginRight: 8 }}>➕</span>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: T.green }}>Agregar Vehículo Nuevo</span>
+                    ))}
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
         </div>
@@ -803,7 +1033,7 @@ const NewOrderScreen = (props) => {
               {clientHistory.map((h, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < clientHistory.length - 1 ? `1px solid ${T.border}` : "none", fontSize: 13 }}>
                   <div>
-                    <span style={{ color: T.grayLight }}>{h.date}</span>
+                    <span style={{ color: T.grayLight }}>{fmtDate(h.date)}</span>
                     <span style={{ marginLeft: 10 }}>{h.works.map(w => w.type).join(", ")}</span>
                   </div>
                   <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(h.works.reduce((s, w) => s + w.price, 0))}</span>
@@ -1736,7 +1966,7 @@ const NewOrderScreen = (props) => {
           <div style={{ fontSize: 12, color: T.green, marginBottom: 24 }}>📱 Mensaje de WhatsApp enviado al cliente</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button onClick={() => onNavigate("dashboard")} style={btnPrimary()}>Ir al Dashboard</button>
-            <button onClick={() => { setStep(1); setDomainSearch(""); setFoundClient(null); setFoundVehicle(null); setIsNew(false); setWorks([]); setPayments([{ method: "", amount: "", account: "", installments: 3 }]); setForm({ name: "", lastName: "", dni: "", cuit: "", phone: "", brand: "", model: "", year: "", km: "", currentKm: "", lastKm: "", domain: "" }); }}
+            <button onClick={() => { setStep(1); setDomainSearch(""); setFoundClient(null); setFoundVehicle(null); setIsNew(false); setWorks([]); setPayments([{ method: "", amount: "", account: "", installments: 3 }]); setForm({ name: "", lastName: "", dni: "", cuit: "", phone: "", brand: "", model: "", year: "", km: "", currentKm: "", lastKm: "", domain: "" }); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
               style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>+ Nueva Orden</button>
           </div>
         </div>
@@ -2051,10 +2281,17 @@ const DashboardScreen = (props) => {
   );
 };
 
-const SearchScreen = ({ clients, orders, onNavigate }) => {
+const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
   const [q, setQ] = useState("");
   const ref = useRef(null);
-  const [selVehicle, setSelVehicle] = useState(null);
+  const [selVehicle, setSelVehicle] = useState(() => {
+    if (!initialDomain) return null;
+    for (const c of clients) {
+      const v = c.vehicles.find(v => v.domain.replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
+      if (v) return v;
+    }
+    return null;
+  });
   const [selClient, setSelClient] = useState(null);
 
   const results = q.length > 1 ? clients.filter(c =>
@@ -2080,7 +2317,7 @@ const SearchScreen = ({ clients, orders, onNavigate }) => {
               <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>{fmtD(selVehicle.domain)}</div>
               <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{selVehicle.brand} {selVehicle.model} {selVehicle.year}</div>
               {cl && <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{cl.name} {cl.lastName}</strong></div>}
-              {selVehicle.km && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Km: {Number(selVehicle.km).toLocaleString("es-AR")}</div>}
+              {selVehicle.km && <div style={{ fontSize: 13, color: T.grayLight, marginTop: 4 }}>KM de su última visita: <strong style={{ color: T.text }}>{Number(selVehicle.km).toLocaleString("es-AR")} km</strong></div>}
             </div>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: fontD, fontSize: 36, fontWeight: 800, color: T.accent }}>{vOrders.length}</div>
@@ -2095,9 +2332,15 @@ const SearchScreen = ({ clients, orders, onNavigate }) => {
           const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
           return (
             <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
+              {/* KM en blanco, centrado, arriba */}
+              {o.km && (
+                <div style={{ textAlign: "center", marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}>
+                  <span style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: "#FFFFFF" }}>{Number(o.km).toLocaleString("es-AR")} km</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{o.date}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmtDate(o.date)}</div>
                   <div style={{ fontSize: 12, color: sc, fontWeight: 700, marginTop: 2 }}>{sl}</div>
                   {o.assignedTo && <div style={{ fontSize: 11, color: T.gray }}>Mecánico: {o.assignedTo}</div>}
                 </div>
@@ -2112,13 +2355,6 @@ const SearchScreen = ({ clients, orders, onNavigate }) => {
                   <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
                   <span style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price || 0)}</span>
                 </div>
-              ))}
-              {o.works.some(w => w.trenItems) && o.works.filter(w => w.trenItems).map((w, wi) => (
-                w.trenItems.filter(ti => ti.selected).map((ti, j) => (
-                  <div key={wi + "-" + j} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.gray, paddingLeft: 20 }}>
-                    <span>• {ti.label}</span>{ti.price && <span>{fmt(parseFloat(ti.price))}</span>}
-                  </div>
-                ))
               ))}
               {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
                 <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: `${T.orange}08`, border: `1px solid ${T.orange}20` }}>
@@ -2357,6 +2593,7 @@ const VehicleDetailScreen = (props) => {
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
+      <button onClick={() => onNavigate("search", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
       {/* Header */}
       <div style={{ ...card, padding: 24, marginBottom: 20, borderLeft: `4px solid ${sc}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -2364,6 +2601,7 @@ const VehicleDetailScreen = (props) => {
             <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 700, letterSpacing: 1 }}>{fmtD(order.domain)}</div>
             <div style={{ fontSize: 15, color: T.gray, marginTop: 4 }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
             <div style={{ fontSize: 14, color: T.grayLight, marginTop: 2 }}>Cliente: <strong style={{ color: T.white }}>{client ? `${client.name} ${client.lastName}` : "—"}</strong></div>
+            {order.km && <div style={{ fontSize: 15, fontWeight: 800, color: "#FFFFFF", marginTop: 8, fontFamily: fontD }}>{Number(order.km).toLocaleString("es-AR")} km al ingreso</div>}
             {order.startedBy && (
               <div style={{ fontSize: 12, color: T.gray, marginTop: 6 }}>
                 Iniciado por <strong style={{ color: T.grayLight }}>{order.startedBy}</strong> — {order.startedAt}
@@ -3409,7 +3647,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(tot)}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{o.date}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                 </div>
               </div>
             );
@@ -3625,7 +3863,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       {cl?.phone && <div style={{ fontSize: 12, color: T.gray }}>Tel: {cl.phone}</div>}
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 12, color: T.gray }}>{o.date}</div>
+                      <div style={{ fontSize: 12, color: T.gray }}>{fmtDate(o.date)}</div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
                     {o.cobrado && <div style={{ fontSize: 11, fontWeight: 700, color: `${T.green}bb`, marginTop: 3, padding: "2px 8px", borderRadius: 4, background: `${T.green}10`, border: `1px solid ${T.green}60` }}>COBRADO</div>}
                       {o.assignedTo && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Mecánico: {o.assignedTo}</div>}
@@ -3716,7 +3954,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
-                        <div style={{ fontSize: 11, color: T.gray }}>{o.date}</div>
+                        <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                         <div style={{ fontSize: 10, fontWeight: 700, color: sc }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
                       </div>
                     </div>
@@ -3752,7 +3990,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(ctaMonto)}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{o.date}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: o.status === "delivered" ? T.green : T.orange, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : "EN TALLER"}</div>
                 </div>
               </div>
@@ -3789,7 +4027,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             return (
               <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
                 <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> Cobro {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
-                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{o.date}</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(efAmount)}</span></div>
+                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(o.date)}</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(efAmount)}</span></div>
               </div>
             );
           })}
@@ -3955,7 +4193,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700 }}>FC #{f.nroFactura}</div>
-                      <div style={{ fontSize: 11, color: T.gray }}>Emisión: {f.fechaEmision} • Venc: {f.fechaVenc || "—"}</div>
+                      <div style={{ fontSize: 11, color: T.gray }}>Emisión: {fmtDate(f.fechaEmision)} • Venc: {f.fechaVenc ? fmtDate(f.fechaVenc) : "—"}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(f.monto)}</div>
@@ -4068,7 +4306,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {svFacts.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map(f => (
                 <div key={f.id} style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `3px solid ${T.green}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: 13 }}>Pago — {f.fecha}</div>
+                    <div style={{ fontSize: 13 }}>Pago — {fmtDate(f.fecha)}</div>
                     <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.green }}>{fmt(parseFloat(f.monto) || 0)}</div>
                   </div>
                 </div>
@@ -6473,7 +6711,7 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
           <div style={{ textAlign: "right", fontSize: 11, color: T.gray }}>
             <div>Solicitado por</div>
             <div style={{ fontWeight: 700, color: T.grayLight }}>{notif.requestedBy}</div>
-            <div style={{ marginTop: 2 }}>{notif.date}</div>
+            <div style={{ marginTop: 2 }}>{fmtDate(notif.date)}</div>
           </div>
         </div>
       </div>
@@ -6975,7 +7213,7 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
           {/* Title + Date */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE BATERÍA</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {order.date} · Cambio de Batería</div>
+            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {fmtDate(order.date)} · Cambio de Batería</div>
           </div>
 
           {/* Vehicle + Client */}
@@ -7111,7 +7349,7 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
           {/* Title */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE ESCAPE</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {order.date} · {escWork?.escapeType === "deportivo" ? "Escape Deportivo" : "Sistema Original"}</div>
+            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {fmtDate(order.date)} · {escWork?.escapeType === "deportivo" ? "Escape Deportivo" : "Sistema Original"}</div>
           </div>
 
           {/* Vehicle + Client */}
@@ -7348,7 +7586,7 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
           {/* Title */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>INFORME DE INTERVENCIÓN</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {order.date}</div>
+            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {fmtDate(order.date)}</div>
           </div>
           {/* Vehicle + Client */}
           <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
@@ -8237,7 +8475,7 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
 
   const nav = useCallback((target, data = null) => {
-    if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient") && data) setSelOrder(data);
+    if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
     setScreen(target);
     window.scrollTo?.(0, 0);
   }, []);
@@ -8250,7 +8488,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return <SearchScreen clients={clients} orders={orders} onNavigate={nav} />;
+      case "search": return <SearchScreen clients={clients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} />;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
