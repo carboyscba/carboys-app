@@ -139,6 +139,7 @@ const ITEMS_PLUS_FREE = ["Tren Delantero", "Tren Trasero", "Mecánica", "Escape"
 const buildTrenItems = (category) => {
   const fixed = (BUDGET_CATEGORIES[category] || []).map(t => ({ ...t, selected: false, price: "", side: t.hasSide ? "ambos" : undefined }));
   if (FREE_CATEGORIES.includes(category)) return [{ key: "libre_1", label: "", selected: false, price: "", isCustom: true }];
+  if (category === "Mecánica") return fixed; // Sin "Otro" — usar Agregar servicio
   return [...fixed, { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }];
 };
 
@@ -3557,28 +3558,36 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           return (
             <div>
               {inTaller.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>No hay vehículos en taller</div>}
-              {inTaller.map(o => {
+              {[...inTaller].sort((a, b) => {
+                const p = { done: 0, working: 1, pending: 2, inspection: 2, budget_sent: 2, budget_approved: 2 };
+                return (p[a.status] ?? 3) - (p[b.status] ?? 3);
+              }).map(o => {
                 const cl = clients.find(c => c.id === o.clientId);
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                 const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
-                const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO";
+                const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : "ESPERANDO";
                 const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
                 return (
                   <div key={o.id} onClick={() => { setSelCobro(o); setCobroPay((o.payments || []).map(p => ({ ...p }))); const _cl = clients.find(c => c.id === o.clientId); setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null); }}
                     style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: sc }} />
-                        <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      {/* Izquierda: info */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: sc, flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
                           <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{fmtD(o.domain)}</div>
                           <div style={{ fontSize: 13, color: T.grayLight }}>{cl ? cl.name + " " + cl.lastName : "—"}</div>
-                          <div style={{ fontSize: 12, color: T.gray }}>{vh ? vh.brand + " " + vh.model : ""} • {o.works.map(w => w.type).join(", ")}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>{vh ? vh.brand + " " + vh.model : ""} — {o.works.map(w => w.type + (w.price ? ` — $${Number(w.price).toLocaleString("es-AR")}` : "")).join(", ")}</div>
                         </div>
                       </div>
-                      {o.cobrado && <div style={{ padding: "8px 18px", borderRadius: 10, background: `${T.green}10`, border: `1.5px solid ${T.green}60`, fontSize: 20, fontWeight: 700, color: `${T.green}bb`, flexShrink: 0 }}>COBRADO</div>}
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: sc }}>{sl}</div>
+                      {/* Centro: COBRADO (solo si cobrado) */}
+                      {o.cobrado && (
+                        <div style={{ padding: "8px 14px", borderRadius: 10, background: `${T.green}10`, border: `1.5px solid ${T.green}60`, fontSize: 13, fontWeight: 700, color: `${T.green}bb`, flexShrink: 0 }}>COBRADO</div>
+                      )}
+                      {/* Derecha: status siempre fijo */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: sc, marginTop: 2 }}>{sl}</div>
                       </div>
                     </div>
                   </div>
@@ -4933,10 +4942,24 @@ const ServiceSheetScreen = (props) => {
         soporte_esc: "soporte_escape",
         catalizador_esc: "catalizador",
       };
-      w.trenItems.filter(ti => ti.selected).forEach(ti => {
-        const sheetKey = ESC_MAP[ti.key];
-        if (sheetKey) forcedChangeItems.add(sheetKey);
-      });
+      // Escape Deportivo: mapeo por tipo de kit
+      if (w.escapeType === "deportivo") {
+        w.trenItems.filter(ti => ti.selected).forEach(ti => {
+          if (ti.key === "downpipe") {
+            forcedChangeItems.add("multiple_escape");
+          } else if (ti.key === "medio_equipo") {
+            forcedChangeItems.add("silenciador_trasero");
+          } else if (ti.key === "equipo_completo") {
+            ["multiple_escape", "silenciador_intermedio", "cano_escape", "silenciador_trasero", "soporte_escape", "catalizador"].forEach(k => forcedChangeItems.add(k));
+          }
+          // "otro" → no fuerza nada
+        });
+      } else {
+        w.trenItems.filter(ti => ti.selected).forEach(ti => {
+          const sheetKey = ESC_MAP[ti.key];
+          if (sheetKey) forcedChangeItems.add(sheetKey);
+        });
+      }
     }
   });
 
