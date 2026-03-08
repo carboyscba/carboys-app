@@ -330,7 +330,7 @@ const NumPadProvider = ({ children }) => {
             </div>
             <div style={{ background: T.bg, borderRadius: 12, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", border: `2px solid ${T.accent}` }}>
               <span style={{ fontSize: 18, fontWeight: 700, color: T.accent, marginRight: 6 }}>$</span>
-              <span style={{ fontSize: 28, fontWeight: 800, fontFamily: fontD, color: T.text, flex: 1 }}>{numPadState.value ? Number(numPadState.value).toLocaleString("es-AR") : "0"}</span>
+              <span style={{ fontSize: 28, fontWeight: 800, fontFamily: fontD, color: T.white, flex: 1 }}>{numPadState.value ? Number(numPadState.value).toLocaleString("es-AR") : "0"}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
               {[1,2,3,4,5,6,7,8,9, numPadState.allowDot ? "." : "", 0, "del"].map((d, i) => {
@@ -339,7 +339,7 @@ const NumPadProvider = ({ children }) => {
                   <div key={i} onClick={delDigit} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 56, borderRadius: 12, background: T.bg3, cursor: "pointer", fontSize: 20, color: T.gray, border: `1px solid ${T.border}` }}>⌫</div>
                 );
                 return (
-                  <div key={i} onClick={() => addDigit(String(d))} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 56, borderRadius: 12, background: T.bg, cursor: "pointer", fontSize: 22, fontWeight: 700, fontFamily: fontD, border: `1px solid ${T.border}`, color: T.text }}>{d}</div>
+                  <div key={i} onClick={() => addDigit(String(d))} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 56, borderRadius: 12, background: T.bg, cursor: "pointer", fontSize: 22, fontWeight: 700, fontFamily: fontD, border: `1px solid ${T.border}`, color: T.white }}>{d}</div>
                 );
               })}
             </div>
