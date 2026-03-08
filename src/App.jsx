@@ -5100,33 +5100,28 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "batteryPercent" && (() => {
-          const pct = d.percent >= 0 ? d.percent : -1;
-          const autoLabel = pct >= 75 ? "BIEN" : pct >= 50 ? "REGULAR" : pct >= 15 ? "MAL" : pct >= 0 ? "CRÍTICO" : "";
-          const autoColor = pct >= 75 ? T.green : pct >= 50 ? T.orange : pct >= 0 ? T.red : T.gray;
-          return (
-            <div style={{ ...ml, marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>{item.percentLabel}</span>
-                <input type="range" min="0" max="100" value={pct >= 0 ? pct : 50}
-                  onChange={e => upd(item.id, { percent: parseInt(e.target.value), checked: true })}
-                  style={{ flex: 1, accentColor: autoColor, height: 6 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: autoColor, width: 36, textAlign: "right" }}>{pct >= 0 ? pct : "--"}%</span>
-              </div>
-              {pct >= 0 && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <div style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700, background: `${autoColor}20`, color: autoColor, border: `1px solid ${autoColor}` }}>
-                    {pct >= 75 ? "🟢" : pct >= 50 ? "🟡" : "🔴"} {autoLabel}
-                  </div>
-                  <div onClick={() => setStatus4(item.id, "cambiado")}
-                    style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
-                    {S4_ICONS.cambiado} SUSTITUIDA
-                  </div>
-                </div>
-              )}
+        {item.type === "batteryPercent" && (
+          <div style={{ ...ml, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>{item.percentLabel}</span>
+              <input type="range" min="0" max="100" value={d.percent >= 0 ? d.percent : 50}
+                onChange={e => upd(item.id, { percent: parseInt(e.target.value), checked: true })}
+                style={{ flex: 1, accentColor: d.percent >= 75 ? T.green : d.percent >= 50 ? T.orange : d.percent >= 0 ? T.red : T.gray, height: 6 }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: d.percent >= 75 ? T.green : d.percent >= 50 ? T.orange : d.percent >= 0 ? T.red : T.gray, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
             </div>
-          );
-        })()}
+            {d.percent >= 0 && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700, background: `${d.percent >= 75 ? T.green : d.percent >= 50 ? T.orange : T.red}20`, color: d.percent >= 75 ? T.green : d.percent >= 50 ? T.orange : T.red, border: `1px solid ${d.percent >= 75 ? T.green : d.percent >= 50 ? T.orange : T.red}` }}>
+                  {d.percent >= 75 ? "🟢 BIEN" : d.percent >= 50 ? "🟡 REGULAR" : d.percent >= 15 ? "🔴 MAL" : "🔴 CRÍTICO"}
+                </div>
+                <div onClick={() => setStatus4(item.id, "cambiado")}
+                  style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
+                  {S4_ICONS.cambiado} SUSTITUIDA
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {item.type === "optionalBinary" && d.checked && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
