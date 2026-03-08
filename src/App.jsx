@@ -5455,8 +5455,7 @@ const renderItem = (item) => {
         )}
 
         <div style={ml}>
-          {item.type !== "binaryPresente" && <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
-            placeholder="Observación..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px" }} />}
+          {item.type !== "binaryPresente" && <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })} placeholder="Observación..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px" }} />}
         </div>
       </div>
     );
