@@ -166,7 +166,7 @@ const INITIAL_CLIENTS = [
 
 const FULL_SS = {
   aceite:{checked:true}, filtro_aceite:{checked:true}, filtro_aire:{checked:true}, filtro_habitaculo:{checked:true}, filtro_combustible:{checked:true},
-  td_amortiguadores:{status:"bien",checked:true}, td_bujes_parrilla:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
+  td_amortiguadores:{status:"bien",checked:true}, td_bujes_parrilla:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
   tt_amortiguadores:{status:"bien",checked:true}, tt_freno:{toggle:"Pastillas",percent:65,checked:true}, tt_bujes:{status:"bien",checked:true}, tt_rulemanes:{fluidOk:"bien",checked:true},
   liq_direccion:{fluidOk:"bien",checked:true}, liq_frenos:{fluidOk:"bien",checked:true,percent:2,added:true}, liq_refrigerante:{fluidOk:"bien",checked:true}, aceite_caja:{fluidOk:"bien",checked:true}, agua_lavaparabrisas:{fluidOk:"nivelado",checked:true},
   correa_distribucion:{status:"bien",checked:true}, bomba_agua:{fluidOk:"bien",checked:true}, correa_poliv:{status:"bien",checked:true}, tensores_poliv:{status:"bien",checked:true}, mangueras_refrig:{fluidOk:"bien",checked:true}, perdidas_aceite:{fluidOk:"bien",checked:true},
@@ -178,7 +178,7 @@ const FULL_SS = {
 };
 
 const INITIAL_ORDERS = [
-  { id: 101, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
+  { id: 101, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_extremos: { status: "bien", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
   { id: 102, clientId: 2, domain: "AB 456 CD", status: "delivered", works: [{ type: "Service Full", price: 75000 }], payments: [{ method: "Efectivo", amount: 75000, withIva: false }], assignedTo: "Fabricio", date: "2026-01-20", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 103, clientId: 3, domain: "AE 789 FG", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 62000, escapeType: "original", trenItems: [{ key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Tarjeta", amount: 157000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-01-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
   { id: 104, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "1", amount: 150000, withIva: true }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
@@ -4515,13 +4515,15 @@ const SF_TEMPLATE = [
     { id: "aceite", label: "Aceite motor", type: "check" },
     { id: "filtro_aceite", label: "Filtro de aceite", type: "check" },
     { id: "filtro_aire", label: "Filtro de aire", type: "check" },
-    { id: "filtro_habitaculo", label: "Filtro de habitáculo", type: "check" },
-    { id: "filtro_combustible", label: "Filtro de combustible", type: "check" },
+    { id: "filtro_habitaculo", label: "Filtro de habitáculo", type: "check", optional: true },
+    { id: "filtro_combustible", label: "Filtro de combustible", type: "check", optional: true },
   ]},
   { section: "TREN DELANTERO", icon: "⚙️", items: [
     { id: "td_amortiguadores", label: "Amortiguadores del.", type: "statusRC", needsAuth: true },
     { id: "td_bujes_parrilla", label: "Bujes y parrilla", type: "statusRC", needsAuth: true },
-    { id: "td_rotulas", label: "Rótulas / Extremos", type: "statusRC", needsAuth: true },
+    { id: "td_extremos", label: "Extremos de dirección", type: "statusRC", needsAuth: true },
+    { id: "td_rotulas", label: "Rótulas", type: "statusRC", needsAuth: true },
+    { id: "td_axiales", label: "Axiales", type: "statusRC", needsAuth: true },
     { id: "td_bieletas", label: "Bieletas", type: "statusRC", needsAuth: true },
     { id: "td_discos", label: "Discos de freno del.", type: "statusRC", needsAuth: true },
     { id: "td_pastillas", label: "Pastillas de freno del.", type: "percentRC", percentLabel: "Desgaste", needsAuth: true },
@@ -4793,7 +4795,7 @@ const ServiceSheetScreen = (props) => {
     const d = data[item.id];
     if (!d) return false;
     switch (item.type) {
-      case "check": return d.checked;
+      case "check": return item.optional ? true : d.checked;
       case "serviceReset": return !!d.resetStatus;
       case "statusRC": return !!d.status;
       case "binary": return !!d.fluidOk;
@@ -4948,7 +4950,16 @@ const ServiceSheetScreen = (props) => {
     upd(id, { fluidOk: d.fluidOk === val ? "" : val, checked: d.fluidOk === val ? false : true });
   };
 
-  const renderItem = (item) => {
+    const isItemApproved = (itemId) => {
+    const approved = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+    return approved?.items?.some(it => it.id === itemId) || false;
+  };
+  const isItemDenied = (itemId) => {
+    const denied = (notifications || []).find(n => n.orderId === order.id && n.status === "denied");
+    return denied?.items?.some(it => it.id === itemId) || false;
+  };
+
+const renderItem = (item) => {
     const d = data[item.id] || {};
     const ml = { marginLeft: 34 };
     const errStyle = hasError(item.id) ? { outline: `2px solid ${T.red}`, outlineOffset: -1, borderRadius: 8, background: "rgba(229,57,53,0.04)" } : {};
@@ -4985,6 +4996,17 @@ const ServiceSheetScreen = (props) => {
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: S4_COLORS[s] }} />{s === "cambiar" ? "CAMBIAR" : s.toUpperCase()}
                 </div>
               ))}
+              {d.status === "cambiar" && isItemApproved(item.id) && (
+                <div onClick={() => setStatus4(item.id, "cambiado")}
+                  style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: S4_COLORS.cambiado, border: `1.5px solid ${S4_COLORS.cambiado}`, display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: S4_COLORS.cambiado }} />SUSTITUIDA
+                </div>
+              )}
+              {d.status === "cambiado" && (
+                <div style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `1.5px solid ${S4_COLORS.cambiado}`, display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: S4_COLORS.cambiado }} />SUSTITUIDA
+                </div>
+              )}
             </div>
             {d.status === "cambiar" && (
               <div style={{ marginTop: 8 }}>
@@ -5038,9 +5060,9 @@ const ServiceSheetScreen = (props) => {
                   style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiar" ? `${S4_COLORS.cambiar}20` : T.bg, color: d.status === "cambiar" ? S4_COLORS.cambiar : T.gray, border: `1px solid ${d.status === "cambiar" ? S4_COLORS.cambiar : T.border}` }}>
                   {S4_ICONS.cambiar} CAMBIAR
                 </div>
-                {d.status === "cambiar" && (
+                {d.status === "cambiar" && isItemApproved(item.id) && (
                   <div onClick={() => setStatus4(item.id, "cambiado")}
-                    style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
+                    style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: S4_COLORS.cambiado, border: `1px solid ${S4_COLORS.cambiado}` }}>
                     {S4_ICONS.cambiado} SUSTITUIDA
                   </div>
                 )}
@@ -5148,9 +5170,9 @@ const ServiceSheetScreen = (props) => {
                       style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiar" ? `${S4_COLORS.cambiar}20` : T.bg, color: d.status === "cambiar" ? S4_COLORS.cambiar : T.gray, border: `1px solid ${d.status === "cambiar" ? S4_COLORS.cambiar : T.border}` }}>
                       {S4_ICONS.cambiar} CAMBIAR
                     </div>
-                    {d.status === "cambiar" && (
+                    {d.status === "cambiar" && isItemApproved(item.id) && (
                       <div onClick={() => setStatus4(item.id, "cambiado")}
-                        style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
+                        style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: S4_COLORS.cambiado, border: `1px solid ${S4_COLORS.cambiado}` }}>
                         {S4_ICONS.cambiado} SUSTITUIDA
                       </div>
                     )}
@@ -5771,6 +5793,9 @@ const ServiceSheetScreen = (props) => {
           if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
           if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
           if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
+          if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+          if (it.type === "binaryPresente" && d2.fluidOk === "mal") return true;
+          if (it.type === "nivelado") return false;
           return false;
         }));
         const existingAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
