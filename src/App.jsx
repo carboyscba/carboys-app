@@ -636,19 +636,42 @@ const NewOrderScreen = (props) => {
   });
 
   const totalWorks = works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+  const ivaMultiplier = (withIva) => withIva ? (1 + config.ivaRate / 100) : 1;
+  const surchMultiplier = (inst) => inst === 3 ? (1 + config.surcharge3 / 100) : inst === 6 ? (1 + config.surcharge6 / 100) : inst === "otro" ? 1 : 1;
+  const computeAmount = (base, withIva, installments, customSurch) => {
+    const ivaM = ivaMultiplier(withIva);
+    const sM = installments === 3 ? (1 + config.surcharge3 / 100) : installments === 6 ? (1 + config.surcharge6 / 100) : 1;
+    return Math.round(base * ivaM * sM);
+  };
+
   const recalcFirst = (arr, tw) => {
     if (arr.length <= 1) return arr;
     const othersTotal = arr.slice(1).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
     return [{ ...arr[0], amount: String(Math.max(0, tw - othersTotal)) }, ...arr.slice(1)];
   };
   const addPayment = () => setPayments(p => recalcFirst([...p, { method: "", amount: "0", account: "", installments: 1 }], totalWorks));
-  const updatePayment = (i, field, val) => setPayments(p => {
-    const updated = p.map((x, j) => j === i ? { ...x, [field]: val } : x);
+  const updatePayment = (i, field, val) => setPayments(prev => {
+    const updated = prev.map((x, j) => j === i ? { ...x, [field]: val } : x);
+    // Auto-recalc amount when IVA or installments change (single payment only)
+    if ((field === "withIva" || field === "installments") && prev.length === 1) {
+      const p0 = updated[0];
+      const withIva = field === "withIva" ? val : p0.withIva;
+      const inst = field === "installments" ? val : p0.installments;
+      const cSurch = field === "customSurch" ? val : p0.customSurch;
+      const newAmt = String(computeAmount(totalWorks, withIva, inst, cSurch));
+      return [{ ...p0, amount: newAmt }];
+    }
     return (field === "amount" && i > 0) ? recalcFirst(updated, totalWorks) : updated;
   });
   const removePayment = (i) => setPayments(p => recalcFirst(p.filter((_, j) => j !== i), totalWorks));
+
   const totalPayments = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-  const paymentsValid = payments.length > 0 && payments.every(p => p.method && p.amount && parseFloat(p.amount) > 0) && Math.abs(totalPayments - totalWorks) < 1;
+  // Expected total accounts for IVA + surcharge on first payment (single payment case)
+  const p0 = payments[0] || {};
+  const expectedCollect = payments.length === 1
+    ? computeAmount(totalWorks, p0.withIva, p0.installments, p0.customSurch)
+    : totalWorks;
+  const paymentsValid = payments.length > 0 && payments.every(p => p.method && p.amount && parseFloat(p.amount) > 0) && Math.abs(totalPayments - expectedCollect) < 1;
 
   const getInvoiceType = (p) => {
     return p.invoiceType || (p.account === "2" ? "C" : form.cuit ? "A" : "B");
@@ -1846,22 +1869,30 @@ const NewOrderScreen = (props) => {
               {p.method === "Tarjeta" && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>Cuotas</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {[1, 3, 6].map(q => {
-                      const base = parseFloat(p.amount) || 0;
-                      const surcharge = q === 3 ? config.surcharge3 : q === 6 ? config.surcharge6 : 0;
-                      const total = base * (1 + surcharge / 100);
-                      const perQ = total / q;
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[{ q: 1, label: "Contado", surcharge: 0 }, { q: 3, label: "3 cuotas", surcharge: config.surcharge3 }, { q: 6, label: "6 cuotas", surcharge: config.surcharge6 }, { q: "otro", label: "Otro", surcharge: null }].map(opt => {
+                      const base = totalWorks;
+                      const ivaM = ivaMultiplier(p.withIva);
+                      const baseWithIva = base * ivaM;
+                      const total = opt.q === "otro" ? baseWithIva * (1 + (parseFloat(p.customSurch) || 0) / 100) : opt.q === 1 ? baseWithIva : baseWithIva * (1 + opt.surcharge / 100);
+                      const perQ = opt.q === "otro" ? total / (parseFloat(p.customQty) || 1) : total / (opt.q === 1 ? 1 : opt.q);
+                      const isSelected = p.installments === opt.q;
                       return (
-                        <div key={q} onClick={() => updatePayment(i, "installments", q)}
-                          style={{ ...card, padding: "10px 8px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.installments === q ? T.accent : T.border, background: p.installments === q ? "rgba(30,136,229,0.1)" : T.bg2 }}>
-                          <div style={{ fontWeight: 800, fontSize: 14, color: p.installments === q ? T.accent : T.text }}>{q === 1 ? "Contado" : `${q} cuotas`}</div>
-                          {q > 1 && base > 0 && <div style={{ fontSize: 10, color: T.orange, marginTop: 2 }}>{fmt(perQ)} c/u</div>}
-                          {q > 1 && <div style={{ fontSize: 9, color: T.gray, marginTop: 1 }}>+{surcharge}%</div>}
+                        <div key={opt.q} onClick={() => updatePayment(i, "installments", opt.q)}
+                          style={{ ...card, padding: "10px 8px", cursor: "pointer", textAlign: "center", flex: "1 1 60px", borderColor: isSelected ? T.accent : T.border, background: isSelected ? `${T.accent}12` : T.bg2 }}>
+                          <div style={{ fontWeight: 800, fontSize: 13, color: isSelected ? T.accent : T.text }}>{opt.label}</div>
+                          {opt.q !== "otro" && opt.q > 1 && <div style={{ fontSize: 10, color: T.orange, marginTop: 2 }}>{fmt(perQ)} c/u</div>}
+                          {opt.q !== "otro" && opt.q > 1 && <div style={{ fontSize: 9, color: T.gray, marginTop: 1 }}>+{opt.surcharge}%</div>}
+                          {opt.q === "otro" && isSelected && p.customSurch && <div style={{ fontSize: 9, color: T.orange, marginTop: 2 }}>+{p.customSurch}%</div>}
                         </div>
                       );
                     })}
                   </div>
+                  {p.installments === "otro" && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", background: `${T.orange}10`, borderRadius: 8, fontSize: 12, color: T.orange, fontWeight: 600 }}>
+                      📋 Cuotas a acordar — sin recargo aplicado
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1891,58 +1922,64 @@ const NewOrderScreen = (props) => {
                   <label style={labelStyle}>¿Incluye IVA?</label>
                   <div style={{ display: "flex", gap: 8 }}>
                     <div onClick={() => { updatePayment(i, "withIva", true); updatePayment(i, "invoiceType", form.cuit ? "A" : "B"); }}
-                      style={{ ...card, padding: "10px 20px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.withIva === true ? T.accent : T.border, background: p.withIva === true ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontSize: 13 }}>
-                      Sí, con IVA
-                      <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>Fact. A / B</div>
+                      style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.withIva === true ? T.accent : T.border, background: p.withIva === true ? `${T.accent}12` : T.bg2, fontWeight: 800, fontSize: 13, color: p.withIva === true ? T.accent : T.text }}>
+                      CON IVA
+                      <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{config.ivaRate}% · Fact. A/B</div>
                     </div>
-                    <div onClick={() => { updatePayment(i, "withIva", false); updatePayment(i, "invoiceType", ""); }}
-                      style={{ ...card, padding: "10px 20px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.withIva === false ? T.accent : T.border, background: p.withIva === false ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontSize: 13 }}>
-                      No, sin IVA
+                    <div onClick={() => { updatePayment(i, "withIva", false); updatePayment(i, "invoiceType", "C"); }}
+                      style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.withIva === false ? T.gray : T.border, background: p.withIva === false ? `${T.bg3}` : T.bg2, fontWeight: 800, fontSize: 13, color: p.withIva === false ? T.grayLight : T.text }}>
+                      SIN IVA
+                      <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>Mismo precio · Fact. C</div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* IVA breakdown */}
-              {p.withIva && (parseFloat(p.amount) || 0) > 0 && (
-                <div style={{ marginTop: 10, padding: "10px 14px", background: T.bg, borderRadius: 8, fontSize: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ color: T.gray }}>Subtotal</span>
-                    <span style={{ fontWeight: 600 }}>{fmt(parseFloat(p.amount) || 0)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
-                    <span style={{ fontWeight: 600, color: T.accent }}>{fmt((parseFloat(p.amount) || 0) * config.ivaRate / 100)}</span>
-                  </div>
-                  <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
-                    <span>Total con IVA</span>
-                    <span style={{ color: T.accent, fontFamily: fontD }}>{fmt((parseFloat(p.amount) || 0) * (1 + config.ivaRate / 100))}</span>
-                  </div>
+                  {p.withIva === true && parseFloat(p.amount) > 0 && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", background: `${T.accent}08`, borderRadius: 8, fontSize: 12, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: T.gray }}>Base {fmt(totalWorks)} + IVA {config.ivaRate}% = </span>
+                      <span style={{ fontWeight: 700, color: T.accent }}>{fmt(totalWorks * (1 + config.ivaRate / 100))}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Tipo de Factura */}
-              {p.withIva && (p.method === "Efectivo" || p.method === "Tarjeta" || (p.method === "Transferencia" && p.account === "1")) && (
-                <div style={{ marginTop: 12 }}>
-                  <label style={labelStyle}>Tipo de Factura</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {["A", "B"].map(ft => (
-                      <div key={ft} onClick={() => updatePayment(i, "invoiceType", ft)}
-                        style={{ ...card, padding: "10px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.invoiceType === ft ? T.accent : T.border, background: p.invoiceType === ft ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontSize: 14, fontFamily: font }}>
-                        Factura {ft}
-                        <div style={{ fontSize: 9, color: T.gray, marginTop: 2 }}>{ft === "A" ? "CUIT" : "DNI / CUIT"}</div>
-                      </div>
-                    ))}
+              {(p.method === "Efectivo" || p.method === "Tarjeta" || (p.method === "Transferencia" && p.account)) && (() => {
+                const hasDni = !!(form.dni);
+                const hasCuit = !!(form.cuit);
+                // Available invoice types based on loaded documents
+                let availFc = [];
+                if (p.method === "Transferencia") {
+                  if (p.account === "2") availFc = ["C"];
+                  else if (hasCuit) availFc = ["A", "B"];
+                  else availFc = ["B"];
+                } else {
+                  if (p.withIva === false) availFc = ["C"];
+                  else if (hasCuit && hasDni) availFc = ["A", "B"];
+                  else if (hasCuit) availFc = ["A", "B"];
+                  else availFc = ["B"];
+                }
+                const fcLabels = { A: { sub: "Necesita CUIT", color: T.orange }, B: { sub: "DNI o CUIT", color: T.accent }, C: { sub: "Sin IVA / Consumidor final", color: T.gray } };
+                return availFc.length > 0 ? (
+                  <div style={{ marginTop: 12 }}>
+                    <label style={labelStyle}>Tipo de Factura</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {availFc.map(ft => {
+                        const blocked = ft === "A" && !hasCuit;
+                        return (
+                          <div key={ft} onClick={() => !blocked && updatePayment(i, "invoiceType", ft)}
+                            style={{ ...card, padding: "10px 16px", cursor: blocked ? "not-allowed" : "pointer", textAlign: "center", flex: 1, opacity: blocked ? 0.4 : 1,
+                              borderColor: p.invoiceType === ft ? fcLabels[ft].color : T.border,
+                              background: p.invoiceType === ft ? `${fcLabels[ft].color}12` : T.bg2,
+                              fontWeight: 700, fontSize: 14, fontFamily: font, color: p.invoiceType === ft ? fcLabels[ft].color : T.text }}>
+                            FC {ft}
+                            <div style={{ fontSize: 9, fontWeight: 400, color: T.gray, marginTop: 2 }}>{fcLabels[ft].sub}</div>
+                            {blocked && <div style={{ fontSize: 9, color: T.red }}>Sin CUIT</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {p.method === "Transferencia" && p.account === "2" && (
-                <div style={{ marginTop: 8, padding: "8px 12px", background: T.bg, borderRadius: 6, fontSize: 11, color: T.gray }}>
-                  Factura C (sin IVA) — Cuenta 2
-                </div>
-              )}
+                ) : null;
+              })()}
             </div>
           ))}
 
@@ -1951,18 +1988,33 @@ const NewOrderScreen = (props) => {
           </button>
 
           {/* Balance */}
-          <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: Math.abs(totalPayments - totalWorks) < 1 ? T.green : T.red }}>
+          <div style={{ ...card, padding: 16, marginBottom: 16, borderColor: Math.abs(totalPayments - expectedCollect) < 1 ? T.green : T.red }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+              <span style={{ color: T.gray }}>Base trabajos</span><span style={{ fontWeight: 600 }}>{fmt(totalWorks)}</span>
+            </div>
+            {expectedCollect !== totalWorks && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                <span style={{ color: T.gray }}>
+                  {p0.withIva && (p0.installments === 3 || p0.installments === 6 || p0.installments === "otro")
+                    ? `+ IVA ${config.ivaRate}% + recargo cuotas`
+                    : p0.withIva ? `+ IVA ${config.ivaRate}%`
+                    : `+ recargo cuotas`}
+                </span>
+                <span style={{ fontWeight: 600, color: T.orange }}>{fmt(expectedCollect - totalWorks)}</span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
-              <span style={{ color: T.gray }}>Total trabajos</span><span style={{ fontWeight: 700 }}>{fmt(totalWorks)}</span>
+              <span style={{ color: T.gray, fontWeight: 600 }}>Total a cobrar</span>
+              <span style={{ fontWeight: 800, color: T.accent }}>{fmt(expectedCollect)}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
-              <span style={{ color: T.gray }}>Total pagos</span><span style={{ fontWeight: 700 }}>{fmt(totalPayments)}</span>
+              <span style={{ color: T.gray }}>Monto ingresado</span><span style={{ fontWeight: 700 }}>{fmt(totalPayments)}</span>
             </div>
             <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, fontFamily: fontD }}>
               <span>Diferencia</span>
-              <span style={{ color: Math.abs(totalPayments - totalWorks) < 1 ? T.green : T.red }}>
-                {Math.abs(totalPayments - totalWorks) < 1 ? "✅ Coincide" : fmt(totalWorks - totalPayments)}
+              <span style={{ color: Math.abs(totalPayments - expectedCollect) < 1 ? T.green : T.red }}>
+                {Math.abs(totalPayments - expectedCollect) < 1 ? "✅ Coincide" : fmt(expectedCollect - totalPayments)}
               </span>
             </div>
           </div>
@@ -2002,7 +2054,22 @@ const NewOrderScreen = (props) => {
               <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(totalWorks)}</span>
             </div>
           </div>
-          <div style={{ fontSize: 12, color: T.green, marginBottom: 24 }}>📱 Mensaje de WhatsApp enviado al cliente</div>
+          {(() => {
+            const phone = form.phone ? form.phone.replace(/\D/g, "") : "";
+            const nombre = `${form.name} ${form.lastName}`.trim();
+            const vehiculo = `${form.brand} ${form.model} ${form.year}`.trim();
+            const dominio = fmtD(form.domain);
+            const template = config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\n¡Gracias por confiar en nosotros!";
+            const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio);
+            return phone ? (
+              <button onClick={() => window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank")}
+                style={{ background: "#25D366", color: "#fff", border: "none", borderRadius: 10, padding: "14px 28px", cursor: "pointer", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, margin: "0 auto 24px" }}>
+                <span style={{ fontSize: 20 }}>📱</span> Enviar Mensaje al Cliente
+              </button>
+            ) : (
+              <div style={{ fontSize: 12, color: T.gray, marginBottom: 24 }}>Sin teléfono registrado</div>
+            );
+          })()}
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button onClick={() => onNavigate("dashboard")} style={btnPrimary()}>Ir al Dashboard</button>
             <button onClick={() => { setStep(1); setDomainSearch(""); setFoundClient(null); setFoundVehicle(null); setIsNew(false); setWorks([]); setPayments([{ method: "", amount: "", account: "", installments: 3 }]); setForm({ name: "", lastName: "", dni: "", cuit: "", phone: "", brand: "", model: "", year: "", km: "", currentKm: "", lastKm: "", domain: "" }); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
@@ -3553,7 +3620,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [igGastos, setIgGastos] = useState([]);
   const [showIgGasto, setShowIgGasto] = useState(false);
   const [selIgnacio, setSelIgnacio] = useState(null);
-  const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0] });
+  const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
   const [egresos, setEgresos] = useState([]);
@@ -3578,6 +3645,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [expandedFact, setExpandedFact] = useState(null);
   const [showPagoServ, setShowPagoServ] = useState(false);
   const [pagoServForm, setPagoServForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
+  const [showPagoIg, setShowPagoIg] = useState(false);
+  const [selGastoIg, setSelGastoIg] = useState(null);
+  const [pagoIgForm, setPagoIgForm] = useState({ fecha: new Date().toISOString().split("T")[0] });
+  const [igFiltro, setIgFiltro] = useState("pendiente");
   const [cmYear, setCmYear] = useState(new Date().getFullYear());
   const [cmMonth, setCmMonth] = useState(new Date().getMonth());
   const [cmSub, setCmSub] = useState("resumen");
@@ -4796,129 +4867,214 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
       {/* ══════ IGNACIO ══════ */}
       {tab === "ignacio" && (<div>
-        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>👑 Gastos de Ignacio</div>
-        
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>👑 Gastos de Ignacio</div>
+          <button onClick={() => setShowIgGasto(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Gasto</button>
+        </div>
+
         {(() => {
-          const allGastos = [...igGastos, ...egresos.filter(e => e.categoria === "sueldo" && e.detalle === "Ignacio").map(e => ({ ...e, catName: "Sueldo", desc: "Pago de sueldo" }))];
-          const totalGastos = allGastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-          const igCats = [...new Set(allGastos.map(g => g.catName || g.categoria || "Otro"))];
-          const catTotals = {};
-          allGastos.forEach(g => { const k = g.catName || g.categoria || "Otro"; catTotals[k] = (catTotals[k] || 0) + (parseFloat(g.monto) || 0); });
-          const catEntries = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
-          const pieColors = ["#1E88E5", "#E53935", "#43a047", "#FF9800", "#9C27B0", "#00BCD4", "#795548"];
+          const pendientes = igGastos.filter(g => g.estado !== "pagado");
+          const vencidos = pendientes.filter(g => g.fechaVenc && g.fechaVenc < today);
+          const totalPendiente = pendientes.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+          const totalPagado = igGastos.filter(g => g.estado === "pagado").reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+          const shown = igFiltro === "pendiente" ? igGastos.filter(g => g.estado !== "pagado")
+            : igFiltro === "pagado" ? igGastos.filter(g => g.estado === "pagado")
+            : igGastos;
+          const sorted = [...shown].sort((a, b) => {
+            if (igFiltro === "pendiente") {
+              if (a.fechaVenc && b.fechaVenc) return a.fechaVenc.localeCompare(b.fechaVenc);
+              if (a.fechaVenc) return -1; if (b.fechaVenc) return 1;
+            }
+            return (b.fecha || "").localeCompare(a.fecha || "");
+          });
 
-          if (selIgnacio) {
-            const catGastos = allGastos.filter(g => (g.catName || g.categoria || "Otro") === selIgnacio);
-            const catTotal = catGastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-            return (
-              <div>
-                <button onClick={() => setSelIgnacio(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selIgnacio}</div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.red, marginTop: 8 }}>Total: {fmt(catTotal)}</div>
-                  <div style={{ fontSize: 12, color: T.gray }}>{catGastos.length} movimiento{catGastos.length !== 1 ? "s" : ""}</div>
-                </div>
-                <button onClick={() => setShowIgGasto(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, width: "100%", marginBottom: 16 }}>+ Registrar Gasto en {selIgnacio}</button>
-                {catGastos.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map(g => (
-                  <div key={g.id} style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `3px solid ${T.orange}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{g.desc || g.catName || g.categoria}</div>
-                        <div style={{ fontSize: 11, color: T.gray }}>{g.fecha}</div>
-                      </div>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.red }}>{fmt(parseFloat(g.monto) || 0)}</div>
-                    </div>
-                  </div>
-                ))}
-                {catGastos.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin gastos</div>}
-              </div>
-            );
-          }
-
-          let pieAngle = 0;
           return (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-                <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.red}` }}>
-                  <div style={{ fontSize: 11, color: T.gray }}>Total Gastos</div>
-                  <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.red }}>{fmt(totalGastos)}</div>
+              {/* Resumen */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}`, cursor: "pointer" }} onClick={() => setIgFiltro("pendiente")}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pendiente</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(totalPendiente)}</div>
+                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{pendientes.length} gasto{pendientes.length !== 1 ? "s" : ""}{vencidos.length > 0 ? ` • ⚠️ ${vencidos.length} vencido${vencidos.length !== 1 ? "s" : ""}` : ""}</div>
                 </div>
-                <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.accent}` }}>
-                  <div style={{ fontSize: 11, color: T.gray }}>Categorías</div>
-                  <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{igCats.length}</div>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}`, cursor: "pointer" }} onClick={() => setIgFiltro("pagado")}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pagado</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
+                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{igGastos.filter(g => g.estado === "pagado").length} gasto{igGastos.filter(g => g.estado === "pagado").length !== 1 ? "s" : ""}</div>
                 </div>
               </div>
 
-              {catEntries.length > 0 && (
-                <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <svg width="100" height="100" viewBox="0 0 120 120">
-                      {catEntries.map(([cat, amount], i) => {
-                        const pct = totalGastos > 0 ? amount / totalGastos : 0;
-                        const sa = pieAngle; pieAngle += pct * 360; const ea = pieAngle;
-                        const rad = Math.PI / 180;
-                        if (pct === 0) return null;
-                        if (pct >= 0.999) return <circle key={i} cx="60" cy="60" r="50" fill={pieColors[i % pieColors.length]} />;
-                        return <path key={i} d={`M60,60 L${60+50*Math.cos((sa-90)*rad)},${60+50*Math.sin((sa-90)*rad)} A50,50 0 ${pct>.5?1:0},1 ${60+50*Math.cos((ea-90)*rad)},${60+50*Math.sin((ea-90)*rad)} Z`} fill={pieColors[i % pieColors.length]} />;
-                      })}
-                    </svg>
-                    <div style={{ flex: 1 }}>
-                      {catEntries.map(([cat, amount], i) => (
-                        <div key={cat} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 11 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: 2, background: pieColors[i % pieColors.length] }} />
-                            <span style={{ color: T.grayLight }}>{cat}</span>
-                          </div>
-                          <span style={{ fontWeight: 700 }}>{fmt(amount)}</span>
-                        </div>
-                      ))}
-                    </div>
+              {/* Filtros */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {[{ k: "pendiente", l: "⏳ Pendientes" }, { k: "pagado", l: "✅ Pagados" }, { k: "todos", l: "📋 Todos" }].map(f => (
+                  <div key={f.k} onClick={() => setIgFiltro(f.k)}
+                    style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                      background: igFiltro === f.k ? T.accent : T.bg2, color: igFiltro === f.k ? "#fff" : T.gray,
+                      border: `1px solid ${igFiltro === f.k ? T.accent : T.border}` }}>
+                    {f.l}
                   </div>
+                ))}
+              </div>
+
+              {sorted.length === 0 && (
+                <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>
+                  {igFiltro === "pendiente" ? "✅ No hay gastos pendientes" : igFiltro === "pagado" ? "Sin gastos pagados" : "Sin gastos cargados"}
                 </div>
               )}
 
-              <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Carpetas de gastos</div>
-              {igCats.map(cat => (
-                <div key={cat} onClick={() => setSelIgnacio(cat)} style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ fontSize: 22 }}>📁</div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{cat}</div>
-                        <div style={{ fontSize: 11, color: T.gray }}>{allGastos.filter(g => (g.catName || g.categoria) === cat).length} gasto{allGastos.filter(g => (g.catName || g.categoria) === cat).length !== 1 ? "s" : ""}</div>
+              {sorted.map(g => {
+                const isVencido = g.estado !== "pagado" && g.fechaVenc && g.fechaVenc < today;
+                const porVencer = g.estado !== "pagado" && g.fechaVenc && g.fechaVenc >= today && g.fechaVenc <= new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
+                const borderColor = g.estado === "pagado" ? T.green : isVencido ? T.red : porVencer ? T.orange : T.border;
+                return (
+                  <div key={g.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `3px solid ${borderColor}`, overflow: "hidden" }}>
+                    <div style={{ padding: "14px 16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 15, fontWeight: 700 }}>{g.desc || g.catName || g.categoria}</div>
+                            {isVencido && <span style={{ fontSize: 10, fontWeight: 700, color: T.red, background: `${T.red}15`, padding: "2px 7px", borderRadius: 4 }}>⚠️ VENCIDO</span>}
+                            {porVencer && <span style={{ fontSize: 10, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 7px", borderRadius: 4 }}>⚡ POR VENCER</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: T.gray, marginTop: 3 }}>
+                            {g.catName || g.categoria}
+                            {g.fecha ? ` • Cargado: ${fmtDate(g.fecha)}` : ""}
+                          </div>
+                          {g.fechaVenc && (
+                            <div style={{ fontSize: 12, marginTop: 2, fontWeight: g.estado !== "pagado" ? 700 : 400, color: isVencido ? T.red : g.estado === "pagado" ? T.gray : T.orange }}>
+                              {g.estado === "pagado" ? `Vencía: ${fmtDate(g.fechaVenc)}` : `Vence: ${fmtDate(g.fechaVenc)}`}
+                            </div>
+                          )}
+                          {g.estado === "pagado" && g.fechaPago && (
+                            <div style={{ fontSize: 12, color: T.green, marginTop: 2, fontWeight: 600 }}>✅ Pagado el {fmtDate(g.fechaPago)}</div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: "right", marginLeft: 12 }}>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: g.estado === "pagado" ? T.green : T.red }}>{fmt(parseFloat(g.monto) || 0)}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: g.estado === "pagado" ? T.green : T.orange, marginTop: 2 }}>
+                            {g.estado === "pagado" ? "PAGADO" : "PENDIENTE"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botones */}
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        {g.estado !== "pagado" && (
+                          <button onClick={() => { setSelGastoIg(g); setPagoIgForm({ fecha: today }); setShowPagoIg(true); }}
+                            style={{ ...btnPrimary(T.green), fontSize: 12, flex: 1, padding: "9px 0", fontWeight: 700 }}>
+                            ✅ Registrar Pago
+                          </button>
+                        )}
+                        {g.estado === "pagado" && (
+                          <button onClick={() => setIgGastos(prev => prev.map(x => x.id === g.id ? { ...x, estado: "pendiente", fechaPago: null } : x))}
+                            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>
+                            ↩ Marcar pendiente
+                          </button>
+                        )}
+                        <button onClick={() => setIgGastos(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}30`, fontSize: 12, padding: "9px 14px", color: T.red }}>
+                          ✕
+                        </button>
                       </div>
                     </div>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.red }}>{fmt(catTotals[cat] || 0)}</div>
                   </div>
-                </div>
-              ))}
-              <button onClick={() => setShowIgGasto(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, width: "100%", marginTop: 12 }}>+ Nuevo Gasto</button>
+                );
+              })}
             </div>
           );
         })()}
 
+        {/* ── MODAL NUEVO GASTO ── */}
         {showIgGasto && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowIgGasto(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>👑 Gasto de Ignacio</div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Categoría *</label>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowIgGasto(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>👑 Nuevo Gasto</div>
+
+              <div style={{ marginBottom: 10 }}>
+                <label style={labelStyle}>Descripción *</label>
+                <input value={igForm.desc} onChange={e => setIgForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Expensas, Alquiler..." autoFocus />
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <label style={labelStyle}>Categoría *</label>
                 <select value={igForm.categoria} onChange={e => setIgForm(f => ({ ...f, categoria: e.target.value }))} style={inputStyle}>
-                  <option value="">Seleccionar o crear</option>
-                  {[...new Set([...igGastos.map(g => g.catName || g.categoria), "Sueldo"])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">Seleccionar</option>
+                  {[...new Set([...igGastos.map(g => g.catName || g.categoria), "Servicios", "Alquiler", "Expensas", "Impuestos", "Personal", "Otro"])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
                   <option value="__nueva__">+ Nueva categoría</option>
                 </select>
                 {igForm.categoria === "__nueva__" && (
-                  <input value={igForm.newCat || ""} onChange={e => setIgForm(f => ({ ...f, newCat: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Ej: Luz, Gas, Tarjeta..." />
+                  <input value={igForm.newCat || ""} onChange={e => setIgForm(f => ({ ...f, newCat: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre de categoría..." />
                 )}
               </div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input value={igForm.desc} onChange={e => setIgForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle..." /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                <div><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={igForm.monto} onChange={e => setIgForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
-                <div><label style={labelStyle}>Fecha</label><input type="date" value={igForm.fecha} onChange={e => setIgForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div>
+                  <label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={igForm.monto} onChange={e => setIgForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Fecha de carga</label>
+                  <input type="date" value={igForm.fecha} onChange={e => setIgForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+                </div>
               </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Fecha de vencimiento</label>
+                <input type="date" value={igForm.fechaVenc || ""} onChange={e => setIgForm(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} />
+              </div>
+
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowIgGasto(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { const cat = igForm.categoria === "__nueva__" ? igForm.newCat : igForm.categoria; if (cat && igForm.monto) { setIgGastos(p => [...p, { id: Date.now(), catName: cat, categoria: cat, desc: igForm.desc, monto: parseFloat(igForm.monto) || 0, fecha: igForm.fecha }]); if (selIgnacio) setSelIgnacio(cat); setIgForm({ categoria: "", desc: "", monto: "", fecha: today, newCat: "" }); setShowIgGasto(false); }}} style={{ ...btnPrimary(T.accent), flex: 1 }}>Registrar</button>
+                <button onClick={() => {
+                  const cat = igForm.categoria === "__nueva__" ? (igForm.newCat || "") : igForm.categoria;
+                  if (!igForm.desc || !igForm.monto || !cat) return;
+                  setIgGastos(p => [...p, { id: Date.now(), catName: cat, categoria: cat, desc: igForm.desc, monto: parseFloat(igForm.monto) || 0, fecha: igForm.fecha, fechaVenc: igForm.fechaVenc || null, estado: "pendiente", fechaPago: null }]);
+                  setIgForm({ categoria: "", desc: "", monto: "", fecha: today, fechaVenc: "", newCat: "" });
+                  setShowIgGasto(false);
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL REGISTRAR PAGO ── */}
+        {showPagoIg && selGastoIg && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowPagoIg(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 380, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>✅ Registrar Pago</div>
+              <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>{selGastoIg.desc || selGastoIg.catName}</div>
+
+              <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                  <span style={{ color: T.gray }}>Monto del gasto</span>
+                  <span style={{ fontFamily: fontD, fontWeight: 800, color: T.orange }}>{fmt(parseFloat(selGastoIg.monto) || 0)}</span>
+                </div>
+                {selGastoIg.fechaVenc && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 4 }}>
+                    <span style={{ color: T.gray }}>Vencimiento</span>
+                    <span style={{ color: selGastoIg.fechaVenc < today ? T.red : T.grayLight }}>{fmtDate(selGastoIg.fechaVenc)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Fecha de pago</label>
+                <input type="date" value={pagoIgForm.fecha}
+                  onChange={e => setPagoIgForm(f => ({ ...f, fecha: e.target.value }))}
+                  style={inputStyle} autoFocus />
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setShowPagoIg(false); setSelGastoIg(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  setIgGastos(prev => prev.map(x => x.id === selGastoIg.id ? { ...x, estado: "pagado", fechaPago: pagoIgForm.fecha } : x));
+                  setShowPagoIg(false);
+                  setSelGastoIg(null);
+                  setIgFiltro("pendiente");
+                }} style={{ ...btnPrimary(T.green), flex: 1, fontWeight: 700 }}>✅ Confirmar Pago</button>
               </div>
             </div>
           </div>
