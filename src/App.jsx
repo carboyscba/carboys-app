@@ -5093,7 +5093,7 @@ const ServiceSheetScreen = (props) => {
               <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
             </div>
             <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "center", marginBottom: 6 }}>
-              {(() => { const p = d.percent >= 0 ? d.percent : -1; if (p < 0) return null; const label = p <= 10 ? "CAMBIAR" : p <= 20 ? "CRÍTICO" : p <= 70 ? "BIEN" : "ÓPTIMO"; const c = p <= 10 ? T.red : p <= 20 ? "#FF9800" : "#43a047"; return <span style={{ color: c, fontSize: 13 }}>{label}</span>; })()}
+              {d.percent >= 0 && <span style={{ color: d.percent <= 10 ? T.red : d.percent <= 20 ? "#FF9800" : "#43a047", fontSize: 13 }}>{d.percent <= 10 ? "CAMBIAR" : d.percent <= 20 ? "CRÍTICO" : d.percent <= 70 ? "BIEN" : "ÓPTIMO"}</span>}
             </div>
             {d.percent >= 0 && d.percent <= 20 && (
               <div style={{ display: "flex", gap: 6 }}>
@@ -5203,7 +5203,7 @@ const ServiceSheetScreen = (props) => {
                   <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
                 </div>
                 <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "center", marginBottom: 6 }}>
-                  {(() => { const p = d.percent >= 0 ? d.percent : -1; if (p < 0) return null; const label = p <= 10 ? "CAMBIAR" : p <= 20 ? "CRÍTICO" : p <= 70 ? "BIEN" : "ÓPTIMO"; const c = p <= 10 ? T.red : p <= 20 ? "#FF9800" : "#43a047"; return <span style={{ color: c, fontSize: 13 }}>{label}</span>; })()}
+                  {d.percent >= 0 && <span style={{ color: d.percent <= 10 ? T.red : d.percent <= 20 ? "#FF9800" : "#43a047", fontSize: 13 }}>{d.percent <= 10 ? "CAMBIAR" : d.percent <= 20 ? "CRÍTICO" : d.percent <= 70 ? "BIEN" : "ÓPTIMO"}</span>}
                 </div>
                 {d.percent >= 0 && d.percent <= 20 && (
                   <div style={{ display: "flex", gap: 6 }}>
