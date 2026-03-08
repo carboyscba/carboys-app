@@ -2512,20 +2512,44 @@ const VehicleDetailScreen = (props) => {
       {(() => {
         const authNotif = (notifications || []).find(n => n.orderId === order.id);
         if (!authNotif) return null;
+        const isPending = authNotif.status === "pending";
         const isApproved = authNotif.status === "approved";
         const isDenied = authNotif.status === "denied";
-        const isPending = authNotif.status === "pending";
-        const color = isApproved ? T.green : isDenied ? T.red : T.orange;
-        const label = isApproved ? "✅ AUTORIZACIÓN APROBADA" : isDenied ? "❌ AUTORIZACIÓN DENEGADA" : "⏳ PENDIENTE DE AUTORIZACIÓN";
+
+        // Detect partial vs full
+        const itms = authNotif.items || [];
+        const approvedCount = itms.filter(i => i.itemStatus === "approved").length;
+        const deniedCount = itms.filter(i => i.itemStatus === "denied").length;
+        const isPartial = isApproved && approvedCount > 0 && deniedCount > 0;
+        const isFullDenied = isDenied || (isApproved && deniedCount === itms.length);
+
+        const color = isPending ? T.orange : isPartial ? T.orange : isFullDenied ? T.red : T.green;
+        const icon = isPending ? "⏳" : isPartial ? "⚠️" : isFullDenied ? "❌" : "✅";
+        const label = isPending ? "PENDIENTE DE AUTORIZACIÓN"
+          : isPartial ? `CONFIRMACIÓN PARCIAL — ${approvedCount} aprobado${approvedCount !== 1 ? "s" : ""}, ${deniedCount} denegado${deniedCount !== 1 ? "s" : ""}`
+          : isFullDenied ? "ARREGLO DENEGADO"
+          : "CONFIRMADO";
+
         return (
           <div style={{ ...card, padding: "14px 20px", marginBottom: 16, borderLeft: `4px solid ${color}`, background: `${color}08` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color }}>{label}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color }}>{icon} {label}</div>
               {isPending && user.canAuthorize && (
                 <button onClick={() => onNavigate("authManage", order)} style={{ ...btnPrimary(color), fontSize: 12, padding: "8px 16px" }}>Gestionar</button>
               )}
             </div>
-            {authNotif.items && <div style={{ marginTop: 6, fontSize: 12, color: T.grayLight }}>{authNotif.items.map(it => it.label).join(", ")}</div>}
+            {itms.length > 0 && (
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {itms.map((it, i) => {
+                  const sc = it.itemStatus === "approved" ? T.green : it.itemStatus === "denied" ? T.red : T.orange;
+                  return (
+                    <span key={i} style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${sc}18`, color: sc, border: `1px solid ${sc}40` }}>
+                      {it.itemStatus === "approved" ? "✅" : it.itemStatus === "denied" ? "❌" : "⏳"} {it.label}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -5813,10 +5837,20 @@ const ServiceSheetScreen = (props) => {
                 }
                 window.scrollTo?.({ top: 0, behavior: "smooth" });
               }}
-                style={{ padding: "8px 14px", borderRadius: 10, cursor: "pointer", border: `2px solid ${isActive ? T.accent : tabDone ? T.green : T.border}`, background: isActive ? `${T.accent}15` : tabDone ? `${T.green}10` : T.bg2, display: "flex", alignItems: "center", gap: 6, flexShrink: 0, transition: "all .15s" }}>
+                style={{ padding: "8px 14px", borderRadius: 10, cursor: "pointer", border: `2px solid ${isActive ? T.accent : tabDone ? T.green : T.border}`, background: isActive ? `${T.accent}15` : tabDone ? `${T.green}10` : T.bg2, display: "flex", alignItems: "center", gap: 6, flexShrink: 0, transition: "all .15s", position: "relative" }}>
                 <span style={{ fontSize: 16 }}>{tab.icon}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? T.accent : tabDone ? T.green : T.grayLight }}>{tab.label}</span>
                 {tabDone && <span style={{ fontSize: 10, color: T.green }}>✓</span>}
+                {(() => {
+                  const pending = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
+                  const approved = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+                  if (!pending && !approved) return null;
+                  const notifToShow = pending || approved;
+                  const dotColor = pending ? T.orange : T.green;
+                  return (
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, animation: pending ? "pulse 1.5s infinite" : "none" }} />
+                  );
+                })()}
               </div>
             );
           })}
@@ -6154,12 +6188,15 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   };
 
   const doApproveAll = () => {
-    // Guardar precios en la notif y aprobar
-    const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: itemStatus[it.id] || "approved" }));
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved", items: updatedItems } : n));
+    const finalStatuses = {};
+    items.forEach(it => { finalStatuses[it.id] = itemStatus[it.id] || "approved"; });
+    const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: finalStatuses[it.id] }));
+    const anyApproved = Object.values(finalStatuses).some(s => s === "approved");
+    const allDen = Object.values(finalStatuses).every(s => s === "denied");
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: allDen ? "denied" : "approved", items: updatedItems } : n));
     if (order.serviceSheet) {
       const updated = { ...order.serviceSheet };
-      items.filter(it => itemStatus[it.id] !== "denied").forEach(it => {
+      items.filter(it => finalStatuses[it.id] !== "denied").forEach(it => {
         if (updated[it.id]) updated[it.id] = { ...updated[it.id], authApproved: true };
       });
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
@@ -6236,16 +6273,16 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
                 {st && <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(st), padding: "3px 10px", borderRadius: 6, background: `${statusColor(st)}18`, border: `1px solid ${statusColor(st)}40` }}>{statusLabel(st)}</span>}
               </div>
 
-              {/* Precio con NumPad */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 11, color: T.gray, width: 48, flexShrink: 0 }}>Precio:</span>
+              {/* Precio con NumPad — compacto */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: T.gray, width: 44, flexShrink: 0 }}>Precio:</span>
                 <div onClick={() => openNumPad(`Precio — ${it.label}`, price, (v) => setItemPrices(prev => ({ ...prev, [it.id]: v })))}
-                  style={{ flex: 1, background: T.bg, border: `2px solid ${price ? T.accent : T.border}`, borderRadius: 10, padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "border-color .15s" }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>$</span>
-                  <span style={{ flex: 1, fontFamily: fontD, fontSize: 18, fontWeight: 800, color: price ? T.white : T.gray }}>
+                  style={{ flex: 1, background: T.bg, border: `1.5px solid ${price ? T.accent : T.border}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, transition: "border-color .15s" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>$</span>
+                  <span style={{ flex: 1, fontFamily: fontD, fontSize: 14, fontWeight: 700, color: price ? T.white : T.gray }}>
                     {price ? Number(price).toLocaleString("es-AR") : "Tocar para ingresar"}
                   </span>
-                  <span style={{ fontSize: 11, color: T.gray }}>⌨</span>
+                  <span style={{ fontSize: 10, color: T.gray }}>⌨</span>
                 </div>
               </div>
 
@@ -7852,7 +7889,7 @@ export default function App() {
     window.scrollTo?.(0, 0);
   }, []);
 
-  if (!user) return <><FontLoader /><LoginScreen onLogin={setUser} /></>;
+  if (!user) return <NumPadProvider><FontLoader /><LoginScreen onLogin={setUser} /></NumPadProvider>;
 
   const _foundOrder = selOrder ? orders.find(o => o.id === selOrder.id) : null;
   const currentOrder = selOrder ? (_foundOrder ? (selOrder._fojaType ? { ..._foundOrder, _fojaType: selOrder._fojaType } : _foundOrder) : selOrder) : null;
@@ -7876,7 +7913,8 @@ export default function App() {
   };
 
   return (
-    <><FontLoader />
+    <NumPadProvider>
+      <FontLoader />
       <div style={{ background: T.bg, minHeight: "100vh", fontFamily: font, color: T.white, display: "flex", flexDirection: "column" }}>
         {/* Top bar */}
         <div style={{ background: "rgba(6,10,22,.95)", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${T.border}`, backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 100 }}>
@@ -7906,6 +7944,6 @@ export default function App() {
         </div>
         <div style={{ flex: 1, overflow: "auto" }}>{renderScreen()}</div>
       </div>
-    </>
+    </NumPadProvider>
   );
 }
