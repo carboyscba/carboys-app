@@ -143,8 +143,8 @@ const buildTrenItems = (category) => {
 };
 
 const USERS = [
-  { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red },
-  { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent },
+  { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red, canAuthorize: true },
+  { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent, canAuthorize: true },
   { id: 3, name: "Chiara", role: "admin", pin: "0000", initial: "C", color: T.orange },
   { id: 4, name: "Fabricio", role: "mecánico", pin: "0000", initial: "F", color: T.green },
 ];
@@ -1920,7 +1920,7 @@ const DashboardScreen = (props) => {
   const done = active.filter(o => o.status === "done").length;
   const canCreate = ["dueño", "encargado", "mecánico", "admin"].includes(user.role);
   const isOwner = user.role === "dueño";
-  const canManageAuth = ["dueño", "encargado"].includes(user.role);
+  const canManageAuth = user.canAuthorize === true;
   const pendingNotifs = (notifications || []).filter(n => n.status === "pending");
 
   const getVehicleInfo = (order) => {
@@ -2475,7 +2475,7 @@ const VehicleDetailScreen = (props) => {
           <div style={{ ...card, padding: "14px 20px", marginBottom: 16, borderLeft: `4px solid ${color}`, background: `${color}08` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14, color }}>{label}</div>
-              {isPending && (user.role === "dueño" || user.role === "encargado") && (
+              {isPending && user.canAuthorize && (
                 <button onClick={() => onNavigate("authManage", order)} style={{ ...btnPrimary(color), fontSize: 12, padding: "8px 16px" }}>Gestionar</button>
               )}
             </div>
@@ -4938,6 +4938,9 @@ const ServiceSheetScreen = (props) => {
 
   const setStatus4 = (id, s) => {
     const d = data[id];
+    if (s === "cambiado" && !isItemApproved(id) && !forcedChangeItems.has(id)) {
+      return; // Block cambiado unless authorized or forced
+    }
     if (d.status === s) {
       upd(id, { status: "", checked: false });
     } else {
@@ -7121,6 +7124,18 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             <input inputMode="numeric" value={editingUser.pin} onChange={e => setEditingUser(u => ({ ...u, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
               maxLength={4} style={{ ...inputStyle, fontSize: 28, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 12, width: 160, padding: "8px 12px" }} />
 
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>🔐 AUTORIZACIÓN DE CAMBIOS</div>
+            <div onClick={() => setEditingUser(u => ({ ...u, canAuthorize: !u.canAuthorize }))}
+              style={{ ...card, padding: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", borderColor: editingUser.canAuthorize ? T.green : T.border, background: editingUser.canAuthorize ? `${T.green}08` : T.bg, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>🔐 Puede autorizar cambios</div>
+                <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Gestionar solicitudes de cambio de repuestos</div>
+              </div>
+              <div style={{ width: 44, height: 24, borderRadius: 12, background: editingUser.canAuthorize ? T.green : T.border, padding: 2, transition: "all .2s", cursor: "pointer" }}>
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: "#FFF", transform: editingUser.canAuthorize ? "translateX(20px)" : "translateX(0)", transition: "transform .2s" }} />
+              </div>
+            </div>
+
             <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS DEL ROL: {ROLES.find(r => r.key === editingUser.role)?.label}</div>
             <div style={{ ...card, padding: 14 }}>
               {Object.entries(PERM_LABELS).map(([k, label]) => {
@@ -7208,7 +7223,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
               <button onClick={() => {
                 if (!newUser.name || !newUser.pin || newUser.pin.length < 4) return;
                 const color = COLORS[users.length % COLORS.length];
-                setUsers(prev => [...prev, { id: Date.now(), name: newUser.name, role: newUser.role, pin: newUser.pin, initial: newUser.name[0].toUpperCase(), color, active: true }]);
+                setUsers(prev => [...prev, { id: Date.now(), name: newUser.name, role: newUser.role, pin: newUser.pin, initial: newUser.name[0].toUpperCase(), color, active: true, canAuthorize: false }]);
                 setShowNewUser(false);
                 showSaved("✅ Usuario creado");
               }} disabled={!newUser.name || newUser.pin.length < 4}
