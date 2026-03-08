@@ -4511,7 +4511,7 @@ const InspectionScreen = (props) => {
 
 // ── SERVICE TEMPLATES (shared between ServiceSheetScreen and FojaClientScreen) ──
 const SF_TEMPLATE = [
-  { section: "FILTROS", icon: "🛢️", items: [
+  { section: "MOTOR", icon: "🛢️", items: [
     { id: "aceite", label: "Aceite motor", type: "check" },
     { id: "filtro_aceite", label: "Filtro de aceite", type: "check" },
     { id: "filtro_aire", label: "Filtro de aire", type: "check" },
@@ -4537,14 +4537,14 @@ const SF_TEMPLATE = [
     { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
     { id: "liq_direccion", label: "Líquido de dirección", type: "fluid" },
     { id: "liq_refrigerante", label: "Líquido refrigerante", type: "fluid", needsAuth: true },
-    { id: "aceite_caja", label: "Aceite de caja", type: "fluid" },
-    { id: "agua_lavaparabrisas", label: "Agua lavaparabrisas", type: "fluid" },
+    { id: "aceite_caja", label: "Aceite de caja", type: "fluid" , needsAuth: true },
+    { id: "agua_lavaparabrisas", label: "Líquido lavaparabrisas", type: "nivelado" },
   ]},
-  { section: "MOTOR", icon: "🔧", items: [
+  { section: "CONTROL VISUAL", icon: "👁️", items: [
     { id: "correa_distribucion", label: "Correa de distribución", type: "optionalBinary" },
     { id: "bomba_agua", label: "Bomba de agua", type: "optionalBinary" },
-    { id: "correa_poliv", label: "Correa poly-v", type: "binary" },
-    { id: "tensores_poliv", label: "Tensores poly-v", type: "binary" },
+    { id: "correa_poliv", label: "Correa poly-v", type: "binary" , needsAuth: true },
+    { id: "tensores_poliv", label: "Tensores poly-v", type: "binary" , needsAuth: true },
     { id: "mangueras_refrig", label: "Mangueras de refrigeración", type: "binary" },
     { id: "perdidas_aceite", label: "Pérdidas de aceite", type: "binaryPresente" },
   ]},
@@ -4564,20 +4564,27 @@ const SF_TEMPLATE = [
     { id: "soporte_escape", label: "Soporte de escape", type: "statusRC", needsAuth: true },
     { id: "catalizador", label: "Catalizador", type: "optionalStatusRC", needsAuth: true },
   ]},
-  { section: "VARIOS", icon: "🔋", items: [
-    { id: "reinicio_service", label: "Reinicio de service", type: "serviceReset" },
-    { id: "dtc_fallos", label: "Códigos de falla (DTC)", type: "dtc" },
-    { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true },
-    { id: "carga_alternador", label: "Carga alternador", type: "voltage" },
-    { id: "bujias_estado", label: "Estado de bujías", type: "binary" },
-    { id: "escobillas_estado", label: "Escobillas", type: "binary" },
+  { section: "DIAGNÓSTICO COMPUTARIZADO", icon: "💻", items: [
+    { id: "reinicio_service", label: "Reiniciación de luz de service", type: "serviceReset" },
+    { id: "dtc_fallos", label: "Revisión de fallos (DTC)", type: "dtc" },
+  ]},
+  { section: "BUJÍAS", icon: "⚡", items: [
+    { id: "bujias_estado", label: "Estado bujías", type: "binary" , needsAuth: true },
+  ]},
+  { section: "ESCOBILLAS", icon: "🧹", items: [
+    { id: "escobillas_estado", label: "Escobillas", type: "binary" , needsAuth: true },
+  ]},
+  { section: "CUBIERTAS", icon: "🛞", items: [
     { id: "rotacion_cubiertas", label: "Rotación de cubiertas", type: "toggle", toggleOptions: ["Realizada", "No realizada"] },
     { id: "estado_cubiertas", label: "Estado de cubiertas", type: "tires" },
   ]},
+  { section: "BATERÍA", icon: "🔋", items: [
+    { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true },
+    { id: "carga_alternador", label: "Carga alternador", type: "voltage" },
+  ]},
 ];
 
-const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["FILTROS", "FLUIDOS", "MOTOR", "LUCES", "VARIOS"].includes(s.section));
-
+const SB_TEMPLATE = SF_TEMPLATE.filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section))
 const PF_DEL_TEMPLATE = [
   { section: "TREN DELANTERO", icon: "⚙️", items: SF_TEMPLATE.find(s => s.section === "TREN DELANTERO").items },
   { section: "FLUIDOS", icon: "💧", items: [
@@ -4610,7 +4617,7 @@ const CarTiresDiagram = ({ tires, onChange }) => {
       {keys.map(([k, label]) => (
         <div key={k} style={{ textAlign: "center" }}>
           <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>{label}</div>
-          <input type="range" min="0" max="100" value={t[k]} onChange={e => onChange({ ...t, [k]: parseInt(e.target.value) })} style={{ width: "100%" }} />
+          <input type="range" min="0" max="100" value={t[k]} onChange={e => onChange({ ...t, [k]: parseInt(e.target.value) })} style={{ width: "100%", accentColor: color(t[k]) }} />
           <div style={{ fontSize: 14, fontWeight: 700, color: color(t[k]) }}>{t[k]}%</div>
         </div>
       ))}
@@ -4796,6 +4803,7 @@ const ServiceSheetScreen = (props) => {
       case "fluid": return !!d.fluidOk;
       case "brakeFluid": return d.percent >= 0;
       case "lamp": return !!d.fluidOk;
+      case "nivelado": return d.fluidOk === "nivelado";
       case "percentRC": return d.percent >= 0;
       case "batteryPercent": return d.percent >= 0;
       case "freno_trasero": return !!d.toggle && d.percent >= 0;
@@ -5015,23 +5023,32 @@ const ServiceSheetScreen = (props) => {
         {item.type === "percentRC" && !isForced && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>Desgaste</span>
+              <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>Vida útil</span>
               <input type="range" min="0" max="100" value={d.percent >= 0 ? d.percent : 50}
-                onChange={e => { const v = parseInt(e.target.value); upd(item.id, { percent: v, checked: true, status: v <= 10 ? "cambiar" : v <= 20 ? "regular" : "" }); }}
-                style={{ flex: 1, accentColor: (d.percent >= 0 ? d.percent : 50) > 70 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 20 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 10 ? "#FF9800" : T.red, height: 6 }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 70 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 20 ? "#43a047" : (d.percent >= 0 ? d.percent : 50) > 10 ? "#FF9800" : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
+                onChange={e => upd(item.id, { percent: parseInt(e.target.value), checked: true, status: parseInt(e.target.value) > 20 ? "" : d.status })}
+                style={{ flex: 1, accentColor: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, height: 6 }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
             </div>
-            <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "center", marginBottom: 6 }}>
               {(() => { const p = d.percent >= 0 ? d.percent : -1; if (p < 0) return null; const label = p <= 10 ? "CAMBIAR" : p <= 20 ? "CRÍTICO" : p <= 70 ? "BIEN" : "ÓPTIMO"; const c = p <= 10 ? T.red : p <= 20 ? "#FF9800" : "#43a047"; return <span style={{ color: c, fontSize: 13 }}>{label}</span>; })()}
             </div>
-            {d.percent >= 0 && d.percent <= 10 && (
-              <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-                {["cambiar", "cambiado"].map(s => (
-                  <div key={s} onClick={() => setStatus4(item.id, s)}
-                    style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1px solid ${d.status === s ? S4_COLORS[s] : T.border}` }}>
-                    {S4_ICONS[s]} {s === "cambiado" ? "SUSTITUIDA" : s.toUpperCase()}
+            {d.percent >= 0 && d.percent <= 20 && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <div onClick={() => setStatus4(item.id, d.status === "cambiar" ? "" : "cambiar")}
+                  style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiar" ? `${S4_COLORS.cambiar}20` : T.bg, color: d.status === "cambiar" ? S4_COLORS.cambiar : T.gray, border: `1px solid ${d.status === "cambiar" ? S4_COLORS.cambiar : T.border}` }}>
+                  {S4_ICONS.cambiar} CAMBIAR
+                </div>
+                {d.status === "cambiar" && (
+                  <div onClick={() => setStatus4(item.id, "cambiado")}
+                    style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
+                    {S4_ICONS.cambiado} SUSTITUIDA
                   </div>
-                ))}
+                )}
+                {d.status === "cambiado" && (
+                  <div style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `1px solid ${S4_COLORS.cambiado}` }}>
+                    {S4_ICONS.cambiado} SUSTITUIDA
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -5118,18 +5135,32 @@ const ServiceSheetScreen = (props) => {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>Vida útil</span>
                   <input type="range" min="0" max="100" value={d.percent >= 0 ? d.percent : 50}
-                    onChange={e => upd(item.id, { percent: parseInt(e.target.value), checked: true })}
+                    onChange={e => upd(item.id, { percent: parseInt(e.target.value), checked: true, status: parseInt(e.target.value) > 20 ? "" : d.status })}
                     style={{ flex: 1, accentColor: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, height: 6 }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: (d.percent >= 0 ? d.percent : 50) > 50 ? T.green : (d.percent >= 0 ? d.percent : 50) > 20 ? T.orange : T.red, width: 36, textAlign: "right" }}>{d.percent >= 0 ? d.percent : "--"}%</span>
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {["cambiar", "cambiado"].map(s => (
-                    <div key={s} onClick={() => setStatus4(item.id, s)}
-                      style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1px solid ${d.status === s ? S4_COLORS[s] : T.border}` }}>
-                      {S4_ICONS[s]} {s === "cambiado" ? "SUSTITUIDA" : s.toUpperCase()}
-                    </div>
-                  ))}
+                <div style={{ display: "flex", gap: 6, fontSize: 11, fontWeight: 700, justifyContent: "center", marginBottom: 6 }}>
+                  {(() => { const p = d.percent >= 0 ? d.percent : -1; if (p < 0) return null; const label = p <= 10 ? "CAMBIAR" : p <= 20 ? "CRÍTICO" : p <= 70 ? "BIEN" : "ÓPTIMO"; const c = p <= 10 ? T.red : p <= 20 ? "#FF9800" : "#43a047"; return <span style={{ color: c, fontSize: 13 }}>{label}</span>; })()}
                 </div>
+                {d.percent >= 0 && d.percent <= 20 && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div onClick={() => setStatus4(item.id, d.status === "cambiar" ? "" : "cambiar")}
+                      style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiar" ? `${S4_COLORS.cambiar}20` : T.bg, color: d.status === "cambiar" ? S4_COLORS.cambiar : T.gray, border: `1px solid ${d.status === "cambiar" ? S4_COLORS.cambiar : T.border}` }}>
+                      {S4_ICONS.cambiar} CAMBIAR
+                    </div>
+                    {d.status === "cambiar" && (
+                      <div onClick={() => setStatus4(item.id, "cambiado")}
+                        style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: d.status === "cambiado" ? `${S4_COLORS.cambiado}20` : T.bg, color: d.status === "cambiado" ? S4_COLORS.cambiado : T.gray, border: `1px solid ${d.status === "cambiado" ? S4_COLORS.cambiado : T.border}` }}>
+                        {S4_ICONS.cambiado} SUSTITUIDA
+                      </div>
+                    )}
+                    {d.status === "cambiado" && (
+                      <div style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `1px solid ${S4_COLORS.cambiado}` }}>
+                        {S4_ICONS.cambiado} SUSTITUIDA
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -5186,25 +5217,24 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
+        {item.type === "nivelado" && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
+            <div onClick={() => upd(item.id, { fluidOk: d.fluidOk === "nivelado" ? "" : "nivelado", checked: true })}
+              style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "nivelado" ? `${T.green}20` : T.bg, color: d.fluidOk === "nivelado" ? T.green : T.gray, border: `2px solid ${d.fluidOk === "nivelado" ? T.green : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+              SE NIVELÓ
+            </div>
+          </div>
+        )}
+
+
         {item.type === "lamp" && !isForced && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34, flexWrap: "wrap" }}>
-            {[{k: "bien", l: "BIEN", c: T.green}, {k: "mal", l: "MAL", c: T.red}].map(o => (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
+            {[{k: "bien", l: "BIEN", c: T.green}, {k: "quemada", l: "QUEMADA", c: T.red}].map(o => (
               <div key={o.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === o.k ? "" : o.k, checked: true })}
                 style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === o.k ? `${o.c}20` : T.bg, color: d.fluidOk === o.k ? o.c : T.gray, border: `2px solid ${d.fluidOk === o.k ? o.c : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: o.c }} />{o.l}
               </div>
             ))}
-            {d.fluidOk === "mal" && (
-              <div onClick={() => upd(item.id, { fluidOk: "cambiada", lampChanged: true })}
-                style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "cambiada" ? "#1E88E520" : T.bg, color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 5 }}>
-                🔵 CAMBIADA
-              </div>
-            )}
-            {d.fluidOk === "cambiada" && (
-              <div style={{ padding: "8px 18px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: "#1E88E520", color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 5 }}>
-                🔵 CAMBIADA
-              </div>
-            )}
           </div>
         )}
         {item.type === "lamp" && isForced && (
@@ -5296,23 +5326,6 @@ const ServiceSheetScreen = (props) => {
               <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${d.added ? T.accent : T.border}`, background: d.added ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>{d.added ? "✓" : ""}</div>
               Se niveló
             </div>
-          </div>
-        )}
-
-        {item.type === "lamp" && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml, flexWrap: "wrap" }}>
-            {[{ k: "bien", label: "BIEN", color: T.green }, { k: "quemada", label: "QUEMADA", color: T.red }].map(s => (
-              <div key={s.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === s.k ? "" : s.k, checked: true, lampChanged: s.k === "bien" ? false : d.lampChanged })}
-                style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === s.k ? `${s.color}20` : T.bg, color: d.fluidOk === s.k ? s.color : T.gray, border: `2px solid ${d.fluidOk === s.k ? s.color : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: s.color }} />{s.label}
-              </div>
-            ))}
-            {d.fluidOk === "quemada" && (
-              <div onClick={() => upd(item.id, { lampChanged: !d.lampChanged })}
-                style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.lampChanged ? `${T.accent}20` : T.bg, color: d.lampChanged ? T.accent : T.gray, border: `2px solid ${d.lampChanged ? T.accent : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
-                🔵 SUSTITUIDA
-              </div>
-            )}
           </div>
         )}
 
@@ -6642,11 +6655,22 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
       if (d.status === "cambiado") return "#1565C0";
       return "#718096";
     }
+    if (item.type === "nivelado") return d.fluidOk === "nivelado" ? "#2E7D32" : "#718096";
+    if (item.type === "lamp") return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "quemada" ? "#C62828" : "#718096";
+    if (item.type === "binaryPresente") return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "mal" ? "#C62828" : "#718096";
+    if (item.type === "brakeFluid") return d.percent >= 0 ? (d.percent <= 2 ? "#2E7D32" : "#C62828") : "#718096";
+    if (item.type === "batteryPercent") return d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : d.percent >= 0 ? "#C62828" : "#718096";
+    if (item.type === "percentRC" || item.type === "freno_trasero") {
+      if (d.status === "cambiado") return "#1565C0";
+      if (d.status === "cambiar") return "#C62828";
+      return d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : d.percent >= 0 ? "#C62828" : "#718096";
+    }
+    if (item.type === "nivelado") return d.fluidOk === "nivelado" ? "#2E7D32" : "#718096";
     if (item.type === "binaryPresente") {
       return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "mal" ? "#C62828" : "#718096";
     }
     if (item.type === "lamp") {
-      return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "mal" ? "#C62828" : d.fluidOk === "cambiada" ? "#1565C0" : "#718096";
+      return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "quemada" ? "#C62828" : "#718096";
     }
     if (item.type === "binary" || item.type === "ternary" || item.type === "lavaparabrisas" || item.type === "optionalBinary" || item.type === "fluid" || item.type === "brakeFluid" || item.type === "lamp") {
       if (d.fluidOk === "bien" || d.fluidOk === "ok" || d.fluidOk === "funciona") return "#2E7D32";
@@ -6664,6 +6688,11 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
 
   const fojaLabel = (item, d) => {
     if (!d) return { text: "", color: "#718096" };
+    if (item.type === "nivelado") return { text: d.fluidOk === "nivelado" ? "SE NIVELÓ" : "", color: "#2E7D32" };
+    if (item.type === "lamp") return { text: d.fluidOk === "bien" ? "BIEN" : d.fluidOk === "quemada" ? "QUEMADA" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
+    if (item.type === "binaryPresente") return { text: d.fluidOk === "bien" ? "NO PRESENTE" : d.fluidOk === "mal" ? "PRESENTE" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
+    if (item.type === "brakeFluid") return { text: d.percent >= 0 ? d.percent + "% agua" : "", color: d.percent <= 2 ? "#2E7D32" : "#C62828" };
+    if (item.type === "batteryPercent") return { text: d.percent >= 0 ? d.percent + "%" : "", color: d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828" };
     if (item.type === "statusRC" || item.type === "optionalStatusRC") {
       if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
       const m = { bien: "Bien", regular: "Regular", cambiar: "Cambiar" };
@@ -6683,8 +6712,6 @@ const FojaClientScreen = ({ order, clients, onNavigate }) => {
       const statusColor = d.fluidOk === "bien" ? "#2E7D32" : "#C62828";
       return { text: statusText, color: statusColor, subText: d.added ? "Se niveló" : null, subColor: "#1565C0", pctVal: pct, pctColor, pctLabel };
     }
-    if (item.type === "binaryPresente") return { text: d.fluidOk === "bien" ? "NO PRESENTE" : d.fluidOk === "mal" ? "PRESENTE" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
-    if (item.type === "lamp") return { text: d.fluidOk === "bien" ? "BIEN" : d.fluidOk === "mal" ? "MAL" : d.fluidOk === "cambiada" ? "CAMBIADA" : "", color: d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "cambiada" ? "#1565C0" : "#C62828" };
     if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
       if (d.fluidOk === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
       return { text: d.fluidOk === "bien" ? "Bien" : d.fluidOk === "mal" ? "Mal" : (d.fluidOk || ""), color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
