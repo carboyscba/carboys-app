@@ -636,9 +636,17 @@ const NewOrderScreen = (props) => {
   });
 
   const totalWorks = works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-  const addPayment = () => setPayments(p => [...p, { method: "", amount: "", account: "", installments: 3 }]);
-  const updatePayment = (i, field, val) => setPayments(p => p.map((x, j) => j === i ? { ...x, [field]: val } : x));
-  const removePayment = (i) => setPayments(p => p.filter((_, j) => j !== i));
+  const recalcFirst = (arr, tw) => {
+    if (arr.length <= 1) return arr;
+    const othersTotal = arr.slice(1).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+    return [{ ...arr[0], amount: String(Math.max(0, tw - othersTotal)) }, ...arr.slice(1)];
+  };
+  const addPayment = () => setPayments(p => recalcFirst([...p, { method: "", amount: "0", account: "", installments: 1 }], totalWorks));
+  const updatePayment = (i, field, val) => setPayments(p => {
+    const updated = p.map((x, j) => j === i ? { ...x, [field]: val } : x);
+    return (field === "amount" && i > 0) ? recalcFirst(updated, totalWorks) : updated;
+  });
+  const removePayment = (i) => setPayments(p => recalcFirst(p.filter((_, j) => j !== i), totalWorks));
   const totalPayments = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
   const paymentsValid = payments.length > 0 && payments.every(p => p.method && p.amount && parseFloat(p.amount) > 0) && Math.abs(totalPayments - totalWorks) < 1;
 
@@ -1806,7 +1814,7 @@ const NewOrderScreen = (props) => {
             <div key={i} style={{ ...card, padding: 16, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: T.orange }}>Pago #{i + 1}</span>
-                {payments.length > 1 && <span onClick={() => removePayment(i)} style={{ color: T.red, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✕ Quitar</span>}
+                {payments.length > 1 && i > 0 && <span onClick={() => removePayment(i)} style={{ color: T.red, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✕ Quitar</span>}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1816,16 +1824,48 @@ const NewOrderScreen = (props) => {
                     value={p.method} onChange={v => updatePayment(i, "method", v)} placeholder="Seleccionar" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Monto *</label>
+                  <label style={labelStyle}>{i === 0 && payments.length > 1 ? "Monto (restante)" : "Monto *"}</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
-                    <input inputMode="numeric" value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="0" style={{ ...inputStyle, flex: 1 }} />
+                    {i === 0 && payments.length > 1 ? (
+                      <div style={{ ...inputStyle, flex: 1, background: `${T.accent}10`, borderColor: T.accent, fontWeight: 800, color: T.accent, fontFamily: fontD, fontSize: 16, display: "flex", alignItems: "center", padding: "10px 12px" }}>
+                        {Number(p.amount || 0).toLocaleString("es-AR")}
+                      </div>
+                    ) : (
+                      <input inputMode="numeric" value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="0" style={{ ...inputStyle, flex: 1 }} />
+                    )}
                   </div>
+                  {i === 0 && payments.length > 1 && (
+                    <div style={{ fontSize: 10, color: T.accent, marginTop: 3 }}>Auto-calculado ({fmt(totalWorks)} − resto)</div>
+                  )}
                 </div>
               </div>
 
-              {/* Cuenta - only for Transferencia */}
+              {/* Cuotas - solo Tarjeta */}
+              {p.method === "Tarjeta" && (
+                <div style={{ marginTop: 12 }}>
+                  <label style={labelStyle}>Cuotas</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[1, 3, 6].map(q => {
+                      const base = parseFloat(p.amount) || 0;
+                      const surcharge = q === 3 ? config.surcharge3 : q === 6 ? config.surcharge6 : 0;
+                      const total = base * (1 + surcharge / 100);
+                      const perQ = total / q;
+                      return (
+                        <div key={q} onClick={() => updatePayment(i, "installments", q)}
+                          style={{ ...card, padding: "10px 8px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.installments === q ? T.accent : T.border, background: p.installments === q ? "rgba(30,136,229,0.1)" : T.bg2 }}>
+                          <div style={{ fontWeight: 800, fontSize: 14, color: p.installments === q ? T.accent : T.text }}>{q === 1 ? "Contado" : `${q} cuotas`}</div>
+                          {q > 1 && base > 0 && <div style={{ fontSize: 10, color: T.orange, marginTop: 2 }}>{fmt(perQ)} c/u</div>}
+                          {q > 1 && <div style={{ fontSize: 9, color: T.gray, marginTop: 1 }}>+{surcharge}%</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Cuenta - solo Transferencia */}
               {p.method === "Transferencia" && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>Cuenta</label>
@@ -1845,7 +1885,7 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* IVA - for Efectivo and Tarjeta */}
+              {/* IVA - Efectivo y Tarjeta */}
               {(p.method === "Efectivo" || p.method === "Tarjeta") && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>¿Incluye IVA?</label>
@@ -1863,7 +1903,7 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* IVA breakdown when applicable */}
+              {/* IVA breakdown */}
               {p.withIva && (parseFloat(p.amount) || 0) > 0 && (
                 <div style={{ marginTop: 10, padding: "10px 14px", background: T.bg, borderRadius: 8, fontSize: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -1882,7 +1922,7 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* Invoice type - when IVA is selected */}
+              {/* Tipo de Factura */}
               {p.withIva && (p.method === "Efectivo" || p.method === "Tarjeta" || (p.method === "Transferencia" && p.account === "1")) && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>Tipo de Factura</label>
@@ -1898,7 +1938,6 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* Cuenta 2 = Factura C auto */}
               {p.method === "Transferencia" && p.account === "2" && (
                 <div style={{ marginTop: 8, padding: "8px 12px", background: T.bg, borderRadius: 6, fontSize: 11, color: T.gray }}>
                   Factura C (sin IVA) — Cuenta 2
@@ -3533,6 +3572,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [servicios, setServicios] = useState([]);
   const [showServ, setShowServ] = useState(false);
   const [servForm, setServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
+  const [showPagoProv, setShowPagoProv] = useState(false);
+  const [selFactPago, setSelFactPago] = useState(null);
+  const [pagoProvForm, setPagoProvForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
+  const [expandedFact, setExpandedFact] = useState(null);
+  const [showPagoServ, setShowPagoServ] = useState(false);
+  const [pagoServForm, setPagoServForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
+  const [cmYear, setCmYear] = useState(new Date().getFullYear());
+  const [cmMonth, setCmMonth] = useState(new Date().getMonth());
+  const [cmSub, setCmSub] = useState("resumen");
 
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
@@ -3561,8 +3609,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const factB = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B"));
   const factC = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "C"));
 
-  const provVencidas = factProv.filter(f => f.estado === "pendiente" && f.fechaVenc && f.fechaVenc < today);
-  const provPorVencer = factProv.filter(f => f.estado === "pendiente" && f.fechaVenc && f.fechaVenc >= today && f.fechaVenc <= new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]);
+  const factPendiente = (f) => Math.max(0, (f.monto || 0) - (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)) > 0;
+  const provVencidas = factProv.filter(f => factPendiente(f) && f.fechaVenc && f.fechaVenc < today);
+  const provPorVencer = factProv.filter(f => factPendiente(f) && f.fechaVenc && f.fechaVenc >= today && f.fechaVenc <= new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]);
 
   const workStats = {};
   completed.forEach(o => o.works.forEach(w => { workStats[w.type] = (workStats[w.type] || 0) + 1; }));
@@ -3584,6 +3633,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
     { key: "ignacio", icon: "👑", l: "Ignacio" },
+    { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
   ];
 
   return (
@@ -4170,9 +4220,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
         {selProv ? (() => {
           const pvFacts = factProv.filter(f => f.provId === String(selProv.id));
-          const pvPend = pvFacts.filter(f => f.estado === "pendiente");
-          const pvPagadas = pvFacts.filter(f => f.estado === "pagada");
-          const pvTotal = pvPend.reduce((s, f) => s + (f.monto || 0), 0);
+          const pvTotal = pvFacts.reduce((s, f) => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return s + Math.max(0, (f.monto || 0) - pagado); }, 0);
+          const pvPagadas = pvFacts.filter(f => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return pagado >= (f.monto || 0); });
+          const pvPend = pvFacts.filter(f => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return pagado < (f.monto || 0); });
           return (
             <div>
               <button onClick={() => setSelProv(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a proveedores</button>
@@ -4188,24 +4238,80 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               </div>
               <button onClick={() => setShowFactProv(true)} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginBottom: 16 }}>+ Cargar Factura</button>
               {pvFacts.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin facturas cargadas</div>}
-              {pvFacts.sort((a, b) => (b.fechaEmision || "").localeCompare(a.fechaEmision || "")).map(f => (
-                <div key={f.id} style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `3px solid ${f.estado === "pagada" ? T.green : f.fechaVenc && f.fechaVenc < today ? T.red : T.orange}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700 }}>FC #{f.nroFactura}</div>
-                      <div style={{ fontSize: 11, color: T.gray }}>Emisión: {fmtDate(f.fechaEmision)} • Venc: {f.fechaVenc ? fmtDate(f.fechaVenc) : "—"}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(f.monto)}</div>
-                      <div onClick={() => setFactProv(prev => prev.map(x => x.id === f.id ? { ...x, estado: x.estado === "pendiente" ? "pagada" : "pendiente" } : x))}
-                        style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", color: f.estado === "pagada" ? T.green : T.orange, marginTop: 4 }}>
-                        {f.estado === "pagada" ? "✅ PAGADA" : "⏳ PENDIENTE"}
+              {pvFacts.sort((a, b) => (b.fechaEmision || "").localeCompare(a.fechaEmision || "")).map(f => {
+                const pagado = (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                const pendiente = Math.max(0, (f.monto || 0) - pagado);
+                const isPagada = pendiente <= 0;
+                const isVencida = !isPagada && f.fechaVenc && f.fechaVenc < today;
+                const borderColor = isPagada ? T.green : isVencida ? T.red : T.orange;
+                const isExpanded = expandedFact === f.id;
+                return (
+                  <div key={f.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `3px solid ${borderColor}`, overflow: "hidden" }}>
+                    {/* Header de factura */}
+                    <div style={{ padding: "14px 16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700 }}>FC #{f.nroFactura}</div>
+                            {isVencida && <span style={{ fontSize: 10, fontWeight: 700, color: T.red, background: `${T.red}15`, padding: "2px 7px", borderRadius: 4 }}>⚠️ VENCIDA</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 3 }}>Emisión: {fmtDate(f.fechaEmision)} {f.fechaVenc ? `• Venc: ${fmtDate(f.fechaVenc)}` : ""}</div>
+                          {/* Barra de progreso de pago */}
+                          {(f.pagos || []).length > 0 && (
+                            <div style={{ marginTop: 8 }}>
+                              <div style={{ height: 5, borderRadius: 3, background: T.bg, overflow: "hidden" }}>
+                                <div style={{ height: "100%", borderRadius: 3, background: isPagada ? T.green : T.accent, width: `${Math.min(100, (pagado / f.monto) * 100)}%`, transition: "width .4s ease" }} />
+                              </div>
+                              <div style={{ fontSize: 10, color: T.gray, marginTop: 3 }}>{Math.round((pagado / f.monto) * 100)}% abonado</div>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: "right", marginLeft: 12 }}>
+                          <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.grayLight, textDecoration: "line-through" }}>{fmt(f.monto)}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isPagada ? T.green : T.orange }}>{isPagada ? "✅ PAGADA" : fmt(pendiente)}</div>
+                          {!isPagada && <div style={{ fontSize: 10, color: T.gray }}>pendiente</div>}
+                        </div>
+                      </div>
+                      {/* Botones */}
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        {!isPagada && (
+                          <button onClick={() => { setSelFactPago(f); setPagoProvForm({ fecha: today, monto: String(pendiente), metodo: "Transferencia" }); setShowPagoProv(true); }}
+                            style={{ ...btnPrimary(T.accent), fontSize: 12, flex: 1, padding: "9px 0" }}>💳 Registrar Pago</button>
+                        )}
+                        {(f.pagos || []).length > 0 && (
+                          <button onClick={() => setExpandedFact(isExpanded ? null : f.id)}
+                            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "9px 14px" }}>
+                            {isExpanded ? "▲ Ocultar" : `▼ ${(f.pagos || []).length} pago${(f.pagos || []).length !== 1 ? "s" : ""}`}
+                          </button>
+                        )}
                       </div>
                     </div>
+                    {/* Historial de pagos expandible */}
+                    {isExpanded && (f.pagos || []).length > 0 && (
+                      <div style={{ borderTop: `1px solid ${T.border}`, padding: "12px 16px", background: T.bg }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, textTransform: "uppercase", letterSpacing: .5 }}>Historial de pagos</div>
+                        {(f.pagos || []).map((pg, pi) => (
+                          <div key={pi} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: pi < f.pagos.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{pg.metodo}</div>
+                              <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(pg.fecha)}</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.green }}>{fmt(parseFloat(pg.monto))}</div>
+                              <div onClick={() => setFactProv(prev => prev.map(x => x.id === f.id ? { ...x, pagos: x.pagos.filter((_, idx) => idx !== pi) } : x))}
+                                style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 7px", borderRadius: 4, border: `1px solid ${T.red}30` }}>✕</div>
+                            </div>
+                          </div>
+                        ))}
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                          <span style={{ fontSize: 12, color: T.gray }}>Total abonado</span>
+                          <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: T.green }}>{fmt(pagado)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {f.estado === "pendiente" && f.fechaVenc && f.fechaVenc < today && <div style={{ fontSize: 10, color: T.red, fontWeight: 700, marginTop: 4 }}>⚠️ VENCIDA</div>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
         })() : (
@@ -4213,9 +4319,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             {proveedores.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin proveedores. Tocá "Nuevo Proveedor" para agregar.</div>}
             {proveedores.map(pv => {
               const pvFacts = factProv.filter(f => f.provId === String(pv.id));
-              const pvPend = pvFacts.filter(f => f.estado === "pendiente");
-              const pvTotal = pvPend.reduce((s, f) => s + (f.monto || 0), 0);
-              const vencidas = pvFacts.filter(f => f.estado === "pendiente" && f.fechaVenc && f.fechaVenc < today).length;
+              const pvTotal = pvFacts.reduce((s, f) => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return s + Math.max(0, (f.monto || 0) - pagado); }, 0);
+              const vencidas = pvFacts.filter(f => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return pagado < (f.monto || 0) && f.fechaVenc && f.fechaVenc < today; }).length;
               return (
                 <div key={pv.id} onClick={() => setSelProv(pv)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -4273,7 +4378,74 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowFactProv(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { if (factProvForm.nroFactura && factProvForm.monto && selProv) { setFactProv(p => [...p, { ...factProvForm, id: Date.now(), provId: String(selProv.id), monto: parseFloat(factProvForm.monto) || 0, estado: "pendiente" }]); setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente" }); setShowFactProv(false); }}} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
+                <button onClick={() => { if (factProvForm.nroFactura && factProvForm.monto && selProv) { setFactProv(p => [...p, { ...factProvForm, id: Date.now(), provId: String(selProv.id), monto: parseFloat(factProvForm.monto) || 0, estado: "pendiente", pagos: [] }]); setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente" }); setShowFactProv(false); }}} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL REGISTRAR PAGO PARCIAL ── */}
+        {showPagoProv && selFactPago && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowPagoProv(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💳 Registrar Pago</div>
+              <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>FC #{selFactPago.nroFactura} — {proveedores.find(p => String(p.id) === selFactPago.provId)?.nombre || "—"}</div>
+
+              {/* Resumen de la factura */}
+              <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>Monto original</span>
+                  <span style={{ fontWeight: 700 }}>{fmt(selFactPago.monto)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>Ya abonado</span>
+                  <span style={{ fontWeight: 700, color: T.green }}>{fmt((selFactPago.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0))}</span>
+                </div>
+                <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 800 }}>
+                  <span>Saldo pendiente</span>
+                  <span style={{ color: T.orange, fontFamily: fontD }}>{fmt(Math.max(0, selFactPago.monto - (selFactPago.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)))}</span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Medio de pago *</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["Efectivo", "Transferencia", "Tarjeta", "Cheque"].map(m => (
+                    <div key={m} onClick={() => setPagoProvForm(f => ({ ...f, metodo: m }))}
+                      style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, border: `1.5px solid ${pagoProvForm.metodo === m ? T.accent : T.border}`, background: pagoProvForm.metodo === m ? `${T.accent}15` : T.bg, color: pagoProvForm.metodo === m ? T.accent : T.grayLight }}>
+                      {m}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div>
+                  <label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={pagoProvForm.monto ? Number(pagoProvForm.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => setPagoProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                      style={{ ...inputStyle, flex: 1 }} placeholder="0" autoFocus />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Fecha de pago</label>
+                  <input type="date" value={pagoProvForm.fecha} onChange={e => setPagoProvForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setShowPagoProv(false); setSelFactPago(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!pagoProvForm.monto || !pagoProvForm.metodo) return;
+                  const nuevoPago = { fecha: pagoProvForm.fecha, monto: pagoProvForm.monto, metodo: pagoProvForm.metodo };
+                  setFactProv(prev => prev.map(x => x.id === selFactPago.id ? { ...x, pagos: [...(x.pagos || []), nuevoPago] } : x));
+                  setShowPagoProv(false);
+                  setSelFactPago(null);
+                  setExpandedFact(selFactPago.id);
+                }} style={{ ...btnPrimary(T.green), flex: 1, fontWeight: 700 }}>✅ Guardar Pago</button>
               </div>
             </div>
           </div>
@@ -4288,26 +4460,68 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
         {selServ ? (() => {
           const svFacts = (selServ.facturas || []);
+          const totalPagado = svFacts.reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+          const ultimoPago = svFacts.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
           return (
             <div>
               <button onClick={() => setSelServ(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a servicios</button>
+
+              {/* Header del servicio */}
               <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selServ.nombre}</div>
-                <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{selServ.desc || ""}{selServ.metodo ? ` • ${selServ.metodo}` : ""}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginTop: 8 }}>Monto: {fmt(parseFloat(selServ.monto) || 0)}</div>
-                {selServ.vencimiento && <div style={{ fontSize: 12, color: selServ.vencimiento < today ? T.red : T.gray, marginTop: 4 }}>Vencimiento: {selServ.vencimiento}{selServ.vencimiento < today ? " ⚠️ VENCIDO" : ""}</div>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selServ.nombre}</div>
+                    <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{selServ.desc || ""}{selServ.metodo ? ` • ${selServ.metodo}` : ""}</div>
+                    {selServ.vencimiento && (
+                      <div style={{ fontSize: 12, marginTop: 4, color: selServ.vencimiento < today ? T.red : T.gray, fontWeight: selServ.vencimiento < today ? 700 : 400 }}>
+                        {selServ.vencimiento < today ? "⚠️ VENCIDO" : `Vence: ${fmtDate(selServ.vencimiento)}`}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 11, color: T.gray }}>Monto habitual</div>
+                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.accent }}>{fmt(parseFloat(selServ.monto) || 0)}</div>
+                  </div>
+                </div>
+                {svFacts.length > 0 && (
+                  <div style={{ display: "flex", gap: 12, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30` }}>
+                      <div style={{ fontSize: 10, color: T.gray }}>Total pagado</div>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
+                    </div>
+                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30` }}>
+                      <div style={{ fontSize: 10, color: T.gray }}>Último pago</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginTop: 2 }}>{ultimoPago ? fmtDate(ultimoPago.fecha) : "—"}</div>
+                    </div>
+                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.bg}`, border: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 10, color: T.gray }}>Pagos</div>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{svFacts.length}</div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <button onClick={() => {
-                const nf = { id: Date.now(), fecha: today, monto: selServ.monto, estado: "pagado" };
-                setServicios(prev => prev.map(s => s.id === selServ.id ? { ...s, facturas: [...(s.facturas || []), nf] } : s));
-                setSelServ(prev => ({ ...prev, facturas: [...(prev.facturas || []), nf] }));
-              }} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginBottom: 16 }}>+ Registrar Pago</button>
+
+              <button onClick={() => { setPagoServForm({ fecha: today, monto: selServ.monto, metodo: selServ.metodo || "Transferencia" }); setShowPagoServ(true); }}
+                style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginBottom: 16, padding: "14px 0", fontWeight: 700 }}>
+                ✅ Registrar Pago
+              </button>
+
               {svFacts.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin pagos registrados</div>}
-              {svFacts.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map(f => (
+              {svFacts.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map((f, fi) => (
                 <div key={f.id} style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `3px solid ${T.green}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: 13 }}>Pago — {fmtDate(f.fecha)}</div>
-                    <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.green }}>{fmt(parseFloat(f.monto) || 0)}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>✅ Pago registrado</div>
+                      <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{fmtDate(f.fecha)}{f.metodo ? ` • ${f.metodo}` : ""}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.green }}>{fmt(parseFloat(f.monto) || 0)}</div>
+                      <div onClick={() => {
+                        const updated = { ...selServ, facturas: selServ.facturas.filter((_, i) => i !== fi) };
+                        setServicios(prev => prev.map(s => s.id === selServ.id ? updated : s));
+                        setSelServ(updated);
+                      }} style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 7px", borderRadius: 4, border: `1px solid ${T.red}30` }}>✕</div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -4316,26 +4530,36 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         })() : (
           <div>
             {servicios.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin servicios. Ej: Alquiler, Internet, Luz, etc.</div>}
-            {servicios.map(s => (
-              <div key={s.id} onClick={() => setSelServ(s)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 28 }}>🔧</div>
-                    <div>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{s.nombre}</div>
-                      <div style={{ fontSize: 12, color: T.gray }}>{s.desc || ""}{s.metodo ? ` • ${s.metodo}` : ""}</div>
+            {servicios.map(s => {
+              const ultimoPago = (s.facturas || []).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
+              const mesActualPagado = (s.facturas || []).some(f => (f.fecha || "").startsWith(new Date().toISOString().slice(0,7)));
+              return (
+                <div key={s.id} onClick={() => setSelServ(s)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `3px solid ${mesActualPagado ? T.green : s.vencimiento && s.vencimiento < today ? T.red : T.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontSize: 26 }}>{mesActualPagado ? "✅" : "🔧"}</div>
+                      <div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{s.nombre}</div>
+                        <div style={{ fontSize: 12, color: T.gray }}>{s.desc || ""}{s.metodo ? ` • ${s.metodo}` : ""}</div>
+                        {ultimoPago && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Último pago: {fmtDate(ultimoPago.fecha)}</div>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(parseFloat(s.monto) || 0)}</div>
+                      {mesActualPagado
+                        ? <div style={{ fontSize: 10, color: T.green, fontWeight: 700 }}>✅ MES ACTUAL</div>
+                        : s.vencimiento && s.vencimiento < today
+                          ? <div style={{ fontSize: 10, color: T.red, fontWeight: 700 }}>⚠️ VENCIDO</div>
+                          : s.vencimiento ? <div style={{ fontSize: 10, color: T.gray }}>Vence: {fmtDate(s.vencimiento)}</div> : null}
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(parseFloat(s.monto) || 0)}</div>
-                    {s.vencimiento && <div style={{ fontSize: 10, color: s.vencimiento < today ? T.red : T.gray }}>{s.vencimiento < today ? "⚠️ VENCIDO" : `Vence: ${s.vencimiento}`}</div>}
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
+        {/* ── MODAL NUEVO SERVICIO ── */}
         {showServ && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServ(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
@@ -4343,13 +4567,69 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Alquiler, Internet" /></div>
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                <div><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
+                <div><label style={labelStyle}>Monto habitual</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
                 <div><label style={labelStyle}>Método pago</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
               </div>
-              <div style={{ marginBottom: 14 }}><label style={labelStyle}>Vencimiento</label><input type="date" value={servForm.vencimiento} onChange={e => setServForm(f => ({ ...f, vencimiento: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={labelStyle}>Vencimiento mensual</label><input type="date" value={servForm.vencimiento} onChange={e => setServForm(f => ({ ...f, vencimiento: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => { if (servForm.nombre && servForm.monto) { setServicios(p => [...p, { ...servForm, id: Date.now(), facturas: [] }]); setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" }); setShowServ(false); }}} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL REGISTRAR PAGO DE SERVICIO ── */}
+        {showPagoServ && selServ && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowPagoServ(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>✅ Registrar Pago</div>
+              <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>{selServ.nombre}</div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Medio de pago *</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["Efectivo", "Transferencia", "Tarjeta", "Débito automático"].map(m => (
+                    <div key={m} onClick={() => setPagoServForm(f => ({ ...f, metodo: m }))}
+                      style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700,
+                        border: `1.5px solid ${pagoServForm.metodo === m ? T.accent : T.border}`,
+                        background: pagoServForm.metodo === m ? `${T.accent}15` : T.bg,
+                        color: pagoServForm.metodo === m ? T.accent : T.grayLight }}>
+                      {m}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                <div>
+                  <label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric"
+                      value={pagoServForm.monto ? Number(pagoServForm.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => setPagoServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                      style={{ ...inputStyle, flex: 1 }} placeholder="0" autoFocus />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Fecha de pago</label>
+                  <input type="date" value={pagoServForm.fecha}
+                    onChange={e => setPagoServForm(f => ({ ...f, fecha: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowPagoServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!pagoServForm.monto) return;
+                  const nuevoPago = { id: Date.now(), fecha: pagoServForm.fecha, monto: pagoServForm.monto, metodo: pagoServForm.metodo };
+                  const updated = { ...selServ, facturas: [...(selServ.facturas || []), nuevoPago] };
+                  setServicios(prev => prev.map(s => s.id === selServ.id ? updated : s));
+                  setSelServ(updated);
+                  setShowPagoServ(false);
+                }} style={{ ...btnPrimary(T.green), flex: 1, fontWeight: 700 }}>✅ Guardar Pago</button>
               </div>
             </div>
           </div>
@@ -4644,6 +4924,310 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         )}
       </div>)}
+
+      {/* ─── TAB: CIERRE MENSUAL ─── */}
+      {tab === "cierremensual" && (() => {
+        const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+        const ym = `${cmYear}-${String(cmMonth + 1).padStart(2, "0")}`;
+
+        // ── PROVEEDORES del mes ──
+        const factsDelMes = factProv.filter(f => (f.fechaEmision || "").startsWith(ym));
+        const provDelMes = [...new Set(factsDelMes.map(f => f.provId))].map(pid => {
+          const pv = proveedores.find(p => String(p.id) === pid);
+          const facts = factsDelMes.filter(f => f.provId === pid);
+          const totalMonto = facts.reduce((s, f) => s + (f.monto || 0), 0);
+          const totalPagado = facts.reduce((s, f) => s + (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0), 0);
+          return { pv, facts, totalMonto, totalPagado, pendiente: Math.max(0, totalMonto - totalPagado) };
+        });
+        const totalProvMes = provDelMes.reduce((s, p) => s + p.totalMonto, 0);
+        const totalProvPagado = provDelMes.reduce((s, p) => s + p.totalPagado, 0);
+        const totalProvPend = provDelMes.reduce((s, p) => s + p.pendiente, 0);
+
+        // ── SERVICIOS del mes ──
+        const servPagosDelMes = [];
+        servicios.forEach(s => { (s.facturas || []).filter(f => (f.fecha || "").startsWith(ym)).forEach(f => servPagosDelMes.push({ ...f, servNombre: s.nombre })); });
+        const totalServMes = servPagosDelMes.reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+
+        // ── GASTOS IGNACIO del mes ──
+        const igDelMes = [...igGastos, ...egresos.filter(e => e.categoria === "sueldo" && e.detalle === "Ignacio").map(e => ({ ...e, catName: "Sueldo" }))].filter(g => (g.fecha || "").startsWith(ym));
+        const totalIgMes = igDelMes.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+
+        // ── SUELDOS del mes ──
+        const sueldosDelMes = egresos.filter(e => e.categoria === "sueldo" && (e.fecha || "").startsWith(ym));
+        const totalSueldosMes = sueldosDelMes.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+
+        // ── TOTAL GENERAL ──
+        const totalGeneral = totalProvMes + totalServMes + totalIgMes + totalSueldosMes;
+
+        const SUB_TABS = [
+          { key: "resumen", icon: "📊", l: "Resumen" },
+          { key: "proveedores", icon: "📦", l: "Proveedores" },
+          { key: "servicios", icon: "🔧", l: "Servicios" },
+          { key: "ignacio", icon: "👑", l: "Ignacio" },
+          { key: "sueldos", icon: "👤", l: "Sueldos" },
+        ];
+
+        const sectionColors = { proveedores: T.orange, servicios: T.accent, ignacio: "#9C27B0", sueldos: T.green };
+
+        return (
+          <div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📅 Cierre Mensual</div>
+
+            {/* Selector año/mes */}
+            <div style={{ ...card, padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={() => setCmYear(y => y - 1)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "6px 10px", fontSize: 14 }}>‹</button>
+                <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, minWidth: 42, textAlign: "center" }}>{cmYear}</div>
+                <button onClick={() => setCmYear(y => y + 1)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "6px 10px", fontSize: 14 }}>›</button>
+              </div>
+              <div style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {MESES.map((m, i) => (
+                  <div key={i} onClick={() => setCmMonth(i)}
+                    style={{ padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, flex: "0 0 auto",
+                      background: cmMonth === i ? T.accent : T.bg, color: cmMonth === i ? "#fff" : T.gray,
+                      border: `1px solid ${cmMonth === i ? T.accent : T.border}` }}>
+                    {m.slice(0,3)}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sub-tabs */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
+              {SUB_TABS.map(t => (
+                <div key={t.key} onClick={() => setCmSub(t.key)}
+                  style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap",
+                    background: cmSub === t.key ? T.accent : T.bg2, color: cmSub === t.key ? "#fff" : T.gray,
+                    border: `1px solid ${cmSub === t.key ? T.accent : T.border}` }}>
+                  {t.icon} {t.l}
+                </div>
+              ))}
+            </div>
+
+            {/* ── RESUMEN GENERAL ── */}
+            {cmSub === "resumen" && (
+              <div>
+                <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: `4px solid ${T.red}` }}>
+                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 4 }}>TOTAL EGRESOS — {MESES[cmMonth]} {cmYear}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.red }}>{fmt(totalGeneral)}</div>
+                </div>
+
+                {[
+                  { key: "proveedores", label: "📦 Proveedores", total: totalProvMes, sub: `${factsDelMes.length} factura${factsDelMes.length !== 1 ? "s" : ""}`, color: T.orange },
+                  { key: "servicios", label: "🔧 Servicios", total: totalServMes, sub: `${servPagosDelMes.length} pago${servPagosDelMes.length !== 1 ? "s" : ""}`, color: T.accent },
+                  { key: "ignacio", label: "👑 Gastos Ignacio", total: totalIgMes, sub: `${igDelMes.length} movimiento${igDelMes.length !== 1 ? "s" : ""}`, color: "#9C27B0" },
+                  { key: "sueldos", label: "👤 Sueldos", total: totalSueldosMes, sub: `${sueldosDelMes.length} pago${sueldosDelMes.length !== 1 ? "s" : ""}`, color: T.green },
+                ].map(row => (
+                  <div key={row.key} onClick={() => setCmSub(row.key)}
+                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${row.color}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700 }}>{row.label}</div>
+                        <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{row.sub}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: row.total > 0 ? row.color : T.gray }}>{row.total > 0 ? fmt(row.total) : "—"}</div>
+                        {totalGeneral > 0 && row.total > 0 && <div style={{ fontSize: 11, color: T.gray }}>{Math.round((row.total / totalGeneral) * 100)}% del total</div>}
+                      </div>
+                    </div>
+                    {row.total > 0 && (
+                      <div style={{ marginTop: 10, height: 4, borderRadius: 2, background: T.bg, overflow: "hidden" }}>
+                        <div style={{ height: "100%", borderRadius: 2, background: row.color, width: `${Math.round((row.total / totalGeneral) * 100)}%` }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── PROVEEDORES DEL MES ── */}
+            {cmSub === "proveedores" && (
+              <div>
+                <div style={{ ...card, padding: 14, marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 100, padding: "8px 12px", borderRadius: 8, background: `${T.orange}10`, border: `1px solid ${T.orange}30` }}>
+                    <div style={{ fontSize: 10, color: T.gray }}>Facturado</div>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.orange }}>{fmt(totalProvMes)}</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 100, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30` }}>
+                    <div style={{ fontSize: 10, color: T.gray }}>Pagado</div>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{fmt(totalProvPagado)}</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 100, padding: "8px 12px", borderRadius: 8, background: `${T.red}10`, border: `1px solid ${T.red}30` }}>
+                    <div style={{ fontSize: 10, color: T.gray }}>Pendiente</div>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.red }}>{fmt(totalProvPend)}</div>
+                  </div>
+                </div>
+
+                {factsDelMes.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin facturas cargadas en {MESES[cmMonth]} {cmYear}</div>}
+
+                {/* Por proveedor */}
+                {provDelMes.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, textTransform: "uppercase", letterSpacing: .6, marginBottom: 10 }}>Por proveedor</div>
+                    {provDelMes.map(({ pv, facts, totalMonto, totalPagado, pendiente }) => (
+                      <div key={pv?.id || Math.random()} style={{ ...card, padding: 0, marginBottom: 12, overflow: "hidden" }}>
+                        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.border}`, background: `${T.orange}06`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>📦 {pv?.nombre || "—"}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>{facts.length} factura{facts.length !== 1 ? "s" : ""}</div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.orange }}>{fmt(totalMonto)}</div>
+                            {pendiente > 0 && <div style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>Pendiente: {fmt(pendiente)}</div>}
+                            {pendiente === 0 && <div style={{ fontSize: 11, color: T.green, fontWeight: 700 }}>✅ Saldado</div>}
+                          </div>
+                        </div>
+                        {facts.map(f => {
+                          const pagado = (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                          const pend = Math.max(0, (f.monto || 0) - pagado);
+                          return (
+                            <div key={f.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>FC #{f.nroFactura}</div>
+                                <div style={{ fontSize: 11, color: T.gray }}>Emitida: {fmtDate(f.fechaEmision)}{f.fechaVenc ? ` • Vence: ${fmtDate(f.fechaVenc)}` : ""}</div>
+                                {(f.pagos || []).length > 0 && (
+                                  <div style={{ marginTop: 4, height: 3, width: 80, borderRadius: 2, background: T.bg, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", background: pend === 0 ? T.green : T.accent, width: `${Math.min(100, (pagado / f.monto) * 100)}%` }} />
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(f.monto)}</div>
+                                <div style={{ fontSize: 11, color: pend === 0 ? T.green : T.red, fontWeight: 700 }}>{pend === 0 ? "✅ Pagada" : `Pend: ${fmt(pend)}`}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+
+                    {/* Planilla global */}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, textTransform: "uppercase", letterSpacing: .6, marginBottom: 10, marginTop: 4 }}>Todas las facturas del mes</div>
+                    <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+                      <div style={{ padding: "10px 16px", background: `${T.orange}10`, display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: T.grayLight }}>
+                        <span>PROVEEDOR / FACTURA</span><span>MONTO / ESTADO</span>
+                      </div>
+                      {factsDelMes.sort((a, b) => (a.fechaEmision || "").localeCompare(b.fechaEmision || "")).map(f => {
+                        const pv = proveedores.find(p => String(p.id) === f.provId);
+                        const pagado = (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                        const pend = Math.max(0, (f.monto || 0) - pagado);
+                        return (
+                          <div key={f.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{pv?.nombre || "—"} — FC #{f.nroFactura}</div>
+                              <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(f.fechaEmision)}</div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700 }}>{fmt(f.monto)}</div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: pend === 0 ? T.green : T.red }}>{pend === 0 ? "✅ Pagada" : `Pend: ${fmt(pend)}`}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{ padding: "12px 16px", background: `${T.orange}10`, display: "flex", justifyContent: "space-between", fontFamily: fontD, fontWeight: 800, fontSize: 15 }}>
+                        <span>TOTAL PROVEEDORES</span><span style={{ color: T.orange }}>{fmt(totalProvMes)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SERVICIOS DEL MES ── */}
+            {cmSub === "servicios" && (
+              <div>
+                <div style={{ ...card, padding: 14, marginBottom: 14, borderLeft: `4px solid ${T.accent}` }}>
+                  <div style={{ fontSize: 11, color: T.gray }}>Total servicios — {MESES[cmMonth]} {cmYear}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: T.accent }}>{fmt(totalServMes)}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{servPagosDelMes.length} pago{servPagosDelMes.length !== 1 ? "s" : ""} registrado{servPagosDelMes.length !== 1 ? "s" : ""}</div>
+                </div>
+                {servPagosDelMes.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin pagos de servicios en {MESES[cmMonth]} {cmYear}</div>}
+                {servPagosDelMes.length > 0 && (
+                  <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+                    <div style={{ padding: "10px 16px", background: `${T.accent}10`, display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: T.grayLight }}>
+                      <span>SERVICIO</span><span>MONTO</span>
+                    </div>
+                    {servPagosDelMes.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")).map((f, i) => (
+                      <div key={i} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{f.servNombre}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(f.fecha)}</div>
+                        </div>
+                        <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.accent }}>{fmt(parseFloat(f.monto) || 0)}</div>
+                      </div>
+                    ))}
+                    <div style={{ padding: "12px 16px", background: `${T.accent}10`, display: "flex", justifyContent: "space-between", fontFamily: fontD, fontWeight: 800, fontSize: 15 }}>
+                      <span>TOTAL SERVICIOS</span><span style={{ color: T.accent }}>{fmt(totalServMes)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── GASTOS IGNACIO DEL MES ── */}
+            {cmSub === "ignacio" && (
+              <div>
+                <div style={{ ...card, padding: 14, marginBottom: 14, borderLeft: `4px solid #9C27B0` }}>
+                  <div style={{ fontSize: 11, color: T.gray }}>Gastos Ignacio — {MESES[cmMonth]} {cmYear}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: "#9C27B0" }}>{fmt(totalIgMes)}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{igDelMes.length} movimiento{igDelMes.length !== 1 ? "s" : ""}</div>
+                </div>
+                {igDelMes.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin gastos de Ignacio en {MESES[cmMonth]} {cmYear}</div>}
+                {igDelMes.length > 0 && (
+                  <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+                    <div style={{ padding: "10px 16px", background: "rgba(156,39,176,0.08)", display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: T.grayLight }}>
+                      <span>CONCEPTO / CATEGORÍA</span><span>MONTO</span>
+                    </div>
+                    {igDelMes.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")).map((g, i) => (
+                      <div key={i} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{g.desc || g.catName || g.categoria || "—"}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{g.catName || g.categoria} • {fmtDate(g.fecha)}</div>
+                        </div>
+                        <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: "#9C27B0" }}>{fmt(parseFloat(g.monto) || 0)}</div>
+                      </div>
+                    ))}
+                    <div style={{ padding: "12px 16px", background: "rgba(156,39,176,0.08)", display: "flex", justifyContent: "space-between", fontFamily: fontD, fontWeight: 800, fontSize: 15 }}>
+                      <span>TOTAL IGNACIO</span><span style={{ color: "#9C27B0" }}>{fmt(totalIgMes)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SUELDOS DEL MES ── */}
+            {cmSub === "sueldos" && (
+              <div>
+                <div style={{ ...card, padding: 14, marginBottom: 14, borderLeft: `4px solid ${T.green}` }}>
+                  <div style={{ fontSize: 11, color: T.gray }}>Sueldos — {MESES[cmMonth]} {cmYear}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: T.green }}>{fmt(totalSueldosMes)}</div>
+                  <div style={{ fontSize: 12, color: T.gray }}>{sueldosDelMes.length} pago{sueldosDelMes.length !== 1 ? "s" : ""}</div>
+                </div>
+                {sueldosDelMes.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin sueldos registrados en {MESES[cmMonth]} {cmYear}</div>}
+                {sueldosDelMes.length > 0 && (
+                  <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+                    <div style={{ padding: "10px 16px", background: `${T.green}10`, display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: T.grayLight }}>
+                      <span>EMPLEADO</span><span>MONTO</span>
+                    </div>
+                    {sueldosDelMes.sort((a, b) => (a.detalle || "").localeCompare(b.detalle || "")).map((e, i) => (
+                      <div key={i} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>👤 {e.detalle || "—"}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(e.fecha)}</div>
+                        </div>
+                        <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.green }}>{fmt(parseFloat(e.monto) || 0)}</div>
+                      </div>
+                    ))}
+                    <div style={{ padding: "12px 16px", background: `${T.green}10`, display: "flex", justifyContent: "space-between", fontFamily: fontD, fontWeight: 800, fontSize: 15 }}>
+                      <span>TOTAL SUELDOS</span><span style={{ color: T.green }}>{fmt(totalSueldosMes)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
 
     </div>
