@@ -142,40 +142,13 @@ const buildTrenItems = (category) => {
   return [...fixed, { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }];
 };
 
-const DEFAULT_PERMS = {
-  "dueño": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: true, canAuthorize: true, configuracion: true, comenzarTrabajo: true },
-  "encargado": { crearOrdenes: true, verTaller: true, buscarDominio: true, ventaRapida: true, administracion: true, adminCobros: true, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: true, configuracion: false, comenzarTrabajo: true },
-  "admin": { crearOrdenes: false, verTaller: true, buscarDominio: true, ventaRapida: false, administracion: true, adminCobros: true, adminCaja: true, adminHistorial: true, adminCtaCte: true, adminFacturacion: true, adminProveedores: true, adminServicios: true, adminEstadisticas: true, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
-  "mecánico": { crearOrdenes: false, verTaller: true, buscarDominio: false, ventaRapida: false, administracion: false, adminCobros: false, adminCaja: false, adminHistorial: false, adminCtaCte: false, adminFacturacion: false, adminProveedores: false, adminServicios: false, adminEstadisticas: false, adminIgnacio: false, canAuthorize: false, configuracion: false, comenzarTrabajo: false },
-};
-const PERM_LABELS = [
-  { key: "crearOrdenes", label: "Crear Órdenes", icon: "📋" },
-  { key: "verTaller", label: "Ver Taller", icon: "🔧" },
-  { key: "buscarDominio", label: "Buscar Dominio", icon: "🔍" },
-  { key: "ventaRapida", label: "Venta Rápida", icon: "🛒" },
-  { key: "comenzarTrabajo", label: "Comenzar Trabajo", icon: "▶️" },
-  { key: "canAuthorize", label: "Autorizar Cambios", icon: "🔐" },
-  { key: "administracion", label: "Administración", icon: "📊", sep: true },
-  { key: "adminCobros", label: "Cobros", icon: "🧾", sub: true },
-  { key: "adminCaja", label: "Caja", icon: "📒", sub: true },
-  { key: "adminHistorial", label: "Historial", icon: "📚", sub: true },
-  { key: "adminCtaCte", label: "Cta. Corriente", icon: "💰", sub: true },
-  { key: "adminFacturacion", label: "Facturación", icon: "🧾", sub: true },
-  { key: "adminProveedores", label: "Proveedores", icon: "📦", sub: true },
-  { key: "adminServicios", label: "Servicios", icon: "🔧", sub: true },
-  { key: "adminEstadisticas", label: "Estadísticas", icon: "📈", sub: true },
-  { key: "adminIgnacio", label: "Ignacio", icon: "👑", sub: true },
-  { key: "configuracion", label: "Configuración", icon: "⚙️" },
-];
-
 
 const USERS = [
-  { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red, perms: DEFAULT_PERMS["dueño"] },
-  { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent, perms: DEFAULT_PERMS["encargado"] },
-  { id: 3, name: "Chiara", role: "admin", pin: "0000", initial: "C", color: T.orange, perms: DEFAULT_PERMS["admin"] },
-  { id: 4, name: "Fabricio", role: "mecánico", pin: "0000", initial: "F", color: T.green, perms: DEFAULT_PERMS["mecánico"] },
+  { id: 1, name: "Ignacio", role: "dueño", pin: "0000", initial: "I", color: T.red, canAuthorize: true },
+  { id: 2, name: "Kevin", role: "encargado", pin: "0000", initial: "K", color: T.accent, canAuthorize: true },
+  { id: 3, name: "Chiara", role: "admin", pin: "0000", initial: "C", color: T.orange, canAuthorize: false },
+  { id: 4, name: "Fabricio", role: "mecánico", pin: "0000", initial: "F", color: T.green, canAuthorize: false },
 ];
-
 const INITIAL_CLIENTS = [
   { id: 1, name: "Carlos", lastName: "Pérez", phone: "3515551001", dni: "30555100", cuit: "20-30555100-5", vehicles: [{ domain: "AC 123 BD", brand: "Volkswagen", model: "Golf", year: 2020, km: 45000 }] },
   { id: 2, name: "María", lastName: "López", phone: "3515551002", dni: "28555200", cuit: "", vehicles: [{ domain: "AB 456 CD", brand: "Toyota", model: "Corolla", year: 2019, km: 62000 }] },
@@ -1979,7 +1952,7 @@ const DashboardScreen = (props) => {
       
       {/* Pending Auth Alert */}
       {(() => {
-        const pendingAuths = user.perms?.canAuthorize ? (notifications || []).filter(n => n.status === "pending") : [];
+        const pendingAuths = user.canAuthorize ? (notifications || []).filter(n => n.status === "pending") : [];
         if (pendingAuths.length === 0) return null;
         return (
           <div onClick={() => { const o = orders.find(o2 => o2.id === pendingAuths[0].orderId); if (o) onNavigate("authManage", o); }}
@@ -2522,7 +2495,7 @@ const VehicleDetailScreen = (props) => {
           <div style={{ ...card, padding: "14px 20px", marginBottom: 16, borderLeft: `4px solid ${color}`, background: `${color}08` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14, color }}>{label}</div>
-              {isPending && (user.perms?.canAuthorize) && (
+              {isPending && (user.canAuthorize) && (
                 <button onClick={() => onNavigate("authManage", order)} style={{ ...btnPrimary(color), fontSize: 12, padding: "8px 16px" }}>Gestionar</button>
               )}
             </div>
@@ -7125,7 +7098,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>👥 {editingUser ? "Editar Usuario" : "Gestión de Usuarios"}</div>
         </div>
-        {!editingUser && <div onClick={() => { setNewUser({ name: "", role: "mecánico", pin: "0000", perms: { ...DEFAULT_PERMS["mecánico"] } }); setShowNewUser(true); }}
+        {!editingUser && <div onClick={() => { setNewUser({ name: "", role: "mecánico", pin: "0000", canAuthorize: false }); setShowNewUser(true); }}
           style={{ ...btnPrimary(T.accent), padding: "8px 16px", fontSize: 12 }}>+ Nuevo</div>}
       </div>
 
@@ -7148,7 +7121,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>ROL</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 20 }}>
               {ROLES.filter(r => r.key !== "dueño" || editingUser.role === "dueño").map(r => (
-                <div key={r.key} onClick={() => setEditingUser(u => ({ ...u, role: r.key, perms: { ...DEFAULT_PERMS[r.key] } }))}
+                <div key={r.key} onClick={() => setEditingUser(u => ({ ...u, role: r.key,  }))}
                   style={{ padding: 12, borderRadius: 10, cursor: "pointer", border: `2px solid ${editingUser.role === r.key ? r.color : T.border}`, background: editingUser.role === r.key ? `${r.color}15` : T.bg, transition: "all .15s" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                     <span>{r.icon}</span>
@@ -7172,23 +7145,16 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
               maxLength={4} style={{ ...inputStyle, fontSize: 28, fontWeight: 700, fontFamily: fontD, textAlign: "center", letterSpacing: 12, width: 160, padding: "8px 12px" }} />
 
             <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 20 }}>PERMISOS</div>
-            {editingUser.role === "dueño" ? (
-              <div style={{ ...card, padding: 14, textAlign: "center", color: T.green, fontWeight: 700 }}>👑 Acceso total</div>
-            ) : (
-              <div style={{ ...card, padding: 10 }}>
-                <div onClick={() => setEditingUser(u => ({ ...u, perms: { ...DEFAULT_PERMS[u.role] } }))}
-                  style={{ fontSize: 10, color: T.accent, cursor: "pointer", marginBottom: 8, fontWeight: 600 }}>↺ Restaurar por defecto</div>
-                {PERM_LABELS.map(p => (
-                  <div key={p.key} onClick={() => setEditingUser(u => ({ ...u, perms: { ...u.perms, [p.key]: !u.perms?.[p.key] } }))}
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${T.border}22`, cursor: "pointer", paddingLeft: p.sub ? 16 : 0 }}>
-                    <span style={{ fontSize: 12, fontWeight: p.sep ? 800 : 600, color: p.sep ? T.accent : T.text }}>{p.icon} {p.label}</span>
-                    <div style={{ width: 36, height: 20, borderRadius: 10, background: editingUser.perms?.[p.key] ? T.green : T.bg3, padding: 2 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 8, background: "#FFF", transform: editingUser.perms?.[p.key] ? "translateX(16px)" : "translateX(0)", transition: "all .2s" }} />
-                    </div>
-                  </div>
-                ))}
+            <div onClick={() => setEditingUser(u => ({ ...u, canAuthorize: !u.canAuthorize }))}
+              style={{ ...card, padding: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderColor: editingUser.canAuthorize ? T.green : T.border }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>🔐 Puede autorizar cambios</div>
+                <div style={{ fontSize: 10, color: T.gray }}>Puede aprobar/denegar solicitudes de repuestos</div>
               </div>
-            )}
+              <div style={{ width: 44, height: 24, borderRadius: 12, background: editingUser.canAuthorize ? T.green : T.bg3, padding: 2, transition: "all .2s", cursor: "pointer" }}>
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: "#FFF", transform: editingUser.canAuthorize ? "translateX(20px)" : "translateX(0)", transition: "all .2s" }} />
+              </div>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
