@@ -6629,32 +6629,54 @@ const InterventionDiagram = ({ order, sheet }) => {
     }
   });
 
-  const hasAny = zones.some(z => z.items.length > 0) || generalItems.length > 0;
-  if (!hasAny && sheet) {
-    if (sheet.td_pastillas?.checked) {
-      zones[0].items.push({ name: "Pastilla de freno", status: "good" });
-      zones[1].items.push({ name: "Pastilla de freno", status: "good" });
-    }
-    if (sheet.td_rotulas?.checked && (sheet.td_rotulas.status === "cambiado" || sheet.td_rotulas.status === "cambiar")) {
+  // Siempre leer del serviceSheet para ítems aprobados por auth o marcados en foja
+  // Solo agregar si no están ya cubiertos por los trenItems originales de la orden
+  if (sheet) {
+    const alreadyInDelantero = (key) => order.works.some(w => w.type === "Tren Delantero" && w.trenItems?.some(ti => {
+      const MAP = { amortiguadores: "td_amortiguadores", extremos: "td_rotulas", rotulas: "td_rotulas", bieletas: "td_bieletas", bujes: "td_bujes_parrilla", parrilla: "td_bujes_parrilla" };
+      return MAP[ti.key] === key && ti.selected;
+    }));
+    const alreadyInTrasero = (key) => order.works.some(w => w.type === "Tren Trasero" && w.trenItems?.some(ti => {
+      const MAP = { amortiguadores_t: "tt_amortiguadores", bujes_t: "tt_bujes" };
+      return MAP[ti.key] === key && ti.selected;
+    }));
+
+    if (sheet.td_rotulas?.status === "cambiado" && !alreadyInDelantero("td_rotulas")) {
       zones[0].items.push({ name: "Rótula de dirección", status: "changed" });
       zones[1].items.push({ name: "Rótula de dirección", status: "changed" });
     }
-    if (sheet.td_bujes_parrilla?.checked && (sheet.td_bujes_parrilla.status === "cambiado" || sheet.td_bujes_parrilla.status === "cambiar")) {
+    if (sheet.td_bujes_parrilla?.status === "cambiado" && !alreadyInDelantero("td_bujes_parrilla")) {
       zones[0].items.push({ name: "Buje de parrilla", status: "changed" });
       zones[1].items.push({ name: "Buje de parrilla", status: "changed" });
     }
-    if (sheet.td_amortiguadores?.checked && (sheet.td_amortiguadores.status === "cambiado" || sheet.td_amortiguadores.status === "cambiar")) {
+    if (sheet.td_amortiguadores?.status === "cambiado" && !alreadyInDelantero("td_amortiguadores")) {
       zones[0].items.push({ name: "Amortiguador", status: "changed" });
       zones[1].items.push({ name: "Amortiguador", status: "changed" });
     }
-    if (sheet.tt_freno?.checked) {
-      const tipo = sheet.tt_freno.toggle || "Pastillas";
-      zones[2].items.push({ name: tipo === "Tambor" ? "Zapata de freno" : "Pastilla de freno", status: "good" });
-      zones[3].items.push({ name: tipo === "Tambor" ? "Zapata de freno" : "Pastilla de freno", status: "good" });
-    }
-    if (sheet.td_bieletas?.checked && (sheet.td_bieletas.status === "cambiado" || sheet.td_bieletas.status === "cambiar")) {
+    if (sheet.td_bieletas?.status === "cambiado" && !alreadyInDelantero("td_bieletas")) {
       zones[0].items.push({ name: "Bieletas de estabilizadora", status: "changed" });
       zones[1].items.push({ name: "Bieletas de estabilizadora", status: "changed" });
+    }
+    if (sheet.tt_amortiguadores?.status === "cambiado" && !alreadyInTrasero("tt_amortiguadores")) {
+      zones[2].items.push({ name: "Amortiguador tra.", status: "changed" });
+      zones[3].items.push({ name: "Amortiguador tra.", status: "changed" });
+    }
+    if (sheet.tt_bujes?.status === "cambiado" && !alreadyInTrasero("tt_bujes")) {
+      zones[2].items.push({ name: "Buje trasero", status: "changed" });
+      zones[3].items.push({ name: "Buje trasero", status: "changed" });
+    }
+    // Ítems que solo aparecen si no hay works del tren
+    const hasAnyTren = zones.some(z => z.items.length > 0) || generalItems.length > 0;
+    if (!hasAnyTren) {
+      if (sheet.td_pastillas?.checked) {
+        zones[0].items.push({ name: "Pastilla de freno", status: "good" });
+        zones[1].items.push({ name: "Pastilla de freno", status: "good" });
+      }
+      if (sheet.tt_freno?.checked) {
+        const tipo = sheet.tt_freno.toggle || "Pastillas";
+        zones[2].items.push({ name: tipo === "Tambor" ? "Zapata de freno" : "Pastilla de freno", status: "good" });
+        zones[3].items.push({ name: tipo === "Tambor" ? "Zapata de freno" : "Pastilla de freno", status: "good" });
+      }
     }
   }
 
@@ -7190,46 +7212,64 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
               {(() => {
                 const authNotif = (order._notifications || notifications || []).find(n => n.orderId === order.id && (n.status === "approved" || n.status === "denied"));
-                const getItemAuthStatus = (label) => {
-                  if (!authNotif) return null;
-                  const match = (authNotif.items || []).find(it => it.label === label);
-                  if (!match) return null;
-                  if (authNotif.status === "denied") return "denied";
-                  return match.itemStatus || "approved";
-                };
-                return trenWorks.map((w, wi) => (
-                  <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
-                    </div>
-                    {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => {
-                      const authStatus = getItemAuthStatus(ti.label);
-                      const isApproved = authStatus === "approved";
-                      const isDenied = authStatus === "denied";
-                      const itemColor = isApproved ? "#2E7D32" : isDenied ? "#C62828" : "#4A5568";
-                      return (
-                        <div key={j}>
-                          <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px", alignItems: "center" }}>
-                            <span style={{ fontSize: 8.5, color: itemColor, fontWeight: isApproved || isDenied ? 700 : 400 }}>
-                              {isApproved ? "✓ " : isDenied ? "✗ " : "• "}
-                              {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}
-                              {isApproved ? " — SUSTITUIDO" : ""}
-                            </span>
-                            {Number(ti.price) > 0 && !isDenied && <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
-                          </div>
-                          {isDenied && (
-                            <div style={{ padding: "1px 0 2px 20px" }}>
-                              <span style={{ fontSize: 7.5, color: "#C62828", fontStyle: "italic" }}>
-                                ⚠ Cambio no autorizado — {authNotif?.denyReason === "cliente" ? "Denegado por el cliente" : authNotif?.denyReason === "administracion" ? "Denegado por administración" : "Sin autorización"}
-                              </span>
-                            </div>
-                          )}
+                const authItems = authNotif?.items || [];
+
+                // Auth items que pertenecen a Tren Del/Tra (por prefijo de id)
+                const authForDel = authItems.filter(it => it.id && it.id.startsWith("td_"));
+                const authForTra = authItems.filter(it => it.id && it.id.startsWith("tt_"));
+
+                const renderAuthItem = (it) => {
+                  const isApproved = authNotif?.status === "approved" && it.itemStatus !== "denied";
+                  const isDenied = authNotif?.status === "denied" || it.itemStatus === "denied";
+                  const color = isApproved ? "#2E7D32" : isDenied ? "#C62828" : "#4A5568";
+                  return (
+                    <div key={`auth_${it.id}`}>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px", alignItems: "center" }}>
+                        <span style={{ fontSize: 8.5, color, fontWeight: 700 }}>
+                          {isApproved ? "✓ " : "✗ "}{it.label}{isApproved ? " — SUSTITUIDO" : ""}
+                        </span>
+                        {isApproved && Number(it.price) > 0 && (
+                          <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(it.price).toLocaleString("es-AR")}</span>
+                        )}
+                      </div>
+                      {isDenied && (
+                        <div style={{ padding: "1px 0 2px 20px" }}>
+                          <span style={{ fontSize: 7.5, color: "#C62828", fontStyle: "italic" }}>
+                            ⚠ Cambio no autorizado por el cliente
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                ));
+                      )}
+                    </div>
+                  );
+                };
+
+                return trenWorks.map((w, wi) => {
+                  const isDel = w.type === "Tren Delantero";
+                  const isTra = w.type === "Tren Trasero";
+                  // Auth items para este trabajo, filtrando los que ya están en trenItems
+                  const existingLabels = new Set((w.trenItems || []).filter(ti => ti.selected).map(ti => ti.label));
+                  const extraAuthItems = isDel ? authForDel.filter(it => !existingLabels.has(it.label))
+                                       : isTra ? authForTra.filter(it => !existingLabels.has(it.label))
+                                       : [];
+
+                  return (
+                    <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                      </div>
+                      {/* Items originales de la orden */}
+                      {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
+                        <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px" }}>
+                          <span style={{ fontSize: 8.5, color: "#4A5568" }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}</span>
+                          {Number(ti.price) > 0 && <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+                        </div>
+                      ))}
+                      {/* Items extra aprobados/denegados por auth */}
+                      {extraAuthItems.map(renderAuthItem)}
+                    </div>
+                  );
+                });
               })()}
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: 6, paddingTop: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
