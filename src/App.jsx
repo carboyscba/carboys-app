@@ -203,10 +203,10 @@ const INITIAL_ORDERS = [
 ];
 
 const ROLE_PERMS_DEFAULTS = {
-  dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true  },
-  admin:    { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true  },
-  encargado:{ precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true  },
-  mecánico: { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false },
+  dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
+  admin:    { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true,  facturar: true  },
+  encargado:{ precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true,  facturar: false },
+  mecánico: { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false, facturar: false },
 };
 const getPerm = (user, key) => {
   if (!user) return false;
@@ -650,10 +650,9 @@ const NewOrderScreen = (props) => {
   const totalWorks = works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
   const ivaMultiplier = (withIva) => withIva ? (1 + config.ivaRate / 100) : 1;
   const surchMultiplier = (inst) => inst === 3 ? (1 + config.surcharge3 / 100) : inst === 6 ? (1 + config.surcharge6 / 100) : inst === "otro" ? 1 : 1;
-  const computeAmount = (base, withIva, installments, customSurch) => {
+  const computeAmount = (base, withIva) => {
     const ivaM = ivaMultiplier(withIva);
-    const sM = installments === 3 ? (1 + config.surcharge3 / 100) : installments === 6 ? (1 + config.surcharge6 / 100) : 1;
-    return Math.round(base * ivaM * sM);
+    return Math.round(base * ivaM); // Recargo cuotas: solo visual, NO se suma al total
   };
 
   const recalcFirst = (arr, tw) => {
@@ -665,12 +664,10 @@ const NewOrderScreen = (props) => {
   const updatePayment = (i, field, val) => setPayments(prev => {
     const updated = prev.map((x, j) => j === i ? { ...x, [field]: val } : x);
     // Auto-recalc amount when IVA or installments change (single payment only)
-    if ((field === "withIva" || field === "installments") && prev.length === 1) {
+    if (field === "withIva" && prev.length === 1) {
       const p0 = updated[0];
-      const withIva = field === "withIva" ? val : p0.withIva;
-      const inst = field === "installments" ? val : p0.installments;
-      const cSurch = field === "customSurch" ? val : p0.customSurch;
-      const newAmt = String(computeAmount(totalWorks, withIva, inst, cSurch));
+      const withIva = val;
+      const newAmt = String(computeAmount(totalWorks, withIva));
       return [{ ...p0, amount: newAmt }];
     }
     return (field === "amount" && i > 0) ? recalcFirst(updated, totalWorks) : updated;
@@ -681,7 +678,7 @@ const NewOrderScreen = (props) => {
   // Expected total accounts for IVA + surcharge on first payment (single payment case)
   const p0 = payments[0] || {};
   const expectedCollect = payments.length === 1
-    ? computeAmount(totalWorks, p0.withIva, p0.installments, p0.customSurch)
+    ? computeAmount(totalWorks, p0.withIva)
     : totalWorks;
   const paymentsValid = payments.length > 0 && payments.every(p => p.method && p.amount && parseFloat(p.amount) > 0) && Math.abs(totalPayments - expectedCollect) < 1;
 
@@ -1845,18 +1842,38 @@ const NewOrderScreen = (props) => {
             </div>
           </div>
 
-          {payments.map((p, i) => (
+          {payments.map((p, i) => {
+            // ── Lógica de tipo de factura por método ──
+            const hasCuit = !!(form.cuit);
+            const isTransf = p.method === "Transferencia";
+            const isCtaCte = p.method === "Cuenta Corriente";
+            const isTarjeta = p.method === "Tarjeta";
+            const isEfectivo = p.method === "Efectivo";
+            const isMixto = payments.length > 1;
+            // Transferencia Cta2 → C forzado; resto según IVA y CUIT
+            const autoInvoice = isTransf && p.account === "2" ? "C" : p.withIva ? (hasCuit ? "A" : "B") : "C";
+
+            return (
             <div key={i} style={{ ...card, padding: 16, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: T.orange }}>Pago #{i + 1}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: T.orange }}>
+                  {isMixto ? `Pago #${i + 1}` : "Método de Pago"}
+                </span>
                 {payments.length > 1 && i > 0 && <span onClick={() => removePayment(i)} style={{ color: T.red, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✕ Quitar</span>}
               </div>
 
+              {/* ── MÉTODO + MONTO ── */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={labelStyle}>Método *</label>
                   <SearchSelect options={["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"]}
-                    value={p.method} onChange={v => updatePayment(i, "method", v)} placeholder="Seleccionar" />
+                    value={p.method} onChange={v => {
+                      updatePayment(i, "method", v);
+                      // Reset IVA/cuenta al cambiar método
+                      updatePayment(i, "account", "");
+                      updatePayment(i, "withIva", undefined);
+                      updatePayment(i, "invoiceType", "");
+                    }} placeholder="Seleccionar" />
                 </div>
                 <div>
                   <label style={labelStyle}>{i === 0 && payments.length > 1 ? "Monto (restante)" : "Monto *"}</label>
@@ -1877,100 +1894,78 @@ const NewOrderScreen = (props) => {
                 </div>
               </div>
 
-              {/* Cuotas - solo Tarjeta */}
-              {p.method === "Tarjeta" && (
-                <div style={{ marginTop: 12 }}>
-                  <label style={labelStyle}>Cuotas</label>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {[{ q: 1, label: "Contado", surcharge: 0 }, { q: 3, label: "3 cuotas", surcharge: config.surcharge3 }, { q: 6, label: "6 cuotas", surcharge: config.surcharge6 }, { q: "otro", label: "Otro", surcharge: null }].map(opt => {
-                      const base = totalWorks;
-                      const ivaM = ivaMultiplier(p.withIva);
-                      const baseWithIva = base * ivaM;
-                      const total = opt.q === "otro" ? baseWithIva * (1 + (parseFloat(p.customSurch) || 0) / 100) : opt.q === 1 ? baseWithIva : baseWithIva * (1 + opt.surcharge / 100);
-                      const perQ = opt.q === "otro" ? total / (parseFloat(p.customQty) || 1) : total / (opt.q === 1 ? 1 : opt.q);
-                      const isSelected = p.installments === opt.q;
-                      return (
-                        <div key={opt.q} onClick={() => updatePayment(i, "installments", opt.q)}
-                          style={{ ...card, padding: "10px 8px", cursor: "pointer", textAlign: "center", flex: "1 1 60px", borderColor: isSelected ? T.accent : T.border, background: isSelected ? `${T.accent}12` : T.bg2 }}>
-                          <div style={{ fontWeight: 800, fontSize: 13, color: isSelected ? T.accent : T.text }}>{opt.label}</div>
-                          {opt.q !== "otro" && opt.q > 1 && <div style={{ fontSize: 10, color: T.orange, marginTop: 2 }}>{fmt(perQ)} c/u</div>}
-                          {opt.q !== "otro" && opt.q > 1 && <div style={{ fontSize: 9, color: T.gray, marginTop: 1 }}>+{opt.surcharge}%</div>}
-                          {opt.q === "otro" && isSelected && p.customSurch && <div style={{ fontSize: 9, color: T.orange, marginTop: 2 }}>+{p.customSurch}%</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {p.installments === "otro" && (
-                    <div style={{ marginTop: 8, padding: "8px 12px", background: `${T.orange}10`, borderRadius: 8, fontSize: 12, color: T.orange, fontWeight: 600 }}>
-                      📋 Cuotas a acordar — sin recargo aplicado
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {/* Cuenta - solo Transferencia */}
-              {p.method === "Transferencia" && (
+
+              {/* ── CUENTA: solo Transferencia ── */}
+              {isTransf && (
                 <div style={{ marginTop: 12 }}>
-                  <label style={labelStyle}>Cuenta</label>
+                  <label style={labelStyle}>¿A qué cuenta?</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    {[{ acc: "1", label: "Cuenta 1", sub: "Con IVA · Fact. A / B" }, { acc: "2", label: "Cuenta 2", sub: "Sin IVA · Fact. C" }].map(opt => (
+                    {[
+                      { acc: "1", label: "CarBoys SAS", sub: "Con IVA · Fact. A / B", iva: true },
+                      { acc: "2", label: "Ignacio Karqui", sub: "Sin IVA · Fact. C", iva: false }
+                    ].map(opt => (
                       <div key={opt.acc} onClick={() => {
                         updatePayment(i, "account", opt.acc);
-                        updatePayment(i, "withIva", opt.acc === "1");
-                        updatePayment(i, "invoiceType", opt.acc === "2" ? "C" : (form.cuit ? "A" : "B"));
+                        updatePayment(i, "withIva", opt.iva);
+                        updatePayment(i, "invoiceType", opt.acc === "2" ? "C" : (hasCuit ? "A" : "B"));
                       }}
-                        style={{ ...card, padding: "10px 20px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.account === opt.acc ? T.accent : T.border, background: p.account === opt.acc ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontSize: 14, fontFamily: font }}>
-                        {opt.label}
-                        <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>{opt.sub}</div>
+                        style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
+                          borderColor: p.account === opt.acc ? T.accent : T.border,
+                          background: p.account === opt.acc ? `${T.accent}12` : T.bg2 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: p.account === opt.acc ? T.accent : T.text }}>{opt.label}</div>
+                        <div style={{ fontSize: 10, color: T.gray, marginTop: 3 }}>{opt.sub}</div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* IVA - Efectivo y Tarjeta */}
-              {(p.method === "Efectivo" || p.method === "Tarjeta") && (
+              {/* ── IVA: Efectivo, Tarjeta, Cuenta Corriente ── */}
+              {(isEfectivo || isTarjeta || isCtaCte) && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>¿Incluye IVA?</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <div onClick={() => { updatePayment(i, "withIva", true); updatePayment(i, "invoiceType", form.cuit ? "A" : "B"); }}
-                      style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.withIva === true ? T.accent : T.border, background: p.withIva === true ? `${T.accent}12` : T.bg2, fontWeight: 800, fontSize: 13, color: p.withIva === true ? T.accent : T.text }}>
+                    <div onClick={() => { updatePayment(i, "withIva", true); updatePayment(i, "invoiceType", hasCuit ? "A" : "B"); }}
+                      style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
+                        borderColor: p.withIva === true ? T.accent : T.border,
+                        background: p.withIva === true ? `${T.accent}12` : T.bg2,
+                        fontWeight: 800, fontSize: 13, color: p.withIva === true ? T.accent : T.text }}>
                       CON IVA
                       <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{config.ivaRate}% · Fact. A/B</div>
                     </div>
                     <div onClick={() => { updatePayment(i, "withIva", false); updatePayment(i, "invoiceType", "C"); }}
-                      style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: p.withIva === false ? T.gray : T.border, background: p.withIva === false ? `${T.bg3}` : T.bg2, fontWeight: 800, fontSize: 13, color: p.withIva === false ? T.grayLight : T.text }}>
+                      style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
+                        borderColor: p.withIva === false ? T.gray : T.border,
+                        background: p.withIva === false ? T.bg3 : T.bg2,
+                        fontWeight: 800, fontSize: 13, color: p.withIva === false ? T.grayLight : T.text }}>
                       SIN IVA
-                      <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>Mismo precio · Fact. C</div>
+                      <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>Mismo precio</div>
                     </div>
                   </div>
                   {p.withIva === true && parseFloat(p.amount) > 0 && (
                     <div style={{ marginTop: 8, padding: "8px 12px", background: `${T.accent}08`, borderRadius: 8, fontSize: 12, display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: T.gray }}>Base {fmt(totalWorks)} + IVA {config.ivaRate}% = </span>
-                      <span style={{ fontWeight: 700, color: T.accent }}>{fmt(totalWorks * (1 + config.ivaRate / 100))}</span>
+                      <span style={{ color: T.gray }}>Base + IVA {config.ivaRate}% =</span>
+                      <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(p.amount) * (1 + config.ivaRate / 100))}</span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Tipo de Factura */}
-              {(p.method === "Efectivo" || p.method === "Tarjeta" || (p.method === "Transferencia" && p.account)) && (() => {
-                const hasDni = !!(form.dni);
-                const hasCuit = !!(form.cuit);
-                // Available invoice types based on loaded documents
+              {/* ── TIPO DE FACTURA: cuando hay método + IVA definido (o transferencia con cuenta) ── */}
+              {p.method && (isTransf ? !!p.account : p.withIva !== undefined) && (() => {
                 let availFc = [];
-                if (p.method === "Transferencia") {
-                  if (p.account === "2") availFc = ["C"];
-                  else if (hasCuit) availFc = ["A", "B"];
-                  else availFc = ["B"];
+                if (isTransf) {
+                  availFc = p.account === "2" ? ["C"] : hasCuit ? ["A", "B"] : ["B"];
                 } else {
-                  if (p.withIva === false) availFc = ["C"];
-                  else if (hasCuit && hasDni) availFc = ["A", "B"];
-                  else if (hasCuit) availFc = ["A", "B"];
-                  else availFc = ["B"];
+                  availFc = p.withIva ? (hasCuit ? ["A", "B"] : ["B"]) : ["C"];
                 }
-                const fcLabels = { A: { sub: "Necesita CUIT", color: T.orange }, B: { sub: "DNI o CUIT", color: T.accent }, C: { sub: "Sin IVA / Consumidor final", color: T.gray } };
-                return availFc.length > 0 ? (
+                const fcLabels = {
+                  A: { sub: "Necesita CUIT", color: T.orange },
+                  B: { sub: "DNI o Consumidor final", color: T.accent },
+                  C: { sub: "Sin IVA / Ignacio Karqui", color: T.gray }
+                };
+                return availFc.length > 1 ? (
                   <div style={{ marginTop: 12 }}>
                     <label style={labelStyle}>Tipo de Factura</label>
                     <div style={{ display: "flex", gap: 8 }}>
@@ -1990,11 +1985,34 @@ const NewOrderScreen = (props) => {
                       })}
                     </div>
                   </div>
-                ) : null;
+                ) : (
+                  <div style={{ marginTop: 10, padding: "8px 12px", background: `${fcLabels[availFc[0]]?.color || T.gray}12`, borderRadius: 8, fontSize: 12, fontWeight: 700, color: fcLabels[availFc[0]]?.color || T.gray }}>
+                    Factura {availFc[0]} — {fcLabels[availFc[0]]?.sub}
+                  </div>
+                );
               })()}
-            </div>
-          ))}
 
+              {/* ── PAGO MIXTO: pregunta qué facturar ── */}
+              {isMixto && i === payments.length - 1 && payments.some(px => px.withIva) && payments.some(px => !px.withIva || px.withIva === undefined) && (
+                <div style={{ marginTop: 16, padding: "12px 14px", background: `${T.orange}10`, border: `1px solid ${T.orange}40`, borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, marginBottom: 8 }}>⚡ PAGO MIXTO — ¿Qué monto facturar?</div>
+                  {[
+                    { key: "total", label: "Facturar monto completo", sub: fmt(totalWorks) },
+                    { key: "iva_only", label: "Facturar solo monto con IVA", sub: fmt(payments.filter(px => px.withIva).reduce((s, px) => s + (parseFloat(px.amount) || 0), 0)) }
+                  ].map(opt => (
+                    <div key={opt.key} onClick={() => updatePayment(0, "mixtoFactura", opt.key)}
+                      style={{ ...card, padding: "10px 14px", cursor: "pointer", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center",
+                        borderColor: payments[0].mixtoFactura === opt.key ? T.orange : T.border,
+                        background: payments[0].mixtoFactura === opt.key ? `${T.orange}10` : T.bg }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: payments[0].mixtoFactura === opt.key ? T.orange : T.text }}>{opt.label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: T.accent, fontFamily: fontD }}>{opt.sub}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            );
+          })}
           <button onClick={addPayment} style={{ ...card, padding: 14, width: "100%", cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700, color: T.orange, background: "rgba(255,152,0,0.06)", fontFamily: font, marginBottom: 16 }}>
             + Agregar otro método de pago (pago mixto)
           </button>
@@ -2006,12 +2024,7 @@ const NewOrderScreen = (props) => {
             </div>
             {expectedCollect !== totalWorks && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                <span style={{ color: T.gray }}>
-                  {p0.withIva && (p0.installments === 3 || p0.installments === 6 || p0.installments === "otro")
-                    ? `+ IVA ${config.ivaRate}% + recargo cuotas`
-                    : p0.withIva ? `+ IVA ${config.ivaRate}%`
-                    : `+ recargo cuotas`}
-                </span>
+                <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
                 <span style={{ fontWeight: 600, color: T.orange }}>{fmt(expectedCollect - totalWorks)}</span>
               </div>
             )}
@@ -3818,6 +3831,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     </div>
                   </div>
                 </div>
+                {/* ── 1. DATOS DEL CLIENTE (editable) ── */}
                 {cobroClient && <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>👤 Datos del Cliente</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -3830,6 +3844,111 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   </div>
                   <div><label style={labelStyle}>CUIT</label><input value={cobroClient.cuit} onChange={e => setCobroClient(p => ({ ...p, cuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
                 </div>}
+
+                {/* ── 2. MÉTODO DE PAGO (antes que trabajos) ── */}
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago</div>
+                  {cobroPay.map((pm, i) => {
+                    const hasCuit = !!(cobroClient?.cuit);
+                    const isTransf = pm.method === "Transferencia";
+                    const isCtaCte = pm.method === "Cuenta Corriente";
+                    const isTarjeta = pm.method === "Tarjeta";
+                    const isEfectivo = pm.method === "Efectivo";
+                    // Split automático: primer pago toma el restante
+                    const otrosTotal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const primerMonto = i === 0 && cobroPay.length > 1 ? Math.max(0, total - otrosTotal) : null;
+                    return (
+                    <div key={i} style={{ ...card, padding: 12, marginBottom: 8, background: T.bg }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+                        <div><label style={labelStyle}>Método</label>
+                          <select value={pm.method || ""} onChange={e => {
+                            const v = e.target.value;
+                            setCobroPay(ps => ps.map((p, j) => j === i ? { method: v, amount: p.amount, account: "", withIva: null, invoiceType: "" } : p));
+                          }} style={inputStyle}>
+                            <option value="">Seleccionar</option>
+                            <option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cuenta Corriente</option>
+                          </select>
+                        </div>
+                        <div><label style={labelStyle}>{i === 0 && cobroPay.length > 1 ? "Monto (restante)" : "Monto"}</label>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
+                            {i === 0 && cobroPay.length > 1 ? (
+                              <div style={{ ...inputStyle, flex: 1, background: `${T.accent}10`, borderColor: T.accent, fontWeight: 800, color: T.accent, fontFamily: fontD, fontSize: 15, display: "flex", alignItems: "center", padding: "10px 12px" }}>
+                                {Number(primerMonto || 0).toLocaleString("es-AR")}
+                              </div>
+                            ) : (
+                              <input inputMode="numeric" value={pm.amount ? String(pm.amount) : ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
+                            )}
+                          </div>
+                          {i === 0 && cobroPay.length > 1 && <div style={{ fontSize: 10, color: T.accent, marginTop: 3 }}>Auto ({fmt(total)} − resto)</div>}
+                        </div>
+                      </div>
+
+                      {/* Transferencia → elegir cuenta */}
+                      {isTransf && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          {[{ a: "1", l: "CarBoys SAS", sub: "Con IVA" }, { a: "2", l: "Ignacio Karqui", sub: "Sin IVA · Fact. C" }].map(opt => (
+                            <div key={opt.a} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, account: opt.a, withIva: opt.a === "1", invoiceType: opt.a === "2" ? "C" : (hasCuit ? "A" : "B") } : p))}
+                              style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.a ? T.accent : T.border}`, background: pm.account === opt.a ? `${T.accent}10` : T.bg, color: pm.account === opt.a ? T.accent : T.gray }}>
+                              {opt.l}
+                              <div style={{ fontSize: 10, color: T.gray, fontWeight: 400, marginTop: 2 }}>{opt.sub}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Efectivo / Tarjeta / Cta Cte → IVA */}
+                      {(isEfectivo || isTarjeta || isCtaCte) && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: true, invoiceType: hasCuit ? "A" : "B" } : p))}
+                            style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === true ? T.accent : T.border}`, background: pm.withIva === true ? `${T.accent}10` : T.bg, color: pm.withIva === true ? T.accent : T.gray }}>
+                            Con IVA
+                            <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{iva}% · Fact. A/B</div>
+                          </div>
+                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: false, invoiceType: "C" } : p))}
+                            style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.gray : T.border}`, background: pm.withIva === false ? T.bg3 : T.bg, color: pm.withIva === false ? T.grayLight : T.gray }}>
+                            Sin IVA
+                            <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>Mismo precio</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tipo de factura cuando hay A/B disponibles */}
+                      {pm.withIva && hasCuit && (isEfectivo || isTarjeta || isCtaCte || (isTransf && pm.account === "1")) && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          {["A", "B"].map(ft => (
+                            <div key={ft} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, invoiceType: ft } : p))}
+                              style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${pm.invoiceType === ft ? T.orange : T.border}`, color: pm.invoiceType === ft ? T.orange : T.gray }}>
+                              Fact. {ft}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Desglose IVA */}
+                      {pm.withIva && parseFloat(i === 0 && cobroPay.length > 1 ? primerMonto : pm.amount) > 0 && (() => {
+                        const base = parseFloat(i === 0 && cobroPay.length > 1 ? primerMonto : pm.amount);
+                        return (
+                          <div style={{ marginTop: 6, padding: 10, borderRadius: 8, background: T.bg2 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>Subtotal</span><span style={{ fontWeight: 700 }}>{fmt(base)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>IVA {iva}%</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(base * iva / 100)}</span></div>
+                            <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>Total con IVA</span><span style={{ color: T.accent, fontFamily: fontD }}>{fmt(base * (1 + iva / 100))}</span></div>
+                          </div>
+                        );
+                      })()}
+
+                      {cobroPay.length > 1 && i > 0 && <div onClick={() => setCobroPay(ps => ps.filter((_, j) => j !== i))} style={{ marginTop: 8, fontSize: 12, color: T.red, cursor: "pointer", fontWeight: 700 }}>✕ Quitar</div>}
+                    </div>
+                    );
+                  })}
+                  <button onClick={() => setCobroPay(ps => {
+                    const nuevos = [...ps, { method: "", amount: String(total), account: "", withIva: null, invoiceType: "" }];
+                    return nuevos;
+                  })} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método de pago</button>
+                </div>
+
+                {/* ── 3. TRABAJOS REALIZADOS ── */}
                 <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>🔧 Trabajos Realizados</div>
                   {o.works.map((w, i) => (
@@ -3839,7 +3958,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
                       </div>
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
-                        <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14, padding: "2px 0 2px 14px" }}>
+                        <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, padding: "2px 0 2px 14px" }}>
                           <span>• {ti.label}</span>
                           {ti.price && <span>{fmt(parseFloat(ti.price))}</span>}
                         </div>
@@ -3851,57 +3970,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <span>TOTAL</span>
                     <span style={{ color: T.accent }}>{fmt(total)}</span>
                   </div>
-                </div>
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago</div>
-                  {cobroPay.map((pm, i) => (
-                    <div key={i} style={{ ...card, padding: 12, marginBottom: 8, background: T.bg }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
-                        <div><label style={labelStyle}>Método</label>
-                          <select value={pm.method || ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, method: e.target.value } : p))} style={inputStyle}>
-                            <option value="">Seleccionar</option><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cuenta Corriente</option>
-                          </select>
-                        </div>
-                        <div><label style={labelStyle}>Monto</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
-                            <input inputMode="numeric" value={pm.amount ? String(pm.amount) : ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
-                          </div>
-                        </div>
-                      </div>
-                      {pm.method === "Transferencia" && (
-                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                          {[{ a: "1", l: "Cta 1 — Con IVA" }, { a: "2", l: "Cta 2 — Sin IVA" }].map(opt => (
-                            <div key={opt.a} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, account: opt.a, withIva: opt.a === "1", invoiceType: opt.a === "2" ? "C" : p.invoiceType } : p))}
-                              style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.a ? T.accent : T.border}`, color: pm.account === opt.a ? T.accent : T.gray }}>{opt.l}</div>
-                          ))}
-                        </div>
-                      )}
-                      {(pm.method === "Efectivo" || pm.method === "Tarjeta") && (
-                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: true } : p))} style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === true ? T.accent : T.border}`, color: pm.withIva === true ? T.accent : T.gray }}>Con IVA</div>
-                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: false } : p))} style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.accent : T.border}`, color: pm.withIva === false ? T.accent : T.gray }}>Sin IVA</div>
-                        </div>
-                      )}
-                      {pm.withIva && (
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {["A", "B", "C"].map(ft => (
-                            <div key={ft} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, invoiceType: ft } : p))} style={{ flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${pm.invoiceType === ft ? T.accent : T.border}`, color: pm.invoiceType === ft ? T.accent : T.gray }}>Fact. {ft}</div>
-                          ))}
-                        </div>
-                      )}
-                      {pm.withIva && parseFloat(pm.amount) > 0 && (
-                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: T.bg2 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>Subtotal</span><span style={{ fontWeight: 700 }}>{fmt(parseFloat(pm.amount))}</span></div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>IVA {iva}%</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(pm.amount) * iva / 100)}</span></div>
-                          <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>Total con IVA</span><span style={{ color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(pm.amount) * (1 + iva / 100))}</span></div>
-                        </div>
-                      )}
-                      {cobroPay.length > 1 && <div onClick={() => setCobroPay(ps => ps.filter((_, j) => j !== i))} style={{ marginTop: 8, fontSize: 12, color: T.red, cursor: "pointer", fontWeight: 700 }}>✕ Quitar</div>}
-                    </div>
-                  ))}
-                  <button onClick={() => setCobroPay(ps => [...ps, { method: "", amount: "", account: "", withIva: null, invoiceType: "" }])} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método</button>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   {o.cobrado ? (
@@ -8817,6 +8885,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     workshop: "🔧 Ver En Taller",
     quickSale: "⚡ Ver Venta Rápida",
     crearOrden: "📝 Crear/editar órdenes",
+    facturar: "🧾 Emitir Facturas",
     precios: "💰 Ver precios y montos",
     finalizar: "✅ Finalizar trabajos",
     entregar: "🚗 Entregar vehículos",
