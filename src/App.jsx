@@ -256,6 +256,55 @@ const fsHeaders = async () => {
   return { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) };
 };
 
+// ── WAHA WhatsApp API helper ──────────────────────────────────
+// Si wahaUrl está configurado, envía via API. Si no, abre wa.me como fallback.
+const sendWA = async (phone, message, wahaUrl = "", wahaApiKey = "", session = "default") => {
+  const cleanPhone = String(phone).replace(/\D/g, "");
+  if (!cleanPhone) return;
+  if (wahaUrl) {
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
+      const chatId = `549${cleanPhone}@c.us`;
+      const res = await fetch(`${wahaUrl.replace(/\/$/, "")}/api/sendText`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ chatId, text: message, session }),
+      });
+      if (!res.ok) {
+        console.warn("[WAHA] sendText failed:", res.status, await res.text());
+        window.open("https://wa.me/549" + cleanPhone + "?text=" + encodeURIComponent(message), "_blank");
+      }
+      return;
+    } catch (e) {
+      console.warn("[WAHA] fetch error, fallback to wa.me:", e);
+    }
+  }
+  window.open("https://wa.me/549" + cleanPhone + "?text=" + encodeURIComponent(message), "_blank");
+};
+
+// Inicia sesión WAHA
+const wahaStartSession = async (wahaUrl, wahaApiKey = "", session = "default") => {
+  const headers = { "Content-Type": "application/json" };
+  if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
+  const r = await fetch(`${wahaUrl.replace(/\/$/, "")}/api/sessions/start`, {
+    method: "POST", headers,
+    body: JSON.stringify({ name: session }),
+  });
+  return r;
+};
+
+// Obtiene estado de la sesión WAHA
+const wahaGetSession = async (wahaUrl, wahaApiKey = "", session = "default") => {
+  try {
+    const headers = {};
+    if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
+    const r = await fetch(`${wahaUrl.replace(/\/$/, "")}/api/sessions/${session}`, { headers });
+    if (!r.ok) return null;
+    return r.json();
+  } catch { return null; }
+};
+
 // ── Google Login Screen ───────────────────────────────────────
 const GoogleLoginScreen = ({ onSuccess }) => {
   const [status, setStatus] = React.useState("idle"); // idle | loading | error
@@ -607,20 +656,7 @@ const USERS = [
   { id: 4, name: "Fabricio", role: "mecánico", pin: "0000", initial: "F", color: T.green },
 ];
 
-const INITIAL_CLIENTS = [
-  { id: 1, name: "Carlos", lastName: "Pérez", phone: "3515551001", dni: "30555100", cuit: "20-30555100-5", vehicles: [{ domain: "AC 123 BD", brand: "Volkswagen", model: "Golf", year: 2020, km: 45000 }] },
-  { id: 2, name: "María", lastName: "López", phone: "3515551002", dni: "28555200", cuit: "", vehicles: [{ domain: "AB 456 CD", brand: "Toyota", model: "Corolla", year: 2019, km: 62000 }] },
-  { id: 3, name: "Juan", lastName: "García", phone: "3515551003", dni: "35555300", cuit: "20-35555300-8", vehicles: [{ domain: "AE 789 FG", brand: "Ford", model: "Ranger", year: 2022, km: 28000 }, { domain: "AE 360 ML", brand: "Volkswagen", model: "Amarok", year: 2021, km: 45000 }] },
-  { id: 4, name: "Ana", lastName: "Martínez", phone: "3515551004", dni: "32555400", cuit: "", vehicles: [{ domain: "AD 012 HI", brand: "Fiat", model: "Cronos", year: 2021, km: 38000 }] },
-  { id: 5, name: "Roberto", lastName: "Sánchez", phone: "3515551005", dni: "29555500", cuit: "20-29555500-3", vehicles: [{ domain: "AF 345 JK", brand: "Chevrolet", model: "Cruze", year: 2018, km: 95000 }] },
-  { id: 6, name: "Laura", lastName: "Fernández", phone: "3515551006", dni: "33555600", cuit: "", vehicles: [{ domain: "AH 901 NP", brand: "Renault", model: "Sandero", year: 2020, km: 52000 }] },
-  { id: 7, name: "Diego", lastName: "Romero", phone: "3515551007", dni: "31555700", cuit: "20-31555700-1", vehicles: [{ domain: "AK 234 QR", brand: "Peugeot", model: "208", year: 2022, km: 19000 }] },
-  { id: 8, name: "Sofía", lastName: "Gutiérrez", phone: "3515551008", dni: "34555800", cuit: "", vehicles: [{ domain: "AL 567 ST", brand: "Hyundai", model: "Creta", year: 2023, km: 12000 }] },
-  { id: 9, name: "Martín", lastName: "Díaz", phone: "3515551009", dni: "27555900", cuit: "20-27555900-6", vehicles: [{ domain: "AM 890 UV", brand: "Toyota", model: "Hilux", year: 2021, km: 67000 }, { domain: "AN 111 WX", brand: "Fiat", model: "Strada", year: 2020, km: 78000 }] },
-  { id: 10, name: "Valentina", lastName: "Torres", phone: "3515551010", dni: "36555000", cuit: "", vehicles: [{ domain: "AP 222 YZ", brand: "Jeep", model: "Renegade", year: 2022, km: 25000 }] },
-  { id: 11, name: "Federico", lastName: "Morales", phone: "3515551011", dni: "30555110", cuit: "20-30555110-2", vehicles: [{ domain: "AQ 333 AB", brand: "Nissan", model: "Kicks", year: 2023, km: 8000 }] },
-  { id: 12, name: "Luciana", lastName: "Castro", phone: "3515551012", dni: "32555120", cuit: "", vehicles: [{ domain: "AR 444 CD", brand: "Chevrolet", model: "Tracker", year: 2022, km: 31000 }] },
-];
+const INITIAL_CLIENTS = [];
 
 const FULL_SS = {
   aceite:{checked:true}, filtro_aceite:{checked:true}, filtro_aire:{checked:true}, filtro_habitaculo:{checked:true}, filtro_combustible:{checked:true},
@@ -635,29 +671,7 @@ const FULL_SS = {
   rotacion_cubiertas:{toggle:"Si",checked:true}, estado_cubiertas:{checked:true,tires:{del_izq:80,del_der:75,tra_izq:85,tra_der:80}}
 };
 
-const INITIAL_ORDERS = [
-  { id: 101, km: 47200, clientId: 1, domain: "AC 123 BD", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Tren Delantero", price: 135000, desc: "Amortiguadores, Extremos, Alineado", trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }, { key: "extremos", label: "Extremos de dirección", hasSide: true, selected: true, price: "32000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "36000" }, { key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 356000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-01-15", startedBy: "Fabricio", startedAt: "2026-01-15 09:00", serviceSheet: { ...FULL_SS, td_amortiguadores: { status: "cambiado", checked: true }, td_extremos: { status: "bien", checked: true }, td_rotulas: { status: "cambiado", checked: true }, td_pastillas: { percent: 20, status: "cambiado", checked: true }, silenciador_trasero: { status: "cambiado", checked: true }, flexible_escape: { status: "cambiado", checked: true } }, techNotes: ["Discos delanteros con desgaste leve"] },
-  { id: 102, km: 83500, clientId: 2, domain: "AB 456 CD", status: "delivered", works: [{ type: "Service Full", price: 75000 }], payments: [{ method: "Efectivo", amount: 75000, withIva: false }], assignedTo: "Fabricio", date: "2026-01-20", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 103, km: 28400, clientId: 3, domain: "AE 789 FG", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 62000, escapeType: "original", trenItems: [{ key: "silenciador_tra", label: "Silenciador trasero", selected: true, price: "62000" }] }], payments: [{ method: "Tarjeta", amount: 157000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-01-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 104, km: 61800, clientId: 5, domain: "AF 345 JK", status: "delivered", works: [{ type: "Service Full", price: 85000 }, { type: "Baterías", price: 65000 }], payments: [{ method: "Transferencia", account: "1", amount: 150000, withIva: true }], assignedTo: "Fabricio", date: "2026-02-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 105, km: 112300, clientId: 6, domain: "AH 901 NP", status: "delivered", works: [{ type: "Service Base", price: 45000 }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-05", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 106, km: 74600, clientId: 4, domain: "AD 012 HI", status: "delivered", works: [{ type: "Tren Delantero", price: 78000, trenItems: [{ key: "bieletas", label: "Bieletas", hasSide: true, selected: true, price: "38000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }, { type: "Pastillas de Freno", price: 42000, desc: "Ambos ejes", brakeEjes: { del: true, tra: true } }], payments: [{ method: "Cuenta Corriente", amount: 120000 }], assignedTo: "Fabricio", date: "2026-02-10", startedBy: "Fabricio", techNotes: [] },
-  { id: 107, km: 39100, clientId: 7, domain: "AK 234 QR", status: "delivered", works: [{ type: "Service Full", price: 75000 }, { type: "Escobillas", price: 15000 }], payments: [{ method: "Transferencia", account: "1", amount: 90000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-14", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 108, km: 55700, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Service Full", price: 70000 }], payments: [{ method: "Tarjeta", amount: 70000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-02-18", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 109, km: 93200, clientId: 9, domain: "AM 890 UV", status: "delivered", works: [{ type: "Service Full", price: 95000 }, { type: "Tren Delantero", price: 110000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "rotulas", label: "Rótulas", hasSide: true, selected: true, price: "30000", side: "ambos" }] }], payments: [{ method: "Transferencia", account: "1", amount: 205000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-02-22", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: ["Revisar tren trasero próximo service"] },
-  { id: 110, km: 148900, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Mecánica", price: 45000, desc: "Cambio de bujías" }], payments: [{ method: "Efectivo", amount: 45000, withIva: false }], assignedTo: "Fabricio", date: "2026-02-25", startedBy: "Fabricio", techNotes: [] },
-  { id: 111, km: 22400, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Service Full", price: 70000 }, { type: "Aditivo", price: 8000 }], payments: [{ method: "Transferencia", account: "2", amount: 78000 }], assignedTo: "Fabricio", date: "2026-02-28", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 112, km: 67300, clientId: 12, domain: "AR 444 CD", status: "delivered", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Trasero", price: 55000, trenItems: [{ key: "amortiguadores_t", label: "Amortiguadores", hasSide: true, selected: true, price: "55000", side: "ambos" }] }], payments: [{ method: "Tarjeta", amount: 135000, withIva: true, invoiceType: "B" }], assignedTo: "Fabricio", date: "2026-03-01", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 119, km: 57100, clientId: 8, domain: "AL 567 ST", status: "delivered", works: [{ type: "Tren Delantero", price: 92000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 92000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-02", startedBy: "Fabricio", techNotes: [] },
-  { id: 120, km: 151200, clientId: 10, domain: "AP 222 YZ", status: "delivered", works: [{ type: "Service Full", price: 78000 }, { type: "Escape", price: 45000, escapeType: "original", trenItems: [{ key: "flexible", label: "Flexible", selected: true, price: "45000" }] }], payments: [{ method: "Efectivo", amount: 123000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", serviceSheet: FULL_SS, techNotes: [] },
-  { id: 121, km: 24800, clientId: 11, domain: "AQ 333 AB", status: "delivered", works: [{ type: "Mecánica", price: 55000, desc: "Kit de embrague" }], payments: [{ method: "Tarjeta", amount: 55000, withIva: true }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", techNotes: [] },
-    { id: 113, km: 45600, clientId: 3, domain: "AE 360 ML", status: "done", works: [{ type: "Service Full", price: 95000 }, { type: "Escape", price: 98000, escapeType: "original", trenItems: [{ key: "catalizador_esc", label: "Catalizador", selected: true, price: "98000" }] }], payments: [{ method: "Cuenta Corriente", amount: 193000 }], assignedTo: "Fabricio", date: "2026-03-03", startedBy: "Fabricio", startedAt: "2026-03-03 10:00", serviceSheet: { ...FULL_SS, catalizador: { status: "cambiado", checked: true }, silenciador_trasero: { status: "bien", checked: true }, silenciador_intermedio: { status: "bien", checked: true }, multiple_escape: { status: "bien", checked: true }, cano_escape: { status: "bien", checked: true }, soporte_escape: { status: "bien", checked: true } }, techNotes: ["Catalizador original agotado, se colocó compatible"] },
-  { id: 114, km: 94500, clientId: 9, domain: "AN 111 WX", status: "working", works: [{ type: "Service Full", price: 85000 }, { type: "Pastillas de Freno", price: 38000, desc: "Delanteras", brakeEjes: { del: true, tra: false } }], payments: [{ method: "Transferencia", account: "1", amount: 123000, withIva: true, invoiceType: "A" }], assignedTo: "Fabricio", date: "2026-03-04", startedBy: "Fabricio", startedAt: "2026-03-04 08:30", serviceSheet: null, techNotes: [] },
-  { id: 115, km: 49300, clientId: 1, domain: "AC 123 BD", status: "working", works: [{ type: "Mecánica", price: 35000, desc: "Cambio termostato" }], payments: [{ method: "Efectivo", amount: 35000 }], assignedTo: "Fabricio", date: "2026-03-05", startedBy: "Fabricio", startedAt: "2026-03-05 09:00", techNotes: [] },
-  { id: 116, km: 86200, clientId: 2, domain: "AB 456 CD", status: "pending", works: [{ type: "Service Full", price: 80000 }, { type: "Tren Delantero", price: 95000, trenItems: [{ key: "amortiguadores", label: "Amortiguadores", hasSide: true, selected: true, price: "62000", side: "ambos" }, { key: "alineado", label: "Alineado", selected: true, price: "18000" }] }], payments: [{ method: "Transferencia", account: "1", amount: 175000, withIva: true, invoiceType: "A" }], date: "2026-03-05", techNotes: [] },
-  { id: 117, km: 76800, clientId: 4, domain: "AD 012 HI", status: "pending", works: [{ type: "Service Base", price: 48000 }], payments: [{ method: "Efectivo", amount: 48000 }], date: "2026-03-05", techNotes: [] },
-  { id: 118, km: 41500, clientId: 7, domain: "AK 234 QR", status: "pending", works: [{ type: "Repro", price: 25000, desc: "Reprogramación ECU" }], payments: [{ method: "Transferencia", account: "2", amount: 25000 }], date: "2026-03-05", techNotes: [] },
-];
+const INITIAL_ORDERS = [];
 
 const ROLE_PERMS_DEFAULTS = {
   dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
@@ -1435,7 +1449,7 @@ const NewOrderScreen = (props) => {
                                 <button onClick={() => {
                                   const phone = hc?.phone || "";
                                   const msg = `Hola ${hc?.name || ""}! Te enviamos la ${f.label.toLowerCase()} de tu ${hv?.brand || ""} ${hv?.model || ""} (${fmtD(o.domain)}).\n\n¡Gracias por confiar en *CarBoys*! 🔧`;
-                                  window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                                  sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                                 }} style={{ ...btnPrimary(T.green), padding: "14px 16px", fontSize: 18 }}>📱</button>
                               </div>
                             ))}
@@ -2556,7 +2570,7 @@ const NewOrderScreen = (props) => {
             const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio);
             return phone ? (
               <button onClick={() => {
-                window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                 if (lastCreatedOrderId) setOrders(prev => prev.map(o => o.id === lastCreatedOrderId ? { ...o, waRecepcion: true } : o));
               }}
                 style={{ background: "#25D366", color: "#fff", border: "none", borderRadius: 10, padding: "14px 28px", cursor: "pointer", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, margin: "0 auto 24px" }}>
@@ -3441,7 +3455,7 @@ const VehicleDetailScreen = (props) => {
           }, bg: "rgba(30,136,229,.08)" },
           { icon: "💬", label: "Contactar Cliente", show: user.role !== "mecánico", color: T.accent, action: () => {
             const phone = client?.phone || "";
-            window.open("https://wa.me/549" + phone, "_blank");
+            sendWA(phone, "", config?.wahaUrl, config?.wahaApiKey);
           }, bg: "rgba(30,136,229,.08)" },
           { icon: "📋", label: "Nuevos Ítems", show: user.role !== "mecánico" && (order.status === "working" || order.status === "pending"), color: "#FF9800", action: () => {
             // Pre-cargar con los trabajos actuales de la orden
@@ -3938,7 +3952,7 @@ const VehicleDetailScreen = (props) => {
                   .replace(/{vehiculo}/g, vehiculo)
                   .replace(/{dominio}/g, dominio)
                   .replace(/{items}/g, nuevosItemsText);
-                if (phone) window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                if (phone) sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                 setOrders(prev => prev.map(o => o.id === order.id ? { ...o, waNuevosItems: true } : o));
                 setShowNuevosItemsPopup(false);
               }} disabled={!nuevosItemsText.trim()} style={{ ...btnPrimary("#25D366"), flex:1, fontSize:14, opacity: nuevosItemsText.trim() ? 1 : 0.4 }}>
@@ -3964,7 +3978,7 @@ const VehicleDetailScreen = (props) => {
                 const brand = vehicle?.brand || "";
                 const model = vehicle?.model || "";
                 const msg = "Hola " + name + "! Te informamos que tu " + brand + " " + model + " (" + order.domain + ") ya está *listo para retirar*. 🚗\n\n¡Te esperamos en *CarBoys*!";
-                window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                 setOrders(prev => prev.map(o => o.id === order.id ? { ...o, clientNotified: true } : o));
                 setShowNotifyPopup(false);
               }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 13 }}>📱 Enviar WhatsApp</button>
@@ -4095,7 +4109,7 @@ const VehicleDetailScreen = (props) => {
                     setShowFojaMenu(false);
                     const phone = cl?.phone || "";
                     const msg = `Hola ${cl?.name || ""}! Te enviamos la ${f.label.toLowerCase()} de tu ${v?.brand || ""} ${v?.model || ""} (${fmtD(order.domain)}).\n\n¡Gracias por confiar en *CarBoys*! 🔧`;
-                    window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                    sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                   }} style={{ ...btnPrimary(T.green), padding: "12px 14px", fontSize: 16 }}>📱</button>
                 </div>
               ))}
@@ -4184,7 +4198,7 @@ const VehicleDetailScreen = (props) => {
                   const msg = `Hola ${fc?.name || ""}! Te enviamos la Factura ${invoiceType} Nro ${nro} de tu ${fv?.brand || ""} ${fv?.model || ""} (${fmtD(fo.domain)}).
 
 ¡Gracias por confiar en *CarBoys*! 🔧`;
-                  if (phone) window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                  if (phone) sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                   else alert("El cliente no tiene teléfono registrado.");
                 }} style={{ ...btnPrimary(T.green), fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   📱 Enviar por WhatsApp
@@ -4314,7 +4328,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
               </button>
               <button onClick={() => {
                 const phone = client?.phone;
-                if (phone) window.open(`https://wa.me/54${phone}?text=${encodeURIComponent(`Hola ${client?.name || ""}! Te enviamos el comprobante de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). ¡Gracias por confiar en CarBoys! 🔧`)}`, "_blank");
+                if (phone) sendWA(phone, `Hola ${client?.name || ""}! Te enviamos el comprobante de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). ¡Gracias por confiar en CarBoys! 🔧`, config?.wahaUrl, config?.wahaApiKey);
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -4486,7 +4500,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
               </button>
               <button onClick={() => {
                 const phone = client?.phone;
-                if (phone) window.open(`https://wa.me/54${phone}?text=${encodeURIComponent(`Hola ${client?.name || ""}! Te enviamos la factura de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). Gracias por confiar en CarBoys! 🔧`)}`, "_blank");
+                if (phone) sendWA(phone, `Hola ${client?.name || ""}! Te enviamos la factura de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). Gracias por confiar en CarBoys! 🔧`, config?.wahaUrl, config?.wahaApiKey);
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -8742,7 +8756,7 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       .replace("{precio}", fmt(totalSinIva))
       .replace("{precioIVA}", fmt(totalConIva))
       .replace("{total}", fmt(totalConIva));
-    if (ph) window.open("https://wa.me/549" + ph + "?text=" + encodeURIComponent(msg), "_blank");
+    if (ph) sendWA(ph, msg, config?.wahaUrl, config?.wahaApiKey);
     // Guardar tracking en la orden
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, waPresupuesto: true } : o));
     setSent(true);
@@ -10132,6 +10146,229 @@ const Placeholder = ({ title, icon, desc }) => (
   </div>
 );
 
+// ── WAHA WhatsApp Config Section ────────────────────────────────
+const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, btnPrimary, fontD, font, T, showSaved, setSection }) => {
+  const [wahaStatus, setWahaStatus] = React.useState(null); // null | loading | connected | disconnected | scan_qr
+  const [qrImg, setQrImg] = React.useState(null);
+  const [checking, setChecking] = React.useState(false);
+  const [starting, setStarting] = React.useState(false);
+  const [errMsg, setErrMsg] = React.useState("");
+
+  const wahaUrl = (config.wahaUrl || "").replace(/\/$/, "");
+  const wahaKey = config.wahaApiKey || "";
+  const wahaSession = config.wahaSession || "default";
+
+  const getHeaders = () => {
+    const h = { "Content-Type": "application/json" };
+    if (wahaKey) h["X-Api-Key"] = wahaKey;
+    return h;
+  };
+
+  const checkStatus = React.useCallback(async () => {
+    if (!wahaUrl) { setWahaStatus(null); return; }
+    setChecking(true); setErrMsg("");
+    try {
+      const r = await fetch(`${wahaUrl}/api/sessions/${wahaSession}`, { headers: getHeaders() });
+      if (!r.ok) { setWahaStatus("disconnected"); setChecking(false); return; }
+      const d = await r.json();
+      const st = d.status || d.state || "";
+      if (st === "WORKING" || st === "AUTHENTICATED" || st === "CONNECTED") {
+        setWahaStatus("connected");
+        setQrImg(null);
+      } else if (st === "SCAN_QR_CODE" || st === "QR") {
+        setWahaStatus("scan_qr");
+        fetchQR();
+      } else {
+        setWahaStatus("disconnected");
+      }
+    } catch (e) { setErrMsg("No se pudo conectar con WAHA: " + e.message); setWahaStatus("error"); }
+    setChecking(false);
+  }, [wahaUrl, wahaKey, wahaSession]);
+
+  const fetchQR = async () => {
+    try {
+      const r = await fetch(`${wahaUrl}/api/${wahaSession}/auth/qr?format=image`, { headers: getHeaders() });
+      if (r.ok) {
+        const blob = await r.blob();
+        setQrImg(URL.createObjectURL(blob));
+        return;
+      }
+    } catch {}
+    // Fallback: screenshot
+    try {
+      const r2 = await fetch(`${wahaUrl}/api/screenshot`, { headers: getHeaders() });
+      if (r2.ok) { const blob = await r2.blob(); setQrImg(URL.createObjectURL(blob)); }
+    } catch {}
+  };
+
+  const startSession = async () => {
+    if (!wahaUrl) { setErrMsg("Primero guardá la URL de WAHA"); return; }
+    setStarting(true); setErrMsg("");
+    try {
+      const r = await fetch(`${wahaUrl}/api/sessions/start`, {
+        method: "POST", headers: getHeaders(),
+        body: JSON.stringify({ name: wahaSession }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok || d.status) {
+        setWahaStatus("scan_qr");
+        setTimeout(() => { fetchQR(); }, 2000);
+        // Poll status every 4s
+        const poll = setInterval(async () => {
+          await checkStatus();
+        }, 4000);
+        setTimeout(() => clearInterval(poll), 120000);
+      } else {
+        setErrMsg("Error al iniciar: " + (d.message || r.status));
+      }
+    } catch (e) { setErrMsg("Error: " + e.message); }
+    setStarting(false);
+  };
+
+  const stopSession = async () => {
+    if (!wahaUrl) return;
+    await fetch(`${wahaUrl}/api/sessions/stop`, {
+      method: "POST", headers: getHeaders(),
+      body: JSON.stringify({ name: wahaSession }),
+    }).catch(() => {});
+    setWahaStatus("disconnected"); setQrImg(null);
+  };
+
+  React.useEffect(() => { if (wahaUrl) checkStatus(); }, []);
+
+  const statusColor = wahaStatus === "connected" ? "#25D366" : wahaStatus === "scan_qr" ? "#FFA500" : wahaStatus === "error" ? "#e53935" : "#888";
+  const statusLabel = wahaStatus === "connected" ? "✅ Conectado" : wahaStatus === "scan_qr" ? "📷 Esperando QR..." : wahaStatus === "disconnected" ? "⭕ Desconectado" : wahaStatus === "error" ? "❌ Error" : "— Sin configurar";
+
+  return (
+    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📱 WhatsApp Business</div>
+        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+      </div>
+
+      {/* ── WAHA Connection Panel ── */}
+      <div style={{ ...card, padding: 20, marginBottom: 16, border: `1px solid ${statusColor}44` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>🔌 Conexión WAHA API</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: statusColor }}>{statusLabel}</div>
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>URL del servidor WAHA (Railway)</label>
+          <input value={config.wahaUrl || ""} onChange={e => setConfig(prev => ({ ...prev, wahaUrl: e.target.value }))}
+            style={inputStyle} placeholder="https://waha-production-106b.up.railway.app" />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>API Key (opcional, si está protegido)</label>
+          <input value={config.wahaApiKey || ""} onChange={e => setConfig(prev => ({ ...prev, wahaApiKey: e.target.value }))}
+            style={inputStyle} placeholder="Dejar vacío si no tiene clave" type="password" />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Nombre de sesión</label>
+          <input value={config.wahaSession || "default"} onChange={e => setConfig(prev => ({ ...prev, wahaSession: e.target.value }))}
+            style={inputStyle} placeholder="default" />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => { setConfig(prev => prev); checkStatus(); }} disabled={checking}
+            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, flex: 1 }}>
+            {checking ? "⏳ Verificando..." : "🔍 Verificar estado"}
+          </button>
+          {wahaStatus !== "connected" && (
+            <button onClick={startSession} disabled={starting || !wahaUrl}
+              style={{ ...btnPrimary("#25D366"), fontSize: 13, flex: 1, color: "#fff" }}>
+              {starting ? "⏳ Iniciando..." : "▶️ Iniciar sesión"}
+            </button>
+          )}
+          {wahaStatus === "connected" && (
+            <button onClick={stopSession} style={{ ...btnPrimary(T.red), fontSize: 13, color: "#fff" }}>
+              ⏹ Desconectar
+            </button>
+          )}
+        </div>
+
+        {errMsg && <div style={{ marginTop: 10, fontSize: 12, color: "#e53935", background: "#e5393512", padding: "8px 12px", borderRadius: 8 }}>{errMsg}</div>}
+
+        {wahaStatus === "scan_qr" && (
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: T.orange, fontWeight: 700, marginBottom: 10 }}>
+              📲 Abrí WhatsApp → Dispositivos vinculados → Vincular dispositivo → Escaneá el QR
+            </div>
+            {qrImg
+              ? <img src={qrImg} alt="QR Code" style={{ width: 220, height: 220, borderRadius: 12, border: "3px solid #25D366", background: "#fff", padding: 6 }} />
+              : <div style={{ fontSize: 13, color: T.gray }}>⏳ Cargando QR... (puede tardar unos segundos)</div>
+            }
+            <div style={{ marginTop: 10, display: "flex", gap: 8, justifyContent: "center" }}>
+              <button onClick={fetchQR} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12 }}>🔄 Recargar QR</button>
+              <button onClick={checkStatus} style={{ ...btnPrimary(T.accent), fontSize: 12, color: "#fff" }}>✅ Ya lo escaneé</button>
+            </div>
+          </div>
+        )}
+
+        {wahaStatus === "connected" && (
+          <div style={{ marginTop: 12, background: "#25D36612", border: "1px solid #25D36644", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#25D366", fontWeight: 600 }}>
+            ✅ WhatsApp conectado correctamente. Los mensajes se enviarán automáticamente via API.
+          </div>
+        )}
+
+        <div style={{ marginTop: 14 }}>
+          <button onClick={() => { showSaved("Configuración WAHA guardada ✓"); checkStatus(); }}
+            style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", color: "#fff" }}>💾 Guardar y verificar</button>
+        </div>
+      </div>
+
+      {/* ── Datos del taller ── */}
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>📞 Datos de WhatsApp</div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Número del Taller (con código país)</label><input inputMode="tel" value={config.whatsappNum || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappNum: e.target.value }))} style={inputStyle} placeholder="Ej: 5493547426967" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
+        <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
+      </div>
+
+      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14, marginTop: 24, display: "flex", alignItems: "center", gap: 8 }}>📝 Mensajes Pre-guardados</div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.accent }}>📋 Mensaje de Autorización de Cambio</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{item}"} {"{precio}"} {"{precioIVA}"} {"{total}"}</div>
+        <textarea value={config.authMessage || ""} onChange={e => setConfig(prev => ({ ...prev, authMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 180, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
+          placeholder="Escribí el mensaje de autorización..." />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#25D366" }}>✅ Mensaje de Vehículo Listo</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
+        <textarea value={config.readyMessage || "Hola {nombre}! Te informamos que tu {vehiculo} ({dominio}) ya está listo para retirar.\n\n¡Gracias por confiar en *CarBoys*! 🔧\n\nTe esperamos de Lunes a Viernes de 8 a 18hs.\nAv. Recta Martinoli 8590, Córdoba"} onChange={e => setConfig(prev => ({ ...prev, readyMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#9C27B0" }}>📋 Mensaje de Recepción</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
+        <textarea value={config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\nGracias por confiar en nosotros!"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📋 Mensaje de Nuevos Ítems</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{vehiculo}"} {"{dominio}"} {"{items}"}</div>
+        <textarea value={config.nuevosItemsMessage || "Hola {nombre}! 👋\n\nRevisando tu {vehiculo} ({dominio}) encontramos los siguientes ítems que te recomendamos cambiar:\n\n{items}\n\nContactanos para autorizar los trabajos o consultar precios.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, nuevosItemsMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📣 Mensaje de Campaña / Promo</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Plantilla para campañas de marketing.</div>
+        <textarea value={config.promoMessage || "¡Hola {nombre}! Desde *CarBoys* te acercamos una promo especial:\n\n🔧 [COMPLETAR PROMO]\n\n📅 Válido hasta [FECHA]\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, promoMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ marginTop: 14, fontSize: 11, color: T.grayLight }}>💡 Tip: Usá * para negrita en WhatsApp. Usá \n para salto de línea.</div>
+      <button onClick={() => showSaved("Mensajes guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 14, width: "100%" }}>💾 Guardar Todo</button>
+    </div>
+  );
+};
+
 const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNavigate }) => {
   const [section, setSection] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
@@ -10396,63 +10633,16 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
 
   
   if (section === "whatsapp") return (
-    <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>📱 WhatsApp Business</div>
-        <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
-      </div>
-
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>📞 Datos de WhatsApp</div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Número del Taller (con código país)</label><input inputMode="tel" value={config.whatsappNum || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappNum: e.target.value }))} style={inputStyle} placeholder="Ej: 5493547426967" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
-        <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
-      </div>
-
-      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14, marginTop: 24, display: "flex", alignItems: "center", gap: 8 }}>📝 Mensajes Pre-guardados</div>
-
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.accent }}>📋 Mensaje de Autorización de Cambio</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando un repuesto necesita autorización. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{item}"} {"{precio}"} {"{precioIVA}"} {"{total}"}</div>
-        <textarea value={config.authMessage || ""} onChange={e => setConfig(prev => ({ ...prev, authMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 180, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }}
-          placeholder="Escribí el mensaje de autorización..." />
-      </div>
-
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.green }}>✅ Mensaje de Vehículo Listo</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando el vehículo está listo para retirar. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
-        <textarea value={config.readyMessage || "Hola {nombre}! Te informamos que tu {vehiculo} ({dominio}) ya está listo para retirar.\n\n¡Gracias por confiar en *CarBoys*! 🔧\n\nTe esperamos de Lunes a Viernes de 8 a 18hs.\nAv. Recta Martinoli 8590, Córdoba"} onChange={e => setConfig(prev => ({ ...prev, readyMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
-      </div>
-
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#9C27B0" }}>📋 Mensaje de Recepción</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando se recepciona su vehículo. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
-        <textarea value={config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\nGracias por confiar en nosotros!"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
-      </div>
-
-      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📋 Mensaje de Nuevos Ítems a Cambiar</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía cuando el mecánico informa ítems adicionales. Variables: {"{nombre}"} {"{vehiculo}"} {"{dominio}"} {"{items}"}</div>
-        <textarea value={config.nuevosItemsMessage || "Hola {nombre}! 👋\n\nRevisando tu {vehiculo} ({dominio}) encontramos los siguientes ítems que te recomendamos cambiar:\n\n{items}\n\nContactanos para autorizar los trabajos o consultar precios.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, nuevosItemsMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
-      </div>
-
-      <div style={{ ...card, padding: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📣 Mensaje de Campaña / Promo</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Plantilla para campañas de marketing y promociones.</div>
-        <textarea value={config.promoMessage || "¡Hola {nombre}! Desde *CarBoys* te acercamos una promo especial:\n\n🔧 [COMPLETAR PROMO]\n\n📅 Válido hasta [FECHA]\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, promoMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
-      </div>
-
-      <div style={{ marginTop: 14, fontSize: 11, color: T.grayLight }}>💡 Tip: Usá * para negrita en WhatsApp (ej: *texto en negrita*). Usá \n para salto de línea.</div>
-      <button onClick={() => showSaved("Mensajes guardados ✓")} style={{ ...btnPrimary(T.green), marginTop: 12, fontSize: 14, width: "100%" }}>💾 Guardar Todo</button>
-    </div>
+    <WAHAConfigSection
+      config={config} setConfig={setConfig}
+      card={card} inputStyle={inputStyle} labelStyle={labelStyle}
+      btnPrimary={btnPrimary} fontD={fontD} font={font} T={T}
+      showSaved={showSaved} setSection={setSection}
+    />
   );
 
-  if (section === "taller") return (
+
+    if (section === "taller") return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🏠 Datos del Taller</div>
@@ -10696,23 +10886,13 @@ export default function App() {
     };
 
     unsubOrders = onSnapshot('orders', snap => {
-      if (snap.empty) {
-        INITIAL_ORDERS.forEach(o => fsSave('orders', o.id, o).catch(console.error));
-        _setOrders(INITIAL_ORDERS);
-      } else {
-        const docs = snap.docs.map(d => d.data());
-        _setOrders(docs.sort((a, b) => (b.id || 0) - (a.id || 0)));
-      }
+      const docs = snap.docs.map(d => d.data());
+      _setOrders(docs.sort((a, b) => (b.id || 0) - (a.id || 0)));
       if (!ordersReady) { ordersReady = true; checkReady(); }
     }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
 
     unsubClients = onSnapshot('clients', snap => {
-      if (snap.empty) {
-        INITIAL_CLIENTS.forEach(c => fsSave('clients', c.id, c).catch(console.error));
-        _setClients(INITIAL_CLIENTS);
-      } else {
-        _setClients(snap.docs.map(d => d.data()));
-      }
+      _setClients(snap.docs.map(d => d.data()));
       if (!clientsReady) { clientsReady = true; checkReady(); }
     }, err => { console.error('[FS] clients:', err); if (!clientsReady) { clientsReady = true; checkReady(); } });
 
