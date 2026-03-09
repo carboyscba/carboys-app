@@ -1149,9 +1149,12 @@ const NewOrderScreen = (props) => {
     return p.invoiceType || (p.account === "2" ? "C" : form.cuit ? "A" : "B");
   };
 
+  const [lastCreatedOrderId, setLastCreatedOrderId] = React.useState(null);
+
   const confirmOrder = () => {
+    const newId = Date.now();
     const newOrder = {
-      id: Date.now(),
+      id: newId,
       clientId: foundClient?.id || Date.now(),
       domain: form.domain,
       status: "pending",
@@ -1162,7 +1165,9 @@ const NewOrderScreen = (props) => {
       invoiceType: getInvoiceType(payments[0]),
       startedBy: "",
       startedAt: "",
+      waRecepcion: false,
     };
+    setLastCreatedOrderId(newId);
     setOrders(prev => [...prev, newOrder]);
     setStep(5);
   };
@@ -2550,7 +2555,10 @@ const NewOrderScreen = (props) => {
             const template = config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\n¡Gracias por confiar en nosotros!";
             const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio);
             return phone ? (
-              <button onClick={() => window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank")}
+              <button onClick={() => {
+                window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                if (lastCreatedOrderId) setOrders(prev => prev.map(o => o.id === lastCreatedOrderId ? { ...o, waRecepcion: true } : o));
+              }}
                 style={{ background: "#25D366", color: "#fff", border: "none", borderRadius: 10, padding: "14px 28px", cursor: "pointer", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, margin: "0 auto 24px" }}>
                 <span style={{ fontSize: 20 }}>📱</span> Enviar Mensaje al Cliente
               </button>
@@ -3143,6 +3151,8 @@ const VehicleDetailScreen = (props) => {
   const [localTicketModal, setLocalTicketModal] = useState(null);
   const [showDeliverPopup, setShowDeliverPopup] = useState(false);
   const [showNotifyPopup, setShowNotifyPopup] = useState(false);
+  const [showNuevosItemsPopup, setShowNuevosItemsPopup] = useState(false);
+  const [nuevosItemsText, setNuevosItemsText] = useState("");
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [cancelStep, setCancelStep] = useState(1);
   const [showEditOrder, setShowEditOrder] = useState(false);
@@ -3218,6 +3228,15 @@ const VehicleDetailScreen = (props) => {
             {statusLabel}
           </div>
         </div>
+        {/* Badges WA enviados */}
+        {(order.waRecepcion || order.clientNotified || order.waPresupuesto || order.waNuevosItems) && (
+          <div style={{ display:"flex", gap:6, padding:"8px 20px", flexWrap:"wrap" }}>
+            {order.waRecepcion   && <div style={{ background:"#25D36618", border:"1px solid #25D36660", color:"#25D366", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700 }}>📱 Recepción enviada</div>}
+            {order.clientNotified && <div style={{ background:"#25D36618", border:"1px solid #25D36660", color:"#25D366", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700 }}>✅ Auto listo enviado</div>}
+            {order.waPresupuesto && <div style={{ background:"#1E88E518", border:"1px solid #1E88E560", color:"#1E88E5", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700 }}>📩 Presupuesto enviado</div>}
+            {order.waNuevosItems && <div style={{ background:"#FF980018", border:"1px solid #FF980060", color:"#FF9800", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700 }}>📋 Ítems informados</div>}
+          </div>
+        )}
       </div>
 
       {/* Inspection indicator */}
@@ -3424,6 +3443,12 @@ const VehicleDetailScreen = (props) => {
             const phone = client?.phone || "";
             window.open("https://wa.me/549" + phone, "_blank");
           }, bg: "rgba(30,136,229,.08)" },
+          { icon: "📋", label: "Nuevos Ítems", show: user.role !== "mecánico" && (order.status === "working" || order.status === "pending"), color: "#FF9800", action: () => {
+            // Pre-cargar con los trabajos actuales de la orden
+            const itemsList = (order.works || []).map(w => "• " + w.type).join("\n");
+            setNuevosItemsText(itemsList);
+            setShowNuevosItemsPopup(true);
+          }, bg: "rgba(255,152,0,.08)" },
           ...((order.status === "done" || order.status === "delivered") && (order.serviceSheet || isPureIntervention || isBatteryOrder || isEscapeOrder) ? [{ icon: "📑", label: "Fojas", show: true, color: T.accent, action: () => setShowFojaMenu(true), bg: "rgba(30,136,229,.08)" }] : []),
           ...(user.canAuthorize && (notifications || []).some(n => n.orderId === order.id && n.status === "pending") ? [{ icon: "🔐", label: "Gestionar Auth", show: true, color: T.red, action: () => onNavigate("authManage", order), bg: `rgba(229,57,53,.10)` }] : []),
           ...(canNotify && order.status === "done" && !order.clientNotified ? [{ icon: "📱", label: "Avisar al Cliente", show: true, color: T.green, action: () => {
@@ -3878,6 +3903,50 @@ const VehicleDetailScreen = (props) => {
                 setOrders(prev => prev.map(o => o.id === order.id ? { ...o, works: editWorks.map(w => ({ ...w, price: parseFloat(w.price) || 0 })), payments: (editPayments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
                 setShowEditOrder(false);
               }} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 13 }}>💾 Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── POPUP NUEVOS ÍTEMS WA ── */}
+      {showNuevosItemsPopup && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, backdropFilter:"blur(4px)", animation:"fadeUp .2s ease" }} onClick={() => setShowNuevosItemsPopup(false)}>
+          <div style={{ background:T.bg2, borderRadius:16, padding:28, maxWidth:420, width:"92%", border:`1px solid ${T.orange}60` }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:40, marginBottom:8, textAlign:"center" }}>📋</div>
+            <div style={{ fontFamily:fontD, fontSize:18, fontWeight:700, marginBottom:4, textAlign:"center", color:T.white }}>
+              Informar Ítems a Cambiar
+            </div>
+            <div style={{ fontSize:12, color:T.gray, marginBottom:16, textAlign:"center" }}>
+              Editá la lista y enviala al cliente por WhatsApp
+            </div>
+            <div style={{ fontSize:12, color:T.gray, marginBottom:6, fontWeight:700 }}>Ítems a cambiar:</div>
+            <textarea
+              value={nuevosItemsText}
+              onChange={e => setNuevosItemsText(e.target.value)}
+              placeholder="• Pastillas de freno\n• Filtro de aire\n• Aceite de motor..."
+              style={{ width:"100%", minHeight:140, background:T.bg3, border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", color:T.white, fontSize:14, lineHeight:1.6, resize:"vertical", fontFamily:"inherit", boxSizing:"border-box" }}
+            />
+            <div style={{ display:"flex", gap:10, marginTop:16 }}>
+              <button onClick={() => {
+                const phone = client?.phone || "";
+                const nombre = client?.name || "cliente";
+                const vehiculo = `${vehicle?.brand || ""} ${vehicle?.model || ""}`.trim();
+                const dominio = order.domain || "";
+                let template = config.nuevosItemsMessage || "Hola {nombre}! 👋\n\nRevisando tu {vehiculo} ({dominio}) encontramos los siguientes ítems que te recomendamos cambiar:\n\n{items}\n\nContactanos para más info o para autorizar los trabajos.\n\n*CarBoys* 🔧";
+                const msg = template
+                  .replace(/{nombre}/g, nombre)
+                  .replace(/{vehiculo}/g, vehiculo)
+                  .replace(/{dominio}/g, dominio)
+                  .replace(/{items}/g, nuevosItemsText);
+                if (phone) window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, waNuevosItems: true } : o));
+                setShowNuevosItemsPopup(false);
+              }} disabled={!nuevosItemsText.trim()} style={{ ...btnPrimary("#25D366"), flex:1, fontSize:14, opacity: nuevosItemsText.trim() ? 1 : 0.4 }}>
+                📱 Enviar por WhatsApp
+              </button>
+              <button onClick={() => setShowNuevosItemsPopup(false)} style={{ ...btnPrimary(T.bg3), border:`1px solid ${T.border}`, fontSize:13 }}>
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -8629,6 +8698,8 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       .replace("{precioIVA}", fmt(totalConIva))
       .replace("{total}", fmt(totalConIva));
     if (ph) window.open("https://wa.me/549" + ph + "?text=" + encodeURIComponent(msg), "_blank");
+    // Guardar tracking en la orden
+    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, waPresupuesto: true } : o));
     setSent(true);
   };
 
@@ -10312,6 +10383,13 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
         <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#9C27B0" }}>📋 Mensaje de Recepción</div>
         <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía al cliente cuando se recepciona su vehículo. Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
         <textarea value={config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\nGracias por confiar en nosotros!"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📋 Mensaje de Nuevos Ítems a Cambiar</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Se envía cuando el mecánico informa ítems adicionales. Variables: {"{nombre}"} {"{vehiculo}"} {"{dominio}"} {"{items}"}</div>
+        <textarea value={config.nuevosItemsMessage || "Hola {nombre}! 👋\n\nRevisando tu {vehiculo} ({dominio}) encontramos los siguientes ítems que te recomendamos cambiar:\n\n{items}\n\nContactanos para autorizar los trabajos o consultar precios.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, nuevosItemsMessage: e.target.value }))}
           style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
       </div>
 
