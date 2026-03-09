@@ -99,44 +99,59 @@ const exchangeGoogleToken = async (googleIdToken) => {
   return r.json();
 };
 
-// Sign in con Google — retorna { ok, email, name, photo, error }
+// Sign in con Google via OAuth2 popup — retorna { ok, email, name, photo, error }
 const signInWithGoogle = (googleClientId) => new Promise(async (resolve) => {
   try {
     await loadGSI();
-    window._googleSignInResolve = resolve;
-    window.google.accounts.id.initialize({
+    // Usamos OAuth2 popup directo (más confiable que One Tap en apps web embebidas)
+    window.google.accounts.oauth2.initTokenClient({
       client_id: googleClientId,
-      callback: async (response) => {
+      scope: "email profile openid",
+      callback: async (tokenResponse) => {
+        if (tokenResponse.error) {
+          resolve({ ok: false, error: tokenResponse.error });
+          return;
+        }
         try {
-          const fbData = await exchangeGoogleToken(response.credential);
+          // Obtenemos el id_token via userinfo + luego signInWithIdp
+          // Primero obtenemos info del usuario con el access token
+          const userInfoR = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+          });
+          const userInfo = await userInfoR.json();
+
+          // Intercambiamos por Firebase token usando signInWithIdp con access_token
+          const fbR = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FB_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                postBody: `access_token=${tokenResponse.access_token}&providerId=google.com`,
+                requestUri: window.location.origin,
+                returnIdpCredential: true,
+                returnSecureToken: true,
+              })
+            }
+          );
+          const fbData = await fbR.json();
           if (fbData.idToken) {
             _authToken = fbData.idToken;
             _authExpiry = Date.now() + (parseInt(fbData.expiresIn || "3600") - 60) * 1000;
-            _googleUserEmail = fbData.email || "";
-            _googleUserName  = fbData.displayName || "";
-            _googleUserPhoto = fbData.photoUrl || "";
+            _googleUserEmail = fbData.email || userInfo.email || "";
+            _googleUserName  = fbData.displayName || userInfo.name || "";
+            _googleUserPhoto = fbData.photoUrl || userInfo.picture || "";
             resolve({ ok: true, email: _googleUserEmail, name: _googleUserName, photo: _googleUserPhoto });
           } else {
-            resolve({ ok: false, error: fbData.error?.message || "Error de autenticación" });
+            resolve({ ok: false, error: fbData.error?.message || "Error Firebase: " + JSON.stringify(fbData.error) });
           }
         } catch(e) {
           resolve({ ok: false, error: e.message });
         }
       },
-      auto_select: false,
-      cancel_on_tap_outside: false,
-    });
-    window.google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // One Tap no mostró — usar popup explícito
-        window.google.accounts.id.renderButton(
-          document.getElementById("gsi-btn-container"),
-          { theme: "filled_black", size: "large", text: "continue_with", shape: "pill", width: 300 }
-        );
-      }
-    });
+    }).requestAccessToken({ prompt: "select_account" });
   } catch(e) {
-    resolve({ ok: false, error: "No se pudo cargar Google Sign-In" });
+    resolve({ ok: false, error: "No se pudo cargar Google Sign-In: " + e.message });
   }
 });
 
@@ -159,21 +174,9 @@ const GoogleLoginScreen = ({ onSuccess }) => {
   const [errorMsg, setErrorMsg] = React.useState("");
   const [googleClientId, setGoogleClientId] = React.useState(null);
 
-  // Cargamos el clientId desde Firebase project config
+  // Client ID hardcodeado desde Firebase → Authentication → Google → SDK web
   React.useEffect(() => {
-    fetch(
-      `https://identitytoolkit.googleapis.com/v1/projects/${FS_PROJECT.replace ? "carboys-6625b" : FS_PROJECT}:lookupIdpConfig?key=${FB_API_KEY}`,
-      { method: "GET" }
-    ).catch(() => {});
-    // El client_id de Google OAuth está en Firebase → Auth → Google → configuración web
-    // Lo obtenemos de la API pública del proyecto
-    fetch(`https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${FB_API_KEY}`)
-      .then(r => r.json())
-      .then(d => {
-        const gp = (d.idpConfig || []).find(p => p.provider === "google.com");
-        if (gp?.clientId) setGoogleClientId(gp.clientId);
-      })
-      .catch(() => setGoogleClientId("auto"));
+    setGoogleClientId("388940973377-6c93fbvahg743n9l131nfpj5f68hl2es.apps.googleusercontent.com");
   }, []);
 
   const handleSignIn = async () => {
