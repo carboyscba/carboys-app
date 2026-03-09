@@ -5162,12 +5162,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     };
                     return (
                     <button
-                      onTouchStart={() => { if (!validarPagos()) return; setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); confirmarCobro(); } }, 40); }}
+                      onTouchStart={(e) => { e.preventDefault(); if (!validarPagos()) return; setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); confirmarCobro(); } }, 40); }}
                       onTouchEnd={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
                       onMouseDown={() => { if (!validarPagos()) return; setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); confirmarCobro(); } }, 40); }}
                       onMouseUp={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
                       onMouseLeave={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
-                      style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none" }}>
+                      onContextMenu={e => e.preventDefault()}
+                      style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "none" }}>
                       <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${holdProgress}%`, background: "rgba(255,255,255,0.3)", transition: "width 0.04s linear", borderRadius: 10 }} />
                       <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "COBRAR"}</span>
                       {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 1.5 seg</div>}
@@ -8889,7 +8890,8 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
           const DURATION = 1500;
           const STEP = 30;
 
-          const startHold = () => {
+          const startHold = (e) => {
+            e.preventDefault(); // bloquea menú contextual en tablet
             intervalRef.current = setInterval(() => {
               setProgress(prev => {
                 const next = prev + (STEP / DURATION * 100);
@@ -8912,7 +8914,8 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
             <div
               onMouseDown={startHold} onMouseUp={stopHold} onMouseLeave={stopHold}
               onTouchStart={startHold} onTouchEnd={stopHold} onTouchCancel={stopHold}
-              style={{ flex: 1, borderRadius: 12, overflow: "hidden", position: "relative", cursor: "pointer", userSelect: "none", WebkitUserSelect: "none" }}>
+              onContextMenu={e => e.preventDefault()}
+              style={{ flex: 1, borderRadius: 12, overflow: "hidden", position: "relative", cursor: "pointer", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "none" }}>
               {/* Fondo base */}
               <div style={{ background: `${color}22`, border: `2px solid ${color}`, borderRadius: 12, padding: "16px 0", textAlign: "center", position: "relative", overflow: "hidden" }}>
                 {/* Barra de progreso */}
