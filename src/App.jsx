@@ -63,11 +63,84 @@ const FB_API_KEY = "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ";
 const CARBOYS_EMAIL = "carboys.cba@gmail.com";
 
 // ── Google OAuth via GSI + Firebase signInWithIdp ─────────────
+const CB_STORAGE_KEY = "carboys_session_v1"; // clave localStorage por dispositivo
+
 let _authToken = null;
 let _authExpiry = 0;
+let _refreshToken = null;
 let _googleUserEmail = null;
 let _googleUserName = null;
 let _googleUserPhoto = null;
+
+// Guarda la sesión completa en localStorage del dispositivo
+const saveSession = () => {
+  try {
+    localStorage.setItem(CB_STORAGE_KEY, JSON.stringify({
+      refreshToken: _refreshToken,
+      email: _googleUserEmail,
+      name:  _googleUserName,
+      photo: _googleUserPhoto,
+    }));
+  } catch(e) { /* localStorage puede estar bloqueado en modo privado */ }
+};
+
+// Borra la sesión guardada (logout)
+const clearSession = () => {
+  try { localStorage.removeItem(CB_STORAGE_KEY); } catch(e) {}
+  _authToken = null;
+  _authExpiry = 0;
+  _refreshToken = null;
+  _googleUserEmail = null;
+  _googleUserName  = null;
+  _googleUserPhoto = null;
+};
+
+// Lee la sesión guardada del dispositivo
+const loadSession = () => {
+  try {
+    const raw = localStorage.getItem(CB_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+};
+
+// Usa el refreshToken para obtener un nuevo idToken sin popup
+const refreshAuthToken = async (refreshToken) => {
+  const r = await fetch(
+    `https://securetoken.googleapis.com/v1/token?key=${FB_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
+    }
+  );
+  const d = await r.json();
+  if (d.id_token) {
+    _authToken  = d.id_token;
+    _authExpiry = Date.now() + (parseInt(d.expires_in || "3600") - 60) * 1000;
+    _refreshToken = d.refresh_token; // Firebase puede rotar el refresh token
+    return true;
+  }
+  return false;
+};
+
+// Intenta restaurar sesión guardada — retorna { email, name, photo } o null
+const restoreSession = async () => {
+  const saved = loadSession();
+  if (!saved?.refreshToken) return null;
+  try {
+    const ok = await refreshAuthToken(saved.refreshToken);
+    if (!ok) { clearSession(); return null; }
+    _googleUserEmail = saved.email || "";
+    _googleUserName  = saved.name  || "";
+    _googleUserPhoto = saved.photo || "";
+    saveSession(); // actualiza con el nuevo refreshToken si fue rotado
+    return { email: _googleUserEmail, name: _googleUserName, photo: _googleUserPhoto };
+  } catch(e) {
+    clearSession();
+    return null;
+  }
+};
 
 // Carga el script de Google Identity Services
 const loadGSI = () => new Promise((resolve, reject) => {
@@ -99,35 +172,21 @@ const exchangeGoogleToken = async (googleIdToken) => {
   return r.json();
 };
 
-// Sign in con Google via OAuth2 popup — retorna { ok, email, name, photo, error }
+// Sign in con Google via GSI id_token popup — retorna { ok, email, name, photo, error }
 const signInWithGoogle = (googleClientId) => new Promise(async (resolve) => {
   try {
     await loadGSI();
-    // Usamos OAuth2 popup directo (más confiable que One Tap en apps web embebidas)
-    window.google.accounts.oauth2.initTokenClient({
+    window.google.accounts.id.initialize({
       client_id: googleClientId,
-      scope: "email profile openid",
-      callback: async (tokenResponse) => {
-        if (tokenResponse.error) {
-          resolve({ ok: false, error: tokenResponse.error });
-          return;
-        }
+      callback: async (response) => {
         try {
-          // Obtenemos el id_token via userinfo + luego signInWithIdp
-          // Primero obtenemos info del usuario con el access token
-          const userInfoR = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-          });
-          const userInfo = await userInfoR.json();
-
-          // Intercambiamos por Firebase token usando signInWithIdp con access_token
           const fbR = await fetch(
             `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FB_API_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                postBody: `access_token=${tokenResponse.access_token}&providerId=google.com`,
+                postBody: `id_token=${response.credential}&providerId=google.com`,
                 requestUri: window.location.origin,
                 returnIdpCredential: true,
                 returnSecureToken: true,
@@ -136,20 +195,41 @@ const signInWithGoogle = (googleClientId) => new Promise(async (resolve) => {
           );
           const fbData = await fbR.json();
           if (fbData.idToken) {
-            _authToken = fbData.idToken;
-            _authExpiry = Date.now() + (parseInt(fbData.expiresIn || "3600") - 60) * 1000;
-            _googleUserEmail = fbData.email || userInfo.email || "";
-            _googleUserName  = fbData.displayName || userInfo.name || "";
-            _googleUserPhoto = fbData.photoUrl || userInfo.picture || "";
+            _authToken    = fbData.idToken;
+            _authExpiry   = Date.now() + (parseInt(fbData.expiresIn || "3600") - 60) * 1000;
+            _refreshToken = fbData.refreshToken || null;
+            _googleUserEmail = fbData.email || "";
+            _googleUserName  = fbData.displayName || "";
+            _googleUserPhoto = fbData.photoUrl || "";
+            saveSession(); // persistir sesión en localStorage del dispositivo
             resolve({ ok: true, email: _googleUserEmail, name: _googleUserName, photo: _googleUserPhoto });
           } else {
-            resolve({ ok: false, error: fbData.error?.message || "Error Firebase: " + JSON.stringify(fbData.error) });
+            resolve({ ok: false, error: fbData.error?.message || "Error: " + JSON.stringify(fbData.error) });
           }
         } catch(e) {
           resolve({ ok: false, error: e.message });
         }
       },
-    }).requestAccessToken({ prompt: "select_account" });
+      ux_mode: "popup",
+      auto_select: false,
+    });
+    // Disparar popup directamente con renderButton oculto
+    const tempDiv = document.createElement("div");
+    tempDiv.style.display = "none";
+    document.body.appendChild(tempDiv);
+    window.google.accounts.id.renderButton(tempDiv, {
+      type: "standard", theme: "filled_black", size: "large"
+    });
+    // Usar prompt con callback para detectar si el popup no se muestra
+    window._gsiResolve = resolve;
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed()) {
+        // Popup bloqueado — forzar click en el botón renderizado
+        const btn = tempDiv.querySelector("[role=button]") || tempDiv.querySelector("div");
+        if (btn) btn.click();
+        else resolve({ ok: false, error: "El popup de Google fue bloqueado. Permití popups para este sitio." });
+      }
+    });
   } catch(e) {
     resolve({ ok: false, error: "No se pudo cargar Google Sign-In: " + e.message });
   }
@@ -161,7 +241,15 @@ const refreshGoogleToken = async () => {
   // En uso normal con la app abierta esto no pasa
 };
 
-const getAuthToken = async () => _authToken;
+const getAuthToken = async () => {
+  // Si el token está por vencer (o ya venció), lo renueva en silencio con el refreshToken
+  if (_authToken && _authExpiry && Date.now() > _authExpiry) {
+    if (_refreshToken) {
+      await refreshAuthToken(_refreshToken).catch(() => {});
+    }
+  }
+  return _authToken;
+};
 
 const fsHeaders = async () => {
   const token = await getAuthToken();
@@ -10397,10 +10485,19 @@ export default function App() {
   }, []);
 
   const [googleAuth, setGoogleAuth] = useState(null); // { email, name, photo } tras Google login
+  const [sessionChecked, setSessionChecked] = useState(false); // true cuando terminó de chequear localStorage
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
   const [dbLoading, setDbLoading] = useState(true); // esperando Firestore
+
+  // ── Restaurar sesión guardada al inicio (sin popup de Google) ─
+  useEffect(() => {
+    restoreSession().then(saved => {
+      if (saved) setGoogleAuth(saved); // sesión válida → entrar directo
+      setSessionChecked(true);         // terminó el chequeo (con o sin sesión)
+    });
+  }, []);
 
   // ── Estado interno (React) ─────────────────────────────────
   const [clients, _setClients] = useState(INITIAL_CLIENTS);
@@ -10509,7 +10606,17 @@ export default function App() {
     window.scrollTo?.(0, 0);
   }, []);
 
-  // ── Pantalla de carga Firestore ─────────────────────────────
+  // 0 — Verificando sesión guardada (muy rápido, evita flash de login)
+  if (!sessionChecked) return (
+    <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit', sans-serif" }}>
+      <FontLoader />
+      <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, marginBottom: 16 }}>
+        <span style={{ color:"#fff" }}>Car</span><span style={{ color:"#e63946" }}>Boys</span>
+      </div>
+      <div style={{ color:"#4a5568", fontSize: 13 }}>Verificando sesión...</div>
+    </div>
+  );
+
   // 1 — Primero: Google Login
   if (!googleAuth) return (
     <NumPadProvider>
