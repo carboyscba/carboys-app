@@ -203,10 +203,10 @@ const INITIAL_ORDERS = [
 ];
 
 const ROLE_PERMS_DEFAULTS = {
-  dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true  },
-  admin:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: false },
-  encargado:{ precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false },
-  mecánico: { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false },
+  dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true  },
+  admin:    { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true  },
+  encargado:{ precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true  },
+  mecánico: { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false },
 };
 const getPerm = (user, key) => {
   if (!user) return false;
@@ -383,7 +383,7 @@ const NumField = ({ value, onChange, placeholder, label, prefix, style: st, allo
   );
 };
 
-const LoginScreen = ({ onLogin }) => {
+const LoginScreen = ({ onLogin, users }) => {
   const [sel, setSel] = useState(null);
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
@@ -413,7 +413,7 @@ const LoginScreen = ({ onLogin }) => {
         <div style={{ animation: "fadeUp .4s ease .2s both" }}>
           <div style={{ fontSize: 15, color: T.grayLight, marginBottom: 20, textAlign: "center", fontWeight: 500 }}>¿Quién sos?</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 340 }}>
-            {USERS.map((u, i) => (
+            {users.map((u, i) => (
               <div key={u.id} onClick={() => setSel(u)} style={{ ...card, padding: "20px 16px", cursor: "pointer", textAlign: "center", animation: `fadeUp .4s ease ${.15*i}s both`, transition: "all .2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = u.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
@@ -2346,10 +2346,10 @@ const DashboardScreen = (props) => {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
         {[
-          { icon: "🔍", label: "Buscar Dominio", action: "search", show: user.role !== "mecánico" },
+          { icon: "🔍", label: "Buscar Dominio", action: "search", show: getPerm(user, "buscarDominio") },
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
-          { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: canCreate },
-          { icon: "🔧", label: "En Taller", action: "workshop", show: true },
+          { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: getPerm(user, "quickSale") },
+          { icon: "🔧", label: "En Taller", action: "workshop", show: getPerm(user, "workshop") },
           ...(getPerm(user, "admin") ? [
             { icon: "📊", label: "Administración", action: "admin", show: true },
           ] : []),
@@ -8793,7 +8793,7 @@ const Placeholder = ({ title, icon, desc }) => (
   </div>
 );
 
-const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) => {
+const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNavigate }) => {
   const [section, setSection] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [showNewUser, setShowNewUser] = useState(false);
@@ -8813,8 +8813,11 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
   const ROLE_PERMS = ROLE_PERMS_DEFAULTS;
 
   const PERM_LABELS = {
-    precios: "💰 Ver precios y montos",
+    buscarDominio: "🔍 Ver Buscar Dominio",
+    workshop: "🔧 Ver En Taller",
+    quickSale: "⚡ Ver Venta Rápida",
     crearOrden: "📝 Crear/editar órdenes",
+    precios: "💰 Ver precios y montos",
     finalizar: "✅ Finalizar trabajos",
     entregar: "🚗 Entregar vehículos",
     presupuesto: "📤 Enviar presupuestos",
@@ -8969,6 +8972,7 @@ const ConfigScreen = ({ user, users, setUsers, config, setConfig, onNavigate }) 
             <button onClick={() => setEditingUser(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
             <button onClick={() => {
               setUsers(prev => prev.map(u => u.id === editingUser.id ? editingUser : u));
+              if (editingUser.id === user.id) setUser(editingUser);
               setEditingUser(null);
               showSaved("✅ Usuario actualizado");
             }} style={{ ...btnPrimary(T.accent), flex: 1 }}>💾 Guardar</button>
@@ -9274,7 +9278,7 @@ export default function App() {
     window.scrollTo?.(0, 0);
   }, []);
 
-  if (!user) return <NumPadProvider><FontLoader /><LoginScreen onLogin={setUser} /></NumPadProvider>;
+  if (!user) return <NumPadProvider><FontLoader /><LoginScreen onLogin={setUser} users={users} /></NumPadProvider>;
 
   const _foundOrder = selOrder ? orders.find(o => o.id === selOrder.id) : null;
   const currentOrder = selOrder ? (_foundOrder ? (selOrder._fojaType ? { ..._foundOrder, _fojaType: selOrder._fojaType } : _foundOrder) : selOrder) : null;
@@ -9282,7 +9286,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return user.role === "mecánico" ? null : <SearchScreen clients={clients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} />;
+      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} /> : null;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
@@ -9292,7 +9296,7 @@ export default function App() {
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
       case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
-            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
+            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
     }
   };
