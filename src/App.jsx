@@ -228,7 +228,13 @@ const FontLoader = () => (
     @keyframes slideIn { from{opacity:0;transform:translateX(-16px);}to{opacity:1;transform:translateX(0);} }
     @keyframes scaleIn { from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);} }
     @keyframes shake { 0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);} }
+    input, textarea, select { background: ${T.bg} !important; color: ${T.white} !important; }
     input::placeholder, textarea::placeholder { color: ${T.gray}; }
+    input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 1000px ${T.bg} inset !important;
+      -webkit-text-fill-color: ${T.white} !important;
+      caret-color: ${T.white};
+    }
     select { appearance: none; }
     
     /* === TEXT INPUT AUTO-SCROLL === */
@@ -2602,7 +2608,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
   };
 
   const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
-  const getStatusLabel = (s) => s === "done" ? "✅ Finalizado" : s === "working" ? "🟡 En curso" : "🔴 Esperando";
+  const getStatusLabel = (s) => s === "done" ? "FINALIZADO" : s === "working" ? "EN CURSO" : "ESPERANDO";
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease" }}>
@@ -2625,19 +2631,27 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
           style={{ ...card, padding: "18px 20px", marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}`, animation: `slideIn .3s ease ${i*.05}s both`, transition: "background .15s" }}
           onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }}
           onMouseLeave={e => { e.currentTarget.style.background = T.bg2; }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 12, height: 12, borderRadius: "50%", background: sc, boxShadow: `0 0 8px ${sc}`, animation: o.status === "working" ? "pulse 2s infinite" : "none" }} />
-              <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            {/* Izquierda: punto + info */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: sc, boxShadow: `0 0 8px ${sc}`, flexShrink: 0, animation: o.status === "working" ? "pulse 2s infinite" : "none" }} />
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 18, fontFamily: fontD }}>{fmtD(o.domain)}</div>
                 <div style={{ fontSize: 13, color: T.grayLight }}>{info.brand} {info.model} {info.year}</div>
                 <div style={{ fontSize: 12, color: T.gray }}>{info.clientName}{o.assignedTo ? ` — Asignado: ${o.assignedTo}` : ""}</div>
               </div>
             </div>
-            <div style={{ padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: "uppercase", background: `${sc}20`, color: sc }}>
-              {getStatusLabel(o.status)}
+            {/* Derecha: badges alineados en columna */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
+              {o.cobrado && (
+                <div style={{ padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: `${T.green}10`, color: `${T.green}cc`, border: `1.5px solid ${T.green}50` }}>
+                  COBRADO
+                </div>
+              )}
+              <div style={{ padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: "uppercase", background: `${sc}20`, color: sc }}>
+                {o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}
+              </div>
             </div>
-            {o.cobrado && <div style={{ padding: "6px 16px", borderRadius: 8, fontSize: 14, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1.5px solid ${T.green}60` }}>COBRADO</div>}
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             {o.works.map((w, j) => (
@@ -2666,6 +2680,9 @@ const VehicleDetailScreen = (props) => {
   const total = order.works.reduce((s, w) => s + w.price, 0);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [showFojaMenu, setShowFojaMenu] = useState(false);
+  const [showFacturaMenu, setShowFacturaMenu] = useState(false);
+  const [facturaMenuData, setFacturaMenuData] = useState(null);
+  const [localFacturaModal, setLocalFacturaModal] = useState(null);
   const [showDeliverPopup, setShowDeliverPopup] = useState(false);
   const [showNotifyPopup, setShowNotifyPopup] = useState(false);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
@@ -2954,10 +2971,10 @@ const VehicleDetailScreen = (props) => {
           ...(canNotify && order.status === "done" && !order.clientNotified ? [{ icon: "📱", label: "Avisar al Cliente", show: true, color: T.green, action: () => {
             setShowNotifyPopup(true);
           }, bg: "rgba(67,160,71,.08)" }] : []),
-          ...(canBill && order.status === "done" ? [{ icon: "📄", label: "Facturar", show: true, color: T.accent, bg: "rgba(30,136,229,.08)" }] : []),
+          ...(order.factura ? [{ icon: "📄", label: "Factura", show: true, color: T.green, bg: "rgba(67,160,71,.08)", action: () => { setFacturaMenuData({ order, client, vehicle }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(getPerm(user, "cancelar") && order.status !== "delivered" ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && (order.status === "pending" || order.status === "working") ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -3564,6 +3581,93 @@ const VehicleDetailScreen = (props) => {
         );
       })()}
 
+      {/* ══ POPUP VER FACTURA ══ */}
+      {localFacturaModal && (
+        <FacturaModal
+          data={localFacturaModal}
+          config={config}
+          onClose={() => setLocalFacturaModal(null)}
+          onEmit={() => {}}
+        />
+      )}
+
+      {showFacturaMenu && facturaMenuData && (() => {
+        const { order: fo, client: fc, vehicle: fv } = facturaMenuData;
+        const mainPay = (fo.payments || [])[0] || {};
+        const cuenta = mainPay.account === "2" ? "Ignacio Karqui" : "CarBoys SAS";
+        const invoiceType = fo.factura?.tipo || mainPay.invoiceType || "B";
+        const fcColor = invoiceType === "A" ? T.orange : invoiceType === "B" ? T.accent : T.gray;
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(5px)", animation: "fadeUp .2s ease" }}
+            onClick={() => setShowFacturaMenu(false)}>
+            <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 380, width: "90%", border: `1px solid ${T.border}` }}
+              onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <div style={{ width: 64, height: 64, borderRadius: 12, border: `3px solid ${fcColor}`, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", marginBottom: 10, background: `${fcColor}10` }}>
+                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: fcColor, lineHeight: 1 }}>{invoiceType}</div>
+                </div>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>Factura emitida</div>
+                <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>
+                  Nro: {fo.factura?.numero || "—"} · {fo.factura?.fecha || "—"}
+                </div>
+                <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>{cuenta}</div>
+              </div>
+              {/* Info rápida */}
+              <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>Cliente</span>
+                  <span style={{ fontWeight: 700 }}>{fc ? fc.name + " " + fc.lastName : "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>Dominio</span>
+                  <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmtD(fo.domain)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: T.gray }}>Total</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(fo.works.reduce((s, w) => s + (w.price || 0), 0))}</span>
+                </div>
+              </div>
+              {/* Acciones */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                <button onClick={() => {
+                  setShowFacturaMenu(false);
+                  // Abrir FacturaModal en modo readonly — pasamos vía onNavigate con flag especial
+                  // Como VehicleDetailScreen no tiene acceso a setFacturaModal del AdminScreen,
+                  // usamos el mismo patrón: navegamos a admin→cobros y abrimos el modal
+                  // Por ahora mostramos print dialog del navegador
+                  window.print();
+                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  🖨️ Imprimir factura
+                </button>
+                <button onClick={() => {
+                  setShowFacturaMenu(false);
+                  const phone = fc?.phone || "";
+                  const nro = fo.factura?.numero || "";
+                  const msg = `Hola ${fc?.name || ""}! Te enviamos la Factura ${invoiceType} Nro ${nro} de tu ${fv?.brand || ""} ${fv?.model || ""} (${fmtD(fo.domain)}).
+
+¡Gracias por confiar en *CarBoys*! 🔧`;
+                  if (phone) window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+                  else alert("El cliente no tiene teléfono registrado.");
+                }} style={{ ...btnPrimary(T.green), fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  📱 Enviar por WhatsApp
+                </button>
+                <button onClick={() => {
+                  setShowFacturaMenu(false);
+                  setLocalFacturaModal({ order: fo, payments: fo.payments, client: fc, vehicle: fv, readonly: true });
+                }} style={{ ...btnPrimary(T.accent), fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  📄 Ver Factura
+                </button>
+              </div>
+              <button onClick={() => setShowFacturaMenu(false)}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, width: "100%", fontSize: 13, padding: "10px 0" }}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {showAuthPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}>
           <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}`, textAlign: "center" }}>
@@ -3629,12 +3733,212 @@ const PieChart = ({ data, size = 180 }) => {
   );
 };
 
+
+// ══════════════════════════════════════════════════
+// FACTURA MODAL — Vista previa + Emitir + PDF
+// ══════════════════════════════════════════════════
+const FacturaModal = ({ data, onClose, onEmit, config }) => {
+  const { order, payments, client, vehicle, readonly } = data;
+  const total = order.works.reduce((s, w) => s + (w.price || 0), 0);
+  const iva = config?.ivaRate || 21;
+
+  // Determinar tipo de factura y cuenta emisora
+  const mainPayment = (payments || order.payments || [])[0] || {};
+  const invoiceType = mainPayment.invoiceType || "B";
+  const cuenta = mainPayment.account === "2" ? "Ignacio Karqui" : "CarBoys SAS";
+  const cuitEmisor = mainPayment.account === "2" ? "20-XXXXXXXX-X" : "30-XXXXXXXX-X";
+  const puntoVenta = mainPayment.account === "2" ? "0002" : "0001";
+
+  const withIva = mainPayment.withIva;
+  const neto = withIva ? total : total;
+  const ivaAmt = withIva ? Math.round(total * iva / 100) : 0;
+  const totalFact = withIva ? total + ivaAmt : total;
+
+  const now = new Date();
+  const fechaEmision = order.factura?.fecha || now.toLocaleDateString("es-AR");
+  const nroFactura = order.factura?.numero || `${puntoVenta}-00000001`;
+
+  const fcColor = invoiceType === "A" ? T.orange : invoiceType === "B" ? T.accent : T.gray;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9000, display: "flex", flexDirection: "column", backdropFilter: "blur(6px)" }}>
+      {/* Header del modal */}
+      <div style={{ background: T.bg2, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>
+          {readonly ? "📄 Factura emitida" : "🧾 Emitir Factura"}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {!readonly && (
+            <button onClick={onEmit} style={{ ...btnPrimary(T.accent), padding: "8px 20px", fontSize: 13 }}>
+              ✅ Confirmar y emitir
+            </button>
+          )}
+          {readonly && (
+            <>
+              <button onClick={() => window.print()} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
+                🖨️ Imprimir
+              </button>
+              <button onClick={() => {
+                const phone = client?.phone;
+                if (phone) window.open(`https://wa.me/54${phone}?text=${encodeURIComponent(`Hola ${client?.name || ""}! Te enviamos la factura de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). Gracias por confiar en CarBoys! 🔧`)}`, "_blank");
+              }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
+                📱 WhatsApp
+              </button>
+            </>
+          )}
+          <div onClick={onClose} style={{ width: 36, height: 36, borderRadius: 8, background: T.bg3, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16 }}>✕</div>
+        </div>
+      </div>
+
+      {/* Factura */}
+      <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+        <div id="factura-print" style={{ maxWidth: 680, margin: "0 auto", background: "#fff", borderRadius: 12, overflow: "hidden", color: "#111", fontFamily: "'Outfit', sans-serif", boxShadow: "0 8px 40px rgba(0,0,0,.4)" }}>
+
+          {/* ── HEADER ── */}
+          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}>
+                <span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 12, fontSize: 12, color: "#9badc4", lineHeight: 1.6 }}>
+                <div>{cuenta}</div>
+                <div>CUIT: {cuitEmisor}</div>
+                <div>Punto de Venta: {puntoVenta}</div>
+                <div style={{ fontSize: 11, color: "#7b8fad" }}>Responsable Inscripto</div>
+              </div>
+            </div>
+            {/* Recuadro tipo de factura */}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ width: 80, height: 80, borderRadius: 12, border: `3px solid ${fcColor}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,.05)" }}>
+                <div style={{ fontSize: 10, color: "#9badc4", letterSpacing: 2, textTransform: "uppercase" }}>Fact.</div>
+                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 48, fontWeight: 800, color: fcColor, lineHeight: 1 }}>{invoiceType}</div>
+              </div>
+              <div style={{ fontSize: 10, color: "#7b8fad", marginTop: 6 }}>ORIGINAL</div>
+            </div>
+          </div>
+
+          {/* ── INFO FACTURA ── */}
+          <div style={{ background: "#f8fafc", padding: "16px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, borderBottom: "2px solid #e2e8f0" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Nro. Comprobante</div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 20, fontWeight: 700, color: "#0d1526" }}>{nroFactura}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Fecha de Emisión</div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 20, fontWeight: 700, color: "#0d1526" }}>{fechaEmision}</div>
+            </div>
+          </div>
+
+          {/* ── CLIENTE ── */}
+          <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Datos del Cliente</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{client ? `${client.name} ${client.lastName}` : "Consumidor Final"}</div>
+                {client?.dni && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>DNI: {client.dni}</div>}
+                {client?.cuit && <div style={{ fontSize: 12, color: "#64748b" }}>CUIT: {client.cuit}</div>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 12, color: "#64748b" }}>Dominio</div>
+                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, fontWeight: 800, color: "#0d1526", letterSpacing: 1 }}>{order.domain?.replace(/\s/g,"")}</div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── DETALLE DE TRABAJOS ── */}
+          <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Detalle de Servicios</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
+              <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>IMPORTE</span>
+            </div>
+            {order.works.map((w, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{w.desc ? ` — ${w.desc}` : ""}</div>
+                    {w.trenItems && w.trenItems.filter(ti => ti.selected || ti.label).map((ti, j) => (
+                      <div key={j} style={{ fontSize: 11, color: "#64748b", paddingLeft: 10 }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side})` : ""}</div>
+                    ))}
+                  </div>
+                  <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right", whiteSpace: "nowrap" }}>
+                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(w.price || 0)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── TOTALES ── */}
+          <div style={{ padding: "16px 28px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ minWidth: 260 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
+                  <span>Subtotal (neto)</span>
+                  <span style={{ fontWeight: 600, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(neto)}</span>
+                </div>
+                {withIva && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
+                    <span>IVA {iva}%</span>
+                    <span style={{ fontWeight: 600, color: "#1e88e5" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(ivaAmt)}</span>
+                  </div>
+                )}
+                <div style={{ height: 2, background: "#e2e8f0", margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800 }}>
+                  <span style={{ color: "#0d1526" }}>TOTAL</span>
+                  <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(totalFact)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── MÉTODO DE PAGO ── */}
+          <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Forma de Pago</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {(payments || order.payments || []).map((pm, i) => (
+                <div key={i} style={{ padding: "6px 14px", borderRadius: 20, background: "#e2e8f0", fontSize: 12, fontWeight: 600, color: "#0d1526" }}>
+                  {pm.method}{pm.account === "1" ? " — CarBoys SAS" : pm.account === "2" ? " — Ignacio Karqui" : ""}
+                  {pm.withIva ? " con IVA" : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── CAE / ARCA (placeholder) ── */}
+          <div style={{ padding: "16px 28px", background: "#f8fafc", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>CAE / ARCA</div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 16, fontWeight: 700, color: order.factura?.cae ? "#0d1526" : "#94a3b8", letterSpacing: 1 }}>
+                {order.factura?.cae || "Pendiente de conexión ARCA"}
+              </div>
+              {order.factura?.caeVto && <div style={{ fontSize: 11, color: "#64748b" }}>Vto: {order.factura.caeVto}</div>}
+            </div>
+            {/* QR placeholder */}
+            <div style={{ width: 64, height: 64, border: "2px dashed #cbd5e1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#94a3b8", textAlign: "center" }}>
+              QR<br/>AFIP
+            </div>
+          </div>
+
+          {/* ── FOOTER ── */}
+          <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: "#7b8fad" }}>CarBoys — Servicio Integral del Automotor • Este comprobante es válido como factura</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate }) => {
   const [tab, setTab] = useState("resumen");
   const [showTotalVentas, setShowTotalVentas] = useState(false);
   const [selCobro, setSelCobro] = useState(null);
   const [cobroPay, setCobroPay] = useState([]);
   const [cobroClient, setCobroClient] = useState(null);
+  const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
+  const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(null);
   const [histDetail, setHistDetail] = useState(null);
@@ -3732,7 +4036,43 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
   ];
 
+  // ── Handler emitir factura ──
+  const handleEmitirFactura = () => {
+    if (!facturaModal) return;
+    const { order, payments, client } = facturaModal;
+    const now = new Date();
+    const mainPay = (payments || [])[0] || {};
+    const puntoVenta = mainPay.account === "2" ? "0002" : "0001";
+    const factura = {
+      numero: `${puntoVenta}-${String(Date.now()).slice(-8)}`,
+      fecha: now.toLocaleDateString("es-AR"),
+      tipo: mainPay.invoiceType || "B",
+      cae: null,       // Se completará cuando ARCA esté conectado
+      caeVto: null,
+      emitidaEn: now.toISOString(),
+    };
+    // Guardar datos de cliente actualizados
+    if (client) {
+      setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
+    }
+    // Guardar factura en la orden + pagos confirmados
+    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, factura, payments: (payments || o.payments).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
+    // Actualizar selCobro para que el botón cambie a VER FACTURA
+    setSelCobro(prev => prev ? { ...prev, factura, payments: (payments || prev.payments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : prev);
+    // Actualizar modal a modo readonly con nro de factura
+    setFacturaModal(prev => ({ ...prev, order: { ...prev.order, factura }, readonly: true }));
+  };
+
   return (
+    <>
+    {facturaModal && (
+      <FacturaModal
+        data={facturaModal}
+        config={config}
+        onClose={() => setFacturaModal(null)}
+        onEmit={handleEmitirFactura}
+      />
+    )}
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Administración</div>
@@ -3831,23 +4171,26 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     </div>
                   </div>
                 </div>
-                {/* ── 1. DATOS DEL CLIENTE (editable) ── */}
-                {cobroClient && <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>👤 Datos del Cliente</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                    <div><label style={labelStyle}>Nombre</label><input value={cobroClient.name} onChange={e => setCobroClient(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Apellido</label><input value={cobroClient.lastName} onChange={e => setCobroClient(p => ({ ...p, lastName: e.target.value }))} style={inputStyle} /></div>
+                {/* ── 1. DATOS DEL CLIENTE (editable / bloqueado si hay factura) ── */}
+                {cobroClient && <div style={{ ...card, padding: 20, marginBottom: 16, opacity: o.factura ? 0.7 : 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>👤 Datos del Cliente</div>
+                    {o.factura && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, padding: "3px 8px", background: `${T.orange}15`, borderRadius: 6 }}>🔒 Factura emitida</div>}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                    <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={cobroClient.phone} onChange={e => setCobroClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
-                    <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={cobroClient.dni} onChange={e => setCobroClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Nombre</label><input value={cobroClient.name} onChange={e => !o.factura && setCobroClient(p => ({ ...p, name: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
+                    <div><label style={labelStyle}>Apellido</label><input value={cobroClient.lastName} onChange={e => !o.factura && setCobroClient(p => ({ ...p, lastName: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
                   </div>
-                  <div><label style={labelStyle}>CUIT</label><input value={cobroClient.cuit} onChange={e => setCobroClient(p => ({ ...p, cuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={cobroClient.phone} onChange={e => !o.factura && setCobroClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
+                    <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={cobroClient.dni} onChange={e => !o.factura && setCobroClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
+                  </div>
+                  <div><label style={labelStyle}>CUIT</label><input value={cobroClient.cuit} onChange={e => !o.factura && setCobroClient(p => ({ ...p, cuit: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} placeholder="Ej: 20-12345678-9" /></div>
                 </div>}
 
                 {/* ── 2. MÉTODO DE PAGO (antes que trabajos) ── */}
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago</div>
+                <div style={{ ...card, padding: 20, marginBottom: 16, opacity: o.factura ? 0.7 : 1, pointerEvents: o.factura ? "none" : "auto" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago {o.factura && <span style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginLeft: 8 }}>🔒</span>}</div>
                   {cobroPay.map((pm, i) => {
                     const hasCuit = !!(cobroClient?.cuit);
                     const isTransf = pm.method === "Transferencia";
@@ -3971,25 +4314,74 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <span style={{ color: T.accent }}>{fmt(total)}</span>
                   </div>
                 </div>
+                {/* ── POPUP VALIDACIÓN ── */}
+                {cobroValidError && (
+                  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setCobroValidError("")}>
+                    <div style={{ background: T.bg2, border: `2px solid ${T.red}`, borderRadius: 16, padding: 28, maxWidth: 340, width: "100%", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                      <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 10 }}>Completar método de pago</div>
+                      <div style={{ fontSize: 14, color: T.grayLight, lineHeight: 1.6, marginBottom: 20 }}>{cobroValidError}</div>
+                      <button onClick={() => setCobroValidError("")} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14 }}>Entendido</button>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: "flex", gap: 10 }}>
                   {o.cobrado ? (
                     <div style={{ flex: 1, padding: "16px 0", borderRadius: 10, textAlign: "center", fontSize: 15, fontWeight: 700, background: `${T.green}15`, border: `2px solid ${T.green}`, color: T.green }}>✅ COBRADO</div>
-                  ) : (
-                  <button
-                    onTouchStart={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro({...o, cobrado: true}); setHoldProgress(0); } }, 40); }}
-                    onTouchEnd={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
-                    onMouseDown={() => { setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); } setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2)); setSelCobro({...o, cobrado: true}); setHoldProgress(0); } }, 40); }}
-                    onMouseUp={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
-                    onMouseLeave={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
-                    style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none" }}>
-                    <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${holdProgress}%`, background: "rgba(255,255,255,0.3)", transition: "width 0.04s linear", borderRadius: 10 }} />
-                    <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "COBRAR"}</span>
-                    {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 1.5 seg</div>}
-                  </button>
+                  ) : (() => {
+                    // ── Validación de pagos antes de cobrar ──
+                    const validarPagos = () => {
+                      for (let idx = 0; idx < cobroPay.length; idx++) {
+                        const pm = cobroPay[idx];
+                        const nro = cobroPay.length > 1 ? ` (#${idx + 1})` : "";
+                        if (!pm.method) { setCobroValidError(`Seleccioná un método de pago${nro}.`); return false; }
+                        if (pm.method === "Transferencia" && !pm.account) { setCobroValidError(`En Transferencia${nro}, seleccioná la cuenta: CarBoys SAS o Ignacio Karqui.`); return false; }
+                        if ((pm.method === "Efectivo" || pm.method === "Tarjeta" || pm.method === "Cuenta Corriente") && pm.withIva === null) { setCobroValidError(`En ${pm.method}${nro}, seleccioná CON IVA o SIN IVA.`); return false; }
+                        const hasCuitLocal = !!(cobroClient?.cuit);
+                        if (pm.withIva && hasCuitLocal && !pm.invoiceType) { setCobroValidError(`En ${pm.method}${nro} con IVA y CUIT, seleccioná el tipo de factura (A o B).`); return false; }
+                        if (!pm.amount || parseFloat(pm.amount) <= 0) { setCobroValidError(`Ingresá un monto válido en el pago${nro}.`); return false; }
+                      }
+                      return true;
+                    };
+                    const confirmarCobro = () => {
+                      if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true }));
+                      setHoldProgress(0);
+                    };
+                    return (
+                    <button
+                      onTouchStart={() => { if (!validarPagos()) return; setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); confirmarCobro(); } }, 40); }}
+                      onTouchEnd={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
+                      onMouseDown={() => { if (!validarPagos()) return; setHoldProgress(0); let p = 0; holdRef.current = setInterval(() => { p += 2.67; setHoldProgress(Math.min(p,100)); if (p >= 100) { clearInterval(holdRef.current); confirmarCobro(); } }, 40); }}
+                      onMouseUp={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
+                      onMouseLeave={() => { clearInterval(holdRef.current); setHoldProgress(0); }}
+                      style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, padding: "16px 0", position: "relative", overflow: "hidden", userSelect: "none" }}>
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${holdProgress}%`, background: "rgba(255,255,255,0.3)", transition: "width 0.04s linear", borderRadius: 10 }} />
+                      <span style={{ position: "relative", zIndex: 1 }}>{holdProgress > 0 ? `${Math.round(holdProgress)}%` : "COBRAR"}</span>
+                      {holdProgress === 0 && <div style={{ position: "relative", zIndex: 1, fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Mantener 1.5 seg</div>}
+                    </button>
+                    );
+                  })()}
+                  {o.cobrado && !o.factura && (
+                    <button onClick={() => {
+                      const cl = clients.find(c => c.id === o.clientId);
+                      const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                      setFacturaModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
+                    }} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>
+                      🧾 EMITIR FACTURA
+                    </button>
                   )}
-                  {(cobroPay || []).some(p => p.withIva || p.method === "Tarjeta" || p.method === "Transferencia") && (
-                  <button onClick={() => {}} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 15, padding: "16px 0" }}>🧾 EMITIR FACTURA</button>
-                )}
+                  {o.factura && (
+                    <button onClick={() => {
+                      const cl = clients.find(c => c.id === o.clientId);
+                      const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                      setFacturaModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
+                    }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>
+                      📄 VER FACTURA
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -5467,6 +5859,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
 
     </div>
+    </>
   );
 };
 
