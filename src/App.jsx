@@ -1,4 +1,370 @@
 import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+// ── Firestore REST API (sin SDK, compatible con Claude artifacts) ──
+const FS_PROJECT = "carboys-6625b";
+const FS_BASE = `https://firestore.googleapis.com/v1/projects/${FS_PROJECT}/databases/(default)/documents`;
+
+// Convierte valor JS → formato Firestore
+const toFsVal = (v) => {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === "boolean") return { booleanValue: v };
+  if (typeof v === "number") return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (typeof v === "string") return { stringValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(toFsVal) } };
+  if (typeof v === "object") return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, val]) => [k, toFsVal(val)])) } };
+  return { stringValue: String(v) };
+};
+
+// Convierte formato Firestore → valor JS
+const fromFsVal = (v) => {
+  if (!v) return null;
+  if ("nullValue" in v) return null;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("integerValue" in v) return parseInt(v.integerValue);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("stringValue" in v) return v.stringValue;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(fromFsVal);
+  if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, val]) => [k, fromFsVal(val)]));
+  return null;
+};
+
+const objToFs  = (obj) => ({ fields: Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, toFsVal(v)])) });
+const fsToObj  = (doc) => Object.fromEntries(Object.entries(doc.fields || {}).map(([k, v]) => [k, fromFsVal(v)]));
+
+// CRUD helpers (con auth token)
+const fsSave = async (col, id, data) => {
+  const url = `${FS_BASE}/${col}/${encodeURIComponent(String(id))}`;
+  try {
+    const h = await fsHeaders();
+    const r = await fetch(url, { method: "PATCH", headers: h, body: JSON.stringify(objToFs(data)) });
+    if (!r.ok) console.error('[FS] save error', col, id, await r.text());
+    return r;
+  } catch(e) { console.error('[FS] save fetch error:', e); }
+};
+const fsDel = async (col, id) => {
+  const h = await fsHeaders();
+  return fetch(`${FS_BASE}/${col}/${encodeURIComponent(String(id))}`, { method: "DELETE", headers: h });
+};
+const fsGetCol = async (col) => {
+  const h = await fsHeaders();
+  const r = await fetch(`${FS_BASE}/${col}?pageSize=500`, { headers: h });
+  if (!r.ok) return [];
+  const json = await r.json();
+  return (json.documents || []).map(fsToObj);
+};
+const fsGetDoc = async (col, id) => {
+  const h = await fsHeaders();
+  const r = await fetch(`${FS_BASE}/${col}/${encodeURIComponent(String(id))}`, { headers: h });
+  if (!r.ok) return null;
+  return fsToObj(await r.json());
+};
+
+// ── Firebase Auth REST (anónimo) ─────────────────────────────
+const FB_API_KEY = "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ";
+const CARBOYS_EMAIL = "carboys.cba@gmail.com";
+
+// ── Google OAuth via GSI + Firebase signInWithIdp ─────────────
+let _authToken = null;
+let _authExpiry = 0;
+let _googleUserEmail = null;
+let _googleUserName = null;
+let _googleUserPhoto = null;
+
+// Carga el script de Google Identity Services
+const loadGSI = () => new Promise((resolve, reject) => {
+  if (window.google?.accounts) { resolve(); return; }
+  const s = document.createElement("script");
+  s.src = "https://accounts.google.com/gsi/client";
+  s.async = true;
+  s.defer = true;
+  s.onload = resolve;
+  s.onerror = reject;
+  document.head.appendChild(s);
+});
+
+// Intercambia Google ID token por Firebase token
+const exchangeGoogleToken = async (googleIdToken) => {
+  const r = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FB_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        postBody: `id_token=${googleIdToken}&providerId=google.com`,
+        requestUri: "https://carboys-6625b.firebaseapp.com",
+        returnIdpCredential: true,
+        returnSecureToken: true,
+      })
+    }
+  );
+  return r.json();
+};
+
+// Sign in con Google — retorna { ok, email, name, photo, error }
+const signInWithGoogle = (googleClientId) => new Promise(async (resolve) => {
+  try {
+    await loadGSI();
+    window._googleSignInResolve = resolve;
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: async (response) => {
+        try {
+          const fbData = await exchangeGoogleToken(response.credential);
+          if (fbData.idToken) {
+            _authToken = fbData.idToken;
+            _authExpiry = Date.now() + (parseInt(fbData.expiresIn || "3600") - 60) * 1000;
+            _googleUserEmail = fbData.email || "";
+            _googleUserName  = fbData.displayName || "";
+            _googleUserPhoto = fbData.photoUrl || "";
+            resolve({ ok: true, email: _googleUserEmail, name: _googleUserName, photo: _googleUserPhoto });
+          } else {
+            resolve({ ok: false, error: fbData.error?.message || "Error de autenticación" });
+          }
+        } catch(e) {
+          resolve({ ok: false, error: e.message });
+        }
+      },
+      auto_select: false,
+      cancel_on_tap_outside: false,
+    });
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // One Tap no mostró — usar popup explícito
+        window.google.accounts.id.renderButton(
+          document.getElementById("gsi-btn-container"),
+          { theme: "filled_black", size: "large", text: "continue_with", shape: "pill", width: 300 }
+        );
+      }
+    });
+  } catch(e) {
+    resolve({ ok: false, error: "No se pudo cargar Google Sign-In" });
+  }
+});
+
+// Silently refresh token if expired
+const refreshGoogleToken = async () => {
+  // El token de Firebase dura 1 hora; si vence, el usuario deberá re-logearse
+  // En uso normal con la app abierta esto no pasa
+};
+
+const getAuthToken = async () => _authToken;
+
+const fsHeaders = async () => {
+  const token = await getAuthToken();
+  return { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) };
+};
+
+// ── Google Login Screen ───────────────────────────────────────
+const GoogleLoginScreen = ({ onSuccess }) => {
+  const [status, setStatus] = React.useState("idle"); // idle | loading | error
+  const [errorMsg, setErrorMsg] = React.useState("");
+  const [googleClientId, setGoogleClientId] = React.useState(null);
+
+  // Cargamos el clientId desde Firebase project config
+  React.useEffect(() => {
+    fetch(
+      `https://identitytoolkit.googleapis.com/v1/projects/${FS_PROJECT.replace ? "carboys-6625b" : FS_PROJECT}:lookupIdpConfig?key=${FB_API_KEY}`,
+      { method: "GET" }
+    ).catch(() => {});
+    // El client_id de Google OAuth está en Firebase → Auth → Google → configuración web
+    // Lo obtenemos de la API pública del proyecto
+    fetch(`https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${FB_API_KEY}`)
+      .then(r => r.json())
+      .then(d => {
+        const gp = (d.idpConfig || []).find(p => p.provider === "google.com");
+        if (gp?.clientId) setGoogleClientId(gp.clientId);
+      })
+      .catch(() => setGoogleClientId("auto"));
+  }, []);
+
+  const handleSignIn = async () => {
+    if (!googleClientId) { setErrorMsg("Cargando configuración..."); return; }
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const result = await signInWithGoogle(googleClientId);
+      if (!result.ok) {
+        setStatus("error");
+        setErrorMsg(result.error || "Error desconocido");
+        return;
+      }
+      if (result.email.toLowerCase() !== CARBOYS_EMAIL.toLowerCase()) {
+        setStatus("error");
+        setErrorMsg(`Acceso denegado. Solo puede acceder ${CARBOYS_EMAIL}`);
+        _authToken = null;
+        return;
+      }
+      setStatus("idle");
+      onSuccess({ email: result.email, name: result.name, photo: result.photo });
+    } catch(e) {
+      setStatus("error");
+      setErrorMsg(e.message);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight:"100vh", background:"#080e1a",
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      gap:0, padding:24, position:"relative", overflow:"hidden"
+    }}>
+      {/* Fondo decorativo */}
+      <div style={{
+        position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none"
+      }}>
+        <div style={{
+          position:"absolute", top:-120, right:-120,
+          width:500, height:500, borderRadius:"50%",
+          background:"radial-gradient(circle, rgba(229,57,53,0.08) 0%, transparent 70%)"
+        }}/>
+        <div style={{
+          position:"absolute", bottom:-80, left:-80,
+          width:400, height:400, borderRadius:"50%",
+          background:"radial-gradient(circle, rgba(30,136,229,0.06) 0%, transparent 70%)"
+        }}/>
+        {/* Línea decorativa roja tipo racing */}
+        <div style={{
+          position:"absolute", top:0, left:0, right:0, height:4,
+          background:"linear-gradient(90deg, transparent, #e53935 30%, #e53935 70%, transparent)"
+        }}/>
+      </div>
+
+      {/* Logo */}
+      <div style={{
+        fontFamily:"'Rajdhani',sans-serif", fontSize:52, fontWeight:900,
+        color:"#f0f4f8", letterSpacing:3, marginBottom:4, textAlign:"center"
+      }}>
+        Car<span style={{color:"#e53935"}}>Boys</span>
+      </div>
+      <div style={{
+        fontSize:11, color:"#4a6fa5", letterSpacing:3, textTransform:"uppercase",
+        marginBottom:48
+      }}>Sistema de Gestión • Taller</div>
+
+      {/* Card de login */}
+      <div style={{
+        background:"#0d1526", border:"1px solid #1a2744",
+        borderRadius:20, padding:36, width:"100%", maxWidth:360,
+        boxShadow:"0 24px 64px rgba(0,0,0,0.5)",
+        display:"flex", flexDirection:"column", alignItems:"center", gap:20
+      }}>
+        <div style={{
+          fontSize:16, fontWeight:700, color:"#f0f4f8", textAlign:"center"
+        }}>Iniciar sesión</div>
+        <div style={{
+          fontSize:12, color:"#4a6fa5", textAlign:"center", lineHeight:1.6
+        }}>
+          Acceso exclusivo para el equipo CarBoys.<br/>
+          Solo disponible con la cuenta oficial.
+        </div>
+
+        {/* Botón Google */}
+        {status !== "loading" ? (
+          <>
+            <button
+              onClick={handleSignIn}
+              disabled={!googleClientId}
+              style={{
+                display:"flex", alignItems:"center", justifyContent:"center", gap:12,
+                width:"100%", padding:"14px 20px", borderRadius:50,
+                background: googleClientId ? "#fff" : "#2a3550",
+                border:"none", cursor: googleClientId ? "pointer" : "default",
+                fontSize:14, fontWeight:600, color: googleClientId ? "#3c4043" : "#4a6fa5",
+                boxShadow: googleClientId ? "0 2px 12px rgba(255,255,255,0.15)" : "none",
+                transition:"all .2s", fontFamily:"'Outfit',sans-serif"
+              }}
+            >
+              {googleClientId ? (
+                <>
+                  <svg width="20" height="20" viewBox="0 0 48 48">
+                    <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.4-4H43.6z"/>
+                    <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
+                    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.6-3-11.4-7.3l-6.5 5C9.4 39.4 16.2 44 24 44z"/>
+                    <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.6-2.7 4.7-5 6l6.2 5.2C40.3 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/>
+                  </svg>
+                  Continuar con Google
+                </>
+              ) : (
+                "Cargando..."
+              )}
+            </button>
+            {/* Contenedor oculto por si One Tap no funciona y necesitamos el botón GSI */}
+            <div id="gsi-btn-container" style={{display:"none"}}/>
+          </>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,padding:"8px 0"}}>
+            <div style={{display:"flex",gap:6}}>
+              {[0,1,2].map(i=>(
+                <div key={i} style={{
+                  width:8,height:8,borderRadius:"50%",background:"#e53935",
+                  animation:"fb-pulse 1.2s ease-in-out infinite",
+                  animationDelay:`${i*0.2}s`
+                }}/>
+              ))}
+            </div>
+            <div style={{fontSize:12,color:"#4a6fa5"}}>Autenticando...</div>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div style={{
+            background:"rgba(229,57,53,0.1)", border:"1px solid rgba(229,57,53,0.3)",
+            borderRadius:10, padding:"10px 14px",
+            fontSize:12, color:"#e57373", textAlign:"center", lineHeight:1.6, width:"100%"
+          }}>
+            ⚠️ {errorMsg}
+          </div>
+        )}
+
+        {/* Cuenta esperada */}
+        <div style={{
+          display:"flex", alignItems:"center", gap:8,
+          borderTop:"1px solid #1a2744", paddingTop:16, width:"100%"
+        }}>
+          <div style={{
+            width:32,height:32,borderRadius:"50%",
+            background:"linear-gradient(135deg,#e53935,#c62828)",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:13,fontWeight:700,color:"#fff",flexShrink:0
+          }}>C</div>
+          <div>
+            <div style={{fontSize:11,color:"#4a6fa5"}}>Cuenta autorizada</div>
+            <div style={{fontSize:12,color:"#8ab4d4",fontWeight:600}}>{CARBOYS_EMAIL}</div>
+          </div>
+          <div style={{marginLeft:"auto",fontSize:16}}>🔒</div>
+        </div>
+      </div>
+
+      <div style={{fontSize:11,color:"#2a3550",marginTop:24}}>
+        CarBoys SAS © {new Date().getFullYear()}
+      </div>
+      <style>{`@keyframes fb-pulse{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}`}</style>
+    </div>
+  );
+};
+
+// Polling para simular onSnapshot (cada 8 seg)
+const fsListeners = {};
+const onSnapshot = (colName, cb, errCb) => {
+  const poll = async () => {
+    try { const docs = await fsGetCol(colName); cb({ docs: docs.map(d => ({ data: () => d })), empty: docs.length === 0 }); }
+    catch(e) { errCb?.(e); }
+  };
+  poll();
+  const iv = setInterval(poll, 8000);
+  fsListeners[colName] = iv;
+  return () => clearInterval(iv);
+};
+const onSnapshotDoc = (colName, docId, cb, errCb) => {
+  const poll = async () => {
+    try { const d = await fsGetDoc(colName, docId); cb({ exists: () => !!d, data: () => d }); }
+    catch(e) { errCb?.(e); }
+  };
+  poll();
+  const key = `${colName}/${docId}`;
+  const iv = setInterval(poll, 8000);
+  fsListeners[key] = iv;
+  return () => clearInterval(iv);
+};
 
 const T = {
   bg: "#080e1a", bg2: "#0d1526", bg3: "#131d33", border: "#1a2744",
@@ -10027,15 +10393,112 @@ export default function App() {
     return () => document.removeEventListener('focusin', handleFocus);
   }, []);
 
+  const [googleAuth, setGoogleAuth] = useState(null); // { email, name, photo } tras Google login
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
-  const [clients, setClients] = useState(INITIAL_CLIENTS);
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
-  const [config, setConfig] = useState(INITIAL_CONFIG);
-  const [users, setUsers] = useState(USERS);
+  const [dbLoading, setDbLoading] = useState(true); // esperando Firestore
+
+  // ── Estado interno (React) ─────────────────────────────────
+  const [clients, _setClients] = useState(INITIAL_CLIENTS);
+  const [orders,  _setOrders]  = useState(INITIAL_ORDERS);
+  const [config,  _setConfig]  = useState(INITIAL_CONFIG);
+  const [users,   setUsers]    = useState(USERS);
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
+
+  // ── Refs para evitar writes en la carga inicial ────────────
+  const isLoadingRef = useRef(true);
+
+  // ── Wrappers Firestore-aware para setOrders/setClients/setConfig ──
+  const setOrders = useCallback((updater) => {
+    _setOrders(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (!isLoadingRef.current) {
+        const prevMap = Object.fromEntries(prev.map(o => [String(o.id), o]));
+        // Guardar docs nuevos o modificados
+        next.forEach(o => {
+          if (JSON.stringify(o) !== JSON.stringify(prevMap[String(o.id)])) {
+            fsSave('orders', o.id, o).catch(e => console.error('[FS] setOrders save:', e));
+          }
+        });
+        // Eliminar docs borrados
+        const nextIds = new Set(next.map(o => String(o.id)));
+        prev.forEach(o => { if (!nextIds.has(String(o.id))) fsDel('orders', o.id).catch(console.error); });
+      }
+      return next;
+    });
+  }, []);
+
+  const setClients = useCallback((updater) => {
+    _setClients(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (!isLoadingRef.current) {
+        const prevMap = Object.fromEntries(prev.map(c => [String(c.id), c]));
+        next.forEach(c => {
+          if (JSON.stringify(c) !== JSON.stringify(prevMap[String(c.id)])) {
+            fsSave('clients', c.id, c).catch(e => console.error('[FS] setClients save:', e));
+          }
+        });
+        const nextIds = new Set(next.map(c => String(c.id)));
+        prev.forEach(c => { if (!nextIds.has(String(c.id))) fsDel('clients', c.id).catch(console.error); });
+      }
+      return next;
+    });
+  }, []);
+
+  const setConfig = useCallback((updater) => {
+    _setConfig(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (!isLoadingRef.current) {
+        fsSave('meta', 'config', next).catch(e => console.error('[FS] setConfig save:', e));
+      }
+      return next;
+    });
+  }, []);
+
+  // ── Carga inicial desde Firestore REST + polling cada 8s ───
+  // Solo arranca cuando Google Auth fue completada (_authToken disponible)
+  useEffect(() => {
+    if (!googleAuth) return; // esperar login de Google primero
+    let unsubOrders, unsubClients, unsubConfig;
+    let ordersReady = false, clientsReady = false, configReady = false;
+    const checkReady = () => {
+      if (ordersReady && clientsReady && configReady) {
+        isLoadingRef.current = false;
+        setDbLoading(false);
+      }
+    };
+
+    unsubOrders = onSnapshot('orders', snap => {
+      if (snap.empty) {
+        INITIAL_ORDERS.forEach(o => fsSave('orders', o.id, o).catch(console.error));
+        _setOrders(INITIAL_ORDERS);
+      } else {
+        const docs = snap.docs.map(d => d.data());
+        _setOrders(docs.sort((a, b) => (b.id || 0) - (a.id || 0)));
+      }
+      if (!ordersReady) { ordersReady = true; checkReady(); }
+    }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
+
+    unsubClients = onSnapshot('clients', snap => {
+      if (snap.empty) {
+        INITIAL_CLIENTS.forEach(c => fsSave('clients', c.id, c).catch(console.error));
+        _setClients(INITIAL_CLIENTS);
+      } else {
+        _setClients(snap.docs.map(d => d.data()));
+      }
+      if (!clientsReady) { clientsReady = true; checkReady(); }
+    }, err => { console.error('[FS] clients:', err); if (!clientsReady) { clientsReady = true; checkReady(); } });
+
+    unsubConfig = onSnapshotDoc('meta', 'config', snap => {
+      if (snap.exists()) _setConfig(snap.data());
+      else fsSave('meta', 'config', INITIAL_CONFIG).catch(console.error);
+      if (!configReady) { configReady = true; checkReady(); }
+    }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
+
+    return () => { unsubOrders?.(); unsubClients?.(); unsubConfig?.(); };
+  }, [googleAuth]);
 
   const nav = useCallback((target, data = null) => {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
@@ -10043,6 +10506,36 @@ export default function App() {
     window.scrollTo?.(0, 0);
   }, []);
 
+  // ── Pantalla de carga Firestore ─────────────────────────────
+  // 1 — Primero: Google Login
+  if (!googleAuth) return (
+    <NumPadProvider>
+      <FontLoader />
+      <GoogleLoginScreen onSuccess={(gAuth) => {
+        setGoogleAuth(gAuth);
+        // Iniciar polling Firestore recién después de autenticar
+      }} />
+    </NumPadProvider>
+  );
+
+  // 2 — Después del Google Login: conectar Firestore (loading)
+  if (dbLoading) return (
+    <div style={{ minHeight: "100vh", background: "#080e1a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+      <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 42, fontWeight: 900, color: "#f0f4f8", letterSpacing: 2 }}>
+        Car<span style={{ color: "#e53935" }}>Boys</span>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {[0,1,2].map(i => (
+          <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: "#e53935",
+            animation: "fb-pulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 13, color: "#4a6fa5", letterSpacing: 1 }}>Conectando con la nube...</div>
+      <style>{`@keyframes fb-pulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }`}</style>
+    </div>
+  );
+
+  // 3 — Selección de usuario (¿Quién sos?)
   if (!user) return <NumPadProvider><FontLoader /><LoginScreen onLogin={setUser} users={users} /></NumPadProvider>;
 
   const _foundOrder = selOrder ? orders.find(o => o.id === selOrder.id) : null;
