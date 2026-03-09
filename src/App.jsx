@@ -7340,11 +7340,46 @@ const ServiceSheetScreen = (props) => {
     });
   }, [approvedAuthNotif?.id]);
 
+  // Mapeo de label de ítem checklist → clave de foja (para sincronizar data al marcar done)
+  const TREN_LABEL_TO_SHEET = {
+    // Tren Delantero
+    "Amortiguadores": "td_amortiguadores",
+    "Extremos de dirección": "td_extremos",
+    "Axiales": "td_axiales",
+    "Bieletas": "td_bieletas",
+    "Parrilla delantera": "td_parrilla",
+    "Rótulas": "td_rotulas",
+    "Bujes": "td_bujes",
+    "Rulemanes": "td_rulemanes",
+    "Discos": "td_discos",
+    "Pastillas": "td_pastillas",
+    // Tren Trasero
+    "Amortiguadores traseros": "tt_amortiguadores",
+    "Bujes traseros": "tt_bujes",
+    // Escape
+    "Silenciador trasero": "silenciador_trasero",
+    "Silenciador intermedio": "silenciador_intermedio",
+    "Múltiple de escape": "multiple_escape",
+    "Caño intermedio": "cano_escape",
+    "Soporte de escape": "soporte_escape",
+    "Catalizador": "catalizador",
+    "Flexible": "flexible_escape",
+  };
+
   const updateCheckItem = (wKey, idx, updates) => {
     setWorkChecklist(prev => {
       const newCl = { ...prev };
       newCl[wKey] = [...(newCl[wKey] || [])];
-      newCl[wKey][idx] = { ...newCl[wKey][idx], ...updates };
+      const item = newCl[wKey][idx] || {};
+      newCl[wKey][idx] = { ...item, ...updates };
+      // Si se marcó como done → sincronizar con data de foja si corresponde
+      if (updates.done === true) {
+        const label = item.label || "";
+        const sheetKey = TREN_LABEL_TO_SHEET[label];
+        if (sheetKey && forcedChangeItems.has(sheetKey)) {
+          setData(d => ({ ...d, [sheetKey]: { ...(d[sheetKey] || {}), status: "cambiado", checked: true } }));
+        }
+      }
       saveChecklist(newCl);
       return newCl;
     });
@@ -7477,8 +7512,17 @@ const ServiceSheetScreen = (props) => {
           missingChanges.push(w.type);
         }
       });
-      if (missingChanges.length > 0) {
-        setShowMissingChangePopup(missingChanges);
+      // Filtrar: si el workChecklist del trabajo está 100% completo, no bloquear
+      const reallyMissing = missingChanges.filter(workType => {
+        const matchWork = order.works.find(w => w.type === workType);
+        if (!matchWork) return true;
+        const wKey = matchWork._fromAuth ? matchWork.type + "_auth" : matchWork.type + "_" + order.works.indexOf(matchWork);
+        const clItems = workChecklist[wKey] || [];
+        if (clItems.length === 0) return true;
+        return !clItems.every(it => it.done);
+      });
+      if (reallyMissing.length > 0) {
+        setShowMissingChangePopup(reallyMissing);
         return;
       }
     }
