@@ -688,13 +688,15 @@ const SEED_ORDERS_TALLER = [
     id: 301, clientId: 201, domain: "AB 123 CD", date: "2026-03-10", km: "68000",
     status: "working", tech: "Fabricio", startTime: "09:00",
     works: [{ type: "Service Full", price: 95000, desc: "Service Full completo" }],
-    payments: [], serviceSheet: null, workChecklist: {}, notes: ""
+    payments: [], serviceSheet: null, workChecklist: {}, notes: "",
+    paymentPref: { method: "Efectivo", withIva: false, account: "1", invoiceType: "C" }
   },
   {
     id: 302, clientId: 202, domain: "GH 456 IJ", date: "2026-03-10", km: "45000",
     status: "waiting", tech: "Fabricio", startTime: "10:30",
     works: [{ type: "Service Base", price: 60000, desc: "Service Base" }],
-    payments: [], serviceSheet: null, workChecklist: {}, notes: ""
+    payments: [], serviceSheet: null, workChecklist: {}, notes: "",
+    paymentPref: { method: "Transferencia", withIva: true, account: "1", invoiceType: "B" }
   },
   {
     id: 303, clientId: 203, domain: "MN 789 OP", date: "2026-03-10", km: "92000",
@@ -712,7 +714,8 @@ const SEED_ORDERS_TALLER = [
     id: 304, clientId: 204, domain: "QR 321 ST", date: "2026-03-10", km: "31000",
     status: "done", tech: "Fabricio", startTime: "07:30",
     works: [{ type: "Service Full", price: 95000, desc: "Service Full" }],
-    payments: [], serviceSheet: _ss_done, workChecklist: {}, notes: "", techNotes: "Todo perfecto"
+    payments: [], serviceSheet: _ss_done, workChecklist: {}, notes: "", techNotes: "Todo perfecto",
+    paymentPref: { method: "Tarjeta", withIva: true, account: "1", invoiceType: "B" }
   },
   {
     id: 305, clientId: 205, domain: "UV 654 WX", date: "2026-03-10", km: "115000",
@@ -4072,7 +4075,19 @@ const VehicleDetailScreen = (props) => {
                 style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => {
                 setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: editClient.name, lastName: editClient.lastName, phone: editClient.phone, dni: editClient.dni } : c));
-                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, works: editWorks.map(w => ({ ...w, price: parseFloat(w.price) || 0 })), payments: (editPayments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
+                const ep0 = (editPayments || [])[0] || {};
+                const newPayPref = ep0.method ? {
+                  method: ep0.method,
+                  withIva: ep0.withIva ?? false,
+                  account: ep0.account || "1",
+                  invoiceType: ep0.invoiceType || (ep0.account === "2" ? "C" : "B"),
+                } : order.paymentPref;
+                setOrders(prev => prev.map(o => o.id === order.id ? {
+                  ...o,
+                  works: editWorks.map(w => ({ ...w, price: parseFloat(w.price) || 0 })),
+                  payments: (editPayments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })),
+                  paymentPref: newPayPref,
+                } : o));
                 setShowEditOrder(false);
               }} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 13 }}>💾 Guardar Cambios</button>
             </div>
@@ -5434,19 +5449,28 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 return (
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
-                      // Si ya tiene pagos registrados CON monto, usarlos;
-                      // si no, usar paymentPref de la orden
                       const _oTotal = (o.works || []).reduce((s, w) => s + (w.price || 0), 0);
                       const _ivaRate = config?.ivaRate || 21;
-                      const _hasPays = o.payments && o.payments.length > 0 && o.payments[0].method && (o.payments[0].amount > 0);
+                      // Prioridad:
+                      // 1. Ya cobrado → usar payments guardados con monto real
+                      // 2. paymentPref con método → pre-cargar método + calcular monto
+                      // 3. payments[0] tiene method (de edición) → usar
+                      // 4. Vacío
+                      const _pref = o.paymentPref;
+                      const _pays = o.payments || [];
+                      const _cobradoPays = o.cobrado && _pays.length > 0 && _pays[0].method;
                       let initPay;
-                      if (_hasPays) {
-                        initPay = o.payments.map(p => ({ ...p }));
-                      } else if (o.paymentPref) {
-                        // Pre-poblar monto según withIva del pref
-                        const _withIva = o.paymentPref.withIva ?? false;
+                      if (_cobradoPays) {
+                        // Ya cobrado: mostrar los pagos tal cual
+                        initPay = _pays.map(p => ({ ...p }));
+                      } else if (_pref?.method) {
+                        // Tiene preferencia guardada: pre-cargar con monto calculado
+                        const _withIva = _pref.withIva ?? false;
                         const _autoAmt = _withIva ? String(Math.round(_oTotal * (1 + _ivaRate / 100))) : String(_oTotal);
-                        initPay = [{ method: o.paymentPref.method || "", amount: _autoAmt, account: o.paymentPref.account || "1", withIva: _withIva, invoiceType: o.paymentPref.invoiceType || "" }];
+                        initPay = [{ method: _pref.method, amount: _autoAmt, account: _pref.account || "1", withIva: _withIva, invoiceType: _pref.invoiceType || "" }];
+                      } else if (_pays.length > 0 && _pays[0].method) {
+                        // Tiene pagos editados con método pero sin cobrar
+                        initPay = _pays.map(p => ({ ...p, amount: p.amount || String(_oTotal) }));
                       } else {
                         initPay = [{ method: "", amount: "", account: "1", withIva: null, invoiceType: "" }];
                       }
