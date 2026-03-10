@@ -918,6 +918,17 @@ const FontLoader = () => (
       body { background: white !important; }
       .no-print { display: none !important; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      /* Cuando se imprime desde FacturaModal o TicketModal: ocultar todo excepto el documento */
+      body.printing-factura > *:not(#factura-print-root),
+      body.printing-ticket > *:not(#ticket-print-root) {
+        display: none !important;
+      }
+      /* Aislar contenido del modal para impresión */
+      #factura-print { box-shadow: none !important; border-radius: 0 !important; max-width: none !important; }
+      #ticket-print { box-shadow: none !important; border-radius: 0 !important; max-width: none !important; }
+      /* Si hay un modal abierto: mostrar solo su contenido */
+      .modal-print-content { display: block !important; }
+      .app-print-hide { display: none !important; }
     }
   `}</style>
 );
@@ -4315,13 +4326,14 @@ const VehicleDetailScreen = (props) => {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                 <button onClick={() => {
                   setShowFacturaMenu(false);
-                  // Abrir FacturaModal en modo readonly — pasamos vía onNavigate con flag especial
-                  // Como VehicleDetailScreen no tiene acceso a setFacturaModal del AdminScreen,
-                  // usamos el mismo patrón: navegamos a admin→cobros y abrimos el modal
-                  // Por ahora mostramos print dialog del navegador
-                  window.print();
+                  // Abrir modal en readonly para ver e imprimir desde adentro
+                  if (esTicket) {
+                    setLocalTicketModal({ order: fo, payments: fo.payments, client: fc, vehicle: fv, readonly: true });
+                  } else {
+                    setLocalFacturaModal({ order: fo, payments: fo.payments, client: fc, vehicle: fv, readonly: true });
+                  }
                 }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  🖨️ Imprimir factura
+                  🖨️ {esTicket ? "Ver e Imprimir Comprobante" : "Ver e Imprimir Factura"}
                 </button>
                 <button onClick={() => {
                   setShowFacturaMenu(false);
@@ -4455,7 +4467,24 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
           )}
           {readonly && (
             <>
-              <button onClick={() => window.print()} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
+              <button onClick={() => {
+                // Ocultar todo excepto el ticket antes de imprimir
+                const allElements = document.querySelectorAll("body > *");
+                const ticketEl = document.getElementById("ticket-print");
+                const ticketWrapper = ticketEl?.closest("[style*='position: fixed']") || ticketEl?.parentElement?.parentElement;
+                // Marcar elementos a ocultar
+                const hidden = [];
+                allElements.forEach(el => {
+                  if (ticketWrapper && !el.contains(ticketWrapper) && el !== ticketWrapper) {
+                    el.setAttribute("data-ph", "1");
+                    el.style.setProperty("display", "none", "important");
+                    hidden.push(el);
+                  }
+                });
+                window.print();
+                // Restaurar
+                setTimeout(() => { hidden.forEach(el => { el.removeAttribute("data-ph"); el.style.removeProperty("display"); }); }, 500);
+              }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
                 🖨️ Imprimir
               </button>
               <button onClick={() => {
@@ -4627,7 +4656,24 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
           )}
           {readonly && (
             <>
-              <button onClick={() => window.print()} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
+              <button onClick={() => {
+                // Ocultar todo excepto el ticket antes de imprimir
+                const allElements = document.querySelectorAll("body > *");
+                const ticketEl = document.getElementById("factura-print");
+                const ticketWrapper = ticketEl?.closest("[style*='position: fixed']") || ticketEl?.parentElement?.parentElement;
+                // Marcar elementos a ocultar
+                const hidden = [];
+                allElements.forEach(el => {
+                  if (ticketWrapper && !el.contains(ticketWrapper) && el !== ticketWrapper) {
+                    el.setAttribute("data-ph", "1");
+                    el.style.setProperty("display", "none", "important");
+                    hidden.push(el);
+                  }
+                });
+                window.print();
+                // Restaurar
+                setTimeout(() => { hidden.forEach(el => { el.removeAttribute("data-ph"); el.style.removeProperty("display"); }); }, 500);
+              }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
                 🖨️ Imprimir
               </button>
               <button onClick={() => {
