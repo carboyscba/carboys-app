@@ -680,12 +680,7 @@ const SEED_CLIENTS = [
   { id: 215, name: "Javier",  lastName: "Ortega",   phone: "3516110015", dni: "26150015", cuit: "", email: "", vehicles: [{ domain: "HI 999 JK", brand: "Volkswagen",model: "Vento", year: "2019", km: "81000",  fuel: "Nafta", color: "Negro" }] },
 ];
 
-const _ss_done = { ...FULL_SS };
-const _ss_esc = {
-  silenciador_trasero:{status:"cambiado",checked:true}, silenciador_intermedio:{status:"bien",checked:true},
-  multiple_escape:{status:"bien",checked:true}, cano_escape:{status:"cambiar",checked:true},
-  soporte_escape:{status:"bien",checked:true}, catalizador:{status:"bien",checked:true},
-};
+const _ss_done = null; // serviceSheet simplificado para datos de prueba
 
 // ── 6 AUTOS EN TALLER ──
 const SEED_ORDERS_TALLER = [
@@ -818,7 +813,6 @@ const FULL_SS = {
   rotacion_cubiertas:{toggle:"Si",checked:true}, estado_cubiertas:{checked:true,tires:{del_izq:80,del_der:75,tra_izq:85,tra_der:80}}
 };
 
-// INITIAL_ORDERS defined above in SEED_DATA
 
 const ROLE_PERMS_DEFAULTS = {
   dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
