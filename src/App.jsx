@@ -7320,6 +7320,9 @@ const ServiceSheetScreen = (props) => {
     "Rulemanes": "td_rulemanes",
     "Discos": "td_discos",
     "Pastillas": "td_pastillas",
+    "Pastillas de Freno": "td_pastillas",
+    "Pastillas (eje delantero)": "td_pastillas",
+    "Pastillas (eje trasero)": "tt_freno",
     // Tren Trasero
     "Amortiguadores traseros": "tt_amortiguadores",
     "Bujes traseros": "tt_bujes",
@@ -7344,7 +7347,13 @@ const ServiceSheetScreen = (props) => {
         const label = item.label || "";
         const sheetKey = TREN_LABEL_TO_SHEET[label];
         if (sheetKey && forcedChangeItems.has(sheetKey)) {
-          setData(d => ({ ...d, [sheetKey]: { ...(d[sheetKey] || {}), status: "cambiado", checked: true } }));
+          setData(d => {
+            const prev = d[sheetKey] || {};
+            return { ...d, [sheetKey]: { ...prev, status: "cambiado", checked: true,
+              // Si percentRC sin percent seteado, poner 0 para que isComplete lo reconozca
+              ...(prev.percent < 0 || prev.percent === undefined ? { percent: 0 } : {})
+            }};
+          });
         }
       }
       saveChecklist(newCl);
@@ -7376,12 +7385,12 @@ const ServiceSheetScreen = (props) => {
       case "ternary": return !!d.fluidOk;
       case "lavaparabrisas": return !!d.fluidOk;
       case "fluid": return !!d.fluidOk;
-      case "brakeFluid": return d.percent >= 0 && (d.percent < 3 || d.fluidOk === "cambiado" || (notifications||[]).some(n => n.orderId === order.id && (n.status === "pending" || n.status === "approved" || n.status === "denied")));
+      case "brakeFluid": return d.percent >= 0;
       case "lamp": return !!d.fluidOk;
       case "nivelado": return d.fluidOk === "nivelado";
-      case "percentRC": return d.percent >= 0;
-      case "batteryPercent": return d.percent >= 0;
-      case "freno_trasero": return !!d.toggle && d.percent >= 0;
+      case "percentRC": return d.status === "cambiado" || d.percent >= 0;
+      case "batteryPercent": return d.status === "cambiado" || d.percent >= 0;
+      case "freno_trasero": return d.status === "cambiado" || (!!d.toggle && d.percent >= 0);
       case "toggle": return !!d.toggle;
       case "voltage": return !!d.voltage;
       case "dtc": return !!d.dtcStatus;
@@ -7400,6 +7409,8 @@ const ServiceSheetScreen = (props) => {
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: data, techNotes } : o));
   };
   useEffect(() => { saveSheet(); }, [data, techNotes]);
+  // Limpiar errores cuando el usuario modifica algo
+  useEffect(() => { if (showErrors) { setShowErrors(false); setErrorItems([]); } }, [data]);
 
   const SHEET_TO_WORK_MAP = {
     escobillas_estado: "Escobillas",
@@ -7424,9 +7435,9 @@ const ServiceSheetScreen = (props) => {
       Object.entries(newCl).forEach(([wKey, items]) => {
         if (!wKey.startsWith(workType + "_")) return;
         items.forEach((item, idx) => {
-          if (!item.done && !item.autoCompleted) {
+          if (!item.done) {
             newCl[wKey] = [...newCl[wKey]];
-            newCl[wKey][idx] = { ...newCl[wKey][idx], autoCompleted: true, autoNote: "Completado desde Foja de Servicio" };
+            newCl[wKey][idx] = { ...newCl[wKey][idx], done: true, autoCompleted: true, autoNote: "Completado desde Foja de Servicio", doneAt: new Date().toISOString() };
             updated = true;
           }
         });
@@ -7441,6 +7452,7 @@ const ServiceSheetScreen = (props) => {
   const [showPendingAuthPopup, setShowPendingAuthPopup] = useState(false);
   const [showMissingChangePopup, setShowMissingChangePopup] = useState(null);
   const [showAuthRequest, setShowAuthRequest] = useState(false);
+  const [showPendingItemsWarning, setShowPendingItemsWarning] = useState(false);
 
   const tryFinalize = () => {
     if (serviceWorks.length > 0) {
@@ -7501,8 +7513,10 @@ const ServiceSheetScreen = (props) => {
         return;
       }
     }
+    // Items marcados como "quiero cambiar" pero sin autorización enviada ni aprobada
     const hasPendingAuth = (notifications || []).some(n => n.orderId === order.id && n.status === "pending");
-    if (hasPendingAuth) {
+    const hasWantChange = allItems.some(it => data[it.id]?.wantChange && data[it.id]?.fluidOk !== "cambiado");
+    if (hasPendingAuth || hasWantChange) {
       setShowPendingAuthPopup(true);
       return;
     }
@@ -7526,9 +7540,10 @@ const ServiceSheetScreen = (props) => {
       return; // Block cambiado unless authorized or forced
     }
     if (d.status === s) {
-      upd(id, { status: "", checked: false });
+      upd(id, { status: "", checked: false, ...(forcedChangeItems.has(id) ? { percent: -1 } : {}) });
     } else {
-      upd(id, { status: s, checked: true });
+      // Si es forced y se marca cambiado, asegurar percent >= 0 para validaciones legacy
+      upd(id, { status: s, checked: true, ...(s === "cambiado" && forcedChangeItems.has(id) && d.percent < 0 ? { percent: 0 } : {}) });
     }
   };
 
@@ -7973,8 +7988,13 @@ const ServiceSheetScreen = (props) => {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", borderRadius: 10, background: T.orange + "15", border: `1px solid ${T.orange}60`, fontSize: 13, fontWeight: 700, color: T.orange }}>
                           ⏳ Autorización pendiente
                         </div>
+                      ) : d.wantChange ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", borderRadius: 10, background: T.red + "15", border: `1px solid ${T.red}60`, fontSize: 13, fontWeight: 700, color: T.red }}>
+                          📋 Agregado al listado de autorización
+                          <span onClick={() => upd(item.id, { wantChange: false })} style={{ fontSize: 11, color: T.gray, cursor: "pointer", marginLeft: 4, padding: "2px 6px", borderRadius: 4, border: `1px solid ${T.border}` }}>✕</span>
+                        </div>
                       ) : (
-                        <div onClick={() => setShowAuthRequest(true)}
+                        <div onClick={() => upd(item.id, { wantChange: true })}
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", borderRadius: 10, cursor: "pointer", background: T.red + "15", border: `2px solid ${T.red}`, fontSize: 14, fontWeight: 800, color: T.red }}>
                           🔁 CAMBIAR LÍQUIDO
                         </div>
@@ -8099,7 +8119,7 @@ const ServiceSheetScreen = (props) => {
 
   const allTabsDone = () => {
     if (serviceWorks.length > 0 && progress < 100) return false;
-    return Object.entries(workChecklist).every(([, items]) => items.every(it => it.done));
+    return Object.entries(workChecklist).every(([, items]) => items.every(it => it.done || it.autoCompleted));
   };
 
   const renderChecklist = (work) => {
@@ -8445,28 +8465,48 @@ const ServiceSheetScreen = (props) => {
       )}
 
       {/* Pending auth popup */}
-      {showPendingAuthPopup && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `2px solid ${T.orange}`, textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔐</div>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 10, color: T.orange }}>Autorización pendiente</div>
-            <div style={{ fontSize: 14, color: T.grayLight, marginBottom: 8, lineHeight: 1.5 }}>
-              Hay ítems que requieren autorización antes de poder finalizar la orden.
-            </div>
-            <div style={{ fontSize: 13, color: T.gray, marginBottom: 24, lineHeight: 1.5 }}>
-              Pedí la autorización al dueño o encargado, y esperá que sea aprobada o denegada para continuar.
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowPendingAuthPopup(false)}
-                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>← Volver</button>
-              {user.canAuthorize && (
-                <button onClick={() => { setShowPendingAuthPopup(false); onNavigate("authManage", order); }}
-                  style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 14 }}>🔐 Gestionar Auth</button>
+      {showPendingAuthPopup && (() => {
+        const pendingItems = allItems.filter(it => data[it.id]?.wantChange && data[it.id]?.fluidOk !== "cambiado");
+        const hasPendingNotif = (notifications || []).some(n => n.orderId === order.id && n.status === "pending");
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(6px)", animation: "fadeUp .2s ease" }}>
+            <div style={{ background: T.bg2, borderRadius: 20, padding: 28, maxWidth: 400, width: "92%", border: `2px solid ${T.orange}`, textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+              <div style={{ fontFamily: fontD, fontSize: 19, fontWeight: 800, marginBottom: 10, color: T.orange }}>
+                ÍTEMS PENDIENTES DE AUTORIZACIÓN
+              </div>
+              {pendingItems.length > 0 && (
+                <div style={{ background: T.bg, borderRadius: 10, padding: "10px 14px", marginBottom: 14, textAlign: "left" }}>
+                  {pendingItems.map((it, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < pendingItems.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.orange, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{it.label}</span>
+                    </div>
+                  ))}
+                </div>
               )}
+              {hasPendingNotif && (
+                <div style={{ background: T.orange + "15", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: T.orange, fontWeight: 600 }}>
+                  ⏳ También hay una solicitud de autorización esperando respuesta
+                </div>
+              )}
+              <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 22, lineHeight: 1.5 }}>
+                ¿Desea finalizar de todos modos?
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setShowPendingAuthPopup(false); setShowAuthRequest(true); }}
+                  style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 15, fontWeight: 700 }}>
+                  NO — Pedir Auth
+                </button>
+                <button onClick={() => { setShowPendingAuthPopup(false); doFinalize(); }}
+                  style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 15, fontWeight: 700 }}>
+                  SÍ — Finalizar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Pendientes de autorización */}
       {(() => {
@@ -8480,7 +8520,7 @@ const ServiceSheetScreen = (props) => {
           if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
           if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
           if (it.type === "binaryPresente" && d2.fluidOk === "mal") return true;
-          if (it.type === "brakeFluid" && d2.percent >= 3 && d2.fluidOk !== "cambiado") return true;
+          if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
           if (it.type === "nivelado") return false;
           return false;
         }));
@@ -8572,7 +8612,7 @@ const ServiceSheetScreen = (props) => {
                 if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
                 if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
                 if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
-                if (it.type === "brakeFluid" && d2.percent >= 3 && d2.fluidOk !== "cambiado") return true;
+                if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
                 return false;
               })).map((it, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
@@ -8596,7 +8636,7 @@ const ServiceSheetScreen = (props) => {
                   if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
                   if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
                   if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
-                  if (it.type === "brakeFluid" && d2.percent >= 3 && d2.fluidOk !== "cambiado") return true;
+                  if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
                   return false;
                 }));
                 const items = authItems.map(it => ({ id: it.id, label: it.label }));
