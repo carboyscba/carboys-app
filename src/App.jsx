@@ -3162,6 +3162,9 @@ const VehicleDetailScreen = (props) => {
   const isPureIntervention = !order.works.some(w => w.type === "Service Full" || w.type === "Service Base") && order.works.some(w => w.type === "Pastillas de Freno" || w.type === "Tren Delantero" || w.type === "Tren Trasero");
   const isBatteryOrder = order.works.some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
   const isEscapeOrder = order.works.some(w => w.type === "Escape") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
+  // Foja: solo aparece si hay trabajos con foja correspondiente
+  const FOJA_TYPES = ["Service Full", "Service Base", "Baterías", "Escape", "Pastillas de Freno", "Tren Delantero", "Tren Trasero"];
+  const hasFojaWork = order.works.some(w => FOJA_TYPES.includes(w.type));
   const total = order.works.reduce((s, w) => s + w.price, 0);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [showFojaMenu, setShowFojaMenu] = useState(false);
@@ -3472,7 +3475,7 @@ const VehicleDetailScreen = (props) => {
             setNuevosItemsText(itemsList);
             setShowNuevosItemsPopup(true);
           }, bg: "rgba(255,152,0,.08)" },
-          ...((order.status === "done" || order.status === "delivered") && (order.serviceSheet || isPureIntervention || isBatteryOrder || isEscapeOrder) ? [{ icon: "📑", label: "Fojas", show: true, color: T.accent, action: () => setShowFojaMenu(true), bg: "rgba(30,136,229,.08)" }] : []),
+          ...((order.status === "done" || order.status === "delivered") && hasFojaWork ? [{ icon: "📑", label: "Fojas", show: true, color: T.accent, action: () => setShowFojaMenu(true), bg: "rgba(30,136,229,.08)" }] : []),
           ...(user.canAuthorize && (notifications || []).some(n => n.orderId === order.id && n.status === "pending") ? [{ icon: "🔐", label: "Gestionar Auth", show: true, color: T.red, action: () => onNavigate("authManage", order), bg: `rgba(229,57,53,.10)` }] : []),
           ...(canNotify && order.status === "done" && !order.clientNotified ? [{ icon: "📱", label: "Avisar al Cliente", show: true, color: T.green, action: () => {
             setShowNotifyPopup(true);
