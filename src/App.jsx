@@ -9906,10 +9906,23 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
   const fojaLabel = (item, d) => {
     if (!d) return { text: "", color: "#718096" };
     if (item.type === "nivelado") return { text: d.fluidOk === "nivelado" ? "SE NIVELÓ" : "", color: "#2E7D32" };
-    if (item.type === "lamp") return { text: d.fluidOk === "bien" ? "BIEN" : d.fluidOk === "quemada" ? "QUEMADA" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
+    if (item.type === "lamp") { if (d.fluidOk === "funciona" || d.fluidOk === "bien") return { text: "OK", color: "#2E7D32" }; if (d.fluidOk === "cambiada") return { text: "Sustituida", color: "#1565C0", wasChanged: true }; if (d.fluidOk === "no funciona" || d.fluidOk === "quemada") return { text: "Sin funcionar", color: "#C62828" }; return { text: "", color: "#718096" }; }
     if (item.type === "binaryPresente") return { text: d.fluidOk === "bien" ? "NO PRESENTE" : d.fluidOk === "mal" ? "PRESENTE" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
-    if (item.type === "brakeFluid") return { text: d.percent >= 0 ? d.percent + "% agua" : "", color: d.percent <= 2 ? "#2E7D32" : "#C62828" };
-    if (item.type === "batteryPercent") return { text: d.percent >= 0 ? d.percent + "%" : "", color: d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828" };
+    if (item.type === "brakeFluid") {
+      const _pct = d.percent >= 0 ? d.percent : -1;
+      if (_pct < 0) return { text: "", color: "#718096" };
+      const _lbl = _pct <= 2 ? "OK" : _pct === 3 ? "Crítico" : "Mal";
+      const _col = _pct <= 2 ? "#2E7D32" : _pct === 3 ? "#E65100" : "#C62828";
+      const _txt = _pct <= 2 ? "OK" : `${_pct}% agua — ${_lbl}`;
+      return { text: _txt, color: _col };
+    }
+    if (item.type === "batteryPercent") {
+      if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
+      if (d.percent < 0) return { text: "", color: "#718096" };
+      const _lbl = d.percent >= 75 ? "Bien" : d.percent >= 50 ? "Regular" : d.percent >= 15 ? "Mal" : "Crítico";
+      const _col = d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828";
+      return { text: `${d.percent}% — ${_lbl}`, color: _col };
+    }
     if (item.type === "statusRC" || item.type === "optionalStatusRC") {
       if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
       const m = { bien: "Bien", regular: "Regular", cambiar: "Cambiar" };
@@ -9929,9 +9942,12 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       const pct = d.percent >= 0 ? d.percent : null;
       const pctColor = pct !== null ? (pct <= 2 ? "#2E7D32" : pct === 3 ? "#E65100" : "#C62828") : "#718096";
       const pctLabel = pct !== null ? (pct <= 2 ? "OK" : pct === 3 ? "Crítico" : "Mal") : "";
-      const statusColor = pct !== null ? (pct <= 2 ? "#2E7D32" : pct === 3 ? "#E65100" : "#C62828") : "#718096";
-      const statusText = pct !== null ? (pct <= 2 ? "OK" : pct === 3 ? "Crítico" : "Mal") : "";
-      return { text: statusText, color: statusColor, subText: d.added ? "Se niveló" : null, subColor: "#1565C0", pctVal: pct, pctColor, pctLabel };
+      const statusColor = pctColor;
+      // Mostrar "X% agua — Estado" cuando es crítico o mal
+      const statusText = pct !== null
+        ? (pct <= 2 ? "OK" : `${pct}% agua — ${pctLabel}`)
+        : "";
+      return { text: statusText, color: statusColor, subText: null, pctVal: pct, pctColor, pctLabel };
     }
     if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
       if (d.fluidOk === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
@@ -9953,12 +9969,15 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
     }
     if (item.type === "batteryPercent") {
       if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
-      return { text: d.percent >= 0 ? `${d.percent}%` : "", color: d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828" };
+      if (d.percent < 0) return { text: "", color: "#718096" };
+      const _lbl2 = d.percent >= 75 ? "Bien" : d.percent >= 50 ? "Regular" : d.percent >= 15 ? "Mal" : "Crítico";
+      const _col2 = d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828";
+      return { text: `${d.percent}% — ${_lbl2}`, color: _col2 };
     }
     if (item.type === "lamp") {
       if (d.fluidOk === "funciona") return { text: "OK", color: "#2E7D32" };
       if (d.fluidOk === "cambiada") return { text: "Sustituida", color: "#1565C0", wasChanged: true, prevText: "Quemada", prevColor: "#C62828" };
-      if (d.fluidOk === "no funciona") return { text: "Quemada", color: "#C62828" };
+      if (d.fluidOk === "no funciona") return { text: "Sin funcionar", color: "#C62828" };
       return { text: d.fluidOk || "", color: "#718096" };
     }
     if (item.type === "check") return { text: d.checked ? "Realizado" : "", color: "#2E7D32" };
@@ -9981,26 +10000,52 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
     return false;
   };
 
+  // Reconstruir forcedItems en contexto de FojaClient
+  const fojaPDFForcedKeys = new Set();
+  (order.works || []).forEach(w => {
+    if (w.type === "Escobillas") fojaPDFForcedKeys.add("escobillas_estado");
+    if (w.type === "Baterías") fojaPDFForcedKeys.add("bateria_control");
+    if (w.type === "Pastillas de Freno") { fojaPDFForcedKeys.add("td_pastillas"); fojaPDFForcedKeys.add("tt_freno"); }
+    if (w.type === "Tren Delantero" && w.trenItems) w.trenItems.filter(ti => ti.selected).forEach(ti => {
+      const m = { amortiguadores:"td_amortiguadores", extremos:"td_extremos", rotulas:"td_rotulas", bieletas:"td_bieletas", bujes:"td_bujes", parrilla:"td_parrilla", axiales:"td_axiales", rulemanes:"td_rulemanes", discos:"td_discos", pastillas:"td_pastillas" };
+      if (m[ti.key]) fojaPDFForcedKeys.add(m[ti.key]);
+    });
+    if (w.type === "Tren Trasero" && w.trenItems) w.trenItems.filter(ti => ti.selected).forEach(ti => {
+      const m = { amortiguadores_t:"tt_amortiguadores", bujes_t:"tt_bujes" };
+      if (m[ti.key]) fojaPDFForcedKeys.add(m[ti.key]);
+    });
+  });
+
   const sections = FOJA_TPL.map(sec => {
     const items = sec.items.filter(it => isItemVisible(it, sheet[it.id])).map(it => {
       const d = sheet[it.id] || {};
-      const isSustituida = d.status === "cambiado" || d.fluidOk === "cambiado";
-      const hasPct = !isSustituida && (it.type === "percentRC" || it.type === "batteryPercent" || (it.type === "freno_trasero" && d.percent >= 0));
-      const info = hasPct ? null : fojaLabel(it, d);
+      // Si es un ítem forzado (incluido en la orden), siempre mostrar como Sustituida
+      const isForced = fojaPDFForcedKeys.has(it.id);
+      const isSustituida = d.status === "cambiado" || d.fluidOk === "cambiado"
+        || (isForced && (d.status === "cambiar" || d.status === "cambiado"));
+      // batteryPercent: usar fojaLabel para mostrar % + bien/regular/mal
+      // percentRC forzado: si sustituida, usar fojaLabel; si no, barra normal
+      const hasPct = !isSustituida && (
+        (it.type === "percentRC" && !isForced) ||
+        (it.type === "freno_trasero" && d.percent >= 0)
+      );
+      // Si es sustituida, mostrar Sustituida en fojaLabel
+      const effectiveD = isSustituida ? { ...d, status: "cambiado" } : d;
+      const info = hasPct ? null : fojaLabel(it, effectiveD);
       let pctChanged = false;
       if (hasPct && d.status === "cambiado") pctChanged = true;
       return {
         label: it.type === "freno_trasero" ? `Freno (${d.toggle || ""})` : it.label,
-        color: info ? info.color : fojaColor(it, d),
+        color: isSustituida ? "#1565C0" : (info ? info.color : fojaColor(it, d)),
         text: info ? info.text : null,
-        wasChanged: info ? info.wasChanged : pctChanged,
+        wasChanged: isSustituida || (info ? info.wasChanged : pctChanged),
         prevText: info?.prevText || null,
         prevColor: info?.prevColor || null,
         subText: info?.subText || null,
         subColor: info?.subColor || null,
         pct: hasPct ? d.percent : null,
         pctChanged,
-        brakePct: info?.pctVal ?? null,
+        brakePct: (info?.pctVal !== null && info?.pctVal !== undefined && info?.pctVal <= 2) ? info.pctVal : null,
         brakePctColor: info?.pctColor || null,
         brakePctLabel: info?.pctLabel || null,
       };
