@@ -4933,6 +4933,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(null);
+  const [histSearch, setHistSearch] = useState("");
   const [histDetail, setHistDetail] = useState(null);
   const [statView, setStatView] = useState(null);
   const [holdProgress, setHoldProgress] = useState(0);
@@ -5676,18 +5677,27 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         {(() => {
           const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
           const years = [...new Set(allOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
-          const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+          const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
+          // ── Helper método de pago resumido ──
+          const metodoLabel = (o) => {
+            const pays = o.payments || [];
+            if (!pays.length) return null;
+            const uniq = [...new Set(pays.map(p => p.method).filter(Boolean))];
+            const icons = { "Efectivo": "💵", "Transferencia": "🔁", "Tarjeta": "💳", "Cuenta Corriente": "📋" };
+            return uniq.map(m => icons[m] ? `${icons[m]} ${m}` : m).join(" · ");
+          };
+
+          // ── DETALLE DE ORDEN ──
           if (histDetail) {
             const o = histDetail;
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
-            const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
             return (
               <div>
                 <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
-                <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${sc}` }}>
+                <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: `4px solid ${T.accent}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>{fmtD(o.domain)}</div>
@@ -5697,9 +5707,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 12, color: T.gray }}>{fmtDate(o.date)}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
-                    {o.cobrado && <div style={{ fontSize: 11, fontWeight: 700, color: `${T.green}bb`, marginTop: 3, padding: "2px 8px", borderRadius: 4, background: `${T.green}10`, border: `1px solid ${T.green}60` }}>COBRADO</div>}
-                      {o.assignedTo && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Mecánico: {o.assignedTo}</div>}
+                      {o.cobrado && <div style={{ fontSize: 11, fontWeight: 700, color: `${T.green}bb`, marginTop: 3, padding: "2px 8px", borderRadius: 4, background: `${T.green}10`, border: `1px solid ${T.green}60` }}>COBRADO</div>}
                     </div>
                   </div>
                 </div>
@@ -5719,7 +5727,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     </div>
                   ))}
                   <div style={{ height: 2, background: T.border, margin: "10px 0" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}><span>TOTAL</span><span style={{ color: T.accent }}>{fmt(total)}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
+                    <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(total)}</span>
+                  </div>
                 </div>
                 {o.payments && o.payments.length > 0 && (
                   <div style={{ ...card, padding: 20, marginBottom: 16 }}>
@@ -5742,64 +5752,219 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             );
           }
 
+          // ── BÚSQUEDA POR DOMINIO / DNI / CUIT ──
+          const srch = histSearch.trim().toLowerCase();
+          if (srch.length >= 2) {
+            // Find matching clients (by DNI/CUIT) or orders by domain
+            const matchedClients = clients.filter(c =>
+              (c.dni  || "").toLowerCase().includes(srch) ||
+              (c.cuit || "").toLowerCase().includes(srch) ||
+              (`${c.name} ${c.lastName}`).toLowerCase().includes(srch)
+            );
+            const matchedClientIds = new Set(matchedClients.map(c => c.id));
+            const matched = allOrders.filter(o =>
+              fmtD(o.domain).toLowerCase().includes(srch) ||
+              (o.domain || "").toLowerCase().replace(/[^a-z0-9]/g,"").includes(srch.replace(/[^a-z0-9]/g,"")) ||
+              matchedClientIds.has(o.clientId)
+            );
+
+            // Group by year+month
+            const byMonth = {};
+            matched.forEach(o => {
+              const d = new Date(o.date || Date.now());
+              const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+              if (!byMonth[key]) byMonth[key] = [];
+              byMonth[key].push(o);
+            });
+            const sortedKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+
+            // Aggregate per year for summary
+            const byYear = {};
+            matched.forEach(o => {
+              const y = new Date(o.date || Date.now()).getFullYear();
+              if (!byYear[y]) byYear[y] = { orders: [], total: 0 };
+              byYear[y].orders.push(o);
+              byYear[y].total += o.works.reduce((s, w) => s + (w.price || 0), 0);
+            });
+            const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
+
+            // Client info
+            const firstOrder = matched[0];
+            const cl = firstOrder ? clients.find(c => c.id === firstOrder.clientId) : null;
+            const vh = cl?.vehicles?.find(v => v.domain === firstOrder?.domain);
+
+            return (
+              <div>
+                {/* Buscador siempre visible */}
+                <div style={{ position: "relative", marginBottom: 16 }}>
+                  <input value={histSearch} onChange={e => setHistSearch(e.target.value)}
+                    placeholder="🔍 Buscar dominio, DNI o CUIT..."
+                    style={{ ...inputStyle, paddingRight: 36 }} autoFocus />
+                  {histSearch && (
+                    <button onClick={() => setHistSearch("")}
+                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.gray, fontSize: 16 }}>✕</button>
+                  )}
+                </div>
+
+                {matched.length === 0 ? (
+                  <div style={{ ...card, padding: 30, textAlign: "center", color: T.gray }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                    <div style={{ fontWeight: 700 }}>Sin resultados para "{histSearch}"</div>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Header resumen del cliente/dominio */}
+                    {cl && (
+                      <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: `4px solid ${T.accent}` }}>
+                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>{cl.name} {cl.lastName}</div>
+                        {(cl.dni || cl.cuit) && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{cl.dni ? `DNI ${cl.dni}` : ""}{cl.dni && cl.cuit ? " · " : ""}{cl.cuit ? `CUIT ${cl.cuit}` : ""}</div>}
+                        {vh && <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>{vh.brand} {vh.model} {vh.year}</div>}
+                      </div>
+                    )}
+
+                    {/* Resumen por año */}
+                    <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, textTransform: "uppercase", letterSpacing: .6, marginBottom: 10 }}>
+                      {matched.length} visita{matched.length !== 1 ? "s" : ""} en total
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", paddingBottom: 4 }}>
+                      {sortedYears.map(y => (
+                        <div key={y} style={{ ...card, padding: "12px 18px", textAlign: "center", minWidth: 100, borderTop: `3px solid ${T.accent}`, flexShrink: 0 }}>
+                          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: T.accent }}>{byYear[y].orders.length}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{y}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: T.green, marginTop: 4 }}>{fmt(byYear[y].total)}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Acordeón por mes */}
+                    {sortedKeys.map(ym => {
+                      const [y, m] = ym.split("-");
+                      const monthName = months[parseInt(m) - 1];
+                      const mOrders = byMonth[ym];
+                      const mTotal = mOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+                      return (
+                        <div key={ym} style={{ marginBottom: 10 }}>
+                          <div style={{ ...card, padding: "12px 16px", marginBottom: 1, background: T.bg3, borderLeft: `3px solid ${T.accent}` }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ fontWeight: 700, fontSize: 14 }}>{monthName} {y}</div>
+                              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                                <span style={{ fontSize: 12, color: T.gray }}>{mOrders.length} visita{mOrders.length !== 1 ? "s" : ""}</span>
+                                <span style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: T.green }}>{fmt(mTotal)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {mOrders.map(o => {
+                            const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                            const metodo = metodoLabel(o);
+                            return (
+                              <div key={o.id} onClick={() => setHistDetail(o)}
+                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${T.border}`,
+                                  borderRadius: "0 8px 8px 0" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <div>
+                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                                    <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{o.works.map(w => w.type).join(", ")}</div>
+                                    {metodo && <div style={{ fontSize: 11, color: T.grayLight, marginTop: 3 }}>{metodo}</div>}
+                                  </div>
+                                  <div style={{ textAlign: "right" }}>
+                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                                    <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // ── VISTA NORMAL POR AÑO/MES ──
           const yearOrders = allOrders.filter(o => new Date(o.date || Date.now()).getFullYear() === histYear);
           const monthOrders = histMonth !== null ? yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === histMonth) : null;
 
           return (
             <div>
+              {/* Buscador */}
+              <div style={{ position: "relative", marginBottom: 16 }}>
+                <input value={histSearch} onChange={e => setHistSearch(e.target.value)}
+                  placeholder="🔍 Buscar dominio, DNI o CUIT..."
+                  style={{ ...inputStyle, paddingRight: 36 }} />
+              </div>
+
+              {/* Selector de año */}
               <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                 {years.map(y => (
                   <div key={y} onClick={() => { setHistYear(y); setHistMonth(null); }}
-                    style={{ padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, fontFamily: fontD, background: histYear === y ? T.accent : T.bg2, color: histYear === y ? "#fff" : T.gray, border: `1px solid ${histYear === y ? T.accent : T.border}` }}>{y}</div>
+                    style={{ padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, fontFamily: fontD,
+                      background: histYear === y ? T.accent : T.bg2, color: histYear === y ? "#fff" : T.gray,
+                      border: `1px solid ${histYear === y ? T.accent : T.border}` }}>{y}</div>
                 ))}
               </div>
+
+              {/* Grid de meses */}
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>{histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0))}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>
+                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0))}
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
-                    const cnt = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).length;
+                    const mOrders = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi);
+                    const cnt = mOrders.length;
+                    const mTotal = mOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
                     return (
                       <div key={mi} onClick={() => setHistMonth(histMonth === mi ? null : mi)}
-                        style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${histMonth === mi ? T.accent : T.border}`, background: histMonth === mi ? `${T.accent}15` : cnt > 0 ? T.bg : T.bg2 }}>
+                        style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
+                          border: `1px solid ${histMonth === mi ? T.accent : T.border}`,
+                          background: histMonth === mi ? `${T.accent}15` : cnt > 0 ? T.bg : T.bg2 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: histMonth === mi ? T.accent : cnt > 0 ? T.text : T.gray }}>{m.substring(0, 3)}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: cnt > 0 ? T.accent : T.gray }}>{cnt}</div>
-                        <div style={{ fontSize: 11, color: cnt > 0 ? T.green : T.gray, fontWeight: 700, marginTop: 3 }}>{cnt > 0 ? fmt(yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi).reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0)) : "$0"}</div>
+                        <div style={{ fontSize: 11, color: cnt > 0 ? T.green : T.gray, fontWeight: 700, marginTop: 3 }}>{cnt > 0 ? fmt(mTotal) : "$0"}</div>
                       </div>
                     );
                   })}
                 </div>
               </div>
+
+              {/* Listado de órdenes */}
               {(monthOrders || yearOrders).map(o => {
                 const cl = clients.find(c => c.id === o.clientId);
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
                 const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                const metodo = metodoLabel(o);
                 return (
                   <div key={o.id} onClick={() => setHistDetail(o)}
-                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
+                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${T.border}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div>
-                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
-                          <div style={{ fontSize: 12, color: T.grayLight }}>{cl ? cl.name + " " + cl.lastName : "—"} • {vh ? vh.brand + " " + vh.model : ""}</div>
-                          <div style={{ fontSize: 11, color: T.gray }}>{o.works.map(w => w.type).join(", ")}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                        <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>
+                          {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
                         </div>
+                        <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>{o.works.map(w => w.type).join(", ")}</div>
+                        {metodo && (
+                          <div style={{ fontSize: 10, color: T.grayLight, marginTop: 4, fontWeight: 600, letterSpacing: .3 }}>{metodo}</div>
+                        )}
                       </div>
-                      <div style={{ textAlign: "right" }}>
+                      <div style={{ textAlign: "right", marginLeft: 12 }}>
                         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
-                        <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: sc }}>{o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}</div>
+                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {(monthOrders || yearOrders).length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin órdenes en este período</div>}
+              {(monthOrders || yearOrders).length === 0 && (
+                <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin órdenes en este período</div>
+              )}
             </div>
           );
         })()}
       </div>)}
-
       {tab === "ctacte" && (<div>
         <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
           <input value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
