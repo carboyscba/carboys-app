@@ -65,8 +65,10 @@ const fsGetDoc = async (col, id) => {
 //        IDB actúa como caché offline: datos disponibles sin internet
 // ══════════════════════════════════════════════════════════════════
 const IDB_NAME    = "carboys_local";
-const IDB_VERSION = 2;
-const IDB_STORES  = ["orders", "clients", "config", "sync_queue"];
+const IDB_VERSION = 3;
+const IDB_STORES  = ["orders", "clients", "config", "sync_queue",
+  "adm_egresos", "adm_proveedores", "adm_factprov",
+  "adm_servicios", "adm_igastos", "adm_cierres"];
 
 let _idb = null; // instancia abierta
 
@@ -4939,13 +4941,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [holdProgress, setHoldProgress] = useState(0);
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
-  const [igGastos, setIgGastos] = useState([]);
+  const [igGastos, _setIgGastos] = useState([]);
   const [showIgGasto, setShowIgGasto] = useState(false);
   const [selIgnacio, setSelIgnacio] = useState(null);
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
-  const [egresos, setEgresos] = useState([]);
+  const [egresos, _setEgresos] = useState([]);
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [saldoReal, setSaldoReal] = useState("");
@@ -4962,15 +4964,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [ctaIngresoStep, setCtaIngresoStep] = useState(1); // 1=lista, 2=confirmacion
   // Cierre semanal
   const [showCierreAlert, setShowCierreAlert] = useState(false);
-  const [cierres, setCierres] = useState([]);
+  const [cierres, _setCierres] = useState([]);
   const [ctaFilter, setCtaFilter] = useState("");
-  const [proveedores, setProveedores] = useState([]);
+  const [proveedores, _setProveedores] = useState([]);
   const [showProv, setShowProv] = useState(false);
   const [provForm, setProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
-  const [factProv, setFactProv] = useState([]);
+  const [factProv, _setFactProv] = useState([]);
   const [showFactProv, setShowFactProv] = useState(false);
   const [factProvForm, setFactProvForm] = useState({ provId: "", nroFactura: "", monto: "", fechaEmision: new Date().toISOString().split("T")[0], fechaVenc: "", estado: "pendiente" });
-  const [servicios, setServicios] = useState([]);
+  const [servicios, _setServicios] = useState([]);
   const [showServ, setShowServ] = useState(false);
   const [servForm, setServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
   const [showPagoProv, setShowPagoProv] = useState(false);
@@ -6455,6 +6457,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   setCierres(p => [...p, {
+                    id: Date.now(),
                     fecha: today,
                     saldoSistema: saldoCaja,
                     saldoReal: parseFloat(saldoReal) || 0,
@@ -12959,6 +12962,47 @@ export default function App() {
     });
   }, []);
 
+  // ─────────────────────────────────────────────────────────────────
+  // ADMINISTRACIÓN — persistencia Firebase + IDB (offline-first)
+  // Colecciones Firestore: "adm_egresos", "adm_proveedores", etc.
+  // Cada ítem DEBE tener campo "id" único (Date.now() o similar)
+  // ─────────────────────────────────────────────────────────────────
+  const makeAdminSetter = useCallback((idbStore, fsCol, _setter) => {
+    return (updater) => {
+      _setter(prev => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        if (!isLoadingRef.current) {
+          const prevMap = Object.fromEntries(prev.map(x => [String(x.id), x]));
+          // Upsert nuevos/modificados
+          next.forEach(x => {
+            const key = String(x.id);
+            if (JSON.stringify(x) !== JSON.stringify(prevMap[key])) {
+              idbSave(idbStore, key, x, false).catch(console.error);
+              fsSave(fsCol, key, x).catch(e => console.error(`[FS] ${fsCol} save:`, e));
+            }
+          });
+          // Borrados (eliminación manual explícita)
+          const nextIds = new Set(next.map(x => String(x.id)));
+          prev.forEach(x => {
+            if (!nextIds.has(String(x.id))) {
+              idbDel(idbStore, String(x.id)).catch(console.error);
+              fsDel(fsCol, x.id).catch(console.error);
+            }
+          });
+        }
+        return next;
+      });
+    };
+  }, []);
+
+  // ── Setters con persistencia automática ──
+  const setEgresos     = useCallback((u) => makeAdminSetter('adm_egresos',     'adm_egresos',     _setEgresos    )(u), [makeAdminSetter]);
+  const setProveedores = useCallback((u) => makeAdminSetter('adm_proveedores', 'adm_proveedores', _setProveedores)(u), [makeAdminSetter]);
+  const setFactProv    = useCallback((u) => makeAdminSetter('adm_factprov',    'adm_factprov',    _setFactProv   )(u), [makeAdminSetter]);
+  const setServicios   = useCallback((u) => makeAdminSetter('adm_servicios',   'adm_servicios',   _setServicios  )(u), [makeAdminSetter]);
+  const setIgGastos    = useCallback((u) => makeAdminSetter('adm_igastos',     'adm_igastos',     _setIgGastos   )(u), [makeAdminSetter]);
+  const setCierres     = useCallback((u) => makeAdminSetter('adm_cierres',     'adm_cierres',     _setCierres    )(u), [makeAdminSetter]);
+
   // ── Carga inicial: IDB primero (offline-first), luego Firestore ──
   useEffect(() => {
     if (!googleAuth) return;
@@ -13092,6 +13136,31 @@ export default function App() {
         if (!configReady) { configReady = true; checkReady(); }
       }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
     });
+
+    // ── Cargar datos de ADMINISTRACIÓN desde Firestore ──
+    const loadAdminCol = async (fsCol, idbStore, setter) => {
+      try {
+        const local = await idbGetAll(idbStore);
+        if (local.length > 0) {
+          const clean = local.map(x => { const { _idbKey, _synced, ...r } = x; return r; });
+          setter(clean);
+        }
+      } catch(_) {}
+      try {
+        const docs = await fsGetCol(fsCol);
+        if (docs.length > 0) {
+          setter(docs);
+          docs.forEach(d => idbSave(idbStore, String(d.id), d, true).catch(console.error));
+        }
+      } catch(e) { console.warn('[FS] admin load', fsCol, e.message); }
+    };
+
+    loadAdminCol('adm_egresos',     'adm_egresos',     _setEgresos);
+    loadAdminCol('adm_proveedores', 'adm_proveedores', _setProveedores);
+    loadAdminCol('adm_factprov',    'adm_factprov',    _setFactProv);
+    loadAdminCol('adm_servicios',   'adm_servicios',   _setServicios);
+    loadAdminCol('adm_igastos',     'adm_igastos',     _setIgGastos);
+    loadAdminCol('adm_cierres',     'adm_cierres',     _setCierres);
 
     return () => { unsubOrders?.(); unsubClients?.(); unsubConfig?.(); };
   }, [googleAuth]);
