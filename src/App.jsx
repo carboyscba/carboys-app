@@ -7513,10 +7513,24 @@ const ServiceSheetScreen = (props) => {
         return;
       }
     }
-    // Items marcados como "quiero cambiar" pero sin autorización enviada ni aprobada
-    const hasPendingAuth = (notifications || []).some(n => n.orderId === order.id && n.status === "pending");
-    const hasWantChange = allItems.some(it => data[it.id]?.wantChange && data[it.id]?.fluidOk !== "cambiado");
-    if (hasPendingAuth || hasWantChange) {
+    // Calcular authItems igual que el panel de autorización
+    const _authItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => {
+      if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
+      const d2 = data[it.id];
+      if (!d2) return false;
+      if (d2.status === "cambiar") return true;
+      if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
+      if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
+      if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
+      if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+      if (it.type === "binaryPresente" && d2.fluidOk === "mal") return true;
+      if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
+      return false;
+    }));
+    const _existingAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
+    const _approvedAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+    const needsAuthPopup = (_authItems.length > 0 && !_approvedAuth) || !!_existingAuth;
+    if (needsAuthPopup) {
       setShowPendingAuthPopup(true);
       return;
     }
@@ -8466,40 +8480,52 @@ const ServiceSheetScreen = (props) => {
 
       {/* Pending auth popup */}
       {showPendingAuthPopup && (() => {
-        const pendingItems = allItems.filter(it => data[it.id]?.wantChange && data[it.id]?.fluidOk !== "cambiado");
+        const popupAuthItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => {
+          if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
+          const d2 = data[it.id];
+          if (!d2) return false;
+          if (d2.status === "cambiar") return true;
+          if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
+          if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
+          if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
+          if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+          if (it.type === "binaryPresente" && d2.fluidOk === "mal") return true;
+          if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
+          return false;
+        }));
         const hasPendingNotif = (notifications || []).some(n => n.orderId === order.id && n.status === "pending");
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(6px)", animation: "fadeUp .2s ease" }}>
-            <div style={{ background: T.bg2, borderRadius: 20, padding: 28, maxWidth: 400, width: "92%", border: `2px solid ${T.orange}`, textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-              <div style={{ fontFamily: fontD, fontSize: 19, fontWeight: 800, marginBottom: 10, color: T.orange }}>
-                ÍTEMS PENDIENTES DE AUTORIZACIÓN
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(6px)", animation: "fadeUp .2s ease" }}>
+            <div style={{ background: T.bg2, borderRadius: 20, padding: 28, maxWidth: 400, width: "92%", border: `2px solid ${T.red}`, textAlign: "center" }}>
+              <div style={{ fontSize: 44, marginBottom: 10 }}>🔐</div>
+              <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, marginBottom: 6, color: T.red, lineHeight: 1.3 }}>
+                USTED TIENE ÍTEMS PENDIENTES DE AUTORIZACIÓN
               </div>
-              {pendingItems.length > 0 && (
-                <div style={{ background: T.bg, borderRadius: 10, padding: "10px 14px", marginBottom: 14, textAlign: "left" }}>
-                  {pendingItems.map((it, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < pendingItems.length - 1 ? `1px solid ${T.border}` : "none" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.orange, flexShrink: 0 }} />
+              {popupAuthItems.length > 0 && (
+                <div style={{ background: T.bg, borderRadius: 10, padding: "10px 14px", margin: "14px 0", textAlign: "left" }}>
+                  {popupAuthItems.map((it, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < popupAuthItems.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.red, flexShrink: 0 }} />
                       <span style={{ fontSize: 13, fontWeight: 600 }}>{it.label}</span>
                     </div>
                   ))}
                 </div>
               )}
               {hasPendingNotif && (
-                <div style={{ background: T.orange + "15", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: T.orange, fontWeight: 600 }}>
-                  ⏳ También hay una solicitud de autorización esperando respuesta
+                <div style={{ background: T.orange + "15", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: T.orange, fontWeight: 600 }}>
+                  ⏳ Solicitud de autorización en espera de respuesta
                 </div>
               )}
-              <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 22, lineHeight: 1.5 }}>
-                ¿Desea finalizar de todos modos?
+              <div style={{ fontSize: 14, color: T.grayLight, marginBottom: 22, lineHeight: 1.5, fontWeight: 600 }}>
+                ¿Desea finalizar la orden de todos modos?
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => { setShowPendingAuthPopup(false); setShowAuthRequest(true); }}
-                  style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 15, fontWeight: 700 }}>
-                  NO — Pedir Auth
+                <button onClick={() => setShowPendingAuthPopup(false)}
+                  style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 15, fontWeight: 800 }}>
+                  NO
                 </button>
                 <button onClick={() => { setShowPendingAuthPopup(false); doFinalize(); }}
-                  style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 15, fontWeight: 700 }}>
+                  style={{ ...btnPrimary(T.red), flex: 1, fontSize: 15, fontWeight: 800 }}>
                   SÍ — Finalizar
                 </button>
               </div>
@@ -9934,21 +9960,7 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       if (d.fluidOk === "cambiar") return { text: "Cambiar", color: "#C62828" };
       return { text: d.fluidOk || "", color: "#C62828" };
     }
-    if (item.type === "brakeFluid") {
-      if (d.fluidOk === "cambiado") {
-        const pct = d.percent >= 0 ? d.percent : null;
-        return { text: "Cambiado", color: "#1565C0", wasChanged: true, subText: pct !== null ? `Tenía ${pct}% agua` : null, subColor: "#718096" };
-      }
-      const pct = d.percent >= 0 ? d.percent : null;
-      const pctColor = pct !== null ? (pct <= 2 ? "#2E7D32" : pct === 3 ? "#E65100" : "#C62828") : "#718096";
-      const pctLabel = pct !== null ? (pct <= 2 ? "OK" : pct === 3 ? "Crítico" : "Mal") : "";
-      const statusColor = pctColor;
-      // Mostrar "X% agua — Estado" cuando es crítico o mal
-      const statusText = pct !== null
-        ? (pct <= 2 ? "OK" : `${pct}% agua — ${pctLabel}`)
-        : "";
-      return { text: statusText, color: statusColor, subText: null, pctVal: pct, pctColor, pctLabel };
-    }
+
     if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
       if (d.fluidOk === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
       return { text: d.fluidOk === "bien" ? "Bien" : d.fluidOk === "mal" ? "Mal" : (d.fluidOk || ""), color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
@@ -9959,27 +9971,23 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
     }
     if (item.type === "percentRC") {
       if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
-      if (d.status === "cambiar") return { text: `${d.percent >= 0 ? d.percent + "% — " : ""}Cambiar`, color: "#C62828" };
-      return { text: d.percent >= 0 ? `${d.percent}%` : "", color: d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : "#C62828" };
+      if (d.percent < 0) return { text: "", color: "#718096" };
+      const _pLabel = d.percent > 50 ? "Bien" : d.percent > 20 ? "Regular" : "Cambiar";
+      const _pColor = d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : "#C62828";
+      return { text: `${d.percent}% — ${_pLabel}`, color: _pColor };
     }
     if (item.type === "freno_trasero") {
       if (d.status === "cambiado") return { text: `${d.toggle || "Pastillas"} — Sustituida`, color: "#1565C0", wasChanged: true };
-      if (d.toggle) return { text: `${d.toggle} ${d.percent >= 0 ? d.percent + "%" : ""}`, color: d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : "#C62828" };
+      if (d.toggle && d.percent >= 0) {
+        const _fLabel = d.percent > 50 ? "Bien" : d.percent > 20 ? "Regular" : "Cambiar";
+        const _fColor = d.percent > 50 ? "#2E7D32" : d.percent > 20 ? "#E65100" : "#C62828";
+        return { text: `${d.toggle} ${d.percent}% — ${_fLabel}`, color: _fColor };
+      }
+      if (d.toggle) return { text: d.toggle, color: "#718096" };
       return { text: "", color: "#718096" };
     }
-    if (item.type === "batteryPercent") {
-      if (d.status === "cambiado") return { text: "Sustituida", color: "#1565C0", wasChanged: true };
-      if (d.percent < 0) return { text: "", color: "#718096" };
-      const _lbl2 = d.percent >= 75 ? "Bien" : d.percent >= 50 ? "Regular" : d.percent >= 15 ? "Mal" : "Crítico";
-      const _col2 = d.percent >= 75 ? "#2E7D32" : d.percent >= 50 ? "#E65100" : "#C62828";
-      return { text: `${d.percent}% — ${_lbl2}`, color: _col2 };
-    }
-    if (item.type === "lamp") {
-      if (d.fluidOk === "funciona") return { text: "OK", color: "#2E7D32" };
-      if (d.fluidOk === "cambiada") return { text: "Sustituida", color: "#1565C0", wasChanged: true, prevText: "Quemada", prevColor: "#C62828" };
-      if (d.fluidOk === "no funciona") return { text: "Sin funcionar", color: "#C62828" };
-      return { text: d.fluidOk || "", color: "#718096" };
-    }
+
+
     if (item.type === "check") return { text: d.checked ? "Realizado" : "", color: "#2E7D32" };
     if (item.type === "serviceReset") return { text: d.resetStatus === "realizado" ? "Se realizó" : d.resetStatus === "no_equipado" ? "No equipado" : "", color: d.resetStatus === "realizado" ? "#2E7D32" : "#C62828" };
     if (item.type === "voltage") { const v = parseFloat(d.voltage) || 0; const ok = v >= 13.5 && v <= 14.8; return { text: d.voltage ? `${d.voltage}V` : "", color: ok ? "#2E7D32" : "#C62828" }; }
