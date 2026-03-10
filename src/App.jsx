@@ -7132,15 +7132,69 @@ const ServiceSheetScreen = (props) => {
   const approvedAuthNotif = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
   const approvedAuthItems = (approvedAuthNotif?.items || []).filter(it => it.itemStatus !== "denied");
 
-  // Separar: ítems que pertenecen a Tren Del/Tra van dentro de ese tab como nuevos items del checklist
-  // Ítems que no pertenecen a ningún trabajo existente → tab nuevo
-  const authItemsBelongingToTren = approvedAuthItems.filter(it =>
-    it.id && (it.id.startsWith("td_") || it.id.startsWith("tt_")) &&
-    order.works.some(w => (it.id.startsWith("td_") ? w.type === "Tren Delantero" : w.type === "Tren Trasero"))
-  );
-  const authTabWorks = approvedAuthItems
-    .filter(it => !order.works.some(w => w.type === it.label) && !authItemsBelongingToTren.includes(it))
-    .map(it => ({ type: it.label, price: it.price || 0, desc: "", _fromAuth: true }));
+  // Mapeo de ítem de foja → tipo de trabajo principal
+  const AUTH_ITEM_TO_WORK = {
+    // Tren Delantero — prefijo td_ + líquido de frenos
+    liq_frenos:        "Tren Delantero",
+    // Mecánica pura
+    bujias_estado:     "Mecánica",
+    correa_poliv:      "Mecánica",
+    tensores_poliv:    "Mecánica",
+    mangueras_refrig:  "Mecánica",
+    perdidas_aceite:   "Mecánica",
+    // Varios
+    escobillas_estado: "Varios",
+    escobillas:        "Varios",
+    luz_baja:          "Varios",
+    luz_alta:          "Varios",
+    luz_pos_del:       "Varios",
+    luz_pos_tra:       "Varios",
+    luz_stop:          "Varios",
+    guinos:            "Varios",
+    liq_refrigerante:  "Varios",
+    aceite_caja:       "Varios",
+    liq_direccion:     "Varios",
+    // Batería
+    bateria_control:   "Baterías",
+  };
+  const getAuthItemWorkType = (it) => {
+    if (!it.id) return it.label;
+    if (it.id.startsWith("td_")) return "Tren Delantero";
+    if (it.id.startsWith("tt_")) return "Tren Trasero";
+    const esc = ["silenciador_trasero","silenciador_intermedio","multiple_escape","cano_escape","soporte_escape","catalizador","flexible_escape"];
+    if (esc.includes(it.id)) return "Escape";
+    return AUTH_ITEM_TO_WORK[it.id] || it.label;
+  };
+
+  // Ítems que ya tienen su work padre en la orden → se inyectan en ese tab
+  const authItemsBelongingToTren = approvedAuthItems.filter(it => {
+    const wt = getAuthItemWorkType(it);
+    return order.works.some(w => w.type === wt);
+  });
+
+  // Ítems que NO tienen work padre en orden → crear tabs agrupados por tipo
+  const authTabWorks = (() => {
+    const seen = new Set();
+    const result = [];
+    approvedAuthItems
+      .filter(it => !authItemsBelongingToTren.includes(it))
+      .forEach(it => {
+        const wt = getAuthItemWorkType(it);
+        if (!seen.has(wt)) {
+          seen.add(wt);
+          const groupItems = approvedAuthItems
+            .filter(ai => !authItemsBelongingToTren.includes(ai) && getAuthItemWorkType(ai) === wt);
+          result.push({
+            type: wt,
+            price: groupItems.reduce((s, ai) => s + (ai.price || 0), 0),
+            desc: "",
+            trenItems: groupItems.map(ai => ({ key: ai.id, label: ai.label, price: ai.price || 0, selected: true, _fromAuth: true })),
+            _fromAuth: true,
+          });
+        }
+      });
+    return result;
+  })();
 
   const tabs = [
     ...serviceWorks.map(w => ({ type: "service", label: w.type, icon: w.type === "Service Full" ? "🛠️" : "🔧", work: w })),
@@ -8727,12 +8781,36 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
   const allPricesOk = items.every(it => itemStatus[it.id] === "denied" || (parseFloat(itemPrices[it.id]) > 0));
 
   // Mapeo sheetId → work padre + trenItem key
+  const MANAGE_AUTH_TO_WORK = {
+    // Mecánica pura
+    bujias_estado:     "Mecánica",
+    correa_poliv:      "Mecánica",
+    tensores_poliv:    "Mecánica",
+    mangueras_refrig:  "Mecánica",
+    perdidas_aceite:   "Mecánica",
+    // Varios (escobillas, luces, líquidos varios)
+    escobillas_estado: "Varios",
+    escobillas:        "Varios",
+    luz_baja:          "Varios",
+    luz_alta:          "Varios",
+    luz_pos_del:       "Varios",
+    luz_pos_tra:       "Varios",
+    luz_stop:          "Varios",
+    guinos:            "Varios",
+    liq_refrigerante:  "Varios",
+    aceite_caja:       "Varios",
+    liq_direccion:     "Varios",
+    // Tren Delantero
+    liq_frenos:        "Tren Delantero",
+    // Batería
+    bateria_control:   "Baterías",
+  };
   const getParentWorkType = (id) => {
     if (!id) return null;
     if (id.startsWith("td_")) return "Tren Delantero";
     if (id.startsWith("tt_")) return "Tren Trasero";
     if (["silenciador_trasero","silenciador_intermedio","multiple_escape","cano_escape","soporte_escape","catalizador","flexible_escape"].includes(id)) return "Escape";
-    return null;
+    return MANAGE_AUTH_TO_WORK[id] || null;
   };
   const SHEET_TO_KEY = {
     // Tren Delantero
@@ -8775,32 +8853,44 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
         const trenKey = SHEET_TO_KEY[it.id];
 
         if (parentType && trenKey) {
-          // Buscar si ya existe el work padre
+          // Ítem con clave de tren/escape → agregar trenItem al work padre
           const existingIdx = works.findIndex(w => w.type === parentType);
           if (existingIdx >= 0) {
-            // Agregar sub-item al work existente
             const w = { ...works[existingIdx] };
             const existing = (w.trenItems || []);
-            const alreadyThere = existing.some(ti => ti.key === trenKey || ti.label === it.label);
-            if (!alreadyThere) {
+            if (!existing.some(ti => ti.key === trenKey || ti.label === it.label)) {
               w.trenItems = [...existing, { key: trenKey, label: it.label, price, side: "ambos", selected: true, _fromAuth: true }];
               w.price = (parseFloat(w.price) || 0) + price;
             }
             works[existingIdx] = w;
           } else {
-            // Crear nuevo work padre con el sub-item
             works = [...works, {
-              type: parentType,
-              price,
-              desc: "",
+              type: parentType, price, desc: "",
               trenItems: [{ key: trenKey, label: it.label, price, side: "ambos", selected: true, _fromAuth: true }],
               _fromAuth: true,
             }];
           }
+        } else if (parentType) {
+          // Ítem con tipo padre pero sin trenKey (ej: bujias → Mecánica)
+          const existingIdx = works.findIndex(w => w.type === parentType);
+          if (existingIdx >= 0) {
+            const w = { ...works[existingIdx] };
+            const existing = (w.trenItems || []);
+            if (!existing.some(ti => ti.key === it.id || ti.label === it.label)) {
+              w.trenItems = [...existing, { key: it.id, label: it.label, price, selected: true, _fromAuth: true }];
+              w.price = (parseFloat(w.price) || 0) + price;
+            }
+            works[existingIdx] = w;
+          } else {
+            works = [...works, {
+              type: parentType, price, desc: "",
+              trenItems: [{ key: it.id, label: it.label, price, selected: true, _fromAuth: true }],
+              _fromAuth: true,
+            }];
+          }
         } else {
-          // Ítem sin padre tren → agregar como work independiente si no existe
-          const alreadyWork = works.some(w => w.type === it.label);
-          if (!alreadyWork) {
+          // Sin tipo padre → work independiente con label
+          if (!works.some(w => w.type === it.label)) {
             works = [...works, { type: it.label, price, desc: "Aprobado por autorización", _fromAuth: true }];
           }
         }
@@ -9054,22 +9144,47 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
           );
         };
 
+        const isPartial = someApproved && items.some(it => itemStatus[it.id] === "denied");
         return (
-          <div style={{ display: "flex", gap: 12 }}>
-            <HoldButton
-              label={someApproved && items.some(it => itemStatus[it.id] === "denied") ? "⚠️ Aprobación Parcial" : "✅ Aprobar Todo"}
-              color={someApproved && items.some(it => itemStatus[it.id] === "denied") ? T.orange : T.green}
-              onComplete={() => {
-                if (!allPricesOk) { setPriceError(true); return; }
-                if (allDecided && allDenied) { setDenyTarget("all"); setShowDenyPopup(true); }
-                else { doApproveAll(); }
-              }}
-            />
-            <HoldButton
-              label="❌ Denegar Todo"
-              color={T.red}
-              onComplete={() => { setDenyTarget("all"); setShowDenyPopup(true); }}
-            />
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10 }}>
+              <HoldButton
+                label="✅ AUTORIZAR TODO"
+                color={T.green}
+                onComplete={() => {
+                  if (!allPricesOk) { setPriceError(true); return; }
+                  // Forzar todos a aprobado ignorando denegaciones previas
+                  const forcedStatuses = {};
+                  items.forEach(it => { forcedStatuses[it.id] = "approved"; });
+                  const updatedItems = items.map(it => ({ ...it, price: parseFloat(itemPrices[it.id]) || 0, itemStatus: "approved" }));
+                  setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: "approved", items: updatedItems } : n));
+                  if (order.serviceSheet) {
+                    const updated = { ...order.serviceSheet };
+                    items.forEach(it => { if (updated[it.id]) updated[it.id] = { ...updated[it.id], authApproved: true }; });
+                    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, serviceSheet: updated } : o));
+                  }
+                  applyApprovedToOrder(forcedStatuses, itemPrices);
+                  onNavigate("vehicleDetail", order);
+                }}
+              />
+              <HoldButton
+                label="❌ DENEGAR TODO"
+                color={T.red}
+                onComplete={() => { setDenyTarget("all"); setShowDenyPopup(true); }}
+              />
+            </div>
+            {isPartial && (
+              <HoldButton
+                label="⚠️ CONFIRMAR AUTORIZACIÓN PARCIAL"
+                color={T.orange}
+                onComplete={() => {
+                  if (!allPricesOk) { setPriceError(true); return; }
+                  const hasDenied = items.some(it => itemStatus[it.id] === "denied");
+                  if (hasDenied) { setDenyTarget("partial"); setShowDenyPopup(true); }
+                  else { doApproveAll(); }
+                }}
+              />
+            )}
           </div>
         );
       })()}
@@ -9092,11 +9207,11 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
               {denyTarget === "all" ? "¿Por qué se deniega la solicitud?" : "¿Por qué se deniega este ítem?"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => allDecided && someApproved ? doPartialResolve("cliente") : doDenyAll("cliente")}
+              <button onClick={() => denyTarget === "partial" ? doPartialResolve("cliente") : doDenyAll("cliente")}
                 style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0", fontWeight: 700 }}>
                 👤 Denegado por el Cliente
               </button>
-              <button onClick={() => allDecided && someApproved ? doPartialResolve("administracion") : doDenyAll("administracion")}
+              <button onClick={() => denyTarget === "partial" ? doPartialResolve("administracion") : doDenyAll("administracion")}
                 style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "14px 0", fontWeight: 700 }}>
                 🏢 Denegado por Administración
               </button>
