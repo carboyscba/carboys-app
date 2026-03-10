@@ -9932,7 +9932,12 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
   const fojaLabel = (item, d) => {
     if (!d) return { text: "", color: "#718096" };
     if (item.type === "nivelado") return { text: d.fluidOk === "nivelado" ? "SE NIVELÓ" : "", color: "#2E7D32" };
-    if (item.type === "lamp") { if (d.fluidOk === "funciona" || d.fluidOk === "bien") return { text: "OK", color: "#2E7D32" }; if (d.fluidOk === "cambiada") return { text: "Sustituida", color: "#1565C0", wasChanged: true }; if (d.fluidOk === "no funciona" || d.fluidOk === "quemada") return { text: "Sin funcionar", color: "#C62828" }; return { text: "", color: "#718096" }; }
+    if (item.type === "lamp") {
+      if (d.fluidOk === "funciona" || d.fluidOk === "bien") return { text: "OK", color: "#2E7D32" };
+      if (d.fluidOk === "cambiada" || d.lampChanged === true) return { text: "Sustituida", color: "#1565C0", wasChanged: true, prevText: "Quemada", prevColor: "#C62828" };
+      if (d.fluidOk === "no funciona" || d.fluidOk === "quemada") return { text: "Quemada", color: "#C62828" };
+      return { text: "", color: "#718096" };
+    }
     if (item.type === "binaryPresente") return { text: d.fluidOk === "bien" ? "NO PRESENTE" : d.fluidOk === "mal" ? "PRESENTE" : "", color: d.fluidOk === "bien" ? "#2E7D32" : "#C62828" };
     if (item.type === "brakeFluid") {
       const _pct = d.percent >= 0 ? d.percent : -1;
