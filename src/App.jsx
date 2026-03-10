@@ -4983,8 +4983,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [showPagoServ, setShowPagoServ] = useState(false);
   const [pagoServForm, setPagoServForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
   const [selServMes, setSelServMes]     = useState(null);   // { year, month, label } del mes abierto
+  const [selServAnio, setSelServAnio]   = useState(null);   // año expandido en el accordion de servicios
   const [showPagoMes, setShowPagoMes]   = useState(false);  // modal pagar factura de un mes
   const [pagoMesForm, setPagoMesForm]   = useState({ nroFc: "", vencimiento: "", monto: "", metodo: "" });
+  const [showConfirmDelServ, setShowConfirmDelServ] = useState(null); // id servicio a eliminar
+  const [showConfirmDelProv, setShowConfirmDelProv] = useState(null); // id proveedor a eliminar
   const [showPagoIg, setShowPagoIg] = useState(false);
   const [selGastoIg, setSelGastoIg] = useState(null);
   const [pagoIgForm, setPagoIgForm] = useState({ fecha: new Date().toISOString().split("T")[0] });
@@ -6530,9 +6533,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 return pagado < (f.monto || 0) && f.fechaVenc && f.fechaVenc < today;
               }).length;
               return (
-                <div key={pv.id} onClick={() => { setSelProv(pv); setFactsSeleccionadas(new Set()); }}
-                  style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={pv.id} style={{ ...card, padding: 16, marginBottom: 10, position: "relative" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                    onClick={() => { setSelProv(pv); setFactsSeleccionadas(new Set()); }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ fontSize: 28 }}>📦</div>
                       <div>
@@ -6540,12 +6543,17 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         <div style={{ fontSize: 12, color: T.gray }}>{pv.rubro || "Sin rubro"} • {pvFacts.length} factura{pvFacts.length !== 1 ? "s" : ""}</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
+                    <div style={{ textAlign: "right", marginRight: 30 }}>
                       {pvTotal > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(pvTotal)}</div>}
                       {vencidas > 0 && <div style={{ fontSize: 10, color: T.red, fontWeight: 700 }}>⚠️ {vencidas} vencida{vencidas !== 1 ? "s" : ""}</div>}
                       {pvTotal === 0 && <div style={{ fontSize: 12, color: T.green }}>✅ Al día</div>}
                     </div>
                   </div>
+                  {/* Botón eliminar proveedor */}
+                  <div onClick={e => { e.stopPropagation(); setShowConfirmDelProv(pv.id); }}
+                    style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%",
+                      background: `${T.red}20`, border: `1px solid ${T.red}40`, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", fontSize: 12, color: T.red, fontWeight: 700 }}>✕</div>
                 </div>
               );
             })}
@@ -6732,6 +6740,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           );
         })()}
 
+        {/* ══ POPUP CONFIRMAR ELIMINAR PROVEEDOR ══ */}
+        {showConfirmDelProv && (() => {
+          const pv = proveedores.find(p => p.id === showConfirmDelProv);
+          const pvFacts = factProv.filter(f => f.provId === String(showConfirmDelProv));
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(6px)" }}
+              onClick={() => setShowConfirmDelProv(null)}>
+              <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 340, width: "88%", border: `1px solid ${T.red}40`, textAlign: "center" }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Eliminar proveedor</div>
+                <div style={{ fontFamily: fontD, fontSize: 16, color: T.orange, marginBottom: 12 }}>{pv?.nombre}</div>
+                <div style={{ fontSize: 12, color: T.gray, marginBottom: 20, lineHeight: 1.5 }}>
+                  Se eliminarán el proveedor y sus {pvFacts.length} factura{pvFacts.length !== 1 ? "s" : ""} asociada{pvFacts.length !== 1 ? "s" : ""}.<br/>Esta acción no se puede deshacer.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowConfirmDelProv(null)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button onClick={() => {
+                    setProveedores(p => p.filter(x => x.id !== showConfirmDelProv));
+                    setFactProv(p => p.filter(f => f.provId !== String(showConfirmDelProv)));
+                    setShowConfirmDelProv(null);
+                  }} style={{ ...btnPrimary(T.red), flex: 1, fontWeight: 800 }}>Sí, eliminar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ══ POPUP CONFIRMAR CANCELAR PAGO ══ */}
         {showConfirmCancelar && (() => {
           const factTarget = factProv.find(f => f.id === showConfirmCancelar.factId);
@@ -6889,21 +6926,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           );
         })()}
 
-        {/* ══ NIVEL 2: meses dentro de un servicio ══ */}
+        {/* ══ NIVEL 2: años → meses dentro de un servicio ══ */}
         {selServ && !selServMes && (() => {
-          // Generar los últimos 12 meses + próximo mes
-          const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-          const now = new Date();
-          const rows = [];
-          for (let i = -1; i <= 11; i++) {
-            const d = new Date(now.getFullYear(), now.getMonth() - 10 + i, 1);
-            rows.push({ year: d.getFullYear(), month: d.getMonth(), label: `${meses[d.getMonth()]} ${d.getFullYear()}` });
-          }
-          rows.reverse(); // más reciente primero
-
+          const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+          const MESES_FULL    = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          const now    = new Date();
+          const hoy    = now.toISOString().split("T")[0];
           const svMeses = selServ.meses || {};
-          const totalPagado = Object.values(svMeses).filter(m => m.pagado).reduce((s, m) => s + (parseFloat(m.pagoMonto || m.monto) || 0), 0);
-          const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
+          const totalPagado  = Object.values(svMeses).filter(m => m.pagado).reduce((s, m) => s + (parseFloat(m.pagoMonto || m.monto) || 0), 0);
+          const cantPagados  = Object.values(svMeses).filter(m => m.pagado).length;
+
+          // Armar lista de años a mostrar: desde (año actual - 2) hasta año actual + 1
+          const anioActual = now.getFullYear();
+          const anios = [anioActual + 1, anioActual, anioActual - 1, anioActual - 2].filter(Boolean);
+          // Auto-expandir año actual si nada seleccionado
+          const anioExpandido = selServAnio !== null ? selServAnio : anioActual;
 
           return (
             <div>
@@ -6933,34 +6970,75 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 )}
               </div>
 
-              {/* Lista de meses */}
-              {rows.map(({ year, month, label }) => {
-                const mesKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-                const mesData = svMeses[mesKey] || {};
-                const pagado = mesData.pagado || false;
-                const tieneDatos = mesData.nroFc || mesData.monto;
-                const hoy = new Date().toISOString().split("T")[0];
-                const esHoy = year === now.getFullYear() && month === now.getMonth();
-                const vencido = mesData.vencimiento && mesData.vencimiento < hoy && !pagado;
+              {/* Acordeón por año */}
+              {anios.map(anio => {
+                const isOpen = anio === anioExpandido;
+                // Calcular estado del año
+                const mesesDelAnio = Array.from({ length: 12 }, (_, m) => {
+                  const key = `${anio}-${String(m + 1).padStart(2, "0")}`;
+                  return { month: m, key, data: svMeses[key] || {} };
+                });
+                const pagadosAnio   = mesesDelAnio.filter(m => m.data.pagado).length;
+                const vencidosAnio  = mesesDelAnio.filter(m => !m.data.pagado && m.data.vencimiento && m.data.vencimiento < hoy).length;
+                const esAnioActual  = anio === anioActual;
 
                 return (
-                  <div key={mesKey} onClick={() => setSelServMes({ year, month, label })}
-                    style={{ ...card, padding: "14px 16px", marginBottom: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-                      borderLeft: `4px solid ${pagado ? T.green : vencido ? T.red : esHoy ? T.accent : T.border}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontSize: 22 }}>{pagado ? "✅" : vencido ? "⚠️" : esHoy ? "📌" : "📅"}</div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: esHoy ? T.accent : T.white }}>{label}{esHoy ? " (mes actual)" : ""}</div>
-                        {pagado && <div style={{ fontSize: 11, color: T.green, marginTop: 2 }}>Pagado · {mesData.pagoMetodo} · {fmt(parseFloat(mesData.pagoMonto || mesData.monto) || 0)}</div>}
-                        {!pagado && mesData.nroFc && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>FC: {mesData.nroFc}</div>}
-                        {!pagado && vencido && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ Factura vencida</div>}
-                        {!pagado && !tieneDatos && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Sin datos cargados</div>}
+                  <div key={anio} style={{ marginBottom: 10 }}>
+                    {/* Header del año — toca para expandir/colapsar */}
+                    <div onClick={() => setSelServAnio(isOpen ? -1 : anio)}
+                      style={{ ...card, padding: "14px 18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        borderLeft: `4px solid ${vencidosAnio > 0 ? T.red : pagadosAnio === 12 ? T.green : esAnioActual ? T.accent : T.border}`,
+                        background: isOpen ? `${T.accent}08` : T.bg2 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 28 }}>
+                          {vencidosAnio > 0 ? "⚠️" : pagadosAnio === 12 ? "✅" : esAnioActual ? "📌" : "📆"}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: esAnioActual ? T.accent : T.white }}>
+                            {anio}{esAnioActual ? " (este año)" : ""}
+                          </div>
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>
+                            {pagadosAnio > 0 ? `${pagadosAnio} mes${pagadosAnio !== 1 ? "es" : ""} pagado${pagadosAnio !== 1 ? "s" : ""}` : "Sin pagos registrados"}
+                            {vencidosAnio > 0 ? ` · ⚠️ ${vencidosAnio} vencida${vencidosAnio !== 1 ? "s" : ""}` : ""}
+                          </div>
+                        </div>
                       </div>
+                      <div style={{ fontSize: 18, color: T.gray, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "none" }}>›</div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      {mesData.monto && <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: pagado ? T.green : T.accent }}>{fmt(parseFloat(mesData.monto) || 0)}</div>}
-                      <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>›</div>
-                    </div>
+
+                    {/* Grid de meses — visible solo cuando el año está abierto */}
+                    {isOpen && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: "10px 4px 4px" }}>
+                        {mesesDelAnio.map(({ month, key, data }) => {
+                          const pagado   = data.pagado || false;
+                          const vencido  = !pagado && data.vencimiento && data.vencimiento < hoy;
+                          const esMesAct = esAnioActual && month === now.getMonth();
+                          const tieneDatos = data.nroFc || data.monto;
+                          const label    = MESES_FULL[month];
+                          const corto    = MESES_NOMBRES[month];
+                          const borderC  = pagado ? T.green : vencido ? T.red : esMesAct ? T.accent : T.border;
+                          const bgC      = pagado ? `${T.green}12` : vencido ? `${T.red}10` : esMesAct ? `${T.accent}10` : T.bg2;
+
+                          return (
+                            <div key={key} onClick={() => setSelServMes({ year: anio, month, label })}
+                              style={{ padding: "12px 6px", borderRadius: 12, cursor: "pointer", textAlign: "center",
+                                border: `2px solid ${borderC}`, background: bgC, transition: "all .15s" }}>
+                              <div style={{ fontSize: 20, marginBottom: 4 }}>
+                                {pagado ? "✅" : vencido ? "⚠️" : esMesAct ? "📌" : tieneDatos ? "🧾" : "📅"}
+                              </div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: pagado ? T.green : vencido ? T.red : esMesAct ? T.accent : T.grayLight }}>
+                                {corto}
+                              </div>
+                              {data.monto && (
+                                <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>
+                                  {fmt(parseFloat(data.monto) || 0)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -6988,10 +7066,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
 
               return (
-                <div key={s.id} onClick={() => setSelServ(s)}
-                  style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer",
-                    borderLeft: `4px solid ${mesActualPagado ? T.green : tieneVencidos ? T.red : T.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={s.id} style={{ ...card, padding: 16, marginBottom: 10,
+                    borderLeft: `4px solid ${mesActualPagado ? T.green : tieneVencidos ? T.red : T.border}`,
+                    position: "relative" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                    onClick={() => setSelServ(s)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ fontSize: 28 }}>{mesActualPagado ? "✅" : tieneVencidos ? "⚠️" : "🔌"}</div>
                       <div>
@@ -7000,7 +7079,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{cantPagados} mes{cantPagados !== 1 ? "es" : ""} pagado{cantPagados !== 1 ? "s" : ""}</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
+                    <div style={{ textAlign: "right", marginRight: 30 }}>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(parseFloat(s.monto) || 0)}</div>
                       {mesActualPagado
                         ? <div style={{ fontSize: 10, color: T.green, fontWeight: 700 }}>✅ MES ACTUAL</div>
@@ -7008,6 +7087,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         : <div style={{ fontSize: 10, color: T.gray }}>›</div>}
                     </div>
                   </div>
+                  {/* Botón eliminar */}
+                  <div onClick={e => { e.stopPropagation(); setShowConfirmDelServ(s.id); }}
+                    style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%",
+                      background: `${T.red}20`, border: `1px solid ${T.red}40`, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", fontSize: 12, color: T.red, fontWeight: 700 }}>✕</div>
                 </div>
               );
             })}
@@ -7037,6 +7121,33 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             </div>
           </div>
         )}
+
+        {/* ══ POPUP CONFIRMAR ELIMINAR SERVICIO ══ */}
+        {showConfirmDelServ && (() => {
+          const srv = servicios.find(s => s.id === showConfirmDelServ);
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(6px)" }}
+              onClick={() => setShowConfirmDelServ(null)}>
+              <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 340, width: "88%", border: `1px solid ${T.red}40`, textAlign: "center" }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Eliminar servicio</div>
+                <div style={{ fontFamily: fontD, fontSize: 16, color: T.accent, marginBottom: 12 }}>{srv?.nombre}</div>
+                <div style={{ fontSize: 12, color: T.gray, marginBottom: 20, lineHeight: 1.5 }}>
+                  Se eliminarán todos los datos y registros de pago asociados a este servicio.<br/>Esta acción no se puede deshacer.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowConfirmDelServ(null)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button onClick={() => {
+                    setServicios(p => p.filter(s => s.id !== showConfirmDelServ));
+                    setShowConfirmDelServ(null);
+                  }} style={{ ...btnPrimary(T.red), flex: 1, fontWeight: 800 }}>Sí, eliminar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══ MODAL PAGAR FACTURA DEL MES ══ */}
         {showPagoMes && selServ && selServMes && (() => {
