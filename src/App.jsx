@@ -7120,9 +7120,11 @@ const ServiceSheetScreen = (props) => {
   const serviceWorks = order.works.filter(w => w.type === "Service Full" || w.type === "Service Base");
   const hasService = serviceWorks.length > 0;
   const embeddedWorkTypes = ["Escobillas", "Baterías", "Lámpara"]; // Pastillas siempre tab propio
-  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno"));
+  const interventionWorks = order.works.filter(w => (w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno") && !w._fromAuth);
   const embeddedWorks = hasService ? order.works.filter(w => embeddedWorkTypes.includes(w.type)) : [];
   const checklistWorks = order.works.filter(w => {
+    // _fromAuth de tren/pastillas van como checklist (tienen trenItems propios)
+    if (w._fromAuth && ["Tren Delantero", "Tren Trasero", "Pastillas de Freno"].includes(w.type)) return true;
     if (["Service Full", "Service Base", "Tren Delantero", "Tren Trasero", "Pastillas de Freno"].includes(w.type)) return false;
     if (hasService && embeddedWorkTypes.includes(w.type)) return false;
     return true;
@@ -7166,10 +7168,11 @@ const ServiceSheetScreen = (props) => {
     return AUTH_ITEM_TO_WORK[it.id] || it.label;
   };
 
-  // Ítems que ya tienen su work padre en la orden → se inyectan en ese tab
+  // Ítems que ya tienen su work padre ORIGINAL (no _fromAuth) en la orden
+  // → se inyectan en ese tab existente
   const authItemsBelongingToTren = approvedAuthItems.filter(it => {
     const wt = getAuthItemWorkType(it);
-    return order.works.some(w => w.type === wt);
+    return order.works.some(w => w.type === wt && !w._fromAuth);
   });
 
   // Ítems que NO tienen work padre en orden → crear tabs agrupados por tipo
@@ -7621,6 +7624,8 @@ const ServiceSheetScreen = (props) => {
   };
 
   const isItemApproved = (itemId) => {
+    // Si el campo authApproved fue guardado directamente en data, siempre permitir
+    if (data[itemId]?.authApproved === true) return true;
     const notif = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
     if (!notif) return false;
     return notif.items?.some(it => it.id === itemId && it.itemStatus !== "denied") || false;
