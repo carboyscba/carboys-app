@@ -7176,11 +7176,13 @@ const ServiceSheetScreen = (props) => {
   });
 
   // Ítems que NO tienen work padre en orden → crear tabs agrupados por tipo
+  // Excluir también ítems cuyo tipo ya existe en order.works como _fromAuth (evita duplicados)
   const authTabWorks = (() => {
     const seen = new Set();
     const result = [];
     approvedAuthItems
       .filter(it => !authItemsBelongingToTren.includes(it))
+      .filter(it => !order.works.some(w => w.type === getAuthItemWorkType(it) && w._fromAuth))
       .forEach(it => {
         const wt = getAuthItemWorkType(it);
         if (!seen.has(wt)) {
