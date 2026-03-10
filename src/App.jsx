@@ -1166,7 +1166,7 @@ const NewOrderScreen = (props) => {
   const [lastCreatedOrderId, setLastCreatedOrderId] = React.useState(null);
 
   const confirmOrder = () => {
-    const newId = Date.now();
+    const newId = Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1;
     const newOrder = {
       id: newId,
       clientId: foundClient?.id || Date.now(),
@@ -1750,7 +1750,7 @@ const NewOrderScreen = (props) => {
                   style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
                 <button onClick={() => {
                   const newOrder = {
-                    id: Date.now(),
+                    id: Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1,
                     clientId: foundClient?.id || Date.now(),
                     domain: form.domain,
                     status: "inspection",
@@ -2956,7 +2956,10 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
               )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmtDate(o.date)}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmtDate(o.date)}</div>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: T.accent, background: `${T.accent}18`, border: `1px solid ${T.accent}40`, borderRadius: 6, padding: "1px 6px", fontFamily: fontD }}>#{o.id}</span>
+                  </div>
                   <div style={{ fontSize: 12, color: sc, fontWeight: 700, marginTop: 2 }}>{sl}</div>
                   {o.assignedTo && <div style={{ fontSize: 11, color: T.gray }}>Mecánico: {o.assignedTo}</div>}
                 </div>
@@ -3115,7 +3118,10 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
             <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: sc, boxShadow: `0 0 8px ${sc}`, flexShrink: 0, animation: o.status === "working" ? "pulse 2s infinite" : "none" }} />
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 18, fontFamily: fontD }}>{fmtD(o.domain)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 18, fontFamily: fontD }}>{fmtD(o.domain)}</div>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: T.accent, background: `${T.accent}18`, border: `1px solid ${T.accent}40`, borderRadius: 6, padding: "2px 7px", fontFamily: fontD, letterSpacing: 0.5 }}>#{o.id}</span>
+                </div>
                 <div style={{ fontSize: 13, color: T.grayLight }}>{info.brand} {info.model} {info.year}</div>
                 <div style={{ fontSize: 12, color: T.gray }}>{info.clientName}{o.assignedTo ? ` — Asignado: ${o.assignedTo}` : ""}</div>
               </div>
@@ -3228,7 +3234,10 @@ const VehicleDetailScreen = (props) => {
       <div style={{ ...card, padding: 24, marginBottom: 20, borderLeft: `4px solid ${sc}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 700, letterSpacing: 1 }}>{fmtD(order.domain)}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
+              <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 700, letterSpacing: 1 }}>{fmtD(order.domain)}</div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: T.accent, background: `${T.accent}18`, border: `1.5px solid ${T.accent}50`, borderRadius: 8, padding: "3px 10px", fontFamily: fontD }}>#{order.id}</span>
+            </div>
             <div style={{ fontSize: 15, color: T.gray, marginTop: 4 }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
             <div style={{ fontSize: 14, color: T.grayLight, marginTop: 2 }}>Cliente: <strong style={{ color: T.white }}>{client ? `${client.name} ${client.lastName}` : "—"}</strong></div>
             {order.km && <div style={{ fontSize: 15, fontWeight: 800, color: "#FFFFFF", marginTop: 8, fontFamily: fontD }}>{Number(order.km).toLocaleString("es-AR")} km al ingreso</div>}
@@ -4002,7 +4011,7 @@ const VehicleDetailScreen = (props) => {
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowCobrarPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cerrar</button>
-              <button onClick={() => { setShowCobrarPopup(false); onNavigate("admin"); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13 }}>🧾 Ir a Cobros</button>
+              <button onClick={() => { setShowCobrarPopup(false); onNavigate("admin", { initialTab: "cobros" }); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13 }}>🧾 Ir a Cobros</button>
             </div>
           </div>
         </div>
@@ -4143,10 +4152,11 @@ const VehicleDetailScreen = (props) => {
 
       {showFacturaMenu && facturaMenuData && (() => {
         const { order: fo, client: fc, vehicle: fv } = facturaMenuData;
+        const esTicket = facturaMenuData.tipo === "ticket";
         const mainPay = (fo.payments || [])[0] || {};
         const cuenta = mainPay.account === "2" ? "Ignacio Karqui" : "CarBoys SAS";
-        const invoiceType = fo.factura?.tipo || mainPay.invoiceType || "B";
-        const fcColor = invoiceType === "A" ? T.orange : invoiceType === "B" ? T.accent : T.gray;
+        const invoiceType = fo.factura?.tipo || mainPay.invoiceType || (esTicket ? "T" : "B");
+        const fcColor = invoiceType === "A" ? T.orange : invoiceType === "B" ? T.accent : esTicket ? T.orange : T.gray;
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(5px)", animation: "fadeUp .2s ease" }}
             onClick={() => setShowFacturaMenu(false)}>
@@ -4651,8 +4661,8 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate }) => {
-  const [tab, setTab] = useState("resumen");
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab }) => {
+  const [tab, setTab] = useState(initialTab || "resumen");
   const [showTotalVentas, setShowTotalVentas] = useState(false);
   const [selCobro, setSelCobro] = useState(null);
   const [cobroPay, setCobroPay] = useState([]);
@@ -10804,6 +10814,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
+  const [adminInitialTab, setAdminInitialTab] = useState(null);
   const [dbLoading, setDbLoading] = useState(true); // esperando Firestore
 
   // ── Restaurar sesión guardada al inicio (sin popup de Google) ─
@@ -10907,6 +10918,8 @@ export default function App() {
 
   const nav = useCallback((target, data = null) => {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
+    if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
+    else if (target !== "admin") setAdminInitialTab(null);
     setScreen(target);
     window.scrollTo?.(0, 0);
   }, []);
@@ -10967,7 +10980,7 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} /> : null;
+      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
