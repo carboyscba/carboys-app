@@ -4978,6 +4978,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [expandedFact, setExpandedFact] = useState(null);
   const [showPagoServ, setShowPagoServ] = useState(false);
   const [pagoServForm, setPagoServForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
+  const [selServMes, setSelServMes]     = useState(null);   // { year, month, label } del mes abierto
+  const [showPagoMes, setShowPagoMes]   = useState(false);  // modal pagar factura de un mes
+  const [pagoMesForm, setPagoMesForm]   = useState({ nroFc: "", vencimiento: "", monto: "", metodo: "" });
   const [showPagoIg, setShowPagoIg] = useState(false);
   const [selGastoIg, setSelGastoIg] = useState(null);
   const [pagoIgForm, setPagoIgForm] = useState({ fecha: new Date().toISOString().split("T")[0] });
@@ -6559,104 +6562,235 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
       </div>)}
 
       {tab === "servicios" && (<div>
+        {/* ══ HEADER ══ */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>🔧 Servicios</div>
-          {!selServ && <button onClick={() => setShowServ(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Servicio</button>}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {(selServ || selServMes) && (
+              <span onClick={() => { if (selServMes) { setSelServMes(null); } else { setSelServ(null); } }}
+                style={{ cursor: "pointer", fontSize: 20, color: T.gray, padding: "0 4px" }}>←</span>
+            )}
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>
+              {selServMes ? `📅 ${selServMes.label}` : selServ ? `🔧 ${selServ.nombre}` : "🔧 Servicios"}
+            </div>
+          </div>
+          {!selServ && !selServMes && (
+            <button onClick={() => setShowServ(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Servicio</button>
+          )}
         </div>
 
-        {selServ ? (() => {
-          const svFacts = (selServ.facturas || []);
-          const totalPagado = svFacts.reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
-          const ultimoPago = svFacts.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
+        {/* ══ NIVEL 3: detalle de un MES dentro de un servicio ══ */}
+        {selServMes && selServ && (() => {
+          const mesKey = `${selServMes.year}-${String(selServMes.month + 1).padStart(2, "0")}`;
+          const mesData = (selServ.meses || {})[mesKey] || {};
+          const pagado = mesData.pagado || false;
+
           return (
             <div>
-              <button onClick={() => setSelServ(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a servicios</button>
-
-              {/* Header del servicio */}
-              <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              {/* Card datos de la factura */}
+              <div style={{ ...card, padding: 20, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: T.gray, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Datos de la Factura</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                   <div>
-                    <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selServ.nombre}</div>
-                    <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{selServ.desc || ""}{selServ.metodo ? ` • ${selServ.metodo}` : ""}</div>
-                    {selServ.vencimiento && (
-                      <div style={{ fontSize: 12, marginTop: 4, color: selServ.vencimiento < today ? T.red : T.gray, fontWeight: selServ.vencimiento < today ? 700 : 400 }}>
-                        {selServ.vencimiento < today ? "⚠️ VENCIDO" : `Vence: ${fmtDate(selServ.vencimiento)}`}
-                      </div>
-                    )}
+                    <label style={labelStyle}>Nro. de Factura</label>
+                    <input value={mesData.nroFc || ""} disabled={pagado}
+                      onChange={e => {
+                        const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, nroFc: e.target.value } } };
+                        setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+                        setSelServ(upd);
+                      }}
+                      style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} placeholder="Ej: 0001-00012345" />
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 11, color: T.gray }}>Monto habitual</div>
-                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.accent }}>{fmt(parseFloat(selServ.monto) || 0)}</div>
+                  <div>
+                    <label style={labelStyle}>Vencimiento</label>
+                    <input type="date" value={mesData.vencimiento || ""} disabled={pagado}
+                      onChange={e => {
+                        const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, vencimiento: e.target.value } } };
+                        setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+                        setSelServ(upd);
+                      }}
+                      style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} />
                   </div>
                 </div>
-                {svFacts.length > 0 && (
-                  <div style={{ display: "flex", gap: 12, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
-                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30` }}>
+                <div>
+                  <label style={labelStyle}>Monto</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
+                    <input inputMode="numeric" disabled={pagado}
+                      value={mesData.monto ? Number(mesData.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^0-9]/g, "");
+                        const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, monto: val } } };
+                        setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+                        setSelServ(upd);
+                      }}
+                      style={{ ...inputStyle, flex: 1, opacity: pagado ? 0.5 : 1 }} placeholder="0" />
+                  </div>
+                </div>
+                {/* Vencimiento warning */}
+                {mesData.vencimiento && !pagado && (() => {
+                  const hoy = new Date().toISOString().split("T")[0];
+                  const diff = Math.ceil((new Date(mesData.vencimiento) - new Date(hoy)) / 86400000);
+                  if (diff < 0) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.red}15`, border: `1px solid ${T.red}40`, fontSize: 12, fontWeight: 700, color: T.red }}>⚠️ Vencida hace {Math.abs(diff)} día{Math.abs(diff) !== 1 ? "s" : ""}</div>;
+                  if (diff <= 5) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.orange}15`, border: `1px solid ${T.orange}40`, fontSize: 12, fontWeight: 700, color: T.orange }}>⏰ Vence en {diff} día{diff !== 1 ? "s" : ""}</div>;
+                  return null;
+                })()}
+              </div>
+
+              {/* Estado de pago */}
+              {pagado ? (
+                <div style={{ ...card, padding: 20, marginBottom: 12, borderColor: T.green, background: `${T.green}08` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 36 }}>✅</div>
+                    <div>
+                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>PAGADO</div>
+                      <div style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>
+                        {mesData.pagoMetodo} · {mesData.pagoFecha ? new Date(mesData.pagoFecha + "T12:00:00").toLocaleDateString("es-AR") : ""}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.green, marginTop: 4 }}>
+                        {fmt(parseFloat(mesData.pagoMonto || mesData.monto) || 0)}
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      // Deshacer pago — quitar también el egreso de caja
+                      const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, pagado: false, pagoMetodo: undefined, pagoFecha: undefined, pagoMonto: undefined, egresoId: undefined } } };
+                      if (mesData.egresoId) setEgresos(p => p.filter(e => e.id !== mesData.egresoId));
+                      setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+                      setSelServ(upd);
+                    }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 11, marginLeft: "auto", padding: "6px 12px", color: T.red }}>
+                      Deshacer
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => {
+                  setPagoMesForm({ nroFc: mesData.nroFc || "", vencimiento: mesData.vencimiento || "", monto: mesData.monto || selServ.monto || "", metodo: "" });
+                  setShowPagoMes(true);
+                }}
+                  style={{ ...btnPrimary(T.green), width: "100%", fontSize: 15, padding: "16px 0", fontWeight: 800, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                  💳 Pagar Factura
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ══ NIVEL 2: meses dentro de un servicio ══ */}
+        {selServ && !selServMes && (() => {
+          // Generar los últimos 12 meses + próximo mes
+          const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          const now = new Date();
+          const rows = [];
+          for (let i = -1; i <= 11; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - 10 + i, 1);
+            rows.push({ year: d.getFullYear(), month: d.getMonth(), label: `${meses[d.getMonth()]} ${d.getFullYear()}` });
+          }
+          rows.reverse(); // más reciente primero
+
+          const svMeses = selServ.meses || {};
+          const totalPagado = Object.values(svMeses).filter(m => m.pagado).reduce((s, m) => s + (parseFloat(m.pagoMonto || m.monto) || 0), 0);
+          const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
+
+          return (
+            <div>
+              {/* Resumen del servicio */}
+              <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{selServ.nombre}</div>
+                    {selServ.desc && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{selServ.desc}</div>}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 10, color: T.gray }}>Monto habitual</div>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>{fmt(parseFloat(selServ.monto) || 0)}</div>
+                  </div>
+                </div>
+                {cantPagados > 0 && (
+                  <div style={{ display: "flex", gap: 10, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, textAlign: "center" }}>
                       <div style={{ fontSize: 10, color: T.gray }}>Total pagado</div>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
+                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
                     </div>
-                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30` }}>
-                      <div style={{ fontSize: 10, color: T.gray }}>Último pago</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginTop: 2 }}>{ultimoPago ? fmtDate(ultimoPago.fecha) : "—"}</div>
-                    </div>
-                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.bg}`, border: `1px solid ${T.border}` }}>
-                      <div style={{ fontSize: 10, color: T.gray }}>Pagos</div>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{svFacts.length}</div>
+                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border}`, textAlign: "center" }}>
+                      <div style={{ fontSize: 10, color: T.gray }}>Meses pagados</div>
+                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800 }}>{cantPagados}</div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <button onClick={() => { setPagoServForm({ fecha: today, monto: selServ.monto, metodo: selServ.metodo || "Transferencia" }); setShowPagoServ(true); }}
-                style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginBottom: 16, padding: "14px 0", fontWeight: 700 }}>
-                ✅ Registrar Pago
-              </button>
+              {/* Lista de meses */}
+              {rows.map(({ year, month, label }) => {
+                const mesKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+                const mesData = svMeses[mesKey] || {};
+                const pagado = mesData.pagado || false;
+                const tieneDatos = mesData.nroFc || mesData.monto;
+                const hoy = new Date().toISOString().split("T")[0];
+                const esHoy = year === now.getFullYear() && month === now.getMonth();
+                const vencido = mesData.vencimiento && mesData.vencimiento < hoy && !pagado;
 
-              {svFacts.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin pagos registrados</div>}
-              {svFacts.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map((f, fi) => (
-                <div key={f.id} style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `3px solid ${T.green}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>✅ Pago registrado</div>
-                      <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{fmtDate(f.fecha)}{f.metodo ? ` • ${f.metodo}` : ""}</div>
+                return (
+                  <div key={mesKey} onClick={() => setSelServMes({ year, month, label })}
+                    style={{ ...card, padding: "14px 16px", marginBottom: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
+                      borderLeft: `4px solid ${pagado ? T.green : vencido ? T.red : esHoy ? T.accent : T.border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontSize: 22 }}>{pagado ? "✅" : vencido ? "⚠️" : esHoy ? "📌" : "📅"}</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: esHoy ? T.accent : T.white }}>{label}{esHoy ? " (mes actual)" : ""}</div>
+                        {pagado && <div style={{ fontSize: 11, color: T.green, marginTop: 2 }}>Pagado · {mesData.pagoMetodo} · {fmt(parseFloat(mesData.pagoMonto || mesData.monto) || 0)}</div>}
+                        {!pagado && mesData.nroFc && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>FC: {mesData.nroFc}</div>}
+                        {!pagado && vencido && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ Factura vencida</div>}
+                        {!pagado && !tieneDatos && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Sin datos cargados</div>}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.green }}>{fmt(parseFloat(f.monto) || 0)}</div>
-                      <div onClick={() => {
-                        const updated = { ...selServ, facturas: selServ.facturas.filter((_, i) => i !== fi) };
-                        setServicios(prev => prev.map(s => s.id === selServ.id ? updated : s));
-                        setSelServ(updated);
-                      }} style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 7px", borderRadius: 4, border: `1px solid ${T.red}30` }}>✕</div>
+                    <div style={{ textAlign: "right" }}>
+                      {mesData.monto && <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: pagado ? T.green : T.accent }}>{fmt(parseFloat(mesData.monto) || 0)}</div>}
+                      <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>›</div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
-        })() : (
+        })()}
+
+        {/* ══ NIVEL 1: lista de servicios ══ */}
+        {!selServ && !selServMes && (
           <div>
-            {servicios.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin servicios. Ej: Alquiler, Internet, Luz, etc.</div>}
+            {servicios.length === 0 && (
+              <div style={{ ...card, padding: 30, textAlign: "center", color: T.gray }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>🔌</div>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Sin servicios registrados</div>
+                <div style={{ fontSize: 12 }}>Agregá servicios como EPEC, Internet, Alquiler, etc.</div>
+              </div>
+            )}
             {servicios.map(s => {
-              const ultimoPago = (s.facturas || []).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
-              const mesActualPagado = (s.facturas || []).some(f => (f.fecha || "").startsWith(new Date().toISOString().slice(0,7)));
+              const svMeses = s.meses || {};
+              const now = new Date();
+              const mesActualKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+              const mesActualPagado = svMeses[mesActualKey]?.pagado || false;
+              const hoy = new Date().toISOString().split("T")[0];
+              const tieneVencidos = Object.entries(svMeses).some(([k, m]) => !m.pagado && m.vencimiento && m.vencimiento < hoy);
+              const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
+
               return (
-                <div key={s.id} onClick={() => setSelServ(s)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `3px solid ${mesActualPagado ? T.green : s.vencimiento && s.vencimiento < today ? T.red : T.border}` }}>
+                <div key={s.id} onClick={() => setSelServ(s)}
+                  style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer",
+                    borderLeft: `4px solid ${mesActualPagado ? T.green : tieneVencidos ? T.red : T.border}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontSize: 26 }}>{mesActualPagado ? "✅" : "🔧"}</div>
+                      <div style={{ fontSize: 28 }}>{mesActualPagado ? "✅" : tieneVencidos ? "⚠️" : "🔌"}</div>
                       <div>
                         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{s.nombre}</div>
-                        <div style={{ fontSize: 12, color: T.gray }}>{s.desc || ""}{s.metodo ? ` • ${s.metodo}` : ""}</div>
-                        {ultimoPago && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Último pago: {fmtDate(ultimoPago.fecha)}</div>}
+                        {s.desc && <div style={{ fontSize: 12, color: T.gray }}>{s.desc}</div>}
+                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{cantPagados} mes{cantPagados !== 1 ? "es" : ""} pagado{cantPagados !== 1 ? "s" : ""}</div>
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(parseFloat(s.monto) || 0)}</div>
                       {mesActualPagado
                         ? <div style={{ fontSize: 10, color: T.green, fontWeight: 700 }}>✅ MES ACTUAL</div>
-                        : s.vencimiento && s.vencimiento < today
-                          ? <div style={{ fontSize: 10, color: T.red, fontWeight: 700 }}>⚠️ VENCIDO</div>
-                          : s.vencimiento ? <div style={{ fontSize: 10, color: T.gray }}>Vence: {fmtDate(s.vencimiento)}</div> : null}
+                        : tieneVencidos ? <div style={{ fontSize: 10, color: T.red, fontWeight: 700 }}>⚠️ VENCIDO</div>
+                        : <div style={{ fontSize: 10, color: T.gray }}>›</div>}
                     </div>
                   </div>
                 </div>
@@ -6665,81 +6799,142 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         )}
 
-        {/* ── MODAL NUEVO SERVICIO ── */}
+        {/* ══ MODAL NUEVO SERVICIO ══ */}
         {showServ && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServ(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🔧 Nuevo Servicio</div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Alquiler, Internet" /></div>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🔌 Nuevo Servicio</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Internet, Alquiler" /></div>
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
                 <div><label style={labelStyle}>Monto habitual</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
-                <div><label style={labelStyle}>Método pago</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
+                <div><label style={labelStyle}>Método usual</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
               </div>
-              <div style={{ marginBottom: 14 }}><label style={labelStyle}>Vencimiento mensual</label><input type="date" value={servForm.vencimiento} onChange={e => setServForm(f => ({ ...f, vencimiento: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { if (servForm.nombre && servForm.monto) { setServicios(p => [...p, { ...servForm, id: Date.now(), facturas: [] }]); setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" }); setShowServ(false); }}} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+                <button onClick={() => {
+                  if (!servForm.nombre) return;
+                  setServicios(p => [...p, { ...servForm, id: Date.now(), meses: {} }]);
+                  setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
+                  setShowServ(false);
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── MODAL REGISTRAR PAGO DE SERVICIO ── */}
-        {showPagoServ && selServ && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowPagoServ(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>✅ Registrar Pago</div>
-              <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>{selServ.nombre}</div>
+        {/* ══ MODAL PAGAR FACTURA DEL MES ══ */}
+        {showPagoMes && selServ && selServMes && (() => {
+          const mesKey = `${selServMes.year}-${String(selServMes.month + 1).padStart(2, "0")}`;
+          const esEfectivo = pagoMesForm.metodo === "Efectivo";
+          const esVirtual  = pagoMesForm.metodo === "Transferencia" || pagoMesForm.metodo === "Tarjeta";
 
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Medio de pago *</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {["Efectivo", "Transferencia", "Tarjeta", "Débito automático"].map(m => (
-                    <div key={m} onClick={() => setPagoServForm(f => ({ ...f, metodo: m }))}
-                      style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700,
-                        border: `1.5px solid ${pagoServForm.metodo === m ? T.accent : T.border}`,
-                        background: pagoServForm.metodo === m ? `${T.accent}15` : T.bg,
-                        color: pagoServForm.metodo === m ? T.accent : T.grayLight }}>
-                      {m}
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}
+              onClick={() => setShowPagoMes(false)}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💳 Pagar Factura</div>
+                <div style={{ fontSize: 13, color: T.gray, marginBottom: 18 }}>{selServ.nombre} · {selServMes.label}</div>
+
+                {/* Método de pago */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Método de pago *</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["Efectivo", "Transferencia", "Tarjeta"].map(m => (
+                      <div key={m} onClick={() => setPagoMesForm(f => ({ ...f, metodo: m }))}
+                        style={{ flex: 1, padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                          border: `2px solid ${pagoMesForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.border}`,
+                          background: pagoMesForm.metodo === m ? `${m === "Efectivo" ? T.green : T.accent}15` : T.bg }}>
+                        <div style={{ fontSize: 18 }}>{m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "💳"}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4,
+                          color: pagoMesForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.grayLight }}>{m}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Aviso egreso */}
+                  {esEfectivo && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>
+                      💵 Se registrará como <strong>egreso efectivo</strong> en Caja (descuenta saldo físico)
                     </div>
-                  ))}
+                  )}
+                  {esVirtual && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>
+                      🏦 Se registrará como <strong>egreso virtual</strong> en Caja (banco / no descuenta efectivo)
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                <div>
+                {/* Monto */}
+                <div style={{ marginBottom: 16 }}>
                   <label style={labelStyle}>Monto *</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
-                    <input inputMode="numeric"
-                      value={pagoServForm.monto ? Number(pagoServForm.monto).toLocaleString("es-AR") : ""}
-                      onChange={e => setPagoServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
-                      style={{ ...inputStyle, flex: 1 }} placeholder="0" autoFocus />
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
+                    <input inputMode="numeric" autoFocus
+                      value={pagoMesForm.monto ? Number(pagoMesForm.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => setPagoMesForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                      style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 700 }} placeholder="0" />
                   </div>
                 </div>
-                <div>
+
+                {/* Fecha de pago */}
+                <div style={{ marginBottom: 20 }}>
                   <label style={labelStyle}>Fecha de pago</label>
-                  <input type="date" value={pagoServForm.fecha}
-                    onChange={e => setPagoServForm(f => ({ ...f, fecha: e.target.value }))}
+                  <input type="date" value={pagoMesForm.fecha || new Date().toISOString().split("T")[0]}
+                    onChange={e => setPagoMesForm(f => ({ ...f, fecha: e.target.value }))}
                     style={inputStyle} />
                 </div>
-              </div>
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setShowPagoServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => {
-                  if (!pagoServForm.monto) return;
-                  const nuevoPago = { id: Date.now(), fecha: pagoServForm.fecha, monto: pagoServForm.monto, metodo: pagoServForm.metodo };
-                  const updated = { ...selServ, facturas: [...(selServ.facturas || []), nuevoPago] };
-                  setServicios(prev => prev.map(s => s.id === selServ.id ? updated : s));
-                  setSelServ(updated);
-                  setShowPagoServ(false);
-                }} style={{ ...btnPrimary(T.green), flex: 1, fontWeight: 700 }}>✅ Guardar Pago</button>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowPagoMes(false)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button onClick={() => {
+                    if (!pagoMesForm.metodo || !pagoMesForm.monto) return;
+                    const fechaPago = pagoMesForm.fecha || new Date().toISOString().split("T")[0];
+                    const montoNum  = parseFloat(pagoMesForm.monto) || 0;
+                    const egresoId  = Date.now();
+
+                    // Registrar egreso en CAJA
+                    const esEfec = pagoMesForm.metodo === "Efectivo";
+                    setEgresos(p => [...p, {
+                      id: egresoId,
+                      desc: `${selServ.nombre} — ${selServMes.label}`,
+                      monto: montoNum,
+                      fecha: fechaPago,
+                      categoria: "servicios",
+                      categoriaLabel: "Servicios",
+                      detalle: `FC: ${pagoMesForm.nroFc || "—"}`,
+                      metodoPago: pagoMesForm.metodo,
+                    }]);
+
+                    // Actualizar mes del servicio como PAGADO
+                    const mesData = (selServ.meses || {})[mesKey] || {};
+                    const upd = {
+                      ...selServ,
+                      meses: {
+                        ...(selServ.meses || {}),
+                        [mesKey]: {
+                          ...mesData,
+                          pagado:     true,
+                          pagoMetodo: pagoMesForm.metodo,
+                          pagoFecha:  fechaPago,
+                          pagoMonto:  pagoMesForm.monto,
+                          egresoId,
+                        }
+                      }
+                    };
+                    setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+                    setSelServ(upd);
+                    setShowPagoMes(false);
+                  }} disabled={!pagoMesForm.metodo || !pagoMesForm.monto}
+                    style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: (!pagoMesForm.metodo || !pagoMesForm.monto) ? 0.4 : 1 }}>
+                    ✅ Confirmar Pago
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>)}
 
       {tab === "stats" && (() => {
