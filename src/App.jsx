@@ -4976,6 +4976,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [selFactPago, setSelFactPago] = useState(null);
   const [pagoProvForm, setPagoProvForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
   const [expandedFact, setExpandedFact] = useState(null);
+  const [factsSeleccionadas, setFactsSeleccionadas] = useState(new Set()); // multi-pago
+  const [showConfirmCancelar, setShowConfirmCancelar] = useState(null);    // { factId, pagoIdx }
+  const [showPagoMulti, setShowPagoMulti] = useState(false);               // modal pago múltiple
+  const [pagoMultiForm, setPagoMultiForm] = useState({ metodo: "", fecha: new Date().toISOString().split("T")[0] });
   const [showPagoServ, setShowPagoServ] = useState(false);
   const [pagoServForm, setPagoServForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
   const [selServMes, setSelServMes]     = useState(null);   // { year, month, label } del mes abierto
@@ -6322,70 +6326,155 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
       {/* ══════ PROVEEDORES ══════ */}
       {tab === "proveedores" && (<div>
+        {/* ══ HEADER ══ */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>📦 Proveedores</div>
           {!selProv && <button onClick={() => setShowProv(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Proveedor</button>}
         </div>
 
+        {/* ══ DETALLE PROVEEDOR ══ */}
         {selProv ? (() => {
           const pvFacts = factProv.filter(f => f.provId === String(selProv.id));
-          const pvTotal = pvFacts.reduce((s, f) => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return s + Math.max(0, (f.monto || 0) - pagado); }, 0);
-          const pvPagadas = pvFacts.filter(f => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return pagado >= (f.monto || 0); });
-          const pvPend = pvFacts.filter(f => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return pagado < (f.monto || 0); });
+          const pvTotal = pvFacts.reduce((s, f) => {
+            const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+            return s + Math.max(0, (f.monto || 0) - pagado);
+          }, 0);
+          const pvPagadas = pvFacts.filter(f => {
+            const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+            return pagado >= (f.monto || 0);
+          });
+          const pvPend = pvFacts.filter(f => {
+            const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+            return pagado < (f.monto || 0);
+          });
+
+          // Facturas seleccionadas para pago múltiple (solo pendientes)
+          const factsSelPend = pvPend.filter(f => factsSeleccionadas.has(f.id));
+          const totalMulti = factsSelPend.reduce((s, f) => {
+            const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+            return s + Math.max(0, (f.monto || 0) - pagado);
+          }, 0);
+
           return (
             <div>
-              <button onClick={() => setSelProv(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a proveedores</button>
+              {/* Volver + header */}
+              <button onClick={() => { setSelProv(null); setFactsSeleccionadas(new Set()); }}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
+
               <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selProv.nombre}</div>
-                <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{selProv.rubro || "Sin rubro"} • Pago a {selProv.diasPago || 30} días</div>
-                {selProv.cuit && <div style={{ fontSize: 12, color: T.gray }}>CUIT: {selProv.cuit}</div>}
-                {selProv.tel && <div style={{ fontSize: 12, color: T.gray }}>Tel: {selProv.tel}</div>}
-                <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-                  <div style={{ padding: "8px 16px", borderRadius: 8, background: `${T.red}10`, border: `1px solid ${T.red}30` }}><span style={{ fontSize: 11, color: T.gray }}>Pendiente</span><div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.red }}>{fmt(pvTotal)}</div></div>
-                  <div style={{ padding: "8px 16px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30` }}><span style={{ fontSize: 11, color: T.gray }}>Pagadas</span><div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{pvPagadas.length}</div></div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selProv.nombre}</div>
+                    <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{selProv.rubro || "Sin rubro"} • Pago a {selProv.diasPago || 30} días</div>
+                    {selProv.cuit && <div style={{ fontSize: 12, color: T.gray }}>CUIT: {selProv.cuit}</div>}
+                    {selProv.tel && <div style={{ fontSize: 12, color: T.gray }}>Tel: {selProv.tel}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ padding: "8px 16px", borderRadius: 8, background: `${T.red}10`, border: `1px solid ${T.red}30`, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: T.gray }}>Pendiente</div>
+                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.red }}>{fmt(pvTotal)}</div>
+                    </div>
+                    <div style={{ padding: "8px 16px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: T.gray }}>Pagadas</div>
+                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{pvPagadas.length}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button onClick={() => setShowFactProv(true)} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginBottom: 16 }}>+ Cargar Factura</button>
+
+              {/* Barra de pago múltiple */}
+              {factsSeleccionadas.size > 0 && (
+                <div style={{ ...card, padding: "14px 16px", marginBottom: 12, borderColor: T.accent, background: `${T.accent}08`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>
+                      {factsSeleccionadas.size} factura{factsSeleccionadas.size !== 1 ? "s" : ""} seleccionada{factsSeleccionadas.size !== 1 ? "s" : ""}
+                    </div>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.white }}>Total: {fmt(totalMulti)}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setFactsSeleccionadas(new Set())}
+                      style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "8px 14px" }}>Limpiar</button>
+                    <button onClick={() => { setPagoMultiForm({ metodo: "", fecha: today }); setShowPagoMulti(true); }}
+                      style={{ ...btnPrimary(T.green), fontSize: 13, padding: "8px 16px", fontWeight: 800 }}>
+                      💳 Pagar {factsSeleccionadas.size} FC
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button onClick={() => setShowFactProv(true)}
+                style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", marginBottom: 16 }}>+ Cargar Factura</button>
+
               {pvFacts.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin facturas cargadas</div>}
+
               {pvFacts.sort((a, b) => (b.fechaEmision || "").localeCompare(a.fechaEmision || "")).map(f => {
-                const pagado = (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
-                const pendiente = Math.max(0, (f.monto || 0) - pagado);
-                const isPagada = pendiente <= 0;
-                const isVencida = !isPagada && f.fechaVenc && f.fechaVenc < today;
+                const pagado     = (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                const pendiente  = Math.max(0, (f.monto || 0) - pagado);
+                const isPagada   = pendiente <= 0;
+                const isVencida  = !isPagada && f.fechaVenc && f.fechaVenc < today;
+                const isSel      = factsSeleccionadas.has(f.id);
                 const borderColor = isPagada ? T.green : isVencida ? T.red : T.orange;
                 const isExpanded = expandedFact === f.id;
+
                 return (
-                  <div key={f.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `3px solid ${borderColor}`, overflow: "hidden" }}>
-                    {/* Header de factura */}
+                  <div key={f.id} style={{ ...card, padding: 0, marginBottom: 10, overflow: "hidden",
+                    borderLeft: `4px solid ${isSel ? T.accent : borderColor}`,
+                    boxShadow: isSel ? `0 0 0 1.5px ${T.accent}60` : undefined }}>
+
                     <div style={{ padding: "14px 16px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            {/* Checkbox selección múltiple — solo facturas pendientes */}
+                            {!isPagada && (
+                              <div onClick={() => setFactsSeleccionadas(prev => {
+                                  const next = new Set(prev);
+                                  next.has(f.id) ? next.delete(f.id) : next.add(f.id);
+                                  return next;
+                                })}
+                                style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${isSel ? T.accent : T.border}`,
+                                  background: isSel ? T.accent : "transparent", display: "flex", alignItems: "center",
+                                  justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                                {isSel && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                              </div>
+                            )}
                             <div style={{ fontSize: 14, fontWeight: 700 }}>FC #{f.nroFactura}</div>
                             {isVencida && <span style={{ fontSize: 10, fontWeight: 700, color: T.red, background: `${T.red}15`, padding: "2px 7px", borderRadius: 4 }}>⚠️ VENCIDA</span>}
+                            {isPagada && <span style={{ fontSize: 10, fontWeight: 700, color: T.green, background: `${T.green}15`, padding: "2px 7px", borderRadius: 4 }}>✅ PAGADA</span>}
                           </div>
-                          <div style={{ fontSize: 11, color: T.gray, marginTop: 3 }}>Emisión: {fmtDate(f.fechaEmision)} {f.fechaVenc ? `• Venc: ${fmtDate(f.fechaVenc)}` : ""}</div>
-                          {/* Barra de progreso de pago */}
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 3 }}>
+                            Emisión: {fmtDate(f.fechaEmision)}{f.fechaVenc ? ` • Venc: ${fmtDate(f.fechaVenc)}` : ""}
+                          </div>
+                          {f.desc && <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2, fontStyle: "italic" }}>{f.desc}</div>}
                           {(f.pagos || []).length > 0 && (
                             <div style={{ marginTop: 8 }}>
                               <div style={{ height: 5, borderRadius: 3, background: T.bg, overflow: "hidden" }}>
-                                <div style={{ height: "100%", borderRadius: 3, background: isPagada ? T.green : T.accent, width: `${Math.min(100, (pagado / f.monto) * 100)}%`, transition: "width .4s ease" }} />
+                                <div style={{ height: "100%", borderRadius: 3, background: isPagada ? T.green : T.accent,
+                                  width: `${Math.min(100, (pagado / f.monto) * 100)}%`, transition: "width .4s ease" }} />
                               </div>
                               <div style={{ fontSize: 10, color: T.gray, marginTop: 3 }}>{Math.round((pagado / f.monto) * 100)}% abonado</div>
                             </div>
                           )}
                         </div>
+
                         <div style={{ textAlign: "right", marginLeft: 12 }}>
                           <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.grayLight, textDecoration: "line-through" }}>{fmt(f.monto)}</div>
-                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isPagada ? T.green : T.orange }}>{isPagada ? "✅ PAGADA" : fmt(pendiente)}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isPagada ? T.green : T.orange }}>
+                            {isPagada ? fmt(pagado) : fmt(pendiente)}
+                          </div>
                           {!isPagada && <div style={{ fontSize: 10, color: T.gray }}>pendiente</div>}
                         </div>
                       </div>
-                      {/* Botones */}
+
+                      {/* Botones acción */}
                       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                         {!isPagada && (
-                          <button onClick={() => { setSelFactPago(f); setPagoProvForm({ fecha: today, monto: String(pendiente), metodo: "Transferencia" }); setShowPagoProv(true); }}
-                            style={{ ...btnPrimary(T.accent), fontSize: 12, flex: 1, padding: "9px 0" }}>💳 Registrar Pago</button>
+                          <button onClick={() => {
+                            setFactsSeleccionadas(new Set([f.id]));
+                            setPagoMultiForm({ metodo: "", fecha: today });
+                            setShowPagoMulti(true);
+                          }} style={{ ...btnPrimary(T.accent), fontSize: 12, flex: 1, padding: "9px 0" }}>💳 Pagar</button>
                         )}
                         {(f.pagos || []).length > 0 && (
                           <button onClick={() => setExpandedFact(isExpanded ? null : f.id)}
@@ -6395,19 +6484,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         )}
                       </div>
                     </div>
+
                     {/* Historial de pagos expandible */}
                     {isExpanded && (f.pagos || []).length > 0 && (
                       <div style={{ borderTop: `1px solid ${T.border}`, padding: "12px 16px", background: T.bg }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, textTransform: "uppercase", letterSpacing: .5 }}>Historial de pagos</div>
                         {(f.pagos || []).map((pg, pi) => (
-                          <div key={pi} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: pi < f.pagos.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                          <div key={pi} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                            padding: "7px 0", borderBottom: pi < f.pagos.length - 1 ? `1px solid ${T.border}` : "none" }}>
                             <div>
                               <div style={{ fontSize: 13, fontWeight: 600 }}>{pg.metodo}</div>
                               <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(pg.fecha)}</div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                               <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.green }}>{fmt(parseFloat(pg.monto))}</div>
-                              <div onClick={() => setFactProv(prev => prev.map(x => x.id === f.id ? { ...x, pagos: x.pagos.filter((_, idx) => idx !== pi) } : x))}
+                              {/* Botón cancelar pago con confirmación */}
+                              <div onClick={() => setShowConfirmCancelar({ factId: f.id, pagoIdx: pi })}
                                 style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 7px", borderRadius: 4, border: `1px solid ${T.red}30` }}>✕</div>
                             </div>
                           </div>
@@ -6424,14 +6516,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             </div>
           );
         })() : (
+          /* ══ LISTA DE PROVEEDORES ══ */
           <div>
             {proveedores.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin proveedores. Tocá "Nuevo Proveedor" para agregar.</div>}
             {proveedores.map(pv => {
               const pvFacts = factProv.filter(f => f.provId === String(pv.id));
-              const pvTotal = pvFacts.reduce((s, f) => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return s + Math.max(0, (f.monto || 0) - pagado); }, 0);
-              const vencidas = pvFacts.filter(f => { const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0); return pagado < (f.monto || 0) && f.fechaVenc && f.fechaVenc < today; }).length;
+              const pvTotal = pvFacts.reduce((s, f) => {
+                const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+                return s + Math.max(0, (f.monto || 0) - pagado);
+              }, 0);
+              const vencidas = pvFacts.filter(f => {
+                const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+                return pagado < (f.monto || 0) && f.fechaVenc && f.fechaVenc < today;
+              }).length;
               return (
-                <div key={pv.id} onClick={() => setSelProv(pv)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
+                <div key={pv.id} onClick={() => { setSelProv(pv); setFactsSeleccionadas(new Set()); }}
+                  style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ fontSize: 28 }}>📦</div>
@@ -6452,6 +6552,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         )}
 
+        {/* ══ MODAL NUEVO PROVEEDOR ══ */}
         {showProv && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowProv(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
@@ -6467,98 +6568,212 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowProv(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { if (provForm.nombre) { setProveedores(p => [...p, { ...provForm, id: Date.now() }]); setProvForm({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" }); setShowProv(false); }}} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+                <button onClick={() => {
+                  if (provForm.nombre) {
+                    setProveedores(p => [...p, { ...provForm, id: Date.now() }]);
+                    setProvForm({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
+                    setShowProv(false);
+                  }
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
               </div>
             </div>
           </div>
         )}
 
+        {/* ══ MODAL NUEVA FACTURA ══ */}
         {showFactProv && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowFactProv(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🧾 Nueva Factura — {selProv?.nombre}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 <div><label style={labelStyle}>N° Factura *</label><input value={factProvForm.nroFactura} onChange={e => setFactProvForm(f => ({ ...f, nroFactura: e.target.value }))} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={factProvForm.monto} onChange={e => setFactProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
+                <div><label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={factProvForm.monto} onChange={e => setFactProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                  </div>
+                </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={factProvForm.fechaEmision} onChange={e => setFactProvForm(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
                 <div><label style={labelStyle}>Fecha vencimiento</label><input type="date" value={factProvForm.fechaVenc || ""} onChange={e => setFactProvForm(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} /></div>
               </div>
+              {/* Campo descripción — opcional */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Descripción <span style={{ color: T.gray, fontWeight: 400, fontSize: 10 }}>(opcional)</span></label>
+                <input value={factProvForm.desc || ""} onChange={e => setFactProvForm(f => ({ ...f, desc: e.target.value }))}
+                  style={inputStyle} placeholder="Ej: Repuestos motor, frenos..." />
+              </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowFactProv(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { if (factProvForm.nroFactura && factProvForm.monto && selProv) { setFactProv(p => [...p, { ...factProvForm, id: Date.now(), provId: String(selProv.id), monto: parseFloat(factProvForm.monto) || 0, estado: "pendiente", pagos: [] }]); setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente" }); setShowFactProv(false); }}} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
+                <button onClick={() => {
+                  if (factProvForm.nroFactura && factProvForm.monto && selProv) {
+                    setFactProv(p => [...p, {
+                      ...factProvForm,
+                      id: Date.now(),
+                      provId: String(selProv.id),
+                      monto: parseFloat(factProvForm.monto) || 0,
+                      estado: "pendiente",
+                      pagos: []
+                    }]);
+                    setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente", desc: "" });
+                    setShowFactProv(false);
+                  }
+                }} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── MODAL REGISTRAR PAGO PARCIAL ── */}
-        {showPagoProv && selFactPago && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowPagoProv(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💳 Registrar Pago</div>
-              <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>FC #{selFactPago.nroFactura} — {proveedores.find(p => String(p.id) === selFactPago.provId)?.nombre || "—"}</div>
+        {/* ══ MODAL PAGAR (individual o múltiple) ══ */}
+        {showPagoMulti && selProv && (() => {
+          const facsPagar = factProv.filter(f => factsSeleccionadas.has(f.id));
+          const totalAPagar = facsPagar.reduce((s, f) => {
+            const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+            return s + Math.max(0, (f.monto || 0) - pagado);
+          }, 0);
+          const esMulti = facsPagar.length > 1;
+          const esEfectivo = pagoMultiForm.metodo === "Efectivo";
+          const esVirtual  = pagoMultiForm.metodo === "Transferencia" || pagoMultiForm.metodo === "Tarjeta";
 
-              {/* Resumen de la factura */}
-              <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                  <span style={{ color: T.gray }}>Monto original</span>
-                  <span style={{ fontWeight: 700 }}>{fmt(selFactPago.monto)}</span>
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}
+              onClick={() => { setShowPagoMulti(false); }}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 440, width: "92%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💳 Registrar Pago</div>
+                <div style={{ fontSize: 13, color: T.gray, marginBottom: 14 }}>
+                  {selProv.nombre} · {esMulti ? `${facsPagar.length} facturas` : `FC #${facsPagar[0]?.nroFactura}`}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                  <span style={{ color: T.gray }}>Ya abonado</span>
-                  <span style={{ fontWeight: 700, color: T.green }}>{fmt((selFactPago.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0))}</span>
-                </div>
-                <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 800 }}>
-                  <span>Saldo pendiente</span>
-                  <span style={{ color: T.orange, fontFamily: fontD }}>{fmt(Math.max(0, selFactPago.monto - (selFactPago.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)))}</span>
-                </div>
-              </div>
 
-              <div style={{ marginBottom: 12 }}>
-                <label style={labelStyle}>Medio de pago *</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {["Efectivo", "Transferencia", "Tarjeta", "Cheque"].map(m => (
-                    <div key={m} onClick={() => setPagoProvForm(f => ({ ...f, metodo: m }))}
-                      style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, border: `1.5px solid ${pagoProvForm.metodo === m ? T.accent : T.border}`, background: pagoProvForm.metodo === m ? `${T.accent}15` : T.bg, color: pagoProvForm.metodo === m ? T.accent : T.grayLight }}>
-                      {m}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div>
-                  <label style={labelStyle}>Monto *</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
-                    <input inputMode="numeric" value={pagoProvForm.monto ? Number(pagoProvForm.monto).toLocaleString("es-AR") : ""}
-                      onChange={e => setPagoProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
-                      style={{ ...inputStyle, flex: 1 }} placeholder="0" autoFocus />
+                {/* Resumen facturas */}
+                <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
+                  {facsPagar.map(f => {
+                    const pg = (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                    const pend = Math.max(0, (f.monto || 0) - pg);
+                    return (
+                      <div key={f.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderBottom: `1px solid ${T.border}22` }}>
+                        <span style={{ color: T.grayLight }}>FC #{f.nroFactura}{f.desc ? ` — ${f.desc}` : ""}</span>
+                        <span style={{ fontWeight: 700, color: T.orange }}>{fmt(pend)}</span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `1px solid ${T.border}` }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>Total a pagar</span>
+                    <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(totalAPagar)}</span>
                   </div>
                 </div>
-                <div>
+
+                {/* Método de pago */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Método de pago *</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["Efectivo", "Transferencia", "Tarjeta"].map(m => (
+                      <div key={m} onClick={() => setPagoMultiForm(f => ({ ...f, metodo: m }))}
+                        style={{ flex: 1, padding: "12px 6px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                          border: `2px solid ${pagoMultiForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.border}`,
+                          background: pagoMultiForm.metodo === m ? `${m === "Efectivo" ? T.green : T.accent}15` : T.bg }}>
+                        <div style={{ fontSize: 20 }}>{m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "💳"}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4,
+                          color: pagoMultiForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.grayLight }}>{m}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {esEfectivo && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>💵 Se registrará como <strong>egreso efectivo</strong> en Caja</div>}
+                  {esVirtual  && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>🏦 Se registrará como <strong>egreso virtual</strong> en Caja (banco)</div>}
+                </div>
+
+                {/* Fecha */}
+                <div style={{ marginBottom: 20 }}>
                   <label style={labelStyle}>Fecha de pago</label>
-                  <input type="date" value={pagoProvForm.fecha} onChange={e => setPagoProvForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+                  <input type="date" value={pagoMultiForm.fecha}
+                    onChange={e => setPagoMultiForm(f => ({ ...f, fecha: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => { setShowPagoMulti(false); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button disabled={!pagoMultiForm.metodo}
+                    onClick={() => {
+                      if (!pagoMultiForm.metodo) return;
+                      const egresoId = Date.now();
+                      const descEgreso = esMulti
+                        ? `${selProv.nombre} — Pago de ${facsPagar.length} facturas (${facsPagar.map(f => `FC #${f.nroFactura}`).join(", ")})`
+                        : `${selProv.nombre} — FC #${facsPagar[0]?.nroFactura}${facsPagar[0]?.desc ? ` — ${facsPagar[0].desc}` : ""}`;
+
+                      // Registrar egreso en CAJA
+                      setEgresos(p => [...p, {
+                        id: egresoId,
+                        desc: descEgreso,
+                        monto: totalAPagar,
+                        fecha: pagoMultiForm.fecha,
+                        categoria: "proveedores",
+                        categoriaLabel: "Proveedores",
+                        metodoPago: pagoMultiForm.metodo,
+                      }]);
+
+                      // Marcar cada factura como pagada
+                      setFactProv(prev => prev.map(x => {
+                        if (!factsSeleccionadas.has(x.id)) return x;
+                        const pg = (x.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                        const pend = Math.max(0, (x.monto || 0) - pg);
+                        return { ...x, pagos: [...(x.pagos || []), { fecha: pagoMultiForm.fecha, monto: String(pend), metodo: pagoMultiForm.metodo, egresoId }] };
+                      }));
+
+                      setFactsSeleccionadas(new Set());
+                      setShowPagoMulti(false);
+                    }}
+                    style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: !pagoMultiForm.metodo ? 0.4 : 1 }}>
+                    ✅ Confirmar Pago — {fmt(totalAPagar)}
+                  </button>
                 </div>
               </div>
+            </div>
+          );
+        })()}
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => { setShowPagoProv(false); setSelFactPago(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => {
-                  if (!pagoProvForm.monto || !pagoProvForm.metodo) return;
-                  const nuevoPago = { fecha: pagoProvForm.fecha, monto: pagoProvForm.monto, metodo: pagoProvForm.metodo };
-                  setFactProv(prev => prev.map(x => x.id === selFactPago.id ? { ...x, pagos: [...(x.pagos || []), nuevoPago] } : x));
-                  setShowPagoProv(false);
-                  setSelFactPago(null);
-                  setExpandedFact(selFactPago.id);
-                }} style={{ ...btnPrimary(T.green), flex: 1, fontWeight: 700 }}>✅ Guardar Pago</button>
+        {/* ══ POPUP CONFIRMAR CANCELAR PAGO ══ */}
+        {showConfirmCancelar && (() => {
+          const factTarget = factProv.find(f => f.id === showConfirmCancelar.factId);
+          const pagoTarget = factTarget?.pagos?.[showConfirmCancelar.pagoIdx];
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(6px)" }}
+              onClick={() => setShowConfirmCancelar(null)}>
+              <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 360, width: "88%", border: `1px solid ${T.red}40`, textAlign: "center" }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Cancelar este pago</div>
+                <div style={{ fontSize: 13, color: T.gray, marginBottom: 6 }}>
+                  FC #{factTarget?.nroFactura}
+                </div>
+                <div style={{ fontSize: 14, color: T.grayLight, marginBottom: 20 }}>
+                  {pagoTarget?.metodo} · {fmtDate(pagoTarget?.fecha)} · <strong style={{ color: T.orange }}>{fmt(parseFloat(pagoTarget?.monto))}</strong>
+                </div>
+                <div style={{ fontSize: 12, color: T.gray, marginBottom: 20 }}>
+                  La factura volverá a quedar como pendiente de pago.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowConfirmCancelar(null)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>No, volver</button>
+                  <button onClick={() => {
+                    // Quitar el pago del historial
+                    setFactProv(prev => prev.map(x => x.id === showConfirmCancelar.factId
+                      ? { ...x, pagos: x.pagos.filter((_, idx) => idx !== showConfirmCancelar.pagoIdx) }
+                      : x
+                    ));
+                    // Si ese pago tenía egresoId → también borrarlo de caja
+                    if (pagoTarget?.egresoId) {
+                      setEgresos(p => p.filter(e => e.id !== pagoTarget.egresoId));
+                    }
+                    setShowConfirmCancelar(null);
+                  }} style={{ ...btnPrimary(T.red), flex: 1, fontWeight: 800 }}>
+                    Sí, cancelar pago
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>)}
 
       {tab === "servicios" && (<div>
