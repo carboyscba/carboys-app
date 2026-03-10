@@ -4852,7 +4852,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const tarjIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const transfIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const ctaCteIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
-  const saldoCaja = efIngresado - totalEgr;
+  const saldoCajaCalculado = efIngresado - totalEgr;
+  // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
+  const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
+  const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado - totalEgr) : saldoCajaCalculado;
   // Cierre semanal: detectar si se debe pedir cierre
   const todayDate = new Date(); 
   const diaSemana = todayDate.getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
@@ -5349,8 +5352,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     };
                     const confirmarCobro = () => {
                       if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
-                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: cobroPay.map(pp => ({ ...pp, amount: parseFloat(pp.amount) || 0 })) } : o2));
-                      setSelCobro(prev => ({ ...prev, cobrado: true }));
+                      // Calcular monto real del primer pago en caso multi-pago
+                      const otrosTotalFinal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                      const finalPays = cobroPay.map((pp, idx) => {
+                        let amt = parseFloat(pp.amount) || 0;
+                        if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, total - otrosTotalFinal);
+                        return { ...pp, amount: amt };
+                      });
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays }));
                       setHoldProgress(0);
                     };
                     return (
@@ -5424,12 +5434,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 return (
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
-                      // Si ya tiene pagos registrados, usarlos; si no, usar paymentPref de la orden
-                      const initPay = (o.payments && o.payments.length > 0 && o.payments[0].method)
-                        ? o.payments.map(p => ({ ...p }))
-                        : o.paymentPref
-                          ? [{ method: o.paymentPref.method || "", amount: "", account: o.paymentPref.account || "1", withIva: o.paymentPref.withIva ?? null, invoiceType: o.paymentPref.invoiceType || "" }]
-                          : [{ method: "", amount: "", account: "1", withIva: null, invoiceType: "" }];
+                      // Si ya tiene pagos registrados CON monto, usarlos;
+                      // si no, usar paymentPref de la orden
+                      const _oTotal = (o.works || []).reduce((s, w) => s + (w.price || 0), 0);
+                      const _ivaRate = config?.ivaRate || 21;
+                      const _hasPays = o.payments && o.payments.length > 0 && o.payments[0].method && (o.payments[0].amount > 0);
+                      let initPay;
+                      if (_hasPays) {
+                        initPay = o.payments.map(p => ({ ...p }));
+                      } else if (o.paymentPref) {
+                        // Pre-poblar monto según withIva del pref
+                        const _withIva = o.paymentPref.withIva ?? false;
+                        const _autoAmt = _withIva ? String(Math.round(_oTotal * (1 + _ivaRate / 100))) : String(_oTotal);
+                        initPay = [{ method: o.paymentPref.method || "", amount: _autoAmt, account: o.paymentPref.account || "1", withIva: _withIva, invoiceType: o.paymentPref.invoiceType || "" }];
+                      } else {
+                        initPay = [{ method: "", amount: "", account: "1", withIva: null, invoiceType: "" }];
+                      }
                       setCobroPay(initPay);
                       const _cl = clients.find(c => c.id === o.clientId);
                       setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null);
@@ -5755,14 +5775,39 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         {cierres.length > 0 && (
           <div style={{ ...card, padding: 16 }}>
             <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📜 Historial de cierres</div>
-            {cierres.slice(-5).reverse().map((c, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
-                <span style={{ fontWeight: 600 }}>{c.fecha}</span>
-                <span style={{ color: T.gray }}>Sistema: {fmt(c.saldoSistema)}</span>
-                <span style={{ color: T.gray }}>Real: {fmt(c.saldoReal)}</span>
-                <span style={{ fontWeight: 700, color: c.diferencia >= 0 ? T.green : T.red }}>Dif: {fmt(c.diferencia)}</span>
-              </div>
-            ))}
+            {cierres.slice(-10).reverse().map((c, i) => {
+              const dif = c.diferencia || 0;
+              const difColor = Math.abs(dif) < 100 ? T.green : dif > 0 ? T.accent : T.red;
+              const difLabel = Math.abs(dif) < 100 ? "✅ Sin diferencia" : dif > 0 ? `▲ Sobrante: ${fmt(Math.abs(dif))}` : `▼ Faltante: ${fmt(Math.abs(dif))}`;
+              return (
+                <div key={i} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}` }}>
+                  {/* Fila principal */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>📋 {c.fecha}</span>
+                    <span style={{ fontWeight: 800, fontSize: 14, color: difColor, fontFamily: fontD }}>{difLabel}</span>
+                  </div>
+                  {/* Detalle */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
+                    <div style={{ color: T.gray }}>Sistema: <span style={{ fontWeight: 700, color: T.grayLight }}>{fmt(c.saldoSistema)}</span></div>
+                    <div style={{ color: T.gray }}>Contado: <span style={{ fontWeight: 700, color: T.white }}>{fmt(c.saldoReal)}</span></div>
+                    <div style={{ color: difColor, fontWeight: 700 }}>
+                      {dif > 0 ? "+" : ""}{fmt(dif)}
+                    </div>
+                  </div>
+                  {/* Desglose si existe */}
+                  {c.desglose && (
+                    <div style={{ marginTop: 6, padding: "6px 10px", borderRadius: 8, background: T.bg, fontSize: 11, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {c.desglose.efectivo > 0 && <span style={{ color: T.green }}>💵 {fmt(c.desglose.efectivo)}</span>}
+                      {c.desglose.tarjeta > 0 && <span style={{ color: "#9C27B0" }}>💳 {fmt(c.desglose.tarjeta)}</span>}
+                      {c.desglose.transferencia > 0 && <span style={{ color: T.accent }}>🔁 {fmt(c.desglose.transferencia)}</span>}
+                      {c.desglose.ctaCte > 0 && <span style={{ color: T.orange }}>📒 {fmt(c.desglose.ctaCte)}</span>}
+                      {c.desglose.egresosEf > 0 && <span style={{ color: T.red }}>🏧 -{fmt(c.desglose.egresosEf)}</span>}
+                      {c.desglose.egresosVirt > 0 && <span style={{ color: "#FF6B6B" }}>💸 -{fmt(c.desglose.egresosVirt)}</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -11656,7 +11701,26 @@ export default function App() {
     unsubOrders = onSnapshot('orders', snap => {
       const docs = snap.docs.map(d => d.data());
       // Si Firestore está vacío → usar datos de prueba
-      _setOrders(docs.length > 0 ? docs.sort((a, b) => (b.id || 0) - (a.id || 0)) : INITIAL_ORDERS);
+      if (docs.length === 0) {
+        _setOrders(INITIAL_ORDERS);
+      } else {
+        // Merge inteligente: preservar campos locales más recientes
+        // Evita race condition donde poll llega antes que fsSave termine
+        _setOrders(prev => {
+          const prevMap = Object.fromEntries(prev.map(o => [String(o.id), o]));
+          return docs
+            .map(fsDoc => {
+              const local = prevMap[String(fsDoc.id)];
+              if (!local) return fsDoc;
+              // Si local tiene cobrado:true pero Firestore no → preservar local
+              // (fsSave todavía no terminó — race condition)
+              const cobrado = local.cobrado || fsDoc.cobrado || false;
+              const payments = (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments;
+              return { ...fsDoc, cobrado, payments };
+            })
+            .sort((a, b) => (b.id || 0) - (a.id || 0));
+        });
+      }
       if (!ordersReady) { ordersReady = true; checkReady(); }
     }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
 
