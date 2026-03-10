@@ -1342,6 +1342,7 @@ const NewOrderScreen = (props) => {
         withIva: p0pref.withIva ?? false,
         account: p0pref.account || "1",
         invoiceType: getInvoiceType(p0pref),
+        amount: parseFloat(p0pref.amount) || 0,
       },
     };
     setLastCreatedOrderId(newId);
@@ -5510,9 +5511,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         // Ya cobrado: mostrar los pagos tal cual
                         initPay = _pays.map(p => ({ ...p }));
                       } else if (_pref?.method) {
-                        // Tiene preferencia guardada: pre-cargar con monto calculado
+                        // Tiene preferencia guardada: usar monto exacto si lo tiene,
+                        // sino calcular desde works
                         const _withIva = _pref.withIva ?? false;
-                        const _autoAmt = _withIva ? String(Math.round(_oTotal * (1 + _ivaRate / 100))) : String(_oTotal);
+                        const _savedAmt = _pref.amount && _pref.amount > 0 ? _pref.amount : null;
+                        const _autoAmt = _savedAmt
+                          ? String(_savedAmt)
+                          : (_withIva ? String(Math.round(_oTotal * (1 + _ivaRate / 100))) : String(_oTotal));
                         initPay = [{ method: _pref.method, amount: _autoAmt, account: _pref.account || "1", withIva: _withIva, invoiceType: _pref.invoiceType || "" }];
                       } else if (_pays.length > 0 && _pays[0].method) {
                         // Tiene pagos editados con método pero sin cobrar
@@ -11770,9 +11775,18 @@ export default function App() {
 
     unsubOrders = onSnapshot('orders', snap => {
       const docs = snap.docs.map(d => d.data());
-      // Si Firestore está vacío → usar datos de prueba
+      // Si Firestore está vacío Y es la primera carga → usar datos de prueba
+      // NUNCA reemplazar con INITIAL_ORDERS después de que ya cargó (evita borrar órdenes reales)
       if (docs.length === 0) {
-        _setOrders(INITIAL_ORDERS);
+        // Primera carga y Firestore vacío → usar seed data de prueba
+        if (!ordersReady) {
+          _setOrders(INITIAL_ORDERS);
+          ordersReady = true;
+          checkReady();
+        }
+        // Si ya cargó y llega vacío → error de red o auth expirado → IGNORAR
+        // No tocar el estado actual para no borrar órdenes reales
+        return;
       } else {
         // Merge inteligente: preservar campos locales más recientes
         // Evita race condition donde poll llega antes que fsSave termine
@@ -11785,11 +11799,21 @@ export default function App() {
             const local = prevMap[String(fsDoc.id)];
             if (!local) return fsDoc;
             // Preservar cobrado/payments si local es más reciente
-            const cobrado = local.cobrado || fsDoc.cobrado || false;
-            const payments = (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments;
-            // Preservar paymentPref local si Firestore no lo tiene aún
+            // CRÍTICO: preservar todos los campos que pueden tener race condition
+            // (fsSave tarda ms en llegar a Firestore, polling puede llegar antes)
+            const cobrado     = local.cobrado     || fsDoc.cobrado     || false;
+            const payments    = (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments;
             const paymentPref = local.paymentPref || fsDoc.paymentPref || undefined;
-            return { ...fsDoc, cobrado, payments, ...(paymentPref ? { paymentPref } : {}) };
+            const factura     = local.factura     || fsDoc.factura     || undefined;
+            const ticket      = local.ticket      || fsDoc.ticket      || undefined;
+            return {
+              ...fsDoc,
+              cobrado,
+              payments,
+              ...(paymentPref ? { paymentPref } : {}),
+              ...(factura     ? { factura }     : {}),
+              ...(ticket      ? { ticket }      : {}),
+            };
           });
 
           // 2. CRÍTICO: incluir órdenes locales que Firestore aún no confirmó
