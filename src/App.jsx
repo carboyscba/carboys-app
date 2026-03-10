@@ -4942,6 +4942,61 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
   const [igGastos, _setIgGastos] = useState([]);
+
+  // ── Setters con persistencia automática (Firebase + IDB) ──
+  // Cada cambio se guarda inmediatamente en IDB y se sincroniza con Firestore
+  const _adminSave = (idbStore, fsCol, raw_setter) => (updater) => {
+    raw_setter(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const prevMap = Object.fromEntries(prev.map(x => [String(x.id), x]));
+      next.forEach(x => {
+        const key = String(x.id);
+        if (JSON.stringify(x) !== JSON.stringify(prevMap[key])) {
+          idbSave(idbStore, key, x, false).catch(console.error);
+          fsSave(fsCol, key, x).catch(e => console.error('[FS]', fsCol, e.message));
+        }
+      });
+      const nextIds = new Set(next.map(x => String(x.id)));
+      prev.forEach(x => {
+        if (!nextIds.has(String(x.id))) {
+          idbDel(idbStore, String(x.id)).catch(console.error);
+          fsDel(fsCol, x.id).catch(console.error);
+        }
+      });
+      return next;
+    });
+  };
+  const setEgresos     = _adminSave('adm_egresos',     'adm_egresos',     _setEgresos);
+  const setProveedores = _adminSave('adm_proveedores', 'adm_proveedores', _setProveedores);
+  const setFactProv    = _adminSave('adm_factprov',    'adm_factprov',    _setFactProv);
+  const setServicios   = _adminSave('adm_servicios',   'adm_servicios',   _setServicios);
+  const setIgGastos    = _adminSave('adm_igastos',     'adm_igastos',     _setIgGastos);
+  const setCierres     = _adminSave('adm_cierres',     'adm_cierres',     _setCierres);
+
+  // ── Carga inicial de datos de administración ──
+  useEffect(() => {
+    const loadCol = async (fsCol, idbStore, rawSetter) => {
+      try {
+        const local = await idbGetAll(idbStore);
+        if (local.length > 0) {
+          rawSetter(local.map(x => { const { _idbKey, _synced, ...r } = x; return r; }));
+        }
+      } catch(_) {}
+      try {
+        const docs = await fsGetCol(fsCol);
+        if (docs.length > 0) {
+          rawSetter(docs);
+          docs.forEach(d => idbSave(idbStore, String(d.id), d, true).catch(console.error));
+        }
+      } catch(e) { console.warn('[ADM]', fsCol, e.message); }
+    };
+    loadCol('adm_egresos',     'adm_egresos',     _setEgresos);
+    loadCol('adm_proveedores', 'adm_proveedores', _setProveedores);
+    loadCol('adm_factprov',    'adm_factprov',    _setFactProv);
+    loadCol('adm_servicios',   'adm_servicios',   _setServicios);
+    loadCol('adm_igastos',     'adm_igastos',     _setIgGastos);
+    loadCol('adm_cierres',     'adm_cierres',     _setCierres);
+  }, []);
   const [showIgGasto, setShowIgGasto] = useState(false);
   const [selIgnacio, setSelIgnacio] = useState(null);
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
@@ -12962,46 +13017,7 @@ export default function App() {
     });
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────
-  // ADMINISTRACIÓN — persistencia Firebase + IDB (offline-first)
-  // Colecciones Firestore: "adm_egresos", "adm_proveedores", etc.
-  // Cada ítem DEBE tener campo "id" único (Date.now() o similar)
-  // ─────────────────────────────────────────────────────────────────
-  const makeAdminSetter = useCallback((idbStore, fsCol, _setter) => {
-    return (updater) => {
-      _setter(prev => {
-        const next = typeof updater === 'function' ? updater(prev) : updater;
-        if (!isLoadingRef.current) {
-          const prevMap = Object.fromEntries(prev.map(x => [String(x.id), x]));
-          // Upsert nuevos/modificados
-          next.forEach(x => {
-            const key = String(x.id);
-            if (JSON.stringify(x) !== JSON.stringify(prevMap[key])) {
-              idbSave(idbStore, key, x, false).catch(console.error);
-              fsSave(fsCol, key, x).catch(e => console.error(`[FS] ${fsCol} save:`, e));
-            }
-          });
-          // Borrados (eliminación manual explícita)
-          const nextIds = new Set(next.map(x => String(x.id)));
-          prev.forEach(x => {
-            if (!nextIds.has(String(x.id))) {
-              idbDel(idbStore, String(x.id)).catch(console.error);
-              fsDel(fsCol, x.id).catch(console.error);
-            }
-          });
-        }
-        return next;
-      });
-    };
-  }, []);
 
-  // ── Setters con persistencia automática ──
-  const setEgresos     = useCallback((u) => makeAdminSetter('adm_egresos',     'adm_egresos',     _setEgresos    )(u), [makeAdminSetter]);
-  const setProveedores = useCallback((u) => makeAdminSetter('adm_proveedores', 'adm_proveedores', _setProveedores)(u), [makeAdminSetter]);
-  const setFactProv    = useCallback((u) => makeAdminSetter('adm_factprov',    'adm_factprov',    _setFactProv   )(u), [makeAdminSetter]);
-  const setServicios   = useCallback((u) => makeAdminSetter('adm_servicios',   'adm_servicios',   _setServicios  )(u), [makeAdminSetter]);
-  const setIgGastos    = useCallback((u) => makeAdminSetter('adm_igastos',     'adm_igastos',     _setIgGastos   )(u), [makeAdminSetter]);
-  const setCierres     = useCallback((u) => makeAdminSetter('adm_cierres',     'adm_cierres',     _setCierres    )(u), [makeAdminSetter]);
 
   // ── Carga inicial: IDB primero (offline-first), luego Firestore ──
   useEffect(() => {
@@ -13136,31 +13152,6 @@ export default function App() {
         if (!configReady) { configReady = true; checkReady(); }
       }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
     });
-
-    // ── Cargar datos de ADMINISTRACIÓN desde Firestore ──
-    const loadAdminCol = async (fsCol, idbStore, setter) => {
-      try {
-        const local = await idbGetAll(idbStore);
-        if (local.length > 0) {
-          const clean = local.map(x => { const { _idbKey, _synced, ...r } = x; return r; });
-          setter(clean);
-        }
-      } catch(_) {}
-      try {
-        const docs = await fsGetCol(fsCol);
-        if (docs.length > 0) {
-          setter(docs);
-          docs.forEach(d => idbSave(idbStore, String(d.id), d, true).catch(console.error));
-        }
-      } catch(e) { console.warn('[FS] admin load', fsCol, e.message); }
-    };
-
-    loadAdminCol('adm_egresos',     'adm_egresos',     _setEgresos);
-    loadAdminCol('adm_proveedores', 'adm_proveedores', _setProveedores);
-    loadAdminCol('adm_factprov',    'adm_factprov',    _setFactProv);
-    loadAdminCol('adm_servicios',   'adm_servicios',   _setServicios);
-    loadAdminCol('adm_igastos',     'adm_igastos',     _setIgGastos);
-    loadAdminCol('adm_cierres',     'adm_cierres',     _setCierres);
 
     return () => { unsubOrders?.(); unsubClients?.(); unsubConfig?.(); };
   }, [googleAuth]);
