@@ -7012,20 +7012,10 @@ const SB_TEMPLATE = SF_TEMPLATE
   .filter(s => ["MOTOR", "FLUIDOS", "CONTROL VISUAL", "LUCES", "DIAGNÓSTICO COMPUTARIZADO", "BUJÍAS", "ESCOBILLAS", "CUBIERTAS", "BATERÍA"].includes(s.section))
   .map(s => ({
     ...s,
-    items: s.items.filter(item => item.id !== "estado_cubiertas").map(item => SB_REQUIRED_IDS.includes(item.id)
-      ? { ...item, optional: false }          // obligatorio
-      : { ...item, optional: true,            // todo lo demás: opcional
-          type: item.type === "check" ? "check" :
-                item.type === "statusRC" ? "optionalStatusRC" :
-                item.type === "binary" ? "optionalBinary" :
-                item.type === "percentRC" ? "optionalBinary" :
-                item.type === "batteryPercent" ? "optionalBinary" :
-                item.type === "brakeFluid" ? "optionalBinary" :
-                item.type === "fluid" ? "optionalBinary" :
-                item.type === "lamp" ? "optionalBinary" :
-                item.type === "freno_trasero" ? "optionalBinary" :
-                item.type
-        }
+    items: s.items.filter(item => item.id !== "estado_cubiertas").map(item =>
+      SB_REQUIRED_IDS.includes(item.id)
+        ? { ...item, optional: false }   // OBLIGATORIO: aceite, filtro_aceite, filtro_aire
+        : { ...item, optional: true }    // todo lo demás: opcional pero con su tipo original completo
     )
   }))
 const PF_DEL_TEMPLATE = [
