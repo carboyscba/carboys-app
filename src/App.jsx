@@ -4430,17 +4430,6 @@ const VehicleDetailScreen = (props) => {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                 <button onClick={() => {
                   setShowFacturaMenu(false);
-                  // Abrir modal en readonly para ver e imprimir desde adentro
-                  if (esTicket) {
-                    setLocalTicketModal({ order: fo, payments: fo.payments, client: fc, vehicle: fv, readonly: true });
-                  } else {
-                    setLocalFacturaModal({ order: fo, payments: fo.payments, client: fc, vehicle: fv, readonly: true });
-                  }
-                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  🖨️ {esTicket ? "Ver e Imprimir Comprobante" : "Ver e Imprimir Factura"}
-                </button>
-                <button onClick={() => {
-                  setShowFacturaMenu(false);
                   const phone = fc?.phone || "";
                   const nro = fo.factura?.numero || "";
                   const msg = `Hola ${fc?.name || ""}! Te enviamos la Factura ${invoiceType} Nro ${nro} de tu ${fv?.brand || ""} ${fv?.model || ""} (${fmtD(fo.domain)}).
