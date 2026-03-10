@@ -11251,12 +11251,15 @@ export default function App() {
 
     unsubOrders = onSnapshot('orders', snap => {
       const docs = snap.docs.map(d => d.data());
-      _setOrders(docs.sort((a, b) => (b.id || 0) - (a.id || 0)));
+      // Si Firestore está vacío → usar datos de prueba
+      _setOrders(docs.length > 0 ? docs.sort((a, b) => (b.id || 0) - (a.id || 0)) : INITIAL_ORDERS);
       if (!ordersReady) { ordersReady = true; checkReady(); }
     }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
 
     unsubClients = onSnapshot('clients', snap => {
-      _setClients(snap.docs.map(d => d.data()));
+      const docs = snap.docs.map(d => d.data());
+      // Si Firestore está vacío → usar datos de prueba
+      _setClients(docs.length > 0 ? docs : INITIAL_CLIENTS);
       if (!clientsReady) { clientsReady = true; checkReady(); }
     }, err => { console.error('[FS] clients:', err); if (!clientsReady) { clientsReady = true; checkReady(); } });
 
