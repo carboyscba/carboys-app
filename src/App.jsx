@@ -11777,17 +11777,26 @@ export default function App() {
         // Merge inteligente: preservar campos locales más recientes
         // Evita race condition donde poll llega antes que fsSave termine
         _setOrders(prev => {
+          const fsIds = new Set(docs.map(d => String(d.id)));
           const prevMap = Object.fromEntries(prev.map(o => [String(o.id), o]));
-          return docs
-            .map(fsDoc => {
-              const local = prevMap[String(fsDoc.id)];
-              if (!local) return fsDoc;
-              // Si local tiene cobrado:true pero Firestore no → preservar local
-              // (fsSave todavía no terminó — race condition)
-              const cobrado = local.cobrado || fsDoc.cobrado || false;
-              const payments = (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments;
-              return { ...fsDoc, cobrado, payments };
-            })
+
+          // 1. Mapear docs de Firestore con merge de campos locales más frescos
+          const fromFs = docs.map(fsDoc => {
+            const local = prevMap[String(fsDoc.id)];
+            if (!local) return fsDoc;
+            // Preservar cobrado/payments si local es más reciente
+            const cobrado = local.cobrado || fsDoc.cobrado || false;
+            const payments = (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments;
+            // Preservar paymentPref local si Firestore no lo tiene aún
+            const paymentPref = local.paymentPref || fsDoc.paymentPref || undefined;
+            return { ...fsDoc, cobrado, payments, ...(paymentPref ? { paymentPref } : {}) };
+          });
+
+          // 2. CRÍTICO: incluir órdenes locales que Firestore aún no confirmó
+          // (creadas recién y el fsSave no llegó a Firestore todavía)
+          const pendingLocal = prev.filter(o => !fsIds.has(String(o.id)));
+
+          return [...fromFs, ...pendingLocal]
             .sort((a, b) => (b.id || 0) - (a.id || 0));
         });
       }
