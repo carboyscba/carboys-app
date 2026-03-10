@@ -58,6 +58,109 @@ const fsGetDoc = async (col, id) => {
   return fsToObj(await r.json());
 };
 
+// ══════════════════════════════════════════════════════════════════
+// IndexedDB — Almacenamiento local persistente (sobrevive recargas)
+// Flujo: cambio → guardar en IDB (synced:false) + enviar a Firestore
+//        cuando Firestore confirma → marcar synced:true en IDB
+//        IDB actúa como caché offline: datos disponibles sin internet
+// ══════════════════════════════════════════════════════════════════
+const IDB_NAME    = "carboys_local";
+const IDB_VERSION = 2;
+const IDB_STORES  = ["orders", "clients", "config", "sync_queue"];
+
+let _idb = null; // instancia abierta
+
+const idbOpen = () => new Promise((resolve, reject) => {
+  if (_idb) { resolve(_idb); return; }
+  const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+  req.onupgradeneeded = (e) => {
+    const db = e.target.result;
+    IDB_STORES.forEach(store => {
+      if (!db.objectStoreNames.contains(store)) {
+        db.createObjectStore(store, { keyPath: "_idbKey" });
+      }
+    });
+  };
+  req.onsuccess  = (e) => { _idb = e.target.result; resolve(_idb); };
+  req.onerror    = (e) => { console.error("[IDB] open error:", e); reject(e); };
+});
+
+// Guarda un documento en IDB. synced=false → pendiente de enviar a Firestore
+const idbSave = async (store, id, data, synced = false) => {
+  try {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx  = db.transaction(store, "readwrite");
+      const st  = tx.objectStore(store);
+      const req = st.put({ ...data, _idbKey: String(id), _synced: synced, _idbTs: Date.now() });
+      req.onsuccess = () => resolve();
+      req.onerror   = (e) => reject(e);
+    });
+  } catch(e) { console.error("[IDB] save error:", store, id, e); }
+};
+
+// Marca un documento como sincronizado con Firestore
+const idbMarkSynced = async (store, id) => {
+  try {
+    const db = await idbOpen();
+    return new Promise((resolve) => {
+      const tx  = db.transaction(store, "readwrite");
+      const st  = tx.objectStore(store);
+      const get = st.get(String(id));
+      get.onsuccess = () => {
+        const doc = get.result;
+        if (doc) { doc._synced = true; st.put(doc); }
+        resolve();
+      };
+    });
+  } catch(e) { /* silencioso */ }
+};
+
+// Lee todos los documentos de un store
+const idbGetAll = async (store) => {
+  try {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx  = db.transaction(store, "readonly");
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror   = (e) => reject(e);
+    });
+  } catch(e) { console.error("[IDB] getAll error:", store, e); return []; }
+};
+
+// Elimina un documento del store local
+const idbDel = async (store, id) => {
+  try {
+    const db = await idbOpen();
+    return new Promise((resolve) => {
+      const tx  = db.transaction(store, "readwrite");
+      tx.objectStore(store).delete(String(id)).onsuccess = () => resolve();
+    });
+  } catch(e) { /* silencioso */ }
+};
+
+// Devuelve todos los docs aún no sincronizados con Firestore
+const idbGetPending = async (store) => {
+  const all = await idbGetAll(store);
+  return all.filter(d => !d._synced);
+};
+
+// Limpia los campos internos de IDB antes de usar el doc en la app
+const idbStrip = (doc) => {
+  if (!doc) return doc;
+  const { _idbKey, _synced, _idbTs, ...clean } = doc;
+  return clean;
+};
+
+// Carga inicial desde IDB — devuelve datos limpios o array vacío
+const idbLoad = async (store) => {
+  const docs = await idbGetAll(store);
+  return docs.map(idbStrip);
+};
+
+
+
 // ── Firebase Auth REST (anónimo) ─────────────────────────────
 const FB_API_KEY = "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ";
 const CARBOYS_EMAIL = "carboys.cba@gmail.com";
@@ -11692,7 +11795,8 @@ export default function App() {
   const [selOrder, setSelOrder] = useState(null);
   const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
-  const [dbLoading, setDbLoading] = useState(true); // esperando Firestore
+  const [dbLoading,   setDbLoading]   = useState(true);
+  const [syncPending, setSyncPending] = useState(0);  // docs pendientes de sync // esperando Firestore
 
   // ── Restaurar sesión guardada al inicio (sin popup de Google) ─
   useEffect(() => {
@@ -11703,31 +11807,43 @@ export default function App() {
   }, []);
 
   // ── Estado interno (React) ─────────────────────────────────
-  const [clients, _setClients] = useState(INITIAL_CLIENTS);
-  const [orders,  _setOrders]  = useState(INITIAL_ORDERS);
+  const [clients, _setClients] = useState([]);          // cargado desde IDB/Firestore
+  const [orders,  _setOrders]  = useState([]);          // cargado desde IDB/Firestore
   const [config,  _setConfig]  = useState(INITIAL_CONFIG);
   const [users,   setUsers]    = useState(USERS);
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
 
   // ── Refs para evitar writes en la carga inicial ────────────
-  const isLoadingRef = useRef(true);
+  const isLoadingRef  = useRef(true);
+  const idbReadyRef   = useRef(false);  // true cuando IDB ya cargó
 
-  // ── Wrappers Firestore-aware para setOrders/setClients/setConfig ──
+  // ── Wrappers IDB + Firestore para setOrders/setClients/setConfig ──
+  // Flujo: cambio → IDB inmediato (persiste offline) → Firestore async
+  //        Firestore ok → marcar synced en IDB
   const setOrders = useCallback((updater) => {
     _setOrders(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       if (!isLoadingRef.current) {
         const prevMap = Object.fromEntries(prev.map(o => [String(o.id), o]));
-        // Guardar docs nuevos o modificados
         next.forEach(o => {
           if (JSON.stringify(o) !== JSON.stringify(prevMap[String(o.id)])) {
-            fsSave('orders', o.id, o).catch(e => console.error('[FS] setOrders save:', e));
+            // 1. Guardar en IDB inmediatamente (synced:false = pendiente)
+            idbSave('orders', o.id, o, false).catch(console.error);
+            // 2. Enviar a Firestore; si OK → marcar synced en IDB
+            fsSave('orders', o.id, o)
+              .then(() => idbMarkSynced('orders', String(o.id)))
+              .catch(e => console.error('[FS] setOrders save:', e));
           }
         });
-        // Eliminar docs borrados
+        // Borrados: quitar de IDB y Firestore
         const nextIds = new Set(next.map(o => String(o.id)));
-        prev.forEach(o => { if (!nextIds.has(String(o.id))) fsDel('orders', o.id).catch(console.error); });
+        prev.forEach(o => {
+          if (!nextIds.has(String(o.id))) {
+            idbDel('orders', String(o.id)).catch(console.error);
+            fsDel('orders', o.id).catch(console.error);
+          }
+        });
       }
       return next;
     });
@@ -11740,11 +11856,19 @@ export default function App() {
         const prevMap = Object.fromEntries(prev.map(c => [String(c.id), c]));
         next.forEach(c => {
           if (JSON.stringify(c) !== JSON.stringify(prevMap[String(c.id)])) {
-            fsSave('clients', c.id, c).catch(e => console.error('[FS] setClients save:', e));
+            idbSave('clients', c.id, c, false).catch(console.error);
+            fsSave('clients', c.id, c)
+              .then(() => idbMarkSynced('clients', String(c.id)))
+              .catch(e => console.error('[FS] setClients save:', e));
           }
         });
         const nextIds = new Set(next.map(c => String(c.id)));
-        prev.forEach(c => { if (!nextIds.has(String(c.id))) fsDel('clients', c.id).catch(console.error); });
+        prev.forEach(c => {
+          if (!nextIds.has(String(c.id))) {
+            idbDel('clients', String(c.id)).catch(console.error);
+            fsDel('clients', c.id).catch(console.error);
+          }
+        });
       }
       return next;
     });
@@ -11754,18 +11878,23 @@ export default function App() {
     _setConfig(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       if (!isLoadingRef.current) {
-        fsSave('meta', 'config', next).catch(e => console.error('[FS] setConfig save:', e));
+        idbSave('config', 'config', next, false).catch(console.error);
+        fsSave('meta', 'config', next)
+          .then(() => idbMarkSynced('config', 'config'))
+          .catch(e => console.error('[FS] setConfig save:', e));
       }
       return next;
     });
   }, []);
 
-  // ── Carga inicial desde Firestore REST + polling cada 8s ───
-  // Solo arranca cuando Google Auth fue completada (_authToken disponible)
+  // ── Carga inicial: IDB primero (offline-first), luego Firestore ──
   useEffect(() => {
-    if (!googleAuth) return; // esperar login de Google primero
+    if (!googleAuth) return;
+
     let unsubOrders, unsubClients, unsubConfig;
     let ordersReady = false, clientsReady = false, configReady = false;
+    let idbLoaded   = false;
+
     const checkReady = () => {
       if (ordersReady && clientsReady && configReady) {
         isLoadingRef.current = false;
@@ -11773,75 +11902,154 @@ export default function App() {
       }
     };
 
-    unsubOrders = onSnapshot('orders', snap => {
-      const docs = snap.docs.map(d => d.data());
-      // Si Firestore está vacío Y es la primera carga → usar datos de prueba
-      // NUNCA reemplazar con INITIAL_ORDERS después de que ya cargó (evita borrar órdenes reales)
-      if (docs.length === 0) {
-        // Primera carga y Firestore vacío → usar seed data de prueba
-        if (!ordersReady) {
-          _setOrders(INITIAL_ORDERS);
-          ordersReady = true;
-          checkReady();
+    // ── PASO 1: Cargar IDB al instante (UI disponible offline) ──
+    const loadFromIDB = async () => {
+      try {
+        const [idbOrders, idbClients, idbConfigs] = await Promise.all([
+          idbLoad('orders'),
+          idbLoad('clients'),
+          idbLoad('config'),
+        ]);
+        // Órdenes desde IDB
+        if (idbOrders.length > 0) {
+          _setOrders(idbOrders.sort((a, b) => (b.id || 0) - (a.id || 0)));
+        } else if (idbOrders.length === 0) {
+          _setOrders(INITIAL_ORDERS); // primera vez → seed data
         }
-        // Si ya cargó y llega vacío → error de red o auth expirado → IGNORAR
-        // No tocar el estado actual para no borrar órdenes reales
-        return;
-      } else {
-        // Merge inteligente: preservar campos locales más recientes
-        // Evita race condition donde poll llega antes que fsSave termine
-        _setOrders(prev => {
-          const fsIds = new Set(docs.map(d => String(d.id)));
-          const prevMap = Object.fromEntries(prev.map(o => [String(o.id), o]));
-
-          // 1. Mapear docs de Firestore con merge de campos locales más frescos
-          const fromFs = docs.map(fsDoc => {
-            const local = prevMap[String(fsDoc.id)];
-            if (!local) return fsDoc;
-            // Preservar cobrado/payments si local es más reciente
-            // CRÍTICO: preservar todos los campos que pueden tener race condition
-            // (fsSave tarda ms en llegar a Firestore, polling puede llegar antes)
-            const cobrado     = local.cobrado     || fsDoc.cobrado     || false;
-            const payments    = (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments;
-            const paymentPref = local.paymentPref || fsDoc.paymentPref || undefined;
-            const factura     = local.factura     || fsDoc.factura     || undefined;
-            const ticket      = local.ticket      || fsDoc.ticket      || undefined;
-            return {
-              ...fsDoc,
-              cobrado,
-              payments,
-              ...(paymentPref ? { paymentPref } : {}),
-              ...(factura     ? { factura }     : {}),
-              ...(ticket      ? { ticket }      : {}),
-            };
-          });
-
-          // 2. CRÍTICO: incluir órdenes locales que Firestore aún no confirmó
-          // (creadas recién y el fsSave no llegó a Firestore todavía)
-          const pendingLocal = prev.filter(o => !fsIds.has(String(o.id)));
-
-          return [...fromFs, ...pendingLocal]
-            .sort((a, b) => (b.id || 0) - (a.id || 0));
-        });
+        // Clientes desde IDB
+        if (idbClients.length > 0) {
+          _setClients(idbClients);
+        } else {
+          _setClients(INITIAL_CLIENTS);
+        }
+        // Config desde IDB
+        const idbCfg = idbConfigs[0];
+        if (idbCfg) _setConfig(idbCfg);
+        idbLoaded = true;
+        idbReadyRef.current = true;
+      } catch(e) {
+        console.error('[IDB] loadFromIDB error:', e);
+        // fallback a seed data
+        _setOrders(INITIAL_ORDERS);
+        _setClients(INITIAL_CLIENTS);
+        idbLoaded = true;
+        idbReadyRef.current = true;
       }
-      if (!ordersReady) { ordersReady = true; checkReady(); }
-    }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
+    };
 
-    unsubClients = onSnapshot('clients', snap => {
-      const docs = snap.docs.map(d => d.data());
-      // Si Firestore está vacío → usar datos de prueba
-      _setClients(docs.length > 0 ? docs : INITIAL_CLIENTS);
-      if (!clientsReady) { clientsReady = true; checkReady(); }
-    }, err => { console.error('[FS] clients:', err); if (!clientsReady) { clientsReady = true; checkReady(); } });
+    // ── PASO 2: Conectar Firestore → merge con IDB ──────────────
+    // Merge: Firestore es fuente de verdad EXCEPTO para docs pendientes
+    // que IDB tiene como _synced:false (aún no llegaron a Firestore)
+    const mergeOrders = (fsDocs) => {
+      _setOrders(prev => {
+        if (fsDocs.length === 0) return prev; // Firestore vacío/error → no tocar
 
-    unsubConfig = onSnapshotDoc('meta', 'config', snap => {
-      if (snap.exists()) _setConfig(snap.data());
-      else fsSave('meta', 'config', INITIAL_CONFIG).catch(console.error);
-      if (!configReady) { configReady = true; checkReady(); }
-    }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
+        const fsMap   = Object.fromEntries(fsDocs.map(d => [String(d.id), d]));
+        const prevMap = Object.fromEntries(prev.map(o  => [String(o.id), o]));
+
+        // Docs de Firestore + merge con estado local más fresco
+        const fromFs = fsDocs.map(fsDoc => {
+          const local = prevMap[String(fsDoc.id)];
+          if (!local) return fsDoc;
+          // Preservar campos críticos si local es más reciente (race condition)
+          return {
+            ...fsDoc,
+            cobrado:     local.cobrado     || fsDoc.cobrado     || false,
+            payments:    (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments,
+            ...(local.paymentPref || fsDoc.paymentPref ? { paymentPref: local.paymentPref || fsDoc.paymentPref } : {}),
+            ...(local.factura     || fsDoc.factura     ? { factura:     local.factura     || fsDoc.factura     } : {}),
+            ...(local.ticket      || fsDoc.ticket      ? { ticket:      local.ticket      || fsDoc.ticket      } : {}),
+          };
+        });
+
+        // Pendientes locales (IDB _synced:false) que Firestore todavía no tiene
+        const pending = prev.filter(o => !fsMap[String(o.id)]);
+
+        // Actualizar IDB: marcar synced los que Firestore confirmó
+        fsDocs.forEach(fsDoc => {
+          idbSave('orders', fsDoc.id, fsDoc, true).catch(console.error);
+        });
+
+        return [...fromFs, ...pending].sort((a, b) => (b.id || 0) - (a.id || 0));
+      });
+    };
+
+    const mergeClients = (fsDocs) => {
+      if (fsDocs.length === 0) return;
+      _setClients(prev => {
+        const prevMap = Object.fromEntries(prev.map(c => [String(c.id), c]));
+        const fromFs  = fsDocs.map(fsDoc => {
+          const local = prevMap[String(fsDoc.id)];
+          return local ? { ...fsDoc, ...local } : fsDoc; // local puede tener edits pendientes
+        });
+        const fsMap   = Object.fromEntries(fsDocs.map(d => [String(d.id), d]));
+        const pending = prev.filter(c => !fsMap[String(c.id)]);
+        fsDocs.forEach(c => idbSave('clients', c.id, c, true).catch(console.error));
+        return [...fromFs, ...pending];
+      });
+    };
+
+    loadFromIDB().then(() => {
+      // ── Conectar a Firestore después de que IDB cargó ──
+      unsubOrders = onSnapshot('orders', snap => {
+        const docs = snap.docs.map(d => d.data());
+        if (docs.length > 0) {
+          mergeOrders(docs);
+          // Si Firestore está vacío al inicio → poblar con seed data
+        } else if (!ordersReady) {
+          // Primera carga con Firestore vacío → seed ya cargado desde IDB
+        }
+        if (!ordersReady) { ordersReady = true; checkReady(); }
+      }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
+
+      unsubClients = onSnapshot('clients', snap => {
+        const docs = snap.docs.map(d => d.data());
+        if (docs.length > 0) mergeClients(docs);
+        if (!clientsReady) { clientsReady = true; checkReady(); }
+      }, err => { console.error('[FS] clients:', err); if (!clientsReady) { clientsReady = true; checkReady(); } });
+
+      unsubConfig = onSnapshotDoc('meta', 'config', snap => {
+        if (snap.exists()) {
+          const cfg = snap.data();
+          _setConfig(cfg);
+          idbSave('config', 'config', cfg, true).catch(console.error);
+        } else {
+          fsSave('meta', 'config', INITIAL_CONFIG).catch(console.error);
+          idbSave('config', 'config', INITIAL_CONFIG, false).catch(console.error);
+        }
+        if (!configReady) { configReady = true; checkReady(); }
+      }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
+    });
 
     return () => { unsubOrders?.(); unsubClients?.(); unsubConfig?.(); };
   }, [googleAuth]);
+
+  // Cuando vuelve la conexión → disparar sync inmediato de pendientes
+  useEffect(() => {
+    const onOnline = async () => {
+      setSyncPending(prev => prev); // trigger re-render para actualizar badge
+      try {
+        const [po, pc] = await Promise.all([
+          idbGetPending('orders'),
+          idbGetPending('clients'),
+        ]);
+        po.forEach(o => {
+          const clean = idbStrip(o);
+          fsSave('orders', clean.id, clean)
+            .then(r => { if (r?.ok) { idbMarkSynced('orders', String(clean.id)); setSyncPending(p => Math.max(0, p - 1)); } })
+            .catch(() => {});
+        });
+        pc.forEach(c => {
+          const clean = idbStrip(c);
+          fsSave('clients', clean.id, clean)
+            .then(r => { if (r?.ok) { idbMarkSynced('clients', String(clean.id)); setSyncPending(p => Math.max(0, p - 1)); } })
+            .catch(() => {});
+        });
+      } catch(e) {}
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, []);
 
   const nav = useCallback((target, data = null) => {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
@@ -11854,6 +12062,53 @@ export default function App() {
     setScreen(target);
     window.scrollTo?.(0, 0);
   }, [screen]);
+
+
+  // ── Monitor de sync + retry automático ──────────────────────
+  // Cada 10s: cuenta pendientes (para badge) + reintenta enviar a Firestore
+  useEffect(() => {
+    // Esperar a que IDB cargue antes de arrancar el monitor
+    const waitAndStart = async () => {
+      // Poll hasta que IDB esté listo (máx 10s)
+      let waited = 0;
+      while (!idbReadyRef.current && waited < 10000) {
+        await new Promise(r => setTimeout(r, 200));
+        waited += 200;
+      }
+      if (!idbReadyRef.current) return;
+
+      const syncPendingItems = async () => {
+        try {
+          const [po, pc] = await Promise.all([
+            idbGetPending('orders'),
+            idbGetPending('clients'),
+          ]);
+          setSyncPending(po.length + pc.length);
+
+          // Retry: intentar enviar pendientes a Firestore si hay conexión
+          if (navigator.onLine) {
+            po.forEach(o => {
+              const clean = idbStrip(o);
+              fsSave('orders', clean.id, clean)
+                .then(r => { if (r?.ok) idbMarkSynced('orders', String(clean.id)); })
+                .catch(() => {});
+            });
+            pc.forEach(c => {
+              const clean = idbStrip(c);
+              fsSave('clients', clean.id, clean)
+                .then(r => { if (r?.ok) idbMarkSynced('clients', String(clean.id)); })
+                .catch(() => {});
+            });
+          }
+        } catch(e) { /* silencioso */ }
+      };
+
+      syncPendingItems();
+      const iv = setInterval(syncPendingItems, 10000);
+      return () => clearInterval(iv);
+    };
+    waitAndStart();
+  }, []);
 
   // 0 — Verificando sesión guardada (muy rápido, evita flash de login)
   if (!sessionChecked) return (
@@ -11938,6 +12193,25 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Indicador de sincronización */}
+            {(() => {
+              const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+              if (!online) return (
+                <div title="Sin conexión — datos guardados localmente" style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(229,57,53,.12)", border: "1px solid rgba(229,57,53,.3)", fontSize: 11, fontWeight: 700, color: T.red }}>
+                  📵 Sin red
+                </div>
+              );
+              if (syncPending > 0) return (
+                <div title={`${syncPending} cambio${syncPending > 1 ? "s" : ""} pendiente${syncPending > 1 ? "s" : ""} de sincronizar`} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(255,152,0,.12)", border: "1px solid rgba(255,152,0,.3)", fontSize: 11, fontWeight: 700, color: T.orange }}>
+                  ⟳ {syncPending}
+                </div>
+              );
+              return (
+                <div title="Todo sincronizado" style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(67,160,71,.10)", border: "1px solid rgba(67,160,71,.25)", fontSize: 11, fontWeight: 700, color: T.green }}>
+                  ✓ Sync
+                </div>
+              );
+            })()}
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 11, color: T.gray }}>Sesión activa</div>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{user.name}</div>
