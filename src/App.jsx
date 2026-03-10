@@ -7619,12 +7619,20 @@ const ServiceSheetScreen = (props) => {
     return (
       <div key={item.id} id={`sheet-item-${item.id}`} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}`, ...errStyle, opacity: isExcluded ? 0.35 : 1, pointerEvents: isExcluded ? "none" : "auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          {item.type === "check" || item.type === "serviceReset" || item.type === "optionalBinary" || item.type === "optionalStatusRC" ? (
+          {(item.optional === true || item.type === "check" || item.type === "serviceReset" || item.type === "optionalBinary" || item.type === "optionalStatusRC") ? (
             <div onClick={() => {
               if (item.type === "check") upd(item.id, { checked: !d.checked });
               else if (item.type === "serviceReset") upd(item.id, { checked: !d.checked, resetStatus: !d.checked ? d.resetStatus : "" });
               else if (item.type === "optionalBinary") upd(item.id, { checked: !d.checked, fluidOk: !d.checked ? d.fluidOk : "" });
-              else upd(item.id, { checked: !d.checked, status: !d.checked ? d.status : "" });
+              else if (item.type === "optionalStatusRC") upd(item.id, { checked: !d.checked, status: !d.checked ? d.status : "" });
+              else if (item.optional === true) {
+                // Toggle activación — al destildar limpia todo
+                const nowChecked = !d.checked;
+                upd(item.id, nowChecked
+                  ? { checked: true }
+                  : { checked: false, status: "", fluidOk: "", percent: -1, toggle: "", voltage: "", resetStatus: "", dtcStatus: "", dtcEntries: [], added: false }
+                );
+              }
             }}
               style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${d.checked ? T.green : T.border}`, background: d.checked ? T.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#fff", flexShrink: 0 }}>
               {d.checked ? "✓" : ""}
@@ -7642,7 +7650,7 @@ const ServiceSheetScreen = (props) => {
           {hasError(item.id) && !isExcluded && <span style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>⚠ Completar</span>}
         </div>
 
-        {item.type === "statusRC" && !isForced && (
+        {item.type === "statusRC" && !isForced && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {["bien", "regular", "cambiar"].map(s => (
@@ -7666,7 +7674,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "statusRC" && isForced && (
+        {item.type === "statusRC" && isForced && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
             <div onClick={() => setStatus4(item.id, d.status === "cambiado" ? "" : "cambiado")}
               style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? "#1E88E520" : T.bg, color: d.status === "cambiado" ? "#1E88E5" : T.gray, border: `2px solid ${d.status === "cambiado" ? "#1E88E5" : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
@@ -7676,7 +7684,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-                {item.type === "serviceReset" && (
+                {item.type === "serviceReset" && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 6, ...ml, flexWrap: "wrap" }}>
             <div onClick={() => upd(item.id, { resetStatus: "realizado", checked: true })}
               style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.resetStatus === "realizado" ? "rgba(67,160,71,.15)" : T.bg, color: d.resetStatus === "realizado" ? T.green : T.gray, border: `1px solid ${d.resetStatus === "realizado" ? T.green : T.border}` }}>
@@ -7689,7 +7697,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "percentRC" && !isForced && (
+        {item.type === "percentRC" && !isForced && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <span style={{ fontSize: 11, color: T.grayLight, width: 65 }}>Vida útil</span>
@@ -7723,7 +7731,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "percentRC" && isForced && (
+        {item.type === "percentRC" && isForced && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
             <div onClick={() => setStatus4(item.id, d.status === "cambiado" ? "" : "cambiado")}
               style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === "cambiado" ? "#1E88E520" : T.bg, color: d.status === "cambiado" ? "#1E88E5" : T.gray, border: `2px solid ${d.status === "cambiado" ? "#1E88E5" : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
@@ -7733,7 +7741,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "batteryPercent" && (() => {
+        {item.type === "batteryPercent" && !(item.optional && !d.checked) && (() => {
           const pct = d.percent >= 0 ? d.percent : -1;
           const autoLabel = pct >= 75 ? "BIEN" : pct >= 50 ? "REGULAR" : pct >= 15 ? "MAL" : pct >= 0 ? "CRÍTICO" : "";
           const autoColor = pct >= 75 ? T.green : pct >= 50 ? T.orange : pct >= 0 ? T.red : T.gray;
@@ -7761,7 +7769,7 @@ const ServiceSheetScreen = (props) => {
           );
         })()}
 
-        {item.type === "optionalBinary" && d.checked && (
+        {item.type === "optionalBinary" && d.checked && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
             {[{ k: "bien", label: "BIEN", color: T.green }, { k: "mal", label: "MAL", color: T.red }].map(s => (
               <div key={s.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === s.k ? "" : s.k })}
@@ -7772,7 +7780,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "optionalStatusRC" && d.checked && (
+        {item.type === "optionalStatusRC" && d.checked && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 6, marginBottom: 8, ...ml, flexWrap: "wrap" }}>
             {["bien", "regular", "cambiar"].map(s => (
               <div key={s} onClick={() => setStatus4(item.id, s)}
@@ -7794,7 +7802,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "freno_trasero" && !isForced && (
+        {item.type === "freno_trasero" && !isForced && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               {["Pastillas", "Cinta"].map(opt => (
@@ -7850,7 +7858,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "binary" && !isForced && (
+        {item.type === "binary" && !isForced && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml, flexWrap: "wrap" }}>
             {[
               { k: "bien", label: item.labels?.[0] || "BIEN", color: T.green },
@@ -7875,7 +7883,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "binary" && isForced && (
+        {item.type === "binary" && isForced && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
             <div onClick={() => setBinary(item.id, d.fluidOk === "cambiado" ? "" : "cambiado")}
               style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "cambiado" ? "#1E88E520" : T.bg, color: d.fluidOk === "cambiado" ? "#1E88E5" : T.gray, border: `2px solid ${d.fluidOk === "cambiado" ? "#1E88E5" : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
@@ -7895,14 +7903,14 @@ const ServiceSheetScreen = (props) => {
             ))}
           </div>
         )}
-        {item.type === "binaryPresente" && d.fluidOk === "mal" && (
+        {item.type === "binaryPresente" && d.fluidOk === "mal" && !(item.optional && !d.checked) && (
           <div style={{ marginLeft: 34, marginBottom: 8 }}>
             <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
               placeholder="⚠️ Describir la pérdida (obligatorio)..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px", width: "100%", borderColor: !d.obs ? T.red : T.border }} />
           </div>
         )}
 
-        {item.type === "nivelado" && (
+        {item.type === "nivelado" && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
             <div onClick={() => upd(item.id, { fluidOk: d.fluidOk === "nivelado" ? "" : "nivelado", checked: true })}
               style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "nivelado" ? `${T.green}20` : T.bg, color: d.fluidOk === "nivelado" ? T.green : T.gray, border: `2px solid ${d.fluidOk === "nivelado" ? T.green : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
@@ -7912,7 +7920,7 @@ const ServiceSheetScreen = (props) => {
         )}
 
 
-        {item.type === "lamp" && !isForced && (
+        {item.type === "lamp" && !isForced && !(item.optional && !d.checked) && (
           <div style={{ marginBottom: 8, marginLeft: 34 }}>
             <div style={{ display: "flex", gap: 8 }}>
               {[{k: "bien", l: "BIEN", c: T.green}, {k: "quemada", l: "QUEMADA", c: T.red}].map(o => (
@@ -7934,7 +7942,7 @@ const ServiceSheetScreen = (props) => {
             )}
           </div>
         )}
-        {item.type === "lamp" && isForced && (
+        {item.type === "lamp" && isForced && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, marginLeft: 34 }}>
             <div onClick={() => upd(item.id, { fluidOk: d.fluidOk === "cambiada" ? "" : "cambiada", lampChanged: true, checked: true })}
               style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "cambiada" ? "#1E88E520" : T.bg, color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 5 }}>
@@ -7979,7 +7987,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "brakeFluid" && (
+        {item.type === "brakeFluid" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 6 }}>% DE AGUA EN LÍQUIDO</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -7999,7 +8007,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "fluid" && (
+        {item.type === "fluid" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             {item.hasPercent && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
@@ -8026,7 +8034,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "toggle" && (
+        {item.type === "toggle" && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
             {(item.toggleOptions || ["Sí", "No"]).map(opt => (
               <div key={opt} onClick={() => upd(item.id, { toggle: d.toggle === opt ? "" : opt, checked: true })}
@@ -8037,7 +8045,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "voltage" && (
+        {item.type === "voltage" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
             <input value={d.voltage || ""} onChange={e => upd(item.id, { voltage: e.target.value, checked: !!e.target.value })}
               placeholder="Ej: 14.2" style={{ ...inputStyle, width: 100, textAlign: "center", fontSize: 16, fontWeight: 700, fontFamily: fontD }} />
@@ -8050,7 +8058,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "dtc" && (
+        {item.type === "dtc" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               {[{ k: "sin_fallos", label: "SIN FALLOS", color: T.green }, { k: "con_fallos", label: "CON FALLOS", color: T.red }].map(s => (
@@ -8081,7 +8089,7 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "tires" && (
+        {item.type === "tires" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <CarTiresDiagram tires={d.tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 }}
               onChange={t => upd(item.id, { tires: t, checked: true })} />
@@ -9929,6 +9937,8 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
 
   const isItemVisible = (item, d) => {
     if (!d) return false;
+    // Ítems opcionales (Service Base): solo mostrar si fueron tildados
+    if (item.optional === true) return !!d.checked;
     if (item.type === "optionalStatusRC" || item.type === "optionalBinary") return !!d.checked;
     if (item.type === "tires") return false;
     if (item.type === "check") return d.checked;
