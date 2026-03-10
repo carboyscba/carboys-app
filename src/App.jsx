@@ -4943,8 +4943,40 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [selServ, setSelServ] = useState(null);
   const [igGastos, _setIgGastos] = useState([]);
 
+  const [showIgGasto, setShowIgGasto] = useState(false);
+  const [selIgnacio, setSelIgnacio] = useState(null);
+  const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
+  const holdRef = useRef(null);
+  const [period, setPeriod] = useState("dia");
+  const [egresos, _setEgresos] = useState([]);
+  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
+  const [showEgreso, setShowEgreso] = useState(false);
+  const [saldoReal, setSaldoReal] = useState("");
+  const [showCierre, setShowCierre] = useState(false);
+  // Ingreso
+  const [showIngreso, setShowIngreso] = useState(false);
+  const [ingresoTipo, setIngresoTipo] = useState(""); // "otro" | "ctacte"
+  const [ingresoForm, setIngresoForm] = useState({ desc: "", monto: "", metodo: "Efectivo", fecha: new Date().toISOString().split("T")[0] });
+  const [ctaSelOrders, setCtaSelOrders] = useState([]);
+  const [ctaSearchIngreso, setCtaSearchIngreso] = useState("");
+  const [ctaIngresoMonto, setCtaIngresoMonto] = useState("");
+  const [ctaIngresoDesc, setCtaIngresoDesc] = useState("");
+  const [ctaIngresoMetodo, setCtaIngresoMetodo] = useState("Efectivo");
+  const [ctaIngresoStep, setCtaIngresoStep] = useState(1); // 1=lista, 2=confirmacion
+  // Cierre semanal
+  const [showCierreAlert, setShowCierreAlert] = useState(false);
+  const [cierres, _setCierres] = useState([]);
+  const [ctaFilter, setCtaFilter] = useState("");
+  const [proveedores, _setProveedores] = useState([]);
+  const [showProv, setShowProv] = useState(false);
+  const [provForm, setProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
+  const [factProv, _setFactProv] = useState([]);
+  const [showFactProv, setShowFactProv] = useState(false);
+  const [factProvForm, setFactProvForm] = useState({ provId: "", nroFactura: "", monto: "", fechaEmision: new Date().toISOString().split("T")[0], fechaVenc: "", estado: "pendiente" });
+  const [servicios, _setServicios] = useState([]);
+
   // ── Setters con persistencia automática (Firebase + IDB) ──
-  // Cada cambio se guarda inmediatamente en IDB y se sincroniza con Firestore
+  // IMPORTANT: must be declared AFTER all _setXxx useState hooks (TDZ prevention)
   const _adminSave = (idbStore, fsCol, raw_setter) => (updater) => {
     raw_setter(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
@@ -4997,37 +5029,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     loadCol('adm_igastos',     'adm_igastos',     _setIgGastos);
     loadCol('adm_cierres',     'adm_cierres',     _setCierres);
   }, []);
-  const [showIgGasto, setShowIgGasto] = useState(false);
-  const [selIgnacio, setSelIgnacio] = useState(null);
-  const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
-  const holdRef = useRef(null);
-  const [period, setPeriod] = useState("dia");
-  const [egresos, _setEgresos] = useState([]);
-  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
-  const [showEgreso, setShowEgreso] = useState(false);
-  const [saldoReal, setSaldoReal] = useState("");
-  const [showCierre, setShowCierre] = useState(false);
-  // Ingreso
-  const [showIngreso, setShowIngreso] = useState(false);
-  const [ingresoTipo, setIngresoTipo] = useState(""); // "otro" | "ctacte"
-  const [ingresoForm, setIngresoForm] = useState({ desc: "", monto: "", metodo: "Efectivo", fecha: new Date().toISOString().split("T")[0] });
-  const [ctaSelOrders, setCtaSelOrders] = useState([]);
-  const [ctaSearchIngreso, setCtaSearchIngreso] = useState("");
-  const [ctaIngresoMonto, setCtaIngresoMonto] = useState("");
-  const [ctaIngresoDesc, setCtaIngresoDesc] = useState("");
-  const [ctaIngresoMetodo, setCtaIngresoMetodo] = useState("Efectivo");
-  const [ctaIngresoStep, setCtaIngresoStep] = useState(1); // 1=lista, 2=confirmacion
-  // Cierre semanal
-  const [showCierreAlert, setShowCierreAlert] = useState(false);
-  const [cierres, _setCierres] = useState([]);
-  const [ctaFilter, setCtaFilter] = useState("");
-  const [proveedores, _setProveedores] = useState([]);
-  const [showProv, setShowProv] = useState(false);
-  const [provForm, setProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
-  const [factProv, _setFactProv] = useState([]);
-  const [showFactProv, setShowFactProv] = useState(false);
-  const [factProvForm, setFactProvForm] = useState({ provId: "", nroFactura: "", monto: "", fechaEmision: new Date().toISOString().split("T")[0], fechaVenc: "", estado: "pendiente" });
-  const [servicios, _setServicios] = useState([]);
   const [showServ, setShowServ] = useState(false);
   const [servForm, setServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
   const [showPagoProv, setShowPagoProv] = useState(false);
