@@ -1308,6 +1308,7 @@ const NewOrderScreen = (props) => {
 
   const confirmOrder = () => {
     const newId = Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1;
+    const p0pref = payments[0] || {};
     const newOrder = {
       id: newId,
       clientId: foundClient?.id || Date.now(),
@@ -1321,6 +1322,13 @@ const NewOrderScreen = (props) => {
       startedBy: "",
       startedAt: "",
       waRecepcion: false,
+      // Preferencia de cobro seleccionada al abrir la orden
+      paymentPref: {
+        method: p0pref.method || "",
+        withIva: p0pref.withIva ?? false,
+        account: p0pref.account || "1",
+        invoiceType: getInvoiceType(p0pref),
+      },
     };
     setLastCreatedOrderId(newId);
     setOrders(prev => [...prev, newOrder]);
@@ -3292,7 +3300,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
 };
 
 const VehicleDetailScreen = (props) => {
-  const { order, clients, setClients, user, orders, setOrders, notifications, setNotifications, config, onNavigate } = props;
+  const { order, clients, setClients, user, orders, setOrders, notifications, setNotifications, config, onNavigate, navHistoryRef } = props;
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const canStartWork = ["dueño", "encargado", "mecánico"].includes(user.role);
@@ -3371,7 +3379,12 @@ const VehicleDetailScreen = (props) => {
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
-      <button onClick={() => onNavigate("search", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
+      <button onClick={() => {
+        const hist = navHistoryRef?.current || [];
+        const prev = hist.length > 0 ? hist[hist.length - 1] : "dashboard";
+        if (navHistoryRef) navHistoryRef.current = hist.slice(0, -1);
+        onNavigate(prev, prev === "admin" || prev === "workshop" || prev === "dashboard" ? null : order);
+      }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
       {/* Header */}
       <div style={{ ...card, padding: 24, marginBottom: 20, borderLeft: `4px solid ${sc}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -4782,6 +4795,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [showEgreso, setShowEgreso] = useState(false);
   const [saldoReal, setSaldoReal] = useState("");
   const [showCierre, setShowCierre] = useState(false);
+  // Ingreso
+  const [showIngreso, setShowIngreso] = useState(false);
+  const [ingresoTipo, setIngresoTipo] = useState(""); // "otro" | "ctacte"
+  const [ingresoForm, setIngresoForm] = useState({ desc: "", monto: "", metodo: "Efectivo", fecha: new Date().toISOString().split("T")[0] });
+  const [ctaSelOrders, setCtaSelOrders] = useState([]);
+  const [ctaSearchIngreso, setCtaSearchIngreso] = useState("");
+  const [ctaIngresoMonto, setCtaIngresoMonto] = useState("");
+  const [ctaIngresoDesc, setCtaIngresoDesc] = useState("");
+  const [ctaIngresoMetodo, setCtaIngresoMetodo] = useState("Efectivo");
+  const [ctaIngresoStep, setCtaIngresoStep] = useState(1); // 1=lista, 2=confirmacion
+  // Cierre semanal
+  const [showCierreAlert, setShowCierreAlert] = useState(false);
   const [cierres, setCierres] = useState([]);
   const [ctaFilter, setCtaFilter] = useState("");
   const [proveedores, setProveedores] = useState([]);
@@ -4817,7 +4842,27 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const totalVentas = periodOrders.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
   const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const periodEgresos = egresos.filter(e => e.fecha >= startDate);
-  const totalEgr = periodEgresos.reduce((s, e) => s + (e.monto || 0), 0);
+  // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
+  const egresosEfectivo = periodEgresos.filter(e => !e.metodoPago || e.metodoPago === "Efectivo");
+  const egresosVirtuales = periodEgresos.filter(e => e.metodoPago && e.metodoPago !== "Efectivo");
+  const totalEgr = egresosEfectivo.reduce((s, e) => s + (e.monto || 0), 0);
+  const totalEgrVirtual = egresosVirtuales.reduce((s, e) => s + (e.monto || 0), 0);
+  // Cobros por método
+  const efIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const tarjIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const transfIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const ctaCteIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const saldoCaja = efIngresado - totalEgr;
+  // Cierre semanal: detectar si se debe pedir cierre
+  const todayDate = new Date(); 
+  const diaSemana = todayDate.getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
+  const esSabado = diaSemana === 6;
+  const esLunes = diaSemana === 1;
+  const lastCierreDate = cierres.length > 0 ? cierres[cierres.length - 1].fecha : null;
+  const lunes = new Date(todayDate); lunes.setDate(todayDate.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
+  const sabadoPasado = new Date(lunes); sabadoPasado.setDate(lunes.getDate() + 5);
+  const sabadoPasadoStr = sabadoPasado.toISOString().split("T")[0];
+  const faltaCierre = (esSabado || esLunes) && (!lastCierreDate || lastCierreDate < sabadoPasadoStr);
 
   const payTotals = {};
   periodOrders.forEach(o => (o.payments || []).forEach(p => { payTotals[p.method || "Sin definir"] = (payTotals[p.method || "Sin definir"] || 0) + (p.amount || 0); }));
@@ -5065,6 +5110,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 {/* ── 3. MÉTODO DE PAGO ── */}
                 <div style={{ ...card, padding: 20, marginBottom: 16, opacity: (o.factura||o.ticket) ? 0.7 : 1, pointerEvents: (o.factura||o.ticket) ? "none" : "auto" }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Método de Pago {(o.factura||o.ticket) && <span style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginLeft: 8 }}>🔒</span>}</div>
+                  {o.paymentPref?.method && cobroPay[0]?.method && !(o.factura||o.ticket) && (
+                    <div style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 12, fontSize: 12,
+                      background: cobroPay[0].method === o.paymentPref.method && (cobroPay[0].withIva ?? false) === (o.paymentPref.withIva ?? false)
+                        ? `${T.green}15` : `${T.orange}15`,
+                      color: cobroPay[0].method === o.paymentPref.method && (cobroPay[0].withIva ?? false) === (o.paymentPref.withIva ?? false)
+                        ? T.green : T.orange,
+                      borderLeft: `3px solid ${cobroPay[0].method === o.paymentPref.method && (cobroPay[0].withIva ?? false) === (o.paymentPref.withIva ?? false) ? T.green : T.orange}`,
+                      display: "flex", alignItems: "center", gap: 6
+                    }}>
+                      {cobroPay[0].method === o.paymentPref.method && (cobroPay[0].withIva ?? false) === (o.paymentPref.withIva ?? false)
+                        ? <>✅ Pago como se acordó: <strong>{o.paymentPref.method} {o.paymentPref.withIva ? "con IVA" : "sin IVA"}</strong></>
+                        : <>⚠️ Pref. original: <strong>{o.paymentPref.method} {o.paymentPref.withIva ? "con IVA" : "sin IVA"}</strong> — cambiado a: <strong>{cobroPay[0].method} {cobroPay[0].withIva ? "con IVA" : "sin IVA"}</strong></>
+                      }
+                    </div>
+                  )}
                   {cobroPay.map((pm, i) => {
                     const hasCuit = !!(cobroClient?.cuit);
                     const isTransf = pm.method === "Transferencia";
@@ -5117,12 +5177,27 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       {/* Efectivo / Tarjeta / Cta Cte → IVA */}
                       {(isEfectivo || isTarjeta || isCtaCte) && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: true, invoiceType: "" } : p))}
+                          <div onClick={() => (() => {
+                              const totalBase = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                              const ivaRate = config.ivaRate || 21;
+                              setCobroPay(ps => ps.map((p, j) => {
+                                if (j !== i) return p;
+                                const newAmt = ps.length === 1 ? String(Math.round(totalBase * (1 + ivaRate / 100))) : p.amount;
+                                return { ...p, withIva: true, invoiceType: "", amount: newAmt };
+                              }));
+                            })()}
                             style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === true ? T.accent : T.border}`, background: pm.withIva === true ? `${T.accent}10` : T.bg, color: pm.withIva === true ? T.accent : T.gray }}>
                             Con IVA
                             <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{iva}% · Fact. A/B</div>
                           </div>
-                          <div onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, withIva: false, invoiceType: "C" } : p))}
+                          <div onClick={() => (() => {
+                              const totalBase = o.works.reduce((s, w) => s + (w.price || 0), 0);
+                              setCobroPay(ps => ps.map((p, j) => {
+                                if (j !== i) return p;
+                                const newAmt = ps.length === 1 ? String(totalBase) : p.amount;
+                                return { ...p, withIva: false, invoiceType: "C", amount: newAmt };
+                              }));
+                            })()}
                             style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.gray : T.border}`, background: pm.withIva === false ? T.bg3 : T.bg, color: pm.withIva === false ? T.grayLight : T.gray }}>
                             Sin IVA
                             <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>Mismo precio</div>
@@ -5347,7 +5422,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : "ESPERANDO";
                 const total = o.works.reduce((s, w) => s + (w.price || 0), 0);
                 return (
-                  <div key={o.id} onClick={() => { setSelCobro(o); setCobroPay((o.payments || []).map(p => ({ ...p }))); const _cl = clients.find(c => c.id === o.clientId); setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null); }}
+                  <div key={o.id} onClick={() => {
+                      setSelCobro(o);
+                      // Si ya tiene pagos registrados, usarlos; si no, usar paymentPref de la orden
+                      const initPay = (o.payments && o.payments.length > 0 && o.payments[0].method)
+                        ? o.payments.map(p => ({ ...p }))
+                        : o.paymentPref
+                          ? [{ method: o.paymentPref.method || "", amount: "", account: o.paymentPref.account || "1", withIva: o.paymentPref.withIva ?? null, invoiceType: o.paymentPref.invoiceType || "" }]
+                          : [{ method: "", amount: "", account: "1", withIva: null, invoiceType: "" }];
+                      setCobroPay(initPay);
+                      const _cl = clients.find(c => c.id === o.clientId);
+                      setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null);
+                    }}
                     style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                       {/* Izquierda: info */}
@@ -5357,6 +5443,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                           <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{fmtD(o.domain)}</div>
                           <div style={{ fontSize: 13, color: T.grayLight }}>{cl ? cl.name + " " + cl.lastName : "—"}</div>
                           <div style={{ fontSize: 12, color: T.gray }}>{vh ? vh.brand + " " + vh.model : ""} — {o.works.map(w => w.type + (w.price ? ` — $${Number(w.price).toLocaleString("es-AR")}` : "")).join(", ")}</div>
+                          {o.paymentPref?.method && !o.cobrado && (
+                            <div style={{ fontSize: 11, marginTop: 4 }}>
+                              <span style={{ background: `${T.accent}18`, color: T.accent, padding: "2px 8px", borderRadius: 5, fontWeight: 700 }}>
+                                💳 {o.paymentPref.method} {o.paymentPref.withIva ? "c/ IVA" : "s/ IVA"}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       {/* Centro: COBRADO (solo si cobrado) */}
@@ -5543,42 +5636,116 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
       {/* ══════ CAJA ══════ */}
       {tab === "caja" && (<div>
+        {/* Alerta cierre semanal — lunes sin cierre */}
+        {faltaCierre && esLunes && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: T.bg2, border: `2px solid ${T.orange}`, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange, marginBottom: 10 }}>Cierre de Caja Pendiente</div>
+              <div style={{ fontSize: 14, color: T.grayLight, lineHeight: 1.7, marginBottom: 24 }}>
+                No se realizó el cierre de caja del sábado pasado.<br/>
+                Debés completarlo antes de continuar.
+              </div>
+              <button onClick={() => { setShowCierre(true); }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 15, padding: "14px 0" }}>
+                📋 Realizar Cierre de Caja
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Aviso sábado — no bloqueante */}
+        {faltaCierre && esSabado && (
+          <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: T.orange, background: `${T.orange}10`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 13, color: T.orange, fontWeight: 700 }}>⚠️ Hoy es sábado — recordá realizar el cierre de caja antes de cerrar.</div>
+            <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.orange), fontSize: 12, padding: "8px 14px" }}>Cerrar Caja</button>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}>
-            <div style={{ fontSize: 11, color: T.gray }}>Ingresos Efectivo</div>
-            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.green }}>{fmt(periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0))}</div>
+
+        {/* ── RESUMEN POR MÉTODO ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
+          {[
+            { label: "💵 Efectivo", v: efIngresado, c: T.green },
+            { label: "💳 Tarjeta", v: tarjIngresado, c: "#9C27B0" },
+            { label: "🔁 Transferencia", v: transfIngresado, c: T.accent },
+            { label: "📒 Cuenta Corriente", v: ctaCteIngresado, c: T.orange },
+          ].map(s => (
+            <div key={s.label} style={{ ...card, padding: 14, borderLeft: `4px solid ${s.c}` }}>
+              <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>{s.label}</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: s.c }}>{fmt(s.v)}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── SALDO CAJA + EGRESOS ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+          <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.red}` }}>
+            <div style={{ fontSize: 11, color: T.gray }}>🏧 Egresos Efectivo</div>
+            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.red }}>{fmt(totalEgr)}</div>
           </div>
-          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.red}` }}>
-            <div style={{ fontSize: 11, color: T.gray }}>Egresos</div>
-            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.red }}>{fmt(totalEgr)}</div>
+          <div style={{ ...card, padding: 14, borderLeft: `4px solid #FF6B6B` }}>
+            <div style={{ fontSize: 11, color: T.gray }}>💸 Egresos Virtuales</div>
+            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: "#FF6B6B" }}>{fmt(totalEgrVirtual)}</div>
           </div>
-          <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.accent}` }}>
-            <div style={{ fontSize: 11, color: T.gray }}>Saldo en Caja</div>
-            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: (periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr) >= 0 ? T.green : T.red }}>{fmt(periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr)}</div>
+          <div style={{ ...card, padding: 14, borderLeft: `4px solid ${saldoCaja >= 0 ? T.green : T.red}`, background: `${saldoCaja >= 0 ? T.green : T.red}08` }}>
+            <div style={{ fontSize: 11, color: T.gray }}>💰 Saldo en Caja</div>
+            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: saldoCaja >= 0 ? T.green : T.red }}>{fmt(saldoCaja)}</div>
+            <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>Solo efectivo</div>
           </div>
         </div>
 
-        <button onClick={() => setShowEgreso(true)} style={{ ...btnPrimary(T.red), fontSize: 14, width: "100%", marginBottom: 16, padding: "14px 0" }}>➖ Registrar Egreso</button>
+        {/* ── BOTONES ACCIÓN ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => { setShowIngreso(true); setIngresoTipo(""); setCtaSelOrders([]); setCtaSearchIngreso(""); setCtaIngresoMonto(""); setCtaIngresoStep(1); }} style={{ ...btnPrimary(T.green), fontSize: 13, padding: "14px 0" }}>➕ Registrar Ingreso</button>
+          <button onClick={() => setShowEgreso(true)} style={{ ...btnPrimary(T.red), fontSize: 13, padding: "14px 0" }}>➖ Registrar Egreso</button>
+        </div>
 
+        {/* ── MOVIMIENTOS DEL PERÍODO ── */}
         <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📋 Movimientos del período</div>
+          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>📋 Movimientos del período</div>
+          
+          {/* Cobros efectivo */}
           {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Efectivo")).map(o => {
-            const efAmount = (o.payments || []).filter(p => p.method === "Efectivo").reduce((s, p) => s + (p.amount || 0), 0);
+            const efAmt = (o.payments || []).filter(p => p.method === "Efectivo").reduce((s, p) => s + (p.amount || 0), 0);
             return (
-              <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-                <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> Cobro {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
-                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(o.date)}</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(efAmount)}</span></div>
+              <div key={"ef-" + o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
+                <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> <span style={{ color: T.green, fontSize: 11, fontWeight: 700, marginRight: 4 }}>EFECTIVO</span> {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
+                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(o.date)}</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(efAmt)}</span></div>
               </div>
             );
           })}
-          {periodEgresos.map(e => (
-            <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-              <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> {e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
+          
+          {/* Cobros tarjeta/transferencia — VIRTUALES */}
+          {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Tarjeta" || p.method === "Transferencia")).map(o => {
+            const virtAmt = (o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").reduce((s, p) => s + (p.amount || 0), 0);
+            const mets = [...new Set((o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").map(p => p.method))].join("/");
+            return (
+              <div key={"virt-" + o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13, opacity: 0.75 }}>
+                <div><span style={{ color: T.accent, fontWeight: 700 }}>↑</span> <span style={{ color: T.accent, fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid ${T.accent}40` }}>VIRTUAL · {mets}</span> {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
+                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(o.date)}</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(virtAmt)}</span></div>
+              </div>
+            );
+          })}
+
+          {/* Egresos efectivo */}
+          {egresosEfectivo.map(e => (
+            <div key={"egef-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
+              <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> <span style={{ color: T.red, fontSize: 11, fontWeight: 700, marginRight: 4 }}>EGRESO</span> {e.categoriaLabel || e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
               <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.red }}>-{fmt(e.monto)}</span></div>
             </div>
           ))}
-          {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Efectivo")).length === 0 && periodEgresos.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos de efectivo</div>}
+
+          {/* Egresos virtuales */}
+          {egresosVirtuales.map(e => (
+            <div key={"egvirt-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13, opacity: 0.75 }}>
+              <div><span style={{ color: "#FF6B6B", fontWeight: 700 }}>↓</span> <span style={{ color: "#FF6B6B", fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid #FF6B6B40` }}>VIRTUAL · {e.metodoPago}</span> {e.categoriaLabel || e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
+              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: "#FF6B6B" }}>-{fmt(e.monto)}</span></div>
+            </div>
+          ))}
+
+          {periodOrders.length === 0 && egresosEfectivo.length === 0 && egresosVirtuales.length === 0 && (
+            <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos en este período</div>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
@@ -5590,18 +5757,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📜 Historial de cierres</div>
             {cierres.slice(-5).reverse().map((c, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
-                <span>{c.fecha}</span>
-                <span>Sistema: {fmt(c.saldoSistema)}</span>
-                <span>Real: {fmt(c.saldoReal)}</span>
+                <span style={{ fontWeight: 600 }}>{c.fecha}</span>
+                <span style={{ color: T.gray }}>Sistema: {fmt(c.saldoSistema)}</span>
+                <span style={{ color: T.gray }}>Real: {fmt(c.saldoReal)}</span>
                 <span style={{ fontWeight: 700, color: c.diferencia >= 0 ? T.green : T.red }}>Dif: {fmt(c.diferencia)}</span>
               </div>
             ))}
           </div>
         )}
 
+        {/* ══ POPUP REGISTRAR EGRESO ══ */}
         {showEgreso && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowEgreso(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowEgreso(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>➖ Registrar Egreso</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 8 }}>Categoría</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 12 }}>
@@ -5642,42 +5810,277 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   </select>
                 </div>
               )}
-              {(egresoForm.categoria === "otro" || egresoForm.categoria === "repuesto" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida") && (
+              {(egresoForm.categoria === "otro" || egresoForm.categoria === "repuesto" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida" || egresoForm.categoria === "alquiler") && (
                 <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle del gasto..." /></div>
               )}
               <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
+              {/* NUEVO: Medio de pago del egreso */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Medio de pago del egreso</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["Efectivo", "Transferencia", "Tarjeta"].map(m => (
+                    <div key={m} onClick={() => setEgresoForm(f => ({ ...f, metodoPago: m }))}
+                      style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                        border: `2px solid ${(egresoForm.metodoPago || "Efectivo") === m ? T.accent : T.border}`,
+                        background: (egresoForm.metodoPago || "Efectivo") === m ? `${T.accent}15` : T.bg,
+                        color: (egresoForm.metodoPago || "Efectivo") === m ? T.accent : T.gray }}>
+                      {m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "💳"} {m}
+                    </div>
+                  ))}
+                </div>
+                {(egresoForm.metodoPago || "Efectivo") !== "Efectivo" && (
+                  <div style={{ fontSize: 11, color: "#FF6B6B", marginTop: 6, padding: "6px 10px", borderRadius: 6, background: "#FF6B6B10", border: "1px solid #FF6B6B30" }}>
+                    ⚡ Egreso virtual — no afecta el saldo de caja
+                  </div>
+                )}
+              </div>
               <div style={{ marginBottom: 16 }}><label style={labelStyle}>Fecha</label><input type="date" value={egresoForm.fecha} onChange={e => setEgresoForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowEgreso(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { if (egresoForm.categoria && egresoForm.monto) { setEgresos(p => [...p, { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0 }]); setEgresoForm({ desc: "", monto: "", fecha: today, categoria: "", categoriaLabel: "", detalle: "" }); setShowEgreso(false); }}} style={{ ...btnPrimary(T.red), flex: 1 }}>Registrar</button>
+                <button onClick={() => {
+                  if (egresoForm.categoria && egresoForm.monto) {
+                    setEgresos(p => [...p, { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0, metodoPago: egresoForm.metodoPago || "Efectivo" }]);
+                    setEgresoForm({ desc: "", monto: "", fecha: today, categoria: "", categoriaLabel: "", detalle: "", metodoPago: "Efectivo" });
+                    setShowEgreso(false);
+                  }
+                }} style={{ ...btnPrimary(T.red), flex: 1 }}>Registrar</button>
               </div>
             </div>
           </div>
         )}
 
+        {/* ══ POPUP REGISTRAR INGRESO ══ */}
+        {showIngreso && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => { setShowIngreso(false); setIngresoTipo(""); }}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 480, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+              {!ingresoTipo && (
+                <>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 6 }}>➕ Registrar Ingreso</div>
+                  <div style={{ fontSize: 13, color: T.gray, marginBottom: 20 }}>¿Qué tipo de ingreso querés registrar?</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div onClick={() => setIngresoTipo("otro")} style={{ ...card, padding: 20, cursor: "pointer", borderColor: T.accent, display: "flex", alignItems: "center", gap: 14 }}>
+                      <div style={{ fontSize: 32 }}>📝</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>Otro ingreso</div>
+                        <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Efectivo, transferencia o cheque — con descripción y monto</div>
+                      </div>
+                    </div>
+                    <div onClick={() => setIngresoTipo("ctacte")} style={{ ...card, padding: 20, cursor: "pointer", borderColor: T.orange, display: "flex", alignItems: "center", gap: 14 }}>
+                      <div style={{ fontSize: 32 }}>📒</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>Cobrar Cuenta Corriente</div>
+                        <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Ver fiados pendientes y registrar pago parcial o total</div>
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowIngreso(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, width: "100%", marginTop: 16, fontSize: 13 }}>Cancelar</button>
+                </>
+              )}
+
+              {/* OTRO ingreso */}
+              {ingresoTipo === "otro" && (
+                <>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📝 Otro Ingreso</div>
+                  <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción *</label><input value={ingresoForm.desc} onChange={e => setIngresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Cobro de garantía, devolución..." /></div>
+                  <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.green }}>$</span><input inputMode="numeric" value={ingresoForm.monto} onChange={e => setIngresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={labelStyle}>Forma de ingreso</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {["Efectivo", "Transferencia", "Cheque"].map(m => (
+                        <div key={m} onClick={() => setIngresoForm(f => ({ ...f, metodo: m }))}
+                          style={{ flex: 1, padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                            border: `2px solid ${ingresoForm.metodo === m ? T.green : T.border}`,
+                            background: ingresoForm.metodo === m ? `${T.green}15` : T.bg,
+                            color: ingresoForm.metodo === m ? T.green : T.gray }}>
+                          {m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "🏦"} {m}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 16 }}><label style={labelStyle}>Fecha</label><input type="date" value={ingresoForm.fecha} onChange={e => setIngresoForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setIngresoTipo("")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>← Volver</button>
+                    <button onClick={() => {
+                      if (ingresoForm.desc && ingresoForm.monto) {
+                        setEgresos(p => [...p, { ...ingresoForm, id: Date.now(), monto: -(parseFloat(ingresoForm.monto) || 0), categoria: "ingreso_otro", categoriaLabel: "Ingreso: " + ingresoForm.desc, metodoPago: ingresoForm.metodo, esIngreso: true }]);
+                        setIngresoForm({ desc: "", monto: "", metodo: "Efectivo", fecha: today });
+                        setShowIngreso(false); setIngresoTipo("");
+                      }
+                    }} style={{ ...btnPrimary(T.green), flex: 1 }}>✅ Registrar</button>
+                  </div>
+                </>
+              )}
+
+              {/* CTA CTE ingreso */}
+              {ingresoTipo === "ctacte" && (() => {
+                const ctaPendientes = orders.filter(o => (o.payments || []).some(p => p.method === "Cuenta Corriente") && !o.ctaCobrada);
+                const ctaFiltradas = ctaSearchIngreso
+                  ? ctaPendientes.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaSearchIngreso.toLowerCase()); })
+                  : ctaPendientes;
+                const totalSel = ctaSelOrders.reduce((s, id) => {
+                  const o = orders.find(x => x.id === id);
+                  return s + (o ? (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0) : 0);
+                }, 0);
+                const montoAbonado = parseFloat(ctaIngresoMonto) || 0;
+                const diferencial = montoAbonado - totalSel;
+
+                if (ctaIngresoStep === 1) return (
+                  <>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>📒 Cobrar Cuenta Corriente</div>
+                    <input value={ctaSearchIngreso} onChange={e => setCtaSearchIngreso(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} placeholder="🔍 Buscar por cliente..." />
+                    {ctaFiltradas.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 12, textAlign: "center" }}>Sin cuentas corrientes pendientes</div>}
+                    {ctaFiltradas.map(o => {
+                      const c = clients.find(x => x.id === o.clientId);
+                      const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                      const sel = ctaSelOrders.includes(o.id);
+                      return (
+                        <div key={o.id} onClick={() => setCtaSelOrders(prev => sel ? prev.filter(id => id !== o.id) : [...prev, o.id])}
+                          style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderColor: sel ? T.orange : T.border, background: sel ? `${T.orange}10` : T.bg }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                              <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
+                              <div style={{ fontSize: 12, color: T.gray }}>{fmtDate(o.date)} • {o.works.map(w => w.type).join(", ")}</div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.orange }}>{fmt(ctaMonto)}</div>
+                              {sel && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700 }}>✓ Seleccionada</div>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {ctaSelOrders.length > 0 && (
+                      <div style={{ ...card, padding: 14, marginTop: 8, borderColor: T.orange, background: `${T.orange}08` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700 }}>
+                          <span>{ctaSelOrders.length} orden{ctaSelOrders.length > 1 ? "es" : ""} seleccionada{ctaSelOrders.length > 1 ? "s" : ""}</span>
+                          <span style={{ color: T.orange, fontFamily: fontD }}>{fmt(totalSel)}</span>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                      <button onClick={() => { setIngresoTipo(""); setCtaSelOrders([]); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>← Volver</button>
+                      <button disabled={ctaSelOrders.length === 0} onClick={() => setCtaIngresoStep(2)}
+                        style={{ ...btnPrimary(T.orange), flex: 1, opacity: ctaSelOrders.length === 0 ? 0.4 : 1 }}>Continuar →</button>
+                    </div>
+                  </>
+                );
+
+                if (ctaIngresoStep === 2) return (
+                  <>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>💵 Registrar Pago</div>
+                    <div style={{ ...card, padding: 14, marginBottom: 14, borderColor: T.orange }}>
+                      <div style={{ fontSize: 13, color: T.gray, marginBottom: 4 }}>Total de las órdenes seleccionadas</div>
+                      <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{fmt(totalSel)}</div>
+                    </div>
+                    <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto abonado *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.green }}>$</span><input inputMode="numeric" value={ctaIngresoMonto} onChange={e => setCtaIngresoMonto(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="0" autoFocus /></div></div>
+                    {ctaIngresoMonto && (
+                      <div style={{ ...card, padding: 12, marginBottom: 12, borderColor: diferencial === 0 ? T.green : diferencial > 0 ? T.accent : T.red }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}>
+                          <span>Diferencial</span>
+                          <span style={{ color: diferencial === 0 ? T.green : diferencial > 0 ? T.accent : T.red, fontFamily: fontD }}>
+                            {diferencial === 0 ? "✅ Pago exacto" : diferencial > 0 ? `+${fmt(diferencial)} (pago de más)` : `${fmt(diferencial)} (pago parcial)`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input value={ctaIngresoDesc} onChange={e => setCtaIngresoDesc(e.target.value)} style={inputStyle} placeholder="Ej: Pago parcial ctacte, acuerdo..." /></div>
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={labelStyle}>Forma de pago</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {["Efectivo", "Transferencia", "Cheque"].map(m => (
+                          <div key={m} onClick={() => setCtaIngresoMetodo(m)}
+                            style={{ flex: 1, padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                              border: `2px solid ${ctaIngresoMetodo === m ? T.green : T.border}`,
+                              background: ctaIngresoMetodo === m ? `${T.green}15` : T.bg,
+                              color: ctaIngresoMetodo === m ? T.green : T.gray }}>
+                            {m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "🏦"} {m}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setCtaIngresoStep(1)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>← Volver</button>
+                      <button disabled={!ctaIngresoMonto} onClick={() => {
+                        if (!ctaIngresoMonto) return;
+                        // Marcar las órdenes como ctaCobrada
+                        setOrders(prev => prev.map(o => ctaSelOrders.includes(o.id) ? { ...o, ctaCobrada: true, cobrado: true } : o));
+                        setShowIngreso(false); setIngresoTipo(""); setCtaSelOrders([]); setCtaIngresoMonto(""); setCtaIngresoDesc(""); setCtaIngresoStep(1);
+                      }} style={{ ...btnPrimary(T.green), flex: 1, opacity: !ctaIngresoMonto ? 0.4 : 1 }}>✅ Confirmar Pago</button>
+                    </div>
+                  </>
+                );
+                return null;
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ══ POPUP CIERRE DE CAJA ══ */}
         {showCierre && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowCierre(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📋 Cierre de Caja</div>
-              <div style={{ ...card, padding: 14, marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}><span style={{ color: T.gray }}>Saldo sistema</span><span style={{ fontWeight: 700, fontFamily: fontD }}>{fmt(periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr)}</span></div>
-              </div>
-              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Saldo real en caja *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={saldoReal} onChange={e => setSaldoReal(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="Contar efectivo..." /></div></div>
-              {saldoReal && (() => { const sist = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr; const dif = (parseFloat(saldoReal) || 0) - sist; return (
-                <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: dif >= 0 ? T.green : T.red }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}><span>Diferencia</span><span style={{ color: dif >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt(dif)}</span></div>
+              <div style={{ ...card, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Resumen del período</div>
+                {[
+                  { label: "💵 Efectivo cobrado", v: efIngresado, c: T.green },
+                  { label: "💳 Tarjeta cobrado", v: tarjIngresado, c: "#9C27B0" },
+                  { label: "🔁 Transferencias cobradas", v: transfIngresado, c: T.accent },
+                  { label: "📒 Cuenta Corriente", v: ctaCteIngresado, c: T.orange },
+                ].map(s => (
+                  <div key={s.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <span style={{ color: T.grayLight }}>{s.label}</span>
+                    <span style={{ fontWeight: 700, color: s.c, fontFamily: fontD }}>{fmt(s.v)}</span>
+                  </div>
+                ))}
+                <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${T.border}` }}>
+                  <span style={{ color: T.red }}>🏧 Egresos efectivo</span>
+                  <span style={{ fontWeight: 700, color: T.red, fontFamily: fontD }}>-{fmt(totalEgr)}</span>
                 </div>
-              ); })()}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${T.border}` }}>
+                  <span style={{ color: "#FF6B6B" }}>💸 Egresos virtuales</span>
+                  <span style={{ fontWeight: 700, color: "#FF6B6B", fontFamily: fontD }}>-{fmt(totalEgrVirtual)}</span>
+                </div>
+                <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800 }}>
+                  <span>💰 Saldo en Caja</span>
+                  <span style={{ color: saldoCaja >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt(saldoCaja)}</span>
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Saldo real en caja *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={saldoReal} onChange={e => setSaldoReal(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="Contá el efectivo..." /></div></div>
+              {saldoReal && (() => {
+                const dif = (parseFloat(saldoReal) || 0) - saldoCaja;
+                return (
+                  <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: Math.abs(dif) < 100 ? T.green : T.red }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}>
+                      <span>Diferencia</span>
+                      <span style={{ color: Math.abs(dif) < 100 ? T.green : T.red, fontFamily: fontD }}>{fmt(dif)}</span>
+                    </div>
+                    {Math.abs(dif) < 100 && <div style={{ fontSize: 12, color: T.green, marginTop: 4 }}>✅ Diferencia menor a $100 — OK</div>}
+                  </div>
+                );
+              })()}
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => { const sist = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0) - totalEgr; setCierres(p => [...p, { fecha: today, saldoSistema: sist, saldoReal: parseFloat(saldoReal) || 0, diferencia: (parseFloat(saldoReal) || 0) - sist }]); setSaldoReal(""); setShowCierre(false); }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
+                <button onClick={() => {
+                  setCierres(p => [...p, {
+                    fecha: today,
+                    saldoSistema: saldoCaja,
+                    saldoReal: parseFloat(saldoReal) || 0,
+                    diferencia: (parseFloat(saldoReal) || 0) - saldoCaja,
+                    desglose: { efectivo: efIngresado, tarjeta: tarjIngresado, transferencia: transfIngresado, ctaCte: ctaCteIngresado, egresosEf: totalEgr, egresosVirt: totalEgrVirtual }
+                  }]);
+                  setSaldoReal(""); setShowCierre(false);
+                }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
               </div>
             </div>
           </div>
         )}
       </div>)}
 
-      {tab === "facturas" && (<div>
+            {tab === "facturas" && (<div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
           <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}><div style={{ fontSize: 11, color: T.gray }}>Con factura</div><div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: T.green }}>{conFactura.length}</div></div>
@@ -11167,6 +11570,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
+  const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
   const [dbLoading, setDbLoading] = useState(true); // esperando Firestore
 
@@ -11276,9 +11680,13 @@ export default function App() {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
     if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
     else if (target !== "admin") setAdminInitialTab(null);
+    // Historial de navegación para botón Volver
+    if (target === "vehicleDetail" || target === "serviceSheet" || target === "authManage") {
+      navHistoryRef.current = [...navHistoryRef.current, screen];
+    }
     setScreen(target);
     window.scrollTo?.(0, 0);
-  }, []);
+  }, [screen]);
 
   // 0 — Verificando sesión guardada (muy rápido, evita flash de login)
   if (!sessionChecked) return (
@@ -11332,7 +11740,7 @@ export default function App() {
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
-      case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
+      case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
