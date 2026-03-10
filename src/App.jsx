@@ -7376,7 +7376,7 @@ const ServiceSheetScreen = (props) => {
       case "ternary": return !!d.fluidOk;
       case "lavaparabrisas": return !!d.fluidOk;
       case "fluid": return !!d.fluidOk;
-      case "brakeFluid": return d.percent >= 0;
+      case "brakeFluid": return d.percent >= 0 && (d.percent < 3 || d.fluidOk === "cambiado" || (notifications||[]).some(n => n.orderId === order.id && (n.status === "pending" || n.status === "approved" || n.status === "denied")));
       case "lamp": return !!d.fluidOk;
       case "nivelado": return d.fluidOk === "nivelado";
       case "percentRC": return d.percent >= 0;
@@ -7588,8 +7588,8 @@ const ServiceSheetScreen = (props) => {
               {d.checked ? "✓" : ""}
             </div>
           ) : (
-            <div style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${(d.checked || isComplete(item)) ? T.green : T.border}`, background: (d.checked || isComplete(item)) ? T.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff", flexShrink: 0 }}>
-              {(d.checked || isComplete(item)) ? "✓" : ""}
+            <div style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${isComplete(item) ? T.green : T.border}`, background: isComplete(item) ? T.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff", flexShrink: 0 }}>
+              {isComplete(item) ? "✓" : ""}
             </div>
           )}
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
@@ -7940,20 +7940,57 @@ const ServiceSheetScreen = (props) => {
         {item.type === "brakeFluid" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 6 }}>% DE AGUA EN LÍQUIDO</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              {[{v:0,l:"0%",c:T.green,t:"OK"},{v:1,l:"1%",c:T.green,t:"OK"},{v:2,l:"2%",c:T.green,t:"OK"},{v:3,l:"3%",c:T.red,t:"CRÍTICO"},{v:4,l:"4%",c:T.red,t:"MAL"}].map(o => (
-                <div key={o.v} onClick={() => upd(item.id, { percent: d.percent === o.v ? -1 : o.v, checked: true })}
-                  style={{ flex: 1, padding: "10px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `2px solid ${d.percent === o.v ? o.c : T.border}`, background: d.percent === o.v ? `${o.c}20` : T.bg, transition: "all .15s" }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: d.percent === o.v ? o.c : T.gray }}>{o.l}</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: d.percent === o.v ? o.c : T.gray, marginTop: 2 }}>{o.t}</div>
+            {d.fluidOk === "cambiado" ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 10, background: "rgba(21,101,192,0.12)", border: "2px solid #1565C0", marginBottom: 10 }}>
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#1565C0" }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: "#1565C0" }}>LÍQUIDO CAMBIADO</span>
+                <span style={{ fontSize: 12, color: T.gray, marginLeft: 4 }}>({d.percent >= 0 ? d.percent + "% agua orig." : ""})</span>
+                <div onClick={() => upd(item.id, { fluidOk: "", checked: d.percent >= 0 })} style={{ marginLeft: "auto", fontSize: 11, color: T.gray, cursor: "pointer", padding: "3px 8px", borderRadius: 4, border: `1px solid ${T.border}` }}>✕ Deshacer</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  {[{v:0,l:"0%",c:T.green,t:"OK"},{v:1,l:"1%",c:T.green,t:"OK"},{v:2,l:"2%",c:T.green,t:"OK"},{v:3,l:"3%",c:T.red,t:"CRÍTICO"},{v:4,l:"4%",c:T.red,t:"MAL"}].map(o => (
+                    <div key={o.v} onClick={() => upd(item.id, { percent: d.percent === o.v ? -1 : o.v, checked: d.percent !== o.v, fluidOk: "" })}
+                      style={{ flex: 1, padding: "10px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `2px solid ${d.percent === o.v ? o.c : T.border}`, background: d.percent === o.v ? `${o.c}20` : T.bg, transition: "all .15s" }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: d.percent === o.v ? o.c : T.gray }}>{o.l}</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: d.percent === o.v ? o.c : T.gray, marginTop: 2 }}>{o.t}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div onClick={() => upd(item.id, { added: !d.added })}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.added ? "rgba(30,136,229,0.12)" : T.bg, color: d.added ? T.accent : T.gray, border: `1px solid ${d.added ? T.accent : T.border}` }}>
-              <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${d.added ? T.accent : T.border}`, background: d.added ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>{d.added ? "✓" : ""}</div>
-              Se niveló
-            </div>
+                {d.percent >= 3 && (() => {
+                  const existingAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "pending");
+                  const approvedAuth = (notifications || []).find(n => n.orderId === order.id && n.status === "approved");
+                  const isApprovedForThis = approvedAuth?.items?.some(it => it.id === item.id && it.itemStatus !== "denied");
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      {isApprovedForThis ? (
+                        <div onClick={() => upd(item.id, { fluidOk: "cambiado", checked: true })}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", borderRadius: 10, cursor: "pointer", background: "rgba(21,101,192,0.12)", border: "2px solid #1565C0", fontSize: 14, fontWeight: 800, color: "#1565C0" }}>
+                          🔄 CAMBIADO
+                        </div>
+                      ) : existingAuth ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", borderRadius: 10, background: T.orange + "15", border: `1px solid ${T.orange}60`, fontSize: 13, fontWeight: 700, color: T.orange }}>
+                          ⏳ Autorización pendiente
+                        </div>
+                      ) : (
+                        <div onClick={() => setShowAuthRequest(true)}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 0", borderRadius: 10, cursor: "pointer", background: T.red + "15", border: `2px solid ${T.red}`, fontSize: 14, fontWeight: 800, color: T.red }}>
+                          🔁 CAMBIAR LÍQUIDO
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+            {d.fluidOk !== "cambiado" && (
+              <div onClick={() => upd(item.id, { added: !d.added })}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.added ? "rgba(30,136,229,0.12)" : T.bg, color: d.added ? T.accent : T.gray, border: `1px solid ${d.added ? T.accent : T.border}` }}>
+                <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${d.added ? T.accent : T.border}`, background: d.added ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>{d.added ? "✓" : ""}</div>
+                Se niveló
+              </div>
+            )}
           </div>
         )}
 
@@ -8443,6 +8480,7 @@ const ServiceSheetScreen = (props) => {
           if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
           if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
           if (it.type === "binaryPresente" && d2.fluidOk === "mal") return true;
+          if (it.type === "brakeFluid" && d2.percent >= 3 && d2.fluidOk !== "cambiado") return true;
           if (it.type === "nivelado") return false;
           return false;
         }));
@@ -8534,6 +8572,7 @@ const ServiceSheetScreen = (props) => {
                 if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
                 if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
                 if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+                if (it.type === "brakeFluid" && d2.percent >= 3 && d2.fluidOk !== "cambiado") return true;
                 return false;
               })).map((it, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
@@ -8557,6 +8596,7 @@ const ServiceSheetScreen = (props) => {
                   if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
                   if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
                   if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
+                  if (it.type === "brakeFluid" && d2.percent >= 3 && d2.fluidOk !== "cambiado") return true;
                   return false;
                 }));
                 const items = authItems.map(it => ({ id: it.id, label: it.label }));
@@ -9842,11 +9882,15 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       return { text: d.fluidOk || "", color: "#C62828" };
     }
     if (item.type === "brakeFluid") {
+      if (d.fluidOk === "cambiado") {
+        const pct = d.percent >= 0 ? d.percent : null;
+        return { text: "Cambiado", color: "#1565C0", wasChanged: true, subText: pct !== null ? `Tenía ${pct}% agua` : null, subColor: "#718096" };
+      }
       const pct = d.percent >= 0 ? d.percent : null;
       const pctColor = pct !== null ? (pct <= 2 ? "#2E7D32" : pct === 3 ? "#E65100" : "#C62828") : "#718096";
       const pctLabel = pct !== null ? (pct <= 2 ? "OK" : pct === 3 ? "Crítico" : "Mal") : "";
-      const statusText = d.fluidOk === "bien" ? "Bien" : d.fluidOk === "cambiar" ? "Cambiar" : "";
-      const statusColor = d.fluidOk === "bien" ? "#2E7D32" : "#C62828";
+      const statusColor = pct !== null ? (pct <= 2 ? "#2E7D32" : pct === 3 ? "#E65100" : "#C62828") : "#718096";
+      const statusText = pct !== null ? (pct <= 2 ? "OK" : pct === 3 ? "Crítico" : "Mal") : "";
       return { text: statusText, color: statusColor, subText: d.added ? "Se niveló" : null, subColor: "#1565C0", pctVal: pct, pctColor, pctLabel };
     }
     if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
