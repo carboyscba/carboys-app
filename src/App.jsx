@@ -6195,7 +6195,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 <div style={{ marginBottom: 12 }}><label style={labelStyle}>Empleado</label>
                   <select value={egresoForm.detalle || ""} onChange={e => setEgresoForm(f => ({ ...f, detalle: e.target.value }))} style={inputStyle}>
                     <option value="">Seleccionar empleado</option>
-                    {["Ignacio", "Chiara", "Kevin", "Fabricio"].map(n => <option key={n} value={n}>{n}</option>)}
+                    {users.filter(u => u.role !== "dueño").map(u => <option key={u.id} value={u.name}>{u.name} — {u.role}</option>)}
                   </select>
                 </div>
               )}
@@ -7948,11 +7948,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         const totalServMes = servPagosDelMes.reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
 
         // ── GASTOS IGNACIO del mes ──
-        const igDelMes = [...igGastos, ...egresos.filter(e => e.categoria === "sueldo" && e.detalle === "Ignacio").map(e => ({ ...e, catName: "Sueldo" }))].filter(g => (g.fecha || "").startsWith(ym));
+        const igDelMes = igGastos.filter(g => (g.fecha || "").startsWith(ym));
         const totalIgMes = igDelMes.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
 
         // ── SUELDOS del mes ──
-        const sueldosDelMes = egresos.filter(e => e.categoria === "sueldo" && (e.fecha || "").startsWith(ym));
+        const sueldosDelMes = egresos.filter(e => e.categoria === "sueldo" && (e.fecha || "").startsWith(ym) && e.detalle !== "Ignacio");
         const totalSueldosMes = sueldosDelMes.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
 
         // ── TOTAL GENERAL ──
@@ -8391,35 +8391,114 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             )}
 
             {/* ── SUELDOS DEL MES ── */}
-            {cmSub === "sueldos" && (
-              <div>
-                <div style={{ ...card, padding: 14, marginBottom: 14, borderLeft: `4px solid ${T.green}` }}>
-                  <div style={{ fontSize: 11, color: T.gray }}>Sueldos — {MESES[cmMonth]} {cmYear}</div>
-                  <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: T.green }}>{fmt(totalSueldosMes)}</div>
-                  <div style={{ fontSize: 12, color: T.gray }}>{sueldosDelMes.length} pago{sueldosDelMes.length !== 1 ? "s" : ""}</div>
-                </div>
-                {sueldosDelMes.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin sueldos registrados en {MESES[cmMonth]} {cmYear}</div>}
-                {sueldosDelMes.length > 0 && (
-                  <div style={{ ...card, padding: 0, overflow: "hidden" }}>
-                    <div style={{ padding: "10px 16px", background: `${T.green}10`, display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: T.grayLight }}>
-                      <span>EMPLEADO</span><span>MONTO</span>
-                    </div>
-                    {sueldosDelMes.sort((a, b) => (a.detalle || "").localeCompare(b.detalle || "")).map((e, i) => (
-                      <div key={i} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>👤 {e.detalle || "—"}</div>
-                          <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(e.fecha)}</div>
-                        </div>
-                        <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.green }}>{fmt(parseFloat(e.monto) || 0)}</div>
-                      </div>
-                    ))}
-                    <div style={{ padding: "12px 16px", background: `${T.green}10`, display: "flex", justifyContent: "space-between", fontFamily: fontD, fontWeight: 800, fontSize: 15 }}>
-                      <span>TOTAL SUELDOS</span><span style={{ color: T.green }}>{fmt(totalSueldosMes)}</span>
-                    </div>
+            {cmSub === "sueldos" && (() => {
+              // Empleados activos = todos los users excepto dueño
+              const empleados = users.filter(u => u.role !== "dueño");
+              // Órdenes del mes para métricas
+              const ordenesMes = orders.filter(o => (o.date || "").startsWith(ym) && o.status !== "cancelled");
+
+              return (
+                <div>
+                  {/* Resumen */}
+                  <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: `4px solid ${T.green}` }}>
+                    <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Total sueldos — {MESES[cmMonth]} {cmYear}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.green }}>{fmt(totalSueldosMes)}</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>{empleados.length} empleado{empleados.length !== 1 ? "s" : ""} activo{empleados.length !== 1 ? "s" : ""}</div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {empleados.length === 0 && (
+                    <div style={{ ...card, padding: 30, textAlign: "center", color: T.gray }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
+                      <div style={{ fontWeight: 700 }}>Sin empleados cargados</div>
+                      <div style={{ fontSize: 12, color: T.gray, marginTop: 6 }}>Agregá usuarios desde Configuración → Gestión de Usuarios</div>
+                    </div>
+                  )}
+
+                  {/* Card por empleado */}
+                  {empleados.map(emp => {
+                    const roleIcons = { "encargado": "📋", "admin": "🛡️", "mecánico": "🔧" };
+                    const roleIcon = roleIcons[emp.role] || "👤";
+                    // Pagos de sueldo de este mes
+                    const pagosEmp = sueldosDelMes.filter(e => e.detalle === emp.name);
+                    const sueldoPagado = pagosEmp.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+                    // Métricas de trabajo del mes
+                    const ordsTrabajadas = ordenesMes.filter(o =>
+                      o.tech === emp.name ||
+                      o.assignedTo === emp.name ||
+                      o.startedBy === emp.name ||
+                      (o.works || []).some(w => w.tech === emp.name)
+                    );
+                    const facturadoEmp = ordsTrabajadas.reduce((s, o) => s + o.works.reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+
+                    return (
+                      <div key={emp.id} style={{ ...card, padding: 0, marginBottom: 14, overflow: "hidden",
+                        borderLeft: `4px solid ${sueldoPagado > 0 ? T.green : T.orange}` }}>
+                        {/* Header */}
+                        <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${T.border}` }}>
+                          <div style={{ width: 46, height: 46, borderRadius: 12, background: emp.color || T.accent,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 20, fontWeight: 800, color: "#fff" }}>
+                            {(emp.initial || emp.name[0]).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800 }}>{emp.name}</div>
+                            <div style={{ fontSize: 12, color: T.gray }}>{roleIcon} {emp.role}</div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            {sueldoPagado > 0
+                              ? <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 900, color: T.green }}>{fmt(sueldoPagado)}</div>
+                              : <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, padding: "4px 10px", borderRadius: 6,
+                                  background: `${T.orange}10`, border: `1px solid ${T.orange}30` }}>⏳ Sin pagar</div>
+                            }
+                            {pagosEmp.length > 0 && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{pagosEmp.length} pago{pagosEmp.length !== 1 ? "s" : ""}</div>}
+                          </div>
+                        </div>
+
+                        {/* Métricas del mes */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+                          <div style={{ padding: "12px 16px", borderRight: `1px solid ${T.border}` }}>
+                            <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .4 }}>Autos trabajados</div>
+                            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: ordsTrabajadas.length > 0 ? T.accent : T.gray, marginTop: 2 }}>
+                              {ordsTrabajadas.length}
+                            </div>
+                          </div>
+                          <div style={{ padding: "12px 16px" }}>
+                            <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .4 }}>Facturado en sus órdenes</div>
+                            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 900, color: facturadoEmp > 0 ? T.green : T.gray, marginTop: 2 }}>
+                              {facturadoEmp > 0 ? fmt(facturadoEmp) : "—"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Pagos detallados */}
+                        {pagosEmp.length > 0 && (
+                          <div style={{ borderTop: `1px solid ${T.border}` }}>
+                            {pagosEmp.map((pg, i) => (
+                              <div key={i} style={{ padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                                borderBottom: i < pagosEmp.length - 1 ? `1px solid ${T.border}` : "none",
+                                background: `${T.green}04` }}>
+                                <div style={{ fontSize: 12, color: T.gray }}>
+                                  Pago {i+1} · {fmtDate(pg.fecha)}{pg.metodoPago ? ` · ${pg.metodoPago}` : ""}
+                                </div>
+                                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.green }}>{fmt(parseFloat(pg.monto) || 0)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Total al pie */}
+                  {empleados.length > 0 && sueldosDelMes.length > 0 && (
+                    <div style={{ ...card, padding: "14px 16px", display: "flex", justifyContent: "space-between", borderLeft: `4px solid ${T.green}`, marginTop: 4 }}>
+                      <span style={{ fontFamily: fontD, fontWeight: 800, fontSize: 15 }}>TOTAL SUELDOS</span>
+                      <span style={{ fontFamily: fontD, fontWeight: 900, fontSize: 18, color: T.green }}>{fmt(totalSueldosMes)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
