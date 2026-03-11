@@ -1240,7 +1240,7 @@ const SearchSelect = ({ options, value, onChange, placeholder }) => {
       </div>
       {open && (
         <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: T.bg2, border: `1px solid ${T.accent}`, borderRadius: 10, zIndex: 50, maxHeight: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <input ref={inputRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
+          <input inputMode="text" ref={inputRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
             style={{ ...inputStyle, borderRadius: 0, border: "none", borderBottom: `1px solid ${T.border}`, fontSize: 13 }} />
           <div style={{ overflow: "auto", flex: 1 }}>
             {filtered.map(o => (
@@ -1523,7 +1523,7 @@ const NewOrderScreen = (props) => {
           {/* Domain search */}
           {searchMode === "domain" && (
             <div>
-              <input value={domainSearch} onChange={e => { setDomainSearch(e.target.value.toUpperCase()); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
+              <input inputMode="text" value={domainSearch} onChange={e => { setDomainSearch(e.target.value.toUpperCase()); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
                 onKeyDown={e => e.key === "Enter" && searchDomain()}
                 placeholder="Ej: AC 123 BD" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
@@ -1869,13 +1869,13 @@ const NewOrderScreen = (props) => {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={labelStyle}>Nombre *</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              <input inputMode="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 autoFocus={!!(isNew || editMode)}
                 disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.name ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>Apellido *</label>
-              <input value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+              <input inputMode="text" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
                 disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.lastName ? T.orange : T.border }} />
             </div>
             <div>
@@ -1906,7 +1906,7 @@ const NewOrderScreen = (props) => {
 
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Dominio *</label>
-            <input value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value.toUpperCase() }))}
+            <input inputMode="text" value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value.toUpperCase() }))}
               disabled={!isNew && !addingNewVehicle} style={{ ...inputStyle, fontFamily: fontD, fontSize: 18, letterSpacing: 1, opacity: !isNew && !addingNewVehicle ? 0.6 : 1 }} />
           </div>
 
@@ -1924,7 +1924,7 @@ const NewOrderScreen = (props) => {
                 </div>
               ) : (
                 <div>
-                  <input value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
+                  <input inputMode="text" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
                     placeholder="Escribir marca" style={{ ...inputStyle, borderColor: !form.brand ? T.orange : T.border }} />
                   <div onClick={() => { setManualBrand(false); setForm(f => ({ ...f, brand: "", model: "" })); setManualModel(false); }} style={{ fontSize: 11, color: T.accent, cursor: "pointer", marginTop: 4, fontWeight: 600 }}>
                     ← Volver al selector
@@ -1945,7 +1945,7 @@ const NewOrderScreen = (props) => {
                 </div>
               ) : (
                 <div>
-                  <input value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+                  <input inputMode="text" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
                     placeholder="Escribir modelo" style={{ ...inputStyle, borderColor: !form.model ? T.orange : T.border }} />
                   <div onClick={() => setManualModel(false)} style={{ fontSize: 11, color: T.accent, cursor: "pointer", marginTop: 4, fontWeight: 600 }}>
                     ← Volver al selector
@@ -1964,7 +1964,7 @@ const NewOrderScreen = (props) => {
             {foundVehicle && !isNew ? (
               <div>
                 <label style={labelStyle}>Kilómetros (última visita)</label>
-                <input value={form.lastKm ? Number(form.lastKm).toLocaleString("es-AR") + " km" : "—"} disabled
+                <input inputMode="text" value={form.lastKm ? Number(form.lastKm).toLocaleString("es-AR") + " km" : "—"} disabled
                   style={{ ...inputStyle, opacity: 0.6, fontFamily: fontD, fontWeight: 700 }} />
               </div>
             ) : (
@@ -1982,7 +1982,7 @@ const NewOrderScreen = (props) => {
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: kmError ? T.red : (form.currentKm && !kmError) ? T.green : T.orange, letterSpacing: .5 }}>KILÓMETROS ACTUALES *</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input value={form.currentKm ? Number(form.currentKm).toLocaleString("es-AR") : ""} onChange={e => {
+                  <input inputMode="numeric" value={form.currentKm ? Number(form.currentKm).toLocaleString("es-AR") : ""} onChange={e => {
                     const val = e.target.value.replace(/[^0-9]/g, "");
                     setForm(f => ({ ...f, currentKm: val }));
                     if (val && parseInt(val) < (parseInt(form.lastKm) || 0)) {
@@ -2183,7 +2183,7 @@ const NewOrderScreen = (props) => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
                   {w.type !== "Tren Delantero" && w.type !== "Tren Trasero" && w.type !== "Mecánica" && w.type !== "Escape" && w.type !== "Arreglo" && w.type !== "Repro" && w.type !== "Otros" && <div>
                     <label style={labelStyle}>Descripción</label>
-                    <input value={w.desc} onChange={e => updateWork(i, "desc", e.target.value)}
+                    <input inputMode="text" value={w.desc} onChange={e => updateWork(i, "desc", e.target.value)}
                       placeholder="Detalles del trabajo..." style={inputStyle} />
                   </div>}
                   {w.type !== "Tren Delantero" && w.type !== "Tren Trasero" && w.type !== "Mecánica" && w.type !== "Escape" && w.type !== "Arreglo" && w.type !== "Repro" && w.type !== "Otros" && <div>
@@ -2218,7 +2218,7 @@ const NewOrderScreen = (props) => {
                         <label style={labelStyle}>Precio *</label>
                         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                           <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
-                          <input type="text" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
+                          <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
                             updateWork(i, "price", e.target.value.replace(/[^0-9]/g, ""));
                           }} placeholder="0" style={{ ...inputStyle, fontSize: 18, fontWeight: 700, fontFamily: fontD }} />
                         </div>
@@ -2282,7 +2282,7 @@ const NewOrderScreen = (props) => {
                           </div>
                         )}
                         {ti.isCustom ? (
-                          <input value={ti.label || ""} onChange={e => {
+                          <input inputMode="text" value={ti.label || ""} onChange={e => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], label: e.target.value };
                             const desc = newItems.filter(x => x.isCustom ? (x.label) : x.selected).map(x => x.isCustom ? x.label : x.label).join(", ");
@@ -2295,7 +2295,7 @@ const NewOrderScreen = (props) => {
                           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: ti.selected ? T.accent : T.text, minWidth: 0 }}>{ti.label}</span>
                         )}
                         {ti.selected && !ti.isCustom && (
-                          <input value={ti.otroDesc || ""} onChange={e => {
+                          <input inputMode="text" value={ti.otroDesc || ""} onChange={e => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], otroDesc: e.target.value };
                             const desc = newItems.filter(x => x.isCustom ? x.label : x.selected).map(x => x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label).join(", ");
@@ -2319,7 +2319,7 @@ const NewOrderScreen = (props) => {
                             )}
                             {!ti.isFree && <>
                             <span style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>$</span>
-                            <input type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
+                            <input inputMode="numeric" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
                               const raw = e.target.value.replace(/[^0-9]/g, "");
                               const newItems = [...w.trenItems];
                               newItems[j] = { ...newItems[j], price: raw };
@@ -2408,7 +2408,7 @@ const NewOrderScreen = (props) => {
                     })()}
                     <div style={{ marginTop: 8 }}>
                       <label style={labelStyle}>Descripción adicional (opcional)</label>
-                      <input value={w.extraDesc || ""} onChange={e => updateWork(i, "extraDesc", e.target.value)}
+                      <input inputMode="text" value={w.extraDesc || ""} onChange={e => updateWork(i, "extraDesc", e.target.value)}
                         placeholder="Notas adicionales..." style={inputStyle} />
                     </div>
                   </div>
@@ -2533,7 +2533,7 @@ const NewOrderScreen = (props) => {
             <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", marginBottom: 6, color: T.orange }}>Kilómetros actuales requeridos</div>
             <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 20 }}>Ingresá el kilometraje actual del vehículo para continuar.</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <input value={form.currentKm ? Number(form.currentKm).toLocaleString("es-AR") : ""} onChange={e => {
+              <input inputMode="numeric" value={form.currentKm ? Number(form.currentKm).toLocaleString("es-AR") : ""} onChange={e => {
                 const val = e.target.value.replace(/[^0-9]/g, "");
                 setForm(f => ({ ...f, currentKm: val }));
                 if (val && parseInt(val) < (parseInt(form.lastKm) || 0)) {
@@ -2940,7 +2940,7 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
       {/* Items */}
       {items.map((item, i) => (
         <div key={i} style={{ ...card, padding: 14, marginBottom: 10, display: "flex", gap: 10, alignItems: "center" }}>
-          <input value={item.name} onChange={e => updateItem(i, "name", e.target.value)}
+          <input inputMode="text" value={item.name} onChange={e => updateItem(i, "name", e.target.value)}
             placeholder="Producto (ej: Lámpara H7)" style={{ ...inputStyle, flex: 2 }} />
           <input inputMode="numeric" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={e => updateItem(i, "price", e.target.value.replace(/[^0-9]/g, ""))}
             placeholder="0" style={{ ...inputStyle, flex: 1 }} />
@@ -3029,11 +3029,11 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Nombre *</label>
-              <input value={clientInfo.name} onChange={e => setClientInfo(c => ({ ...c, name: e.target.value }))} style={inputStyle} />
+              <input inputMode="text" value={clientInfo.name} onChange={e => setClientInfo(c => ({ ...c, name: e.target.value }))} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Apellido *</label>
-              <input value={clientInfo.lastName} onChange={e => setClientInfo(c => ({ ...c, lastName: e.target.value }))} style={inputStyle} />
+              <input inputMode="text" value={clientInfo.lastName} onChange={e => setClientInfo(c => ({ ...c, lastName: e.target.value }))} style={inputStyle} />
             </div>
           </div>
           <div style={{ marginTop: 12 }}>
@@ -3042,7 +3042,7 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
           </div>
           <div style={{ marginTop: 12 }}>
             <label style={labelStyle}>Teléfono *</label>
-            <input value={clientInfo.phone} onChange={e => setClientInfo(c => ({ ...c, phone: e.target.value.replace(/[^0-9+]/g, "") }))} placeholder="Ej: 3512345678" style={inputStyle} />
+            <input inputMode="numeric" value={clientInfo.phone} onChange={e => setClientInfo(c => ({ ...c, phone: e.target.value.replace(/[^0-9+]/g, "") }))} placeholder="Ej: 3512345678" style={inputStyle} />
           </div>
         </div>
       )}
@@ -3332,7 +3332,7 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
       <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700, marginBottom: 20 }}>🔍 Buscar Dominio / Cliente</div>
-      <input ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Dominio, nombre, DNI o CUIT..."
+      <input inputMode="text" ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Dominio, nombre, DNI o CUIT..."
         style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", marginBottom: 20, borderColor: q ? T.accent : T.border }} autoFocus />
 
       {q.length > 1 && results.length === 0 && (
@@ -3989,7 +3989,7 @@ const VehicleDetailScreen = (props) => {
                           </div>
                         )}
                         {ti.isCustom ? (
-                          <input value={ti.label || ""} onChange={e => {
+                          <input inputMode="text" value={ti.label || ""} onChange={e => {
                             const nw = [...newWorks]; const items = [...nw[i].trenItems];
                             items[j] = { ...items[j], label: e.target.value };
                             nw[i] = { ...nw[i], trenItems: items };
@@ -4001,7 +4001,7 @@ const VehicleDetailScreen = (props) => {
                         {(ti.isCustom || ti.selected) && (
                           <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <span style={{ fontSize: 10, color: T.accent, fontWeight: 700 }}>$</span>
-                            <input type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
+                            <input inputMode="numeric" type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
                               const raw = e.target.value.replace(/[^0-9]/g, "");
                               const nw = [...newWorks]; const items = [...nw[i].trenItems];
                               items[j] = { ...items[j], price: raw };
@@ -4049,14 +4049,14 @@ const VehicleDetailScreen = (props) => {
                       <label style={labelStyle}>Precio</label>
                       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <span style={{ fontSize: 14, color: T.accent, fontWeight: 700 }}>$</span>
-                        <input value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
+                        <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => {
                           setNewWorks(prev => prev.map((x, j) => j === i ? { ...x, price: e.target.value.replace(/[^0-9]/g, "") } : x));
                         }} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
                       </div>
                     </div>
                     <div>
                       <label style={labelStyle}>Descripción</label>
-                      <input value={w.desc || ""} onChange={e => {
+                      <input inputMode="text" value={w.desc || ""} onChange={e => {
                         setNewWorks(prev => prev.map((x, j) => j === i ? { ...x, desc: e.target.value } : x));
                       }} placeholder="Detalle..." style={inputStyle} />
                     </div>
@@ -4132,8 +4132,8 @@ const VehicleDetailScreen = (props) => {
             {/* Client data */}
             <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>👤 Datos del Cliente</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-              <div><label style={labelStyle}>Nombre</label><input value={editClient.name} onChange={e => setEditClient(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Apellido</label><input value={editClient.lastName} onChange={e => setEditClient(p => ({ ...p, lastName: e.target.value }))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Nombre</label><input inputMode="text" value={editClient.name} onChange={e => setEditClient(p => ({ ...p, name: e.target.value }))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Apellido</label><input inputMode="text" value={editClient.lastName} onChange={e => setEditClient(p => ({ ...p, lastName: e.target.value }))} style={inputStyle} /></div>
               <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={editClient.phone} onChange={e => setEditClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
               <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={editClient.dni || ""} onChange={e => setEditClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
             </div>
@@ -5282,14 +5282,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     {(o.factura || o.ticket) && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, padding: "3px 8px", background: `${T.orange}15`, borderRadius: 6 }}>🔒 {o.factura ? "Factura" : "Comprobante"} emitido</div>}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                    <div><label style={labelStyle}>Nombre</label><input value={cobroClient.name} onChange={e => !(o.factura||o.ticket) && setCobroClient(p => ({ ...p, name: e.target.value }))} readOnly={!!(o.factura||o.ticket)} style={{ ...inputStyle, background: (o.factura||o.ticket) ? T.bg3 : undefined, cursor: (o.factura||o.ticket) ? "not-allowed" : undefined }} /></div>
-                    <div><label style={labelStyle}>Apellido</label><input value={cobroClient.lastName} onChange={e => !o.factura && setCobroClient(p => ({ ...p, lastName: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
+                    <div><label style={labelStyle}>Nombre</label><input inputMode="text" value={cobroClient.name} onChange={e => !(o.factura||o.ticket) && setCobroClient(p => ({ ...p, name: e.target.value }))} readOnly={!!(o.factura||o.ticket)} style={{ ...inputStyle, background: (o.factura||o.ticket) ? T.bg3 : undefined, cursor: (o.factura||o.ticket) ? "not-allowed" : undefined }} /></div>
+                    <div><label style={labelStyle}>Apellido</label><input inputMode="text" value={cobroClient.lastName} onChange={e => !o.factura && setCobroClient(p => ({ ...p, lastName: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                     <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={cobroClient.phone} onChange={e => !o.factura && setCobroClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
                     <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={cobroClient.dni} onChange={e => !o.factura && setCobroClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
                   </div>
-                  <div><label style={labelStyle}>CUIT</label><input value={cobroClient.cuit} onChange={e => !o.factura && setCobroClient(p => ({ ...p, cuit: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} placeholder="Ej: 20-12345678-9" /></div>
+                  <div><label style={labelStyle}>CUIT</label><input inputMode="numeric" value={cobroClient.cuit} onChange={e => !o.factura && setCobroClient(p => ({ ...p, cuit: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} placeholder="Ej: 20-12345678-9" /></div>
                 </div>}
 
                 {/* ── 2. TRABAJOS REALIZADOS ── */}
@@ -5836,7 +5836,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               <div>
                 {/* Buscador siempre visible */}
                 <div style={{ position: "relative", marginBottom: 16 }}>
-                  <input value={histSearch} onChange={e => setHistSearch(e.target.value)}
+                  <input inputMode="text" value={histSearch} onChange={e => setHistSearch(e.target.value)}
                     placeholder="🔍 Buscar dominio, DNI o CUIT..."
                     style={{ ...inputStyle, paddingRight: 36 }} autoFocus />
                   {histSearch && (
@@ -5930,7 +5930,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             <div>
               {/* Buscador */}
               <div style={{ position: "relative", marginBottom: 16 }}>
-                <input value={histSearch} onChange={e => setHistSearch(e.target.value)}
+                <input inputMode="text" value={histSearch} onChange={e => setHistSearch(e.target.value)}
                   placeholder="🔍 Buscar dominio, DNI o CUIT..."
                   style={{ ...inputStyle, paddingRight: 36 }} />
               </div>
@@ -6006,7 +6006,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
       </div>)}
       {tab === "ctacte" && (<div>
         <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
-          <input value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
+          <input inputMode="text" value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
           <div style={{ ...card, padding: "12px 20px", borderColor: T.orange }}>
             <div style={{ fontSize: 11, color: T.gray }}>Total pendiente</div>
             <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(ctaTotal)}</div>
@@ -6226,7 +6226,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <option value="__nuevo__">+ Nuevo (esporádico)</option>
                   </select>
                   {egresoForm.detalle === "__nuevo__" && (
-                    <input value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre del proveedor..." />
+                    <input inputMode="text" value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre del proveedor..." />
                   )}
                 </div>
               )}
@@ -6239,7 +6239,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 </div>
               )}
               {(egresoForm.categoria === "otro" || egresoForm.categoria === "repuesto" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida" || egresoForm.categoria === "alquiler") && (
-                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle del gasto..." /></div>
+                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle del gasto..." /></div>
               )}
               <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
               {/* NUEVO: Medio de pago del egreso */}
@@ -6309,7 +6309,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {ingresoTipo === "otro" && (
                 <>
                   <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📝 Otro Ingreso</div>
-                  <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción *</label><input value={ingresoForm.desc} onChange={e => setIngresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Cobro de garantía, devolución..." /></div>
+                  <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción *</label><input inputMode="text" value={ingresoForm.desc} onChange={e => setIngresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Cobro de garantía, devolución..." /></div>
                   <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.green }}>$</span><input inputMode="numeric" value={ingresoForm.monto} onChange={e => setIngresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={labelStyle}>Forma de ingreso</label>
@@ -6355,7 +6355,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 if (ctaIngresoStep === 1) return (
                   <>
                     <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>📒 Cobrar Cuenta Corriente</div>
-                    <input value={ctaSearchIngreso} onChange={e => setCtaSearchIngreso(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} placeholder="🔍 Buscar por cliente..." />
+                    <input inputMode="text" value={ctaSearchIngreso} onChange={e => setCtaSearchIngreso(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} placeholder="🔍 Buscar por cliente..." />
                     {ctaFiltradas.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 12, textAlign: "center" }}>Sin cuentas corrientes pendientes</div>}
                     {ctaFiltradas.map(o => {
                       const c = clients.find(x => x.id === o.clientId);
@@ -6412,7 +6412,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         </div>
                       </div>
                     )}
-                    <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input value={ctaIngresoDesc} onChange={e => setCtaIngresoDesc(e.target.value)} style={inputStyle} placeholder="Ej: Pago parcial ctacte, acuerdo..." /></div>
+                    <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={ctaIngresoDesc} onChange={e => setCtaIngresoDesc(e.target.value)} style={inputStyle} placeholder="Ej: Pago parcial ctacte, acuerdo..." /></div>
                     <div style={{ marginBottom: 14 }}>
                       <label style={labelStyle}>Forma de pago</label>
                       <div style={{ display: "flex", gap: 8 }}>
@@ -6831,13 +6831,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowProv(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>📦 Nuevo Proveedor</div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={provForm.nombre} onChange={e => setProvForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Borur" /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={provForm.nombre} onChange={e => setProvForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Borur" /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                <div><label style={labelStyle}>Rubro</label><input value={provForm.rubro} onChange={e => setProvForm(f => ({ ...f, rubro: e.target.value }))} style={inputStyle} placeholder="Repuestos" /></div>
+                <div><label style={labelStyle}>Rubro</label><input inputMode="text" value={provForm.rubro} onChange={e => setProvForm(f => ({ ...f, rubro: e.target.value }))} style={inputStyle} placeholder="Repuestos" /></div>
                 <div><label style={labelStyle}>Días de pago</label><input inputMode="numeric" value={provForm.diasPago} onChange={e => setProvForm(f => ({ ...f, diasPago: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                <div><label style={labelStyle}>CUIT</label><input value={provForm.cuit} onChange={e => setProvForm(f => ({ ...f, cuit: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>CUIT</label><input inputMode="numeric" value={provForm.cuit} onChange={e => setProvForm(f => ({ ...f, cuit: e.target.value }))} style={inputStyle} /></div>
                 <div><label style={labelStyle}>Teléfono</label><input inputMode="tel" value={provForm.tel} onChange={e => setProvForm(f => ({ ...f, tel: e.target.value }))} style={inputStyle} /></div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
@@ -6860,7 +6860,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🧾 Nueva Factura — {selProv?.nombre}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                <div><label style={labelStyle}>N° Factura *</label><input value={factProvForm.nroFactura} onChange={e => setFactProvForm(f => ({ ...f, nroFactura: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>N° Factura *</label><input inputMode="text" value={factProvForm.nroFactura} onChange={e => setFactProvForm(f => ({ ...f, nroFactura: e.target.value }))} style={inputStyle} /></div>
                 <div><label style={labelStyle}>Monto *</label>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                     <span style={{ fontWeight: 700, color: T.accent }}>$</span>
@@ -6875,7 +6875,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {/* Campo descripción — opcional */}
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Descripción <span style={{ color: T.gray, fontWeight: 400, fontSize: 10 }}>(opcional)</span></label>
-                <input value={factProvForm.desc || ""} onChange={e => setFactProvForm(f => ({ ...f, desc: e.target.value }))}
+                <input inputMode="text" value={factProvForm.desc || ""} onChange={e => setFactProvForm(f => ({ ...f, desc: e.target.value }))}
                   style={inputStyle} placeholder="Ej: Repuestos motor, frenos..." />
               </div>
               <div style={{ display: "flex", gap: 10 }}>
@@ -7110,7 +7110,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={labelStyle}>Nro. de Factura</label>
-                    <input value={mesData.nroFc || ""} disabled={pagado}
+                    <input inputMode="text" value={mesData.nroFc || ""} disabled={pagado}
                       onChange={e => {
                         const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, nroFc: e.target.value } } };
                         setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
@@ -7369,8 +7369,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServ(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🔌 Nuevo Servicio</div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Internet, Alquiler" /></div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Internet, Alquiler" /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
                 <div><label style={labelStyle}>Monto habitual</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
                 <div><label style={labelStyle}>Método usual</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
@@ -7818,7 +7818,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
               <div style={{ marginBottom: 10 }}>
                 <label style={labelStyle}>Descripción *</label>
-                <input value={igForm.desc} onChange={e => setIgForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Expensas, Alquiler..." autoFocus />
+                <input inputMode="text" value={igForm.desc} onChange={e => setIgForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Expensas, Alquiler..." autoFocus />
               </div>
 
               <div style={{ marginBottom: 10 }}>
@@ -7829,7 +7829,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <option value="__nueva__">+ Nueva categoría</option>
                 </select>
                 {igForm.categoria === "__nueva__" && (
-                  <input value={igForm.newCat || ""} onChange={e => setIgForm(f => ({ ...f, newCat: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre de categoría..." />
+                  <input inputMode="text" value={igForm.newCat || ""} onChange={e => setIgForm(f => ({ ...f, newCat: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre de categoría..." />
                 )}
               </div>
 
@@ -8654,7 +8654,7 @@ const InspectionScreen = (props) => {
               </div>
             )}
             {ti.isCustom ? (
-              <input value={ti.label || ""} onChange={e => {
+              <input inputMode="text" value={ti.label || ""} onChange={e => {
                 const newItems = [...items];
                 newItems[j] = { ...newItems[j], label: e.target.value };
                 setItems(newItems);
@@ -8676,7 +8676,7 @@ const InspectionScreen = (props) => {
               </div>
             )}
             {ti.selected && !ti.isCustom && (
-              <input value={ti.otroDesc || ""} onChange={e => {
+              <input inputMode="text" value={ti.otroDesc || ""} onChange={e => {
                 const newItems = [...items];
                 newItems[j] = { ...newItems[j], otroDesc: e.target.value };
                 setItems(newItems);
@@ -8685,7 +8685,7 @@ const InspectionScreen = (props) => {
             {(ti.isCustom || ti.selected) && (
               <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                <input type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
+                <input inputMode="numeric" type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
                   const raw = e.target.value.replace(/[^0-9]/g, "");
                   const newItems = [...items];
                   newItems[j] = { ...newItems[j], price: raw };
@@ -9824,7 +9824,7 @@ const ServiceSheetScreen = (props) => {
         )}
         {item.type === "binaryPresente" && d.fluidOk === "mal" && !(item.optional && !d.checked) && (
           <div style={{ marginLeft: 34, marginBottom: 8 }}>
-            <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
+            <input inputMode="text" value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
               placeholder="⚠️ Describir la pérdida (obligatorio)..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px", width: "100%", borderColor: !d.obs ? T.red : T.border }} />
           </div>
         )}
@@ -10008,7 +10008,7 @@ const ServiceSheetScreen = (props) => {
 
         {item.type === "voltage" && !(item.optional && !d.checked) && (
           <div style={{ ...ml, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-            <input value={d.voltage || ""} onChange={e => upd(item.id, { voltage: e.target.value, checked: !!e.target.value })}
+            <input inputMode="numeric" value={d.voltage || ""} onChange={e => upd(item.id, { voltage: e.target.value, checked: !!e.target.value })}
               placeholder="Ej: 14.2" style={{ ...inputStyle, width: 100, textAlign: "center", fontSize: 16, fontWeight: 700, fontFamily: fontD }} />
             <span style={{ fontSize: 14, color: T.gray }}>V</span>
             {d.voltage && (
@@ -10033,9 +10033,9 @@ const ServiceSheetScreen = (props) => {
               <>
                 {(d.dtcEntries || []).map((entry, ei) => (
                   <div key={ei} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                    <input value={entry.code || ""} onChange={e => { const entries = [...(d.dtcEntries || [])]; entries[ei] = { ...entries[ei], code: e.target.value }; upd(item.id, { dtcEntries: entries }); }}
+                    <input inputMode="text" value={entry.code || ""} onChange={e => { const entries = [...(d.dtcEntries || [])]; entries[ei] = { ...entries[ei], code: e.target.value }; upd(item.id, { dtcEntries: entries }); }}
                       placeholder="Código (ej: P0301)" style={{ ...inputStyle, width: 130, fontFamily: fontD, fontSize: 14 }} />
-                    <input value={entry.desc || ""} onChange={e => { const entries = [...(d.dtcEntries || [])]; entries[ei] = { ...entries[ei], desc: e.target.value }; upd(item.id, { dtcEntries: entries }); }}
+                    <input inputMode="text" value={entry.desc || ""} onChange={e => { const entries = [...(d.dtcEntries || [])]; entries[ei] = { ...entries[ei], desc: e.target.value }; upd(item.id, { dtcEntries: entries }); }}
                       placeholder="Descripción..." style={{ ...inputStyle, flex: 1 }} />
                     {(d.dtcEntries || []).length > 1 && (
                       <div onClick={() => upd(item.id, { dtcEntries: (d.dtcEntries || []).filter((_, j) => j !== ei) })}
@@ -10058,7 +10058,7 @@ const ServiceSheetScreen = (props) => {
         )}
 
         <div style={ml}>
-          {item.type !== "binaryPresente" && <input value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
+          {item.type !== "binaryPresente" && <input inputMode="text" value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
             placeholder="Observación..." style={{ ...inputStyle, fontSize: 12, padding: "8px 12px" }} />}
         </div>
       </div>
@@ -10144,7 +10144,7 @@ const ServiceSheetScreen = (props) => {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <div>
                       <label style={{ fontSize: 10, fontWeight: 700, color: T.gray, marginBottom: 2, display: "block" }}>N° DE SERIE *</label>
-                      <input value={item.batCode || ""} onChange={e => {
+                      <input inputMode="text" value={item.batCode || ""} onChange={e => {
                         const val = e.target.value;
                         const amp = item.batAmp;
                         const war = item.batWarranty;
@@ -10154,7 +10154,7 @@ const ServiceSheetScreen = (props) => {
                     <div>
                       <label style={{ fontSize: 10, fontWeight: 700, color: T.gray, marginBottom: 2, display: "block" }}>AMPERAJE *</label>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <input value={item.batAmp || ""} onChange={e => {
+                        <input inputMode="numeric" value={item.batAmp || ""} onChange={e => {
                           const val = e.target.value.replace(/[^0-9]/g, "");
                           const code = item.batCode;
                           const war = item.batWarranty;
@@ -10167,7 +10167,7 @@ const ServiceSheetScreen = (props) => {
                   <div>
                     <label style={{ fontSize: 10, fontWeight: 700, color: T.gray, marginBottom: 2, display: "block" }}>GARANTÍA (meses)</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <input value={item.batWarranty || ""} onChange={e => {
+                      <input inputMode="text" value={item.batWarranty || ""} onChange={e => {
                         const val = e.target.value.replace(/[^0-9]/g, "");
                         const code = item.batCode;
                         const amp = item.batAmp;
@@ -10183,7 +10183,7 @@ const ServiceSheetScreen = (props) => {
                 <div style={{ marginTop: 10, paddingLeft: 40 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 6 }}>⚡ VOLTAJE DEL ALTERNADOR</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="text" value={item.voltage || ""} onChange={e => {
+                    <input inputMode="numeric" type="text" value={item.voltage || ""} onChange={e => {
                       const val = e.target.value.replace(/[^0-9.]/g, "");
                       updateCheckItem(wKey, idx, { voltage: val, done: !!val, note: val ? `Voltaje: ${val}V` : "" });
                     }}
@@ -10217,7 +10217,7 @@ const ServiceSheetScreen = (props) => {
               {/* Note field */}
               {!item.isVoltage && (
                 <div style={{ marginTop: 8, paddingLeft: 40 }}>
-                  <input value={item.note || ""} onChange={e => updateCheckItem(wKey, idx, { note: e.target.value })}
+                  <input inputMode="text" value={item.note || ""} onChange={e => updateCheckItem(wKey, idx, { note: e.target.value })}
                     placeholder="Observación (opcional)..." style={{ ...inputStyle, fontSize: 12, padding: "6px 10px", width: "100%" }} />
                 </div>
               )}
@@ -10369,7 +10369,7 @@ const ServiceSheetScreen = (props) => {
         </div>
         {techNotes.map((note, i) => (
           <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <input value={note} onChange={e => { const n = [...techNotes]; n[i] = e.target.value; setTechNotes(n); }}
+            <input inputMode="text" value={note} onChange={e => { const n = [...techNotes]; n[i] = e.target.value; setTechNotes(n); }}
               placeholder={`Observación ${i + 1}...`} style={{ ...inputStyle, flex: 1, fontSize: 13 }} />
             {techNotes.length > 1 && (
               <div onClick={() => setTechNotes(techNotes.filter((_, j) => j !== i))}
@@ -12361,17 +12361,17 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
 
         <div style={{ marginBottom: 10 }}>
           <label style={labelStyle}>URL del servidor WAHA (Railway)</label>
-          <input value={config.wahaUrl || ""} onChange={e => setConfig(prev => ({ ...prev, wahaUrl: e.target.value }))}
+          <input inputMode="text" value={config.wahaUrl || ""} onChange={e => setConfig(prev => ({ ...prev, wahaUrl: e.target.value }))}
             style={inputStyle} placeholder="https://waha-production-106b.up.railway.app" />
         </div>
         <div style={{ marginBottom: 10 }}>
           <label style={labelStyle}>API Key (opcional, si está protegido)</label>
-          <input value={config.wahaApiKey || ""} onChange={e => setConfig(prev => ({ ...prev, wahaApiKey: e.target.value }))}
+          <input inputMode="text" value={config.wahaApiKey || ""} onChange={e => setConfig(prev => ({ ...prev, wahaApiKey: e.target.value }))}
             style={inputStyle} placeholder="Dejar vacío si no tiene clave" type="password" />
         </div>
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Nombre de sesión</label>
-          <input value={config.wahaSession || "default"} onChange={e => setConfig(prev => ({ ...prev, wahaSession: e.target.value }))}
+          <input inputMode="text" value={config.wahaSession || "default"} onChange={e => setConfig(prev => ({ ...prev, wahaSession: e.target.value }))}
             style={inputStyle} placeholder="default" />
         </div>
 
@@ -12427,7 +12427,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>📞 Datos de WhatsApp</div>
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Número del Taller (con código país)</label><input inputMode="tel" value={config.whatsappNum || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappNum: e.target.value }))} style={inputStyle} placeholder="Ej: 5493547426967" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre que se muestra</label><input inputMode="text" value={config.whatsappName || ""} onChange={e => setConfig(prev => ({ ...prev, whatsappName: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys Servicio Integral" /></div>
         <button onClick={() => showSaved("WhatsApp guardado ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
       </div>
 
@@ -12567,7 +12567,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
                 {editingUser.initial || editingUser.name[0]}
               </div>
               <div style={{ flex: 1 }}>
-                <input value={editingUser.name} onChange={e => setEditingUser(u => ({ ...u, name: e.target.value, initial: e.target.value[0]?.toUpperCase() || "" }))}
+                <input inputMode="text" value={editingUser.name} onChange={e => setEditingUser(u => ({ ...u, name: e.target.value, initial: e.target.value[0]?.toUpperCase() || "" }))}
                   style={{ ...inputStyle, fontSize: 18, fontWeight: 700, padding: "6px 10px" }} />
               </div>
             </div>
@@ -12696,7 +12696,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
             <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>👤 Nuevo Usuario</div>
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: T.grayLight }}>NOMBRE</label>
-              <input value={newUser.name} onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
+              <input inputMode="text" value={newUser.name} onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
                 placeholder="Nombre del usuario" style={{ ...inputStyle, fontSize: 16, fontWeight: 600, padding: "10px 12px", marginTop: 4 }} />
             </div>
             <div style={{ marginBottom: 12 }}>
@@ -12750,15 +12750,15 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
         <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
       <div style={{ ...card, padding: 20 }}>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre del Taller</label><input value={config.tallerNombre || ""} onChange={e => setConfig(prev => ({ ...prev, tallerNombre: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Razón Social</label><input value={config.tallerRazon || ""} onChange={e => setConfig(prev => ({ ...prev, tallerRazon: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys SRL" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>CUIT</label><input value={config.tallerCuit || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Dirección</label><input value={config.tallerDir || ""} onChange={e => setConfig(prev => ({ ...prev, tallerDir: e.target.value }))} style={inputStyle} placeholder="Ej: Av. Recta Martinoli 8590" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Nombre del Taller</label><input inputMode="text" value={config.tallerNombre || ""} onChange={e => setConfig(prev => ({ ...prev, tallerNombre: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Razón Social</label><input inputMode="text" value={config.tallerRazon || ""} onChange={e => setConfig(prev => ({ ...prev, tallerRazon: e.target.value }))} style={inputStyle} placeholder="Ej: CarBoys SRL" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>CUIT</label><input inputMode="text" value={config.tallerCuit || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCuit: e.target.value }))} style={inputStyle} placeholder="Ej: 20-12345678-9" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Dirección</label><input inputMode="text" value={config.tallerDir || ""} onChange={e => setConfig(prev => ({ ...prev, tallerDir: e.target.value }))} style={inputStyle} placeholder="Ej: Av. Recta Martinoli 8590" /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <div><label style={labelStyle}>Ciudad</label><input value={config.tallerCiudad || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCiudad: e.target.value }))} style={inputStyle} placeholder="Córdoba" /></div>
-          <div><label style={labelStyle}>Teléfono</label><input value={config.tallerTel || ""} onChange={e => setConfig(prev => ({ ...prev, tallerTel: e.target.value }))} style={inputStyle} placeholder="351-1234567" /></div>
+          <div><label style={labelStyle}>Ciudad</label><input inputMode="text" value={config.tallerCiudad || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCiudad: e.target.value }))} style={inputStyle} placeholder="Córdoba" /></div>
+          <div><label style={labelStyle}>Teléfono</label><input inputMode="text" value={config.tallerTel || ""} onChange={e => setConfig(prev => ({ ...prev, tallerTel: e.target.value }))} style={inputStyle} placeholder="351-1234567" /></div>
         </div>
-        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Email</label><input value={config.tallerEmail || ""} onChange={e => setConfig(prev => ({ ...prev, tallerEmail: e.target.value }))} style={inputStyle} placeholder="info@carboys.com" /></div>
+        <div style={{ marginBottom: 12 }}><label style={labelStyle}>Email</label><input inputMode="text" value={config.tallerEmail || ""} onChange={e => setConfig(prev => ({ ...prev, tallerEmail: e.target.value }))} style={inputStyle} placeholder="info@carboys.com" /></div>
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Condición IVA</label>
           <select value={config.tallerIva || ""} onChange={e => setConfig(prev => ({ ...prev, tallerIva: e.target.value }))} style={inputStyle}>
             <option value="">Seleccionar</option><option>Responsable Inscripto</option><option>Monotributista</option><option>Exento</option>
@@ -12779,20 +12779,20 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
       <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.accent }}>
         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 4, color: T.accent }}>Cuenta 1 — Con IVA</div>
         <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Se usa para pagos con factura A o B</div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Banco</label><input value={config.cta1Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Galicia" /></div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Titular</label><input value={config.cta1Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>CBU</label><input value={config.cta1Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Alias</label><input value={config.cta1Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Alias: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS.IVA" /></div>
-        <div><label style={labelStyle}>CUIT</label><input value={config.cta1Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cuit: e.target.value }))} style={inputStyle} placeholder="20-12345678-9" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Banco</label><input inputMode="text" value={config.cta1Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Galicia" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Titular</label><input inputMode="text" value={config.cta1Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>CBU</label><input inputMode="numeric" value={config.cta1Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Alias</label><input inputMode="text" value={config.cta1Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Alias: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS.IVA" /></div>
+        <div><label style={labelStyle}>CUIT</label><input inputMode="text" value={config.cta1Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cuit: e.target.value }))} style={inputStyle} placeholder="20-12345678-9" /></div>
       </div>
       <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.orange }}>
         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 4, color: T.orange }}>Cuenta 2 — Sin IVA</div>
         <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Se usa para pagos con factura C o sin factura</div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Banco</label><input value={config.cta2Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Nación" /></div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Titular</label><input value={config.cta2Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>CBU</label><input value={config.cta2Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
-        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Alias</label><input value={config.cta2Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Alias: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS.SINIVA" /></div>
-        <div><label style={labelStyle}>CUIT</label><input value={config.cta2Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cuit: e.target.value }))} style={inputStyle} placeholder="20-12345678-9" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Banco</label><input inputMode="text" value={config.cta2Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Nación" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Titular</label><input inputMode="text" value={config.cta2Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>CBU</label><input inputMode="numeric" value={config.cta2Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
+        <div style={{ marginBottom: 10 }}><label style={labelStyle}>Alias</label><input inputMode="text" value={config.cta2Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Alias: e.target.value }))} style={inputStyle} placeholder="Ej: CARBOYS.SINIVA" /></div>
+        <div><label style={labelStyle}>CUIT</label><input inputMode="text" value={config.cta2Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cuit: e.target.value }))} style={inputStyle} placeholder="20-12345678-9" /></div>
       </div>
       <button onClick={() => showSaved("Cuentas bancarias guardadas ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
     </div>
@@ -12816,7 +12816,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
       <div style={{ ...card, padding: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.green, marginBottom: 10 }}>+ Agregar categoría</div>
         <div style={{ display: "flex", gap: 10 }}>
-          <input id="newCatInput" style={{ ...inputStyle, flex: 1 }} placeholder="Nombre de la nueva categoría..." />
+          <input inputMode="text" id="newCatInput" style={{ ...inputStyle, flex: 1 }} placeholder="Nombre de la nueva categoría..." />
           <button onClick={() => { const inp = document.getElementById("newCatInput"); if (inp.value.trim()) { const existing = config.workCategories || ["Service Full","Service Base","Tren Delantero","Tren Trasero","Pastillas de Freno","Escape","Baterías","Escobillas","Lámpara","Mecánica","Repro","Aditivo"]; setConfig(prev => ({ ...prev, workCategories: [...existing, inp.value.trim()] })); inp.value = ""; showSaved("Categoría agregada ✓"); }}} style={{ ...btnPrimary(T.green), fontSize: 13 }}>Agregar</button>
         </div>
       </div>
@@ -12842,7 +12842,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
               <span style={{ fontWeight: 700, fontSize: 14 }}>{f.label}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="text" value={config[f.key]} onChange={e => {
+              <input inputMode="text" type="text" value={config[f.key]} onChange={e => {
                 const val = e.target.value.replace(/[^0-9.]/g, "");
                 setConfig(c => ({ ...c, [f.key]: parseFloat(val) || 0 }));
               }} style={{ ...inputStyle, width: 70, fontSize: 20, fontWeight: 700, fontFamily: fontD, textAlign: "center", padding: "6px 8px" }} />
