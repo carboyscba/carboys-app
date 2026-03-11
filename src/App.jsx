@@ -4291,7 +4291,7 @@ const VehicleDetailScreen = (props) => {
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowCobrarPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cerrar</button>
-              <button onClick={() => { setShowCobrarPopup(false); onNavigate("admin", { initialTab: "cobros" }); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13 }}>🧾 Ir a Cobros</button>
+              <button onClick={() => { setShowCobrarPopup(false); onNavigate("admin", { initialTab: "cobros", initialOrder: order }); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13 }}>🧾 Ir a Cobros</button>
             </div>
           </div>
         </div>
@@ -4967,10 +4967,10 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres }) => {
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres }) => {
   const [tab, setTab] = useState(initialTab || "resumen");
   const [showTotalVentas, setShowTotalVentas] = useState(false);
-  const [selCobro, setSelCobro] = useState(null);
+  const [selCobro, setSelCobro] = useState(initialOrder || null);
   const [cobroPay, setCobroPay] = useState([]);
   const [cobroClient, setCobroClient] = useState(null);
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
@@ -12914,6 +12914,7 @@ export default function App() {
   const [selOrder, setSelOrder] = useState(null);
   const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
+  const [adminInitialOrder, setAdminInitialOrder] = useState(null);
   const [dbLoading,   setDbLoading]   = useState(true);
   // ── Sync state: reactive, driven by fsSave activity tracker ──
   const [syncState, setSyncState] = useState('ok'); // 'ok' | 'syncing' | 'error' | 'offline'
@@ -13243,7 +13244,8 @@ export default function App() {
   const nav = useCallback((target, data = null) => {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
     if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
-    else if (target !== "admin") setAdminInitialTab(null);
+    if (target === "admin" && data?.initialOrder) setAdminInitialOrder(data.initialOrder);
+    else if (target !== "admin") { setAdminInitialTab(null); setAdminInitialOrder(null); }
     // Historial de navegación para botón Volver
     if (target === "vehicleDetail" || target === "serviceSheet" || target === "authManage") {
       navHistoryRef.current = [...navHistoryRef.current, screen];
@@ -13375,7 +13377,7 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} /> : null;
+      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
