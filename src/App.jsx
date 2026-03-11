@@ -1213,12 +1213,22 @@ const SearchSelect = ({ options, value, onChange, placeholder }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Focus the search input when dropdown opens — setTimeout needed for mobile keyboards
+  useEffect(() => {
+    if (open && inputRef.current) {
+      setTimeout(() => { inputRef.current?.focus(); }, 50);
+    } else {
+      setSearch("");
+    }
+  }, [open]);
 
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
 
@@ -1230,8 +1240,8 @@ const SearchSelect = ({ options, value, onChange, placeholder }) => {
       </div>
       {open && (
         <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: T.bg2, border: `1px solid ${T.accent}`, borderRadius: 10, zIndex: 50, maxHeight: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
-            style={{ ...inputStyle, borderRadius: 0, border: "none", borderBottom: `1px solid ${T.border}`, fontSize: 13 }} autoFocus />
+          <input ref={inputRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
+            style={{ ...inputStyle, borderRadius: 0, border: "none", borderBottom: `1px solid ${T.border}`, fontSize: 13 }} />
           <div style={{ overflow: "auto", flex: 1 }}>
             {filtered.map(o => (
               <div key={o} onClick={() => { onChange(o); setOpen(false); setSearch(""); }}
@@ -1396,6 +1406,10 @@ const NewOrderScreen = (props) => {
   const removeWork = (i) => setWorks(w => w.filter((_, j) => j !== i));
   const worksValid = works.length > 0 && works.every(w => {
     if (w.trenItems) {
+      // Baterías: price stored at w.price directly, just check amperaje selected + price
+      if (w.type === "Baterías") {
+        return w.trenItems.some(ti => ti.selected) && parseFloat(w.price) > 0;
+      }
       const hasSelected = w.trenItems.some(ti => ti.isCustom ? ti.label : ti.selected);
       const missingPrice = w.trenItems.some(ti => (ti.isCustom ? (ti.label && !ti.price) : (ti.selected && !ti.price)));
       return hasSelected && !missingPrice && parseFloat(w.price) > 0;
@@ -1856,12 +1870,13 @@ const NewOrderScreen = (props) => {
             <div>
               <label style={labelStyle}>Nombre *</label>
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1 }} />
+                autoFocus={!!(isNew || editMode)}
+                disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.name ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>Apellido *</label>
               <input value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1 }} />
+                disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.lastName ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>DNI {!form.cuit ? "*" : ""}</label>
@@ -1882,7 +1897,7 @@ const NewOrderScreen = (props) => {
               <label style={labelStyle}>Celular *</label>
               <input inputMode="numeric" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9]/g, "") }))}
                 disabled={foundClient && !editMode && !isNew} placeholder="Ej: 3515201053"
-                style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1 }} />
+                style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.phone ? T.orange : T.border }} />
             </div>
           </div>
 
@@ -1910,7 +1925,7 @@ const NewOrderScreen = (props) => {
               ) : (
                 <div>
                   <input value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
-                    placeholder="Escribir marca" style={inputStyle} />
+                    placeholder="Escribir marca" style={{ ...inputStyle, borderColor: !form.brand ? T.orange : T.border }} />
                   <div onClick={() => { setManualBrand(false); setForm(f => ({ ...f, brand: "", model: "" })); setManualModel(false); }} style={{ fontSize: 11, color: T.accent, cursor: "pointer", marginTop: 4, fontWeight: 600 }}>
                     ← Volver al selector
                   </div>
@@ -1931,7 +1946,7 @@ const NewOrderScreen = (props) => {
               ) : (
                 <div>
                   <input value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
-                    placeholder="Escribir modelo" style={inputStyle} />
+                    placeholder="Escribir modelo" style={{ ...inputStyle, borderColor: !form.model ? T.orange : T.border }} />
                   <div onClick={() => setManualModel(false)} style={{ fontSize: 11, color: T.accent, cursor: "pointer", marginTop: 4, fontWeight: 600 }}>
                     ← Volver al selector
                   </div>
@@ -1940,9 +1955,11 @@ const NewOrderScreen = (props) => {
             </div>
             <div>
               <label style={labelStyle}>Año *</label>
-              <SearchSelect options={YEARS.map(String)} value={form.year}
-                onChange={v => setForm(f => ({ ...f, year: v }))}
-                placeholder="Año" />
+              <div style={{ borderRadius: 8, border: `1px solid ${!form.year ? T.orange : T.border}` }}>
+                <SearchSelect options={YEARS.map(String)} value={form.year}
+                  onChange={v => setForm(f => ({ ...f, year: v }))}
+                  placeholder="Año" />
+              </div>
             </div>
             {foundVehicle && !isNew ? (
               <div>
@@ -1954,7 +1971,7 @@ const NewOrderScreen = (props) => {
               <div>
                 <label style={labelStyle}>Kilómetros *</label>
                 <input inputMode="numeric" value={form.km} onChange={e => setForm(f => ({ ...f, km: e.target.value.replace(/[^0-9]/g, "") }))}
-                  placeholder="Ej: 45000" style={inputStyle} />
+                  placeholder="Ej: 45000" style={{ ...inputStyle, borderColor: !form.km ? T.orange : T.border }} />
               </div>
             )}
           </div>
@@ -2269,8 +2286,10 @@ const NewOrderScreen = (props) => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], label: e.target.value };
                             const desc = newItems.filter(x => x.isCustom ? (x.label) : x.selected).map(x => x.isCustom ? x.label : x.label).join(", ");
+                            const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
                             updateWork(i, "trenItems", newItems);
                             updateWork(i, "desc", desc);
+                            updateWork(i, "price", total);
                           }} placeholder="Describir item..." style={{ ...inputStyle, flex: 1, fontSize: 13, fontWeight: 600, padding: "4px 8px" }} />
                         ) : (
                           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: ti.selected ? T.accent : T.text, minWidth: 0 }}>{ti.label}</span>
