@@ -62,12 +62,31 @@ const fsDel = async (col, id) => {
   const h = await fsHeaders();
   return fetch(`${FS_BASE}/${col}/${encodeURIComponent(String(id))}`, { method: "DELETE", headers: h });
 };
+// Comparador inteligente para IDs mixtos (numérico o "ord_XXXX")
+const cmpId = (a, b) => {
+  const va = typeof a.id === 'number' ? a.id : (parseInt((String(a.id).match(/\d+/)||['0'])[0]) || 0);
+  const vb = typeof b.id === 'number' ? b.id : (parseInt((String(b.id).match(/\d+/)||['0'])[0]) || 0);
+  // Órdenes reales del taller (IDs altos numéricos) van primero
+  // Historial importado (ord_XXXX) va después ordenado por fecha
+  if (a.date && b.date && a.date !== b.date) return b.date.localeCompare(a.date);
+  return vb - va;
+};
+
 const fsGetCol = async (col) => {
   const h = await fsHeaders();
-  const r = await fetch(`${FS_BASE}/${col}?pageSize=500`, { headers: h });
-  if (!r.ok) return [];
-  const json = await r.json();
-  return (json.documents || []).map(fsToObj);
+  let allDocs = [];
+  let pageToken = null;
+  let safetyLimit = 20; // máximo 20 páginas = 10.000 docs
+  do {
+    const url = `${FS_BASE}/${col}?pageSize=500${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    const r = await fetch(url, { headers: h });
+    if (!r.ok) break;
+    const json = await r.json();
+    allDocs = allDocs.concat((json.documents || []).map(fsToObj));
+    pageToken = json.nextPageToken || null;
+    safetyLimit--;
+  } while (pageToken && safetyLimit > 0);
+  return allDocs;
 };
 const fsGetDoc = async (col, id) => {
   const h = await fsHeaders();
@@ -605,18 +624,22 @@ const GoogleLoginScreen = ({ onSuccess }) => {
   );
 };
 
-// Polling para simular onSnapshot (cada 8 seg)
+// Polling para simular onSnapshot
+// 10s = órdenes activas (crítico), 45s = clientes/config, 90s = colecciones admin
 const fsListeners = {};
-const onSnapshot = (colName, cb, errCb) => {
+const _makeSnapshot = (colName, cb, errCb, interval) => {
   const poll = async () => {
     try { const docs = await fsGetCol(colName); cb({ docs: docs.map(d => ({ data: () => d })), empty: docs.length === 0 }); }
     catch(e) { errCb?.(e); }
   };
   poll();
-  const iv = setInterval(poll, 8000);
+  const iv = setInterval(poll, interval);
   fsListeners[colName] = iv;
   return () => clearInterval(iv);
 };
+const onSnapshot     = (col, cb, err) => _makeSnapshot(col, cb, err, 10000); // 10s — órdenes
+const onSnapshotMed  = (col, cb, err) => _makeSnapshot(col, cb, err, 45000); // 45s — clientes/config
+const onSnapshotSlow = (col, cb, err) => _makeSnapshot(col, cb, err, 90000); // 90s — admin cols
 const onSnapshotDoc = (colName, docId, cb, errCb) => {
   const poll = async () => {
     try { const d = await fsGetDoc(colName, docId); cb({ exists: () => !!d, data: () => d }); }
@@ -624,7 +647,7 @@ const onSnapshotDoc = (colName, docId, cb, errCb) => {
   };
   poll();
   const key = `${colName}/${docId}`;
-  const iv = setInterval(poll, 8000);
+  const iv = setInterval(poll, 45000); // 45s — config doc
   fsListeners[key] = iv;
   return () => clearInterval(iv);
 };
@@ -784,81 +807,12 @@ const USERS = [
 // SEED DATA — clientes y órdenes de prueba (en taller + historial)
 // ══════════════════════════════════════════════════════════════════
 
-const SEED_CLIENTS = [
-  { id: 201, name: "Carlos", lastName: "Méndez",    phone: "3516110001", dni: "28114001", cuit: "", email: "carlos@mail.com",  vehicles: [{ domain: "AB 123 CD", brand: "Volkswagen", model: "Golf",    year: "2019", km: "68000", fuel: "Nafta", color: "Blanco" }] },
-  { id: 202, name: "Laura",  lastName: "Fernández", phone: "3516110002", dni: "31220002", cuit: "", email: "laura@mail.com",   vehicles: [{ domain: "GH 456 IJ", brand: "Renault",   model: "Sandero", year: "2020", km: "45000", fuel: "Nafta", color: "Gris"  }] },
-  { id: 203, name: "Diego",  lastName: "Torres",    phone: "3516110003", dni: "25330003", cuit: "", email: "diego@mail.com",   vehicles: [{ domain: "MN 789 OP", brand: "Ford",      model: "Focus",   year: "2018", km: "92000", fuel: "Nafta", color: "Negro" }] },
-  { id: 204, name: "Sofía",  lastName: "Ramírez",   phone: "3516110004", dni: "33440004", cuit: "", email: "sofia@mail.com",   vehicles: [{ domain: "QR 321 ST", brand: "Toyota",    model: "Corolla", year: "2021", km: "31000", fuel: "Nafta", color: "Plata" }] },
-  { id: 205, name: "Martín", lastName: "Gómez",     phone: "3516110005", dni: "27550005", cuit: "", email: "martin@mail.com",  vehicles: [{ domain: "UV 654 WX", brand: "Chevrolet", model: "Cruze",   year: "2017", km: "115000",fuel: "Nafta", color: "Azul"  }] },
-  { id: 206, name: "Ana",    lastName: "López",     phone: "3516110006", dni: "30660006", cuit: "", email: "ana@mail.com",     vehicles: [{ domain: "YZ 987 AB", brand: "Fiat",      model: "Cronos",  year: "2022", km: "22000", fuel: "Nafta", color: "Rojo"  }] },
-  // Clientes historial (3 meses)
-  { id: 207, name: "Roberto", lastName: "Soria",    phone: "3516110007", dni: "26770007", cuit: "", email: "", vehicles: [{ domain: "BC 111 DE", brand: "Honda",   model: "Civic",    year: "2016", km: "140000", fuel: "Nafta", color: "Gris"  }] },
-  { id: 208, name: "Patricia",lastName: "Vega",     phone: "3516110008", dni: "29880008", cuit: "", email: "", vehicles: [{ domain: "FG 222 HI", brand: "Peugeot", model: "208",      year: "2020", km: "55000",  fuel: "Nafta", color: "Blanco"}] },
-  { id: 209, name: "Lucas",   lastName: "Herrera",  phone: "3516110009", dni: "32990009", cuit: "", email: "", vehicles: [{ domain: "JK 333 LM", brand: "Volkswagen",model: "Polo",  year: "2019", km: "73000",  fuel: "Nafta", color: "Negro" }] },
-  { id: 210, name: "Valeria", lastName: "Suárez",   phone: "3516110010", dni: "28100010", cuit: "", email: "", vehicles: [{ domain: "NO 444 PQ", brand: "Ford",    model: "EcoSport", year: "2018", km: "98000",  fuel: "Nafta", color: "Plata" }] },
-  { id: 211, name: "Fernando",lastName: "Mora",     phone: "3516110011", dni: "31110011", cuit: "", email: "", vehicles: [{ domain: "RS 555 TU", brand: "Renault", model: "Duster",   year: "2017", km: "122000", fuel: "Nafta", color: "Rojo"  }] },
-  { id: 212, name: "Cecilia", lastName: "Acosta",   phone: "3516110012", dni: "27120012", cuit: "", email: "", vehicles: [{ domain: "VW 666 XY", brand: "Chevrolet",model: "Onix",  year: "2021", km: "38000",  fuel: "Nafta", color: "Azul"  }] },
-  { id: 213, name: "Gustavo", lastName: "Ríos",     phone: "3516110013", dni: "30130013", cuit: "", email: "", vehicles: [{ domain: "ZA 777 BC", brand: "Toyota",  model: "Etios",    year: "2016", km: "155000", fuel: "Nafta", color: "Blanco"}] },
-  { id: 214, name: "Natalia", lastName: "Castro",   phone: "3516110014", dni: "33140014", cuit: "", email: "", vehicles: [{ domain: "DE 888 FG", brand: "Honda",   model: "HR-V",     year: "2020", km: "42000",  fuel: "Nafta", color: "Gris"  }] },
-  { id: 215, name: "Javier",  lastName: "Ortega",   phone: "3516110015", dni: "26150015", cuit: "", email: "", vehicles: [{ domain: "HI 999 JK", brand: "Volkswagen",model: "Vento", year: "2019", km: "81000",  fuel: "Nafta", color: "Negro" }] },
-];
+const SEED_CLIENTS = [];
 
 const _ss_done = null; // serviceSheet simplificado para datos de prueba
 
 // ── 6 AUTOS EN TALLER ──
-const SEED_ORDERS_TALLER = [
-  {
-    id: 301, clientId: 201, domain: "AB 123 CD", date: "2026-03-10", km: "68000",
-    status: "working", tech: "Fabricio", startTime: "09:00",
-    works: [{ type: "Service Full", price: 95000, desc: "Service Full completo" }],
-    payments: [], serviceSheet: null, workChecklist: {}, notes: "",
-    paymentPref: { method: "Efectivo", withIva: false, account: "1", invoiceType: "C" }
-  },
-  {
-    id: 302, clientId: 202, domain: "GH 456 IJ", date: "2026-03-10", km: "45000",
-    status: "waiting", tech: "Fabricio", startTime: "10:30",
-    works: [{ type: "Service Base", price: 60000, desc: "Service Base" }],
-    payments: [], serviceSheet: null, workChecklist: {}, notes: "",
-    paymentPref: { method: "Transferencia", withIva: true, account: "1", invoiceType: "B" }
-  },
-  {
-    id: 303, clientId: 203, domain: "MN 789 OP", date: "2026-03-10", km: "92000",
-    status: "working", tech: "Fabricio", startTime: "08:00",
-    works: [
-      { type: "Service Full", price: 95000, desc: "Service Full" },
-      { type: "Tren Delantero", price: 85000, desc: "Extremos y bieletas", trenItems: [
-        { key: "td_extremos", label: "Extremos de dirección", price: 45000, selected: true },
-        { key: "td_bieletas", label: "Bieletas", price: 40000, selected: true }
-      ]}
-    ],
-    payments: [], serviceSheet: null, workChecklist: {}, notes: "Cliente espera en taller"
-  },
-  {
-    id: 304, clientId: 204, domain: "QR 321 ST", date: "2026-03-10", km: "31000",
-    status: "done", tech: "Fabricio", startTime: "07:30",
-    works: [{ type: "Service Full", price: 95000, desc: "Service Full" }],
-    payments: [], serviceSheet: _ss_done, workChecklist: {}, notes: "", techNotes: "Todo perfecto",
-    paymentPref: { method: "Tarjeta", withIva: true, account: "1", invoiceType: "B" }
-  },
-  {
-    id: 305, clientId: 205, domain: "UV 654 WX", date: "2026-03-10", km: "115000",
-    status: "working", tech: "Fabricio", startTime: "11:00",
-    works: [
-      { type: "Service Full", price: 95000, desc: "Service Full" },
-      { type: "Escape", price: 98000, desc: "Silenciador trasero y caño", trenItems: [
-        { key: "silenciador_trasero", label: "Silenciador trasero", price: 65000, selected: true },
-        { key: "cano_escape", label: "Caño de escape", price: 33000, selected: true }
-      ]}
-    ],
-    payments: [], serviceSheet: null, workChecklist: {}, notes: ""
-  },
-  {
-    id: 306, clientId: 206, domain: "YZ 987 AB", date: "2026-03-10", km: "22000",
-    status: "done", tech: "Fabricio", startTime: "08:45",
-    works: [{ type: "Service Base", price: 60000, desc: "Service Base" }],
-    payments: [], serviceSheet: _ss_done, workChecklist: {}, notes: "", techNotes: "Sin novedades"
-  },
-];
+const SEED_ORDERS_TALLER = [];
 
 // ── HISTORIAL 3 MESES (done/delivered) ──
 const _mk = (id, clientId, domain, date, works, payments, status = "delivered") => ({
@@ -874,59 +828,14 @@ const _payMix = (ef, tr) => [
   { id: Date.now() + Math.random() * 200, amount: tr, method: "Transferencia", invoiceType: "B", account: "1", date: new Date().toISOString().split("T")[0] }
 ];
 
-const SEED_ORDERS_HIST = [
-  // ── DICIEMBRE 2025 ──
-  _mk(401, 207, "BC 111 DE", "2025-12-03", [{ type:"Service Full",price:88000 }], _pay(88000,"Efectivo")),
-  _mk(402, 208, "FG 222 HI", "2025-12-05", [{ type:"Service Base",price:55000 }], _pay(55000,"Transferencia")),
-  _mk(403, 209, "JK 333 LM", "2025-12-08", [{ type:"Service Full",price:88000 },{ type:"Tren Delantero",price:72000,trenItems:[{key:"td_amortiguadores",label:"Amortiguadores",price:72000,selected:true}]}], _payMix(80000,80000)),
-  _mk(404, 210, "NO 444 PQ", "2025-12-10", [{ type:"Service Full",price:88000 }], _pay(88000,"Tarjeta")),
-  _mk(405, 211, "RS 555 TU", "2025-12-12", [{ type:"Service Base",price:55000 },{ type:"Pastillas de Freno",price:42000,desc:"Pastillas delanteras" }], _payCC(97000)),
-  _mk(406, 212, "VW 666 XY", "2025-12-15", [{ type:"Service Full",price:88000 }], _pay(88000,"Transferencia")),
-  _mk(407, 213, "ZA 777 BC", "2025-12-17", [{ type:"Service Full",price:88000 },{ type:"Escape",price:92000,trenItems:[{key:"silenciador_trasero",label:"Silenciador trasero",price:92000,selected:true}]}], _payMix(90000,90000)),
-  _mk(408, 214, "DE 888 FG", "2025-12-19", [{ type:"Service Base",price:55000 }], _pay(55000,"Efectivo")),
-  _mk(409, 215, "HI 999 JK", "2025-12-22", [{ type:"Service Full",price:88000 },{ type:"Baterías",price:68000 }], _pay(156000,"Transferencia")),
-  _mk(410, 207, "BC 111 DE", "2025-12-26", [{ type:"Service Base",price:55000 }], _payCC(55000)),
-  _mk(411, 208, "FG 222 HI", "2025-12-29", [{ type:"Service Full",price:88000 }], _pay(88000,"Efectivo")),
-
-  // ── ENERO 2026 ──
-  _mk(501, 209, "JK 333 LM", "2026-01-04", [{ type:"Service Full",price:90000 }], _pay(90000,"Transferencia")),
-  _mk(502, 210, "NO 444 PQ", "2026-01-07", [{ type:"Service Full",price:90000 },{ type:"Tren Delantero",price:78000,trenItems:[{key:"td_extremos",label:"Extremos de dirección",price:45000,selected:true},{key:"td_bieletas",label:"Bieletas",price:33000,selected:true}]}], _payMix(84000,84000)),
-  _mk(503, 211, "RS 555 TU", "2026-01-09", [{ type:"Service Base",price:58000 }], _pay(58000,"Efectivo")),
-  _mk(504, 212, "VW 666 XY", "2026-01-11", [{ type:"Service Full",price:90000 }], _pay(90000,"Tarjeta")),
-  _mk(505, 213, "ZA 777 BC", "2026-01-14", [{ type:"Service Full",price:90000 },{ type:"Pastillas de Freno",price:45000,desc:"Pastillas delanteras y traseras" }], _payCC(135000)),
-  _mk(506, 214, "DE 888 FG", "2026-01-16", [{ type:"Service Base",price:58000 }], _pay(58000,"Transferencia")),
-  _mk(507, 215, "HI 999 JK", "2026-01-19", [{ type:"Service Full",price:90000 },{ type:"Tren Trasero",price:55000,trenItems:[{key:"tt_amortiguadores",label:"Amortiguadores tra.",price:55000,selected:true}]}], _payMix(72500,72500)),
-  _mk(508, 207, "BC 111 DE", "2026-01-21", [{ type:"Service Full",price:90000 }], _pay(90000,"Efectivo")),
-  _mk(509, 208, "FG 222 HI", "2026-01-23", [{ type:"Service Base",price:58000 },{ type:"Escobillas",price:18000 }], _pay(76000,"Transferencia")),
-  _mk(510, 209, "JK 333 LM", "2026-01-25", [{ type:"Service Full",price:90000 }], _payCC(90000)),
-  _mk(511, 210, "NO 444 PQ", "2026-01-28", [{ type:"Service Full",price:90000 },{ type:"Baterías",price:72000 }], _pay(162000,"Transferencia")),
-  _mk(512, 211, "RS 555 TU", "2026-01-30", [{ type:"Service Base",price:58000 }], _pay(58000,"Efectivo")),
-
-  // ── FEBRERO 2026 ──
-  _mk(601, 212, "VW 666 XY", "2026-02-03", [{ type:"Service Full",price:92000 }], _pay(92000,"Transferencia")),
-  _mk(602, 213, "ZA 777 BC", "2026-02-05", [{ type:"Service Full",price:92000 },{ type:"Tren Delantero",price:82000,trenItems:[{key:"td_discos",label:"Discos de freno",price:50000,selected:true},{key:"td_pastillas",label:"Pastillas de freno",price:32000,selected:true}]}], _payMix(87000,87000)),
-  _mk(603, 214, "DE 888 FG", "2026-02-07", [{ type:"Service Base",price:60000 }], _pay(60000,"Efectivo")),
-  _mk(604, 215, "HI 999 JK", "2026-02-10", [{ type:"Service Full",price:92000 }], _pay(92000,"Tarjeta")),
-  _mk(605, 207, "BC 111 DE", "2026-02-12", [{ type:"Service Full",price:92000 },{ type:"Escape",price:95000,trenItems:[{key:"silenciador_trasero",label:"Silenciador trasero",price:60000,selected:true},{key:"cano_escape",label:"Caño de escape",price:35000,selected:true}]}], _payCC(187000)),
-  _mk(606, 208, "FG 222 HI", "2026-02-14", [{ type:"Service Base",price:60000 }], _pay(60000,"Transferencia")),
-  _mk(607, 209, "JK 333 LM", "2026-02-17", [{ type:"Service Full",price:92000 },{ type:"Pastillas de Freno",price:46000,desc:"Pastillas delanteras" }], _payMix(69000,69000)),
-  _mk(608, 210, "NO 444 PQ", "2026-02-19", [{ type:"Service Full",price:92000 }], _pay(92000,"Efectivo")),
-  _mk(609, 211, "RS 555 TU", "2026-02-21", [{ type:"Service Base",price:60000 },{ type:"Baterías",price:75000 }], _payCC(135000)),
-  _mk(610, 212, "VW 666 XY", "2026-02-24", [{ type:"Service Full",price:92000 }], _pay(92000,"Transferencia")),
-  _mk(611, 213, "ZA 777 BC", "2026-02-26", [{ type:"Service Full",price:92000 },{ type:"Tren Trasero",price:58000,trenItems:[{key:"tt_amortiguadores",label:"Amortiguadores tra.",price:58000,selected:true}]}], _payMix(75000,75000)),
-  _mk(612, 214, "DE 888 FG", "2026-02-28", [{ type:"Service Full",price:92000 }], _pay(92000,"Efectivo")),
-
-  // ── MARZO 2026 (primeros días) ──
-  _mk(701, 215, "HI 999 JK", "2026-03-03", [{ type:"Service Full",price:95000 }], _pay(95000,"Transferencia")),
-  _mk(702, 207, "BC 111 DE", "2026-03-05", [{ type:"Service Base",price:62000 },{ type:"Escobillas",price:20000 }], _pay(82000,"Efectivo")),
-  _mk(703, 208, "FG 222 HI", "2026-03-07", [{ type:"Service Full",price:95000 },{ type:"Tren Delantero",price:88000,trenItems:[{key:"td_extremos",label:"Extremos de dirección",price:48000,selected:true},{key:"td_axiales",label:"Axiales",price:40000,selected:true}]}], _payMix(91500,91500)),
-];
+const SEED_ORDERS_HIST = [];
 
 const INITIAL_CLIENTS = SEED_CLIENTS;
-const INITIAL_ORDERS  = [...SEED_ORDERS_TALLER, ...SEED_ORDERS_HIST].sort((a,b) => b.id - a.id);
+const INITIAL_ORDERS  = [];
 
 
 const FULL_SS = {
+
   aceite:{checked:true}, filtro_aceite:{checked:true}, filtro_aire:{checked:true}, filtro_habitaculo:{checked:true}, filtro_combustible:{checked:true},
   td_amortiguadores:{status:"bien",checked:true}, td_parrilla:{status:"bien",checked:true}, td_bujes:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
   tt_amortiguadores:{status:"bien",checked:true}, tt_freno:{toggle:"Pastillas",percent:65,checked:true}, tt_bujes:{status:"bien",checked:true}, tt_rulemanes:{fluidOk:"bien",checked:true},
@@ -13098,7 +13007,7 @@ export default function App() {
         ]);
         // Órdenes desde IDB
         if (idbOrders.length > 0) {
-          _setOrders(idbOrders.sort((a, b) => (b.id || 0) - (a.id || 0)));
+          _setOrders(idbOrders.sort(cmpId));
         } else if (idbOrders.length === 0) {
           _setOrders(INITIAL_ORDERS); // primera vez → seed data
         }
@@ -13156,7 +13065,7 @@ export default function App() {
           idbSave('orders', fsDoc.id, fsDoc, true).catch(console.error);
         });
 
-        return [...fromFs, ...pending].sort((a, b) => (b.id || 0) - (a.id || 0));
+        return [...fromFs, ...pending].sort(cmpId);
       });
     };
 
@@ -13188,7 +13097,7 @@ export default function App() {
         if (!ordersReady) { ordersReady = true; checkReady(); }
       }, err => { console.error('[FS] orders:', err); if (!ordersReady) { ordersReady = true; checkReady(); } });
 
-      unsubClients = onSnapshot('clients', snap => {
+      unsubClients = onSnapshotMed('clients', snap => {
         const docs = snap.docs.map(d => d.data());
         if (docs.length > 0) mergeClients(docs);
         if (!clientsReady) { clientsReady = true; checkReady(); }
@@ -13217,7 +13126,7 @@ export default function App() {
         { col: 'adm_cierres',     setter: _setCierres     },
       ];
       const unsubAdmins = adminCols.map(({ col, setter }) =>
-        onSnapshot(col, snap => {
+        onSnapshotSlow(col, snap => {
           const docs = snap.docs.map(d => d.data());
           if (docs.length === 0) return;
           setter(prev => {
