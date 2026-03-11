@@ -2752,7 +2752,7 @@ const NewOrderScreen = (props) => {
                 const fcLabels = {
                   A: { sub: "Necesita CUIT", color: T.orange },
                   B: { sub: "DNI o Consumidor final", color: T.accent },
-                  C: { sub: "Sin IVA / Ignacio Karqui", color: T.gray }
+                  C: { sub: "Sin IVA", color: T.gray }
                 };
                 return availFc.length > 1 ? (
                   <div style={{ marginTop: 12 }}>
@@ -2775,9 +2775,12 @@ const NewOrderScreen = (props) => {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 10, padding: "8px 12px", background: `${fcLabels[availFc[0]]?.color || T.gray}12`, borderRadius: 8, fontSize: 12, fontWeight: 700, color: fcLabels[availFc[0]]?.color || T.gray }}>
-                    Factura {availFc[0]} — {fcLabels[availFc[0]]?.sub}
-                  </div>
+                  // Efectivo/Tarjeta/CtaCte sin IVA → no mostrar etiqueta de factura
+                  isTransf ? (
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: `${T.gray}12`, borderRadius: 8, fontSize: 12, fontWeight: 700, color: T.gray }}>
+                      Cuenta 2 — Sin factura IVA
+                    </div>
+                  ) : null
                 );
               })()}
 
@@ -3466,13 +3469,13 @@ const VehicleDetailScreen = (props) => {
   const canBill = getPerm(user, "admin");
   const canNotify = ["dueño", "encargado", "admin"].includes(user.role);
   const canSeePrices = user.role !== "mecánico";
-  const isPureIntervention = !order.works.some(w => w.type === "Service Full" || w.type === "Service Base") && order.works.some(w => w.type === "Pastillas de Freno" || w.type === "Tren Delantero" || w.type === "Tren Trasero");
-  const isBatteryOrder = order.works.some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
-  const isEscapeOrder = order.works.some(w => w.type === "Escape") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
+  const isPureIntervention = !(order.works || []).some(w => w.type === "Service Full" || w.type === "Service Base") && order.works.some(w => w.type === "Pastillas de Freno" || w.type === "Tren Delantero" || w.type === "Tren Trasero");
+  const isBatteryOrder = (order.works || []).some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
+  const isEscapeOrder = (order.works || []).some(w => w.type === "Escape") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
   // Foja: solo aparece si hay trabajos con foja correspondiente
   const FOJA_TYPES = ["Service Full", "Service Base", "Baterías", "Escape", "Pastillas de Freno", "Tren Delantero", "Tren Trasero"];
-  const hasFojaWork = order.works.some(w => FOJA_TYPES.includes(w.type));
-  const total = order.works.reduce((s, w) => s + w.price, 0);
+  const hasFojaWork = (order.works || []).some(w => FOJA_TYPES.includes(w.type));
+  const total = (order.works || []).reduce((s, w) => s + (w.price || 0), 0);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [showFojaMenu, setShowFojaMenu] = useState(false);
   const [showFacturaMenu, setShowFacturaMenu] = useState(false);
@@ -4331,7 +4334,7 @@ const VehicleDetailScreen = (props) => {
                 </div>
                 <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, textAlign: "center", color: T.accent, marginBottom: 6 }}>{fmtD(order.domain)}</div>
                 <div style={{ fontSize: 12, color: T.grayLight, textAlign: "center", marginBottom: 20 }}>
-                  {order.works.map(w => w.type).join(", ")}
+                  {(order.works || []).map(w => w.type).join(", ")}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setShowCancelPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>No, volver</button>
@@ -4362,11 +4365,11 @@ const VehicleDetailScreen = (props) => {
 
       {showFojaMenu && (() => {
         const fojas = [];
-        const hasServiceFull = order.works.some(w => w.type === "Service Full");
-        const hasServiceBase = order.works.some(w => w.type === "Service Base");
-        const hasTren = order.works.some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
-        const hasBattery = order.works.some(w => w.type === "Baterías");
-        const hasEscape = order.works.some(w => w.type === "Escape");
+        const hasServiceFull = (order.works || []).some(w => w.type === "Service Full");
+        const hasServiceBase = (order.works || []).some(w => w.type === "Service Base");
+        const hasTren = (order.works || []).some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
+        const hasBattery = (order.works || []).some(w => w.type === "Baterías");
+        const hasEscape = (order.works || []).some(w => w.type === "Escape");
 
         if (hasServiceFull || hasServiceBase) fojas.push({ icon: "🛠️", label: hasServiceFull ? "Foja de Service Full" : "Foja de Service Base", key: "service" });
         if (hasTren) fojas.push({ icon: "⚙️", label: "Informe de Intervención", key: "intervention" });
@@ -4575,7 +4578,8 @@ const PieChart = ({ data, size = 180 }) => {
 // ══════════════════════════════════════════════════
 const TicketModal = ({ data, onClose, onEmit, config }) => {
   const { order, payments, client, vehicle, readonly } = data;
-  const total = order.works.reduce((s, w) => s + (w.price || 0), 0);
+  if (!order) return null;
+  const total = (order.works || []).reduce((s, w) => s + (w.price || 0), 0);
   const iva = config?.ivaRate || 21;
   const mainPayment = (payments || order.payments || [])[0] || {};
   const withIva = mainPayment.withIva;
@@ -4687,7 +4691,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
               <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>IMPORTE</span>
             </div>
-            {order.works.map((w, i) => (
+            {(order.works || []).map((w, i) => (
               <div key={i} style={{ marginBottom: 8, display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{w.desc ? ` — ${w.desc}` : ""}</div>
@@ -4753,7 +4757,8 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
 
 const FacturaModal = ({ data, onClose, onEmit, config }) => {
   const { order, payments, client, vehicle, readonly } = data;
-  const total = order.works.reduce((s, w) => s + (w.price || 0), 0);
+  if (!order) return null;
+  const total = (order.works || []).reduce((s, w) => s + (w.price || 0), 0);
   const iva = config?.ivaRate || 21;
 
   // Determinar tipo de factura y cuenta emisora
@@ -4884,7 +4889,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
               <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>IMPORTE</span>
             </div>
-            {order.works.map((w, i) => (
+            {(order.works || []).map((w, i) => (
               <div key={i} style={{ marginBottom: 8 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
                   <div>
