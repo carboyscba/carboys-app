@@ -4466,7 +4466,7 @@ const VehicleDetailScreen = (props) => {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                   <span style={{ color: T.gray }}>Total</span>
-                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(f(o.works||[]).reduce((s, w) => s + (w.price || 0), 0))}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt((fo.works||[]).reduce((s, w) => s + (w.price || 0), 0))}</span>
                 </div>
               </div>
               {/* Acciones */}
