@@ -3788,7 +3788,7 @@ const VehicleDetailScreen = (props) => {
             setShowNotifyPopup(true);
           }, bg: "rgba(67,160,71,.08)" }] : []),
           ...(order.factura ? [{ icon: "📄", label: "Factura", show: true, color: T.green, bg: "rgba(67,160,71,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "factura" }); setShowFacturaMenu(true); } }] : []),
-          ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Ticket", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
+          ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
           ...(getPerm(user, "cancelar") && (order.status === "pending" || order.status === "working") ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
@@ -4765,7 +4765,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   const mainPayment = (payments || order.payments || [])[0] || {};
   const invoiceType = mainPayment.invoiceType || "B";
   const cuenta = mainPayment.account === "2" ? "Ignacio Karqui" : "CarBoys SAS";
-  const cuitEmisor = mainPayment.account === "2" ? "20-XXXXXXXX-X" : "30-XXXXXXXX-X";
+  const cuitEmisor = mainPayment.account === "2" ? "20-34441217-1" : "30-71745468-1";
   const puntoVenta = mainPayment.account === "2" ? "0002" : "0001";
 
   const withIva = mainPayment.withIva;
@@ -5087,7 +5087,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const ctaFiltered = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
   const ctaTotal = ctaCte.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
 
-  const conFactura = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== ""));
+  const conFactura = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T"));
+  const conTicket = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T"));
   const sinFactura = periodOrders.filter(o => !(o.payments || []).some(p => p.invoiceType && p.invoiceType !== ""));
   const factA = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "A"));
   const factB = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B"));
@@ -6519,9 +6520,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
 
         {(() => {
-          // Solo órdenes CON factura, ordenadas de más reciente a más vieja
-          const lista = [...conFactura].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-          const montoTotal = lista.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+          // Facturas reales (A, B, C) + Comprobantes (sin validez fiscal), ordenados más reciente primero
+          const lista = [...conFactura, ...conTicket].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          const montoTotal = conFactura.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
           const cntA = factA.length, cntB = factB.length, cntC = factC.length;
 
           return (
@@ -6538,12 +6539,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 </div>
               </div>
 
-              {/* ── Desglose A / B / C ── */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+              {/* ── Desglose A / B / C / Comprobantes ── */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
                 {[
                   { l: "Factura A", v: cntA, c: T.accent },
                   { l: "Factura B", v: cntB, c: "#9C27B0" },
-                  { l: "Ticket / C", v: cntC, c: T.orange },
+                  { l: "Factura C", v: cntC, c: T.orange },
+                  { l: "Comprobantes", v: conTicket.length, c: T.gray },
                 ].map(s => (
                   <div key={s.l} style={{ ...card, padding: 14, textAlign: "center", borderTop: `3px solid ${s.c}` }}>
                     <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 900, color: s.c }}>{s.v}</div>
@@ -6576,7 +6578,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                             <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
                               background: t === "A" ? `${T.accent}20` : t === "B" ? "#9C27B020" : `${T.orange}20`,
                               color: t === "A" ? T.accent : t === "B" ? "#9C27B0" : T.orange }}>
-                              FC {t}
+                              {t === "T" ? "Comprobante" : `FC ${t}`}
                             </span>
                           ))}
                           {nroFact && <span style={{ fontSize: 10, color: T.gray }}>#{nroFact}</span>}
