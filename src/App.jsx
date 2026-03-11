@@ -4943,7 +4943,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, users }) => {
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres }) => {
   const [tab, setTab] = useState(initialTab || "resumen");
   const [showTotalVentas, setShowTotalVentas] = useState(false);
   const [selCobro, setSelCobro] = useState(null);
@@ -4960,14 +4960,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [holdProgress, setHoldProgress] = useState(0);
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
-  const [igGastos, _setIgGastos] = useState([]);
 
   const [showIgGasto, setShowIgGasto] = useState(false);
   const [selIgnacio, setSelIgnacio] = useState(null);
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
-  const [egresos, _setEgresos] = useState([]);
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [saldoReal, setSaldoReal] = useState("");
@@ -4984,70 +4982,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [ctaIngresoStep, setCtaIngresoStep] = useState(1); // 1=lista, 2=confirmacion
   // Cierre semanal
   const [showCierreAlert, setShowCierreAlert] = useState(false);
-  const [cierres, _setCierres] = useState([]);
   const [ctaFilter, setCtaFilter] = useState("");
-  const [proveedores, _setProveedores] = useState([]);
   const [showProv, setShowProv] = useState(false);
   const [provForm, setProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
-  const [factProv, _setFactProv] = useState([]);
   const [showFactProv, setShowFactProv] = useState(false);
   const [factProvForm, setFactProvForm] = useState({ provId: "", nroFactura: "", monto: "", fechaEmision: new Date().toISOString().split("T")[0], fechaVenc: "", estado: "pendiente" });
-  const [servicios, _setServicios] = useState([]);
 
-  // ── Setters con persistencia automática (Firebase + IDB) ──
-  // IMPORTANT: must be declared AFTER all _setXxx useState hooks (TDZ prevention)
-  const _adminSave = (idbStore, fsCol, raw_setter) => (updater) => {
-    raw_setter(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      const prevMap = Object.fromEntries(prev.map(x => [String(x.id), x]));
-      next.forEach(x => {
-        const key = String(x.id);
-        if (JSON.stringify(x) !== JSON.stringify(prevMap[key])) {
-          idbSave(idbStore, key, x, false).catch(console.error);
-          fsSave(fsCol, key, x).catch(e => console.error('[FS]', fsCol, e.message));
-        }
-      });
-      const nextIds = new Set(next.map(x => String(x.id)));
-      prev.forEach(x => {
-        if (!nextIds.has(String(x.id))) {
-          idbDel(idbStore, String(x.id)).catch(console.error);
-          fsDel(fsCol, x.id).catch(console.error);
-        }
-      });
-      return next;
-    });
-  };
-  const setEgresos     = _adminSave('adm_egresos',     'adm_egresos',     _setEgresos);
-  const setProveedores = _adminSave('adm_proveedores', 'adm_proveedores', _setProveedores);
-  const setFactProv    = _adminSave('adm_factprov',    'adm_factprov',    _setFactProv);
-  const setServicios   = _adminSave('adm_servicios',   'adm_servicios',   _setServicios);
-  const setIgGastos    = _adminSave('adm_igastos',     'adm_igastos',     _setIgGastos);
-  const setCierres     = _adminSave('adm_cierres',     'adm_cierres',     _setCierres);
 
-  // ── Carga inicial de datos de administración ──
-  useEffect(() => {
-    const loadCol = async (fsCol, idbStore, rawSetter) => {
-      try {
-        const local = await idbGetAll(idbStore);
-        if (local.length > 0) {
-          rawSetter(local.map(x => { const { _idbKey, _synced, ...r } = x; return r; }));
-        }
-      } catch(_) {}
-      try {
-        const docs = await fsGetCol(fsCol);
-        if (docs.length > 0) {
-          rawSetter(docs);
-          docs.forEach(d => idbSave(idbStore, String(d.id), d, true).catch(console.error));
-        }
-      } catch(e) { console.warn('[ADM]', fsCol, e.message); }
-    };
-    loadCol('adm_egresos',     'adm_egresos',     _setEgresos);
-    loadCol('adm_proveedores', 'adm_proveedores', _setProveedores);
-    loadCol('adm_factprov',    'adm_factprov',    _setFactProv);
-    loadCol('adm_servicios',   'adm_servicios',   _setServicios);
-    loadCol('adm_igastos',     'adm_igastos',     _setIgGastos);
-    loadCol('adm_cierres',     'adm_cierres',     _setCierres);
-  }, []);
+
+
   const [showServ, setShowServ] = useState(false);
   const [servForm, setServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
   const [showPagoProv, setShowPagoProv] = useState(false);
@@ -12963,6 +12906,42 @@ export default function App() {
   const [clients, _setClients] = useState([]);          // cargado desde IDB/Firestore
   const [orders,  _setOrders]  = useState([]);          // cargado desde IDB/Firestore
   const [config,  _setConfig]  = useState(INITIAL_CONFIG);
+  // ── Admin data — at App level so polling can update them from anywhere ──
+  const [egresos,     _setEgresos]     = useState([]);
+  const [proveedores, _setProveedores] = useState([]);
+  const [factProv,    _setFactProv]    = useState([]);
+  const [servicios,   _setServicios]   = useState([]);
+  const [igGastos,    _setIgGastos]    = useState([]);
+  const [cierres,     _setCierres]     = useState([]);
+
+  // ── Admin setters con persistencia IDB + Firebase ──
+  const _mkAdminSetter = (idbStore, fsCol, rawSetter) => (updater) => {
+    rawSetter(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const prevMap = Object.fromEntries(prev.map(x => [String(x.id), x]));
+      next.forEach(x => {
+        const key = String(x.id);
+        if (JSON.stringify(x) !== JSON.stringify(prevMap[key])) {
+          idbSave(idbStore, key, x, false).catch(console.error);
+          fsSave(fsCol, key, x).catch(e => console.error('[FS]', fsCol, e.message));
+        }
+      });
+      const nextIds = new Set(next.map(x => String(x.id)));
+      prev.forEach(x => {
+        if (!nextIds.has(String(x.id))) {
+          idbDel(idbStore, String(x.id)).catch(console.error);
+          fsDel(fsCol, x.id).catch(console.error);
+        }
+      });
+      return next;
+    });
+  };
+  const setEgresos     = _mkAdminSetter('adm_egresos',     'adm_egresos',     _setEgresos);
+  const setProveedores = _mkAdminSetter('adm_proveedores', 'adm_proveedores', _setProveedores);
+  const setFactProv    = _mkAdminSetter('adm_factprov',    'adm_factprov',    _setFactProv);
+  const setServicios   = _mkAdminSetter('adm_servicios',   'adm_servicios',   _setServicios);
+  const setIgGastos    = _mkAdminSetter('adm_igastos',     'adm_igastos',     _setIgGastos);
+  const setCierres     = _mkAdminSetter('adm_cierres',     'adm_cierres',     _setCierres);
   const [users,   setUsers]    = useState(USERS);
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
@@ -13176,7 +13155,36 @@ export default function App() {
       }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
     });
 
-    return () => { unsubOrders?.(); unsubClients?.(); unsubConfig?.(); };
+      // ── Admin collections — polling cada 8s igual que orders/clients ──
+      const adminCols = [
+        { col: 'adm_egresos',     setter: _setEgresos     },
+        { col: 'adm_proveedores', setter: _setProveedores },
+        { col: 'adm_factprov',    setter: _setFactProv    },
+        { col: 'adm_servicios',   setter: _setServicios   },
+        { col: 'adm_igastos',     setter: _setIgGastos    },
+        { col: 'adm_cierres',     setter: _setCierres     },
+      ];
+      const unsubAdmins = adminCols.map(({ col, setter }) =>
+        onSnapshot(col, snap => {
+          const docs = snap.docs.map(d => d.data());
+          if (docs.length === 0) return;
+          setter(prev => {
+            // Merge: preservar items locales no confirmados aún por Firestore
+            const fsMap = Object.fromEntries(docs.map(d => [String(d.id), d]));
+            const pending = prev.filter(x => !fsMap[String(x.id)]);
+            // Guardar en IDB cada doc que llegó de Firestore
+            docs.forEach(d => idbSave(col, String(d.id), d, true).catch(console.error));
+            return [...docs, ...pending];
+          });
+        }, err => console.warn('[FS]', col, err.message))
+      );
+
+    return () => {
+      unsubOrders?.();
+      unsubClients?.();
+      unsubConfig?.();
+      unsubAdmins.forEach(u => u?.());
+    };
   }, [googleAuth]);
 
   // Cuando vuelve la conexión → disparar sync inmediato de pendientes
@@ -13341,7 +13349,7 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} users={users} /> : null;
+      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
       default: return null;
