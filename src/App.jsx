@@ -4734,7 +4734,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {(payments || order.payments || []).map((pm, i) => (
                 <div key={i} style={{ padding: "6px 14px", borderRadius: 20, background: "#e2e8f0", fontSize: 12, fontWeight: 600, color: "#0d1526" }}>
-                  {pm.method}{pm.withIva ? " con IVA" : ""}
+                  {pm.method}
                 </div>
               ))}
             </div>
@@ -4935,8 +4935,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {(payments || order.payments || []).map((pm, i) => (
                 <div key={i} style={{ padding: "6px 14px", borderRadius: 20, background: "#e2e8f0", fontSize: 12, fontWeight: 600, color: "#0d1526" }}>
-                  {pm.method}{pm.account === "1" ? " — CarBoys SAS" : pm.account === "2" ? " — Ignacio Karqui" : ""}
-                  {pm.withIva ? " con IVA" : ""}
+                  {pm.method}
                 </div>
               ))}
             </div>
@@ -12173,7 +12172,7 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
                   <div key={j} style={{ marginBottom: 2 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <div style={{ width: 4, height: 4, borderRadius: "50%", background: it.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: itemFs, color: "#4A5568", flex: 1 }}>{it.label}</span>
+                      <span style={{ fontSize: itemFs, color: "#4A5568", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</span>
                       {it.pct !== null ? (
                         <div style={{ width: 40, display: "flex", alignItems: "center", gap: 3 }}>
                           <FojaProgressBar pct={it.pct} color={it.color} h={3} />
@@ -12181,10 +12180,10 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
                         </div>
                       ) : (
                         it.wasChanged ? (
-                        <span style={{ fontSize: 7, fontWeight: 700 }}>
-                          {it.prevText && <><span style={{ color: it.prevColor, textDecoration: "line-through" }}>{it.prevText}</span><span style={{ color: "#718096" }}> → </span></>}
-                          <span style={{ color: "#1565C0" }}>{it.text}</span>
-                          {it.pctChanged && <span style={{ color: "#1565C0" }}> Sustituida</span>}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                          {it.prevText && <><span style={{ fontSize: 6, fontWeight: 700, color: it.prevColor, textDecoration: "line-through", whiteSpace: "nowrap" }}>{it.prevText}</span><span style={{ fontSize: 5.5, color: "#718096", margin: "0 1px" }}>→</span></>}
+                          <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>{it.text}</span>
+                          {it.pctChanged && <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>Sustituida</span>}
                         </span>
                       ) : (
                         <span style={{ fontSize: 7, fontWeight: 700, color: it.color }}>{it.text}</span>
