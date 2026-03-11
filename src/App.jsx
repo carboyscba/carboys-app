@@ -4150,7 +4150,7 @@ const VehicleDetailScreen = (props) => {
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
-                      <input inputMode="numeric" value={w.price ? String(w.price) : ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, price: e.target.value.replace(/[^0-9]/g, "") } : x))}
+                      <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, price: e.target.value.replace(/[^0-9]/g, "") } : x))}
                         style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, textAlign: "right", padding: "8px 10px" }} />
                     </div>
                     {editWorks.length > 1 && (
@@ -4189,7 +4189,7 @@ const VehicleDetailScreen = (props) => {
                   <div><label style={labelStyle}>Monto</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
-                      <input inputMode="numeric" value={pm.amount ? String(pm.amount) : ""} onChange={e => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))}
+                      <input inputMode="numeric" value={pm.amount ? Number(pm.amount).toLocaleString("es-AR") : ""} onChange={e => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))}
                         style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
                     </div>
                   </div>
@@ -4998,6 +4998,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
+  const [showAnularConfirm, setShowAnularConfirm] = useState(false);
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(null);
   const [histSearch, setHistSearch] = useState("");
@@ -5391,7 +5392,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                                 {Number(primerMonto || 0).toLocaleString("es-AR")}
                               </div>
                             ) : (
-                              <input inputMode="numeric" value={pm.amount ? String(pm.amount) : ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
+                              <input inputMode="numeric" value={pm.amount ? Number(pm.amount).toLocaleString("es-AR") : ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
                             )}
                           </div>
                           {i === 0 && cobroPay.length > 1 && <div style={{ fontSize: 10, color: T.accent, marginTop: 3 }}>Auto ({fmt(total)} − resto)</div>}
@@ -5487,7 +5488,39 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   })} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método de pago</button>
                 </div>
                 {/* ── POPUP VALIDACIÓN ── */}
-                {cobroValidError && (
+                {showAnularConfirm && selCobro && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9100,
+          display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setShowAnularConfirm(false)}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 340, width: "90%",
+            border: `1px solid ${T.border}`, textAlign: "center" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>↩</div>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>¿Anular cobro?</div>
+            <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 24, lineHeight: 1.5 }}>
+              Se va a marcar la orden como <strong>no cobrada</strong>.<br/>El método de pago acordado se va a mantener.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowAnularConfirm(false)}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>
+                Cancelar
+              </button>
+              <button onClick={() => {
+                const o = selCobro;
+                setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: false, payments: [] } : o2));
+                saveOrder({ ...o, cobrado: false, payments: [] });
+                setSelCobro(prev => ({ ...prev, cobrado: false, payments: [] }));
+                setCobroPay(buildInitPay({ ...o, cobrado: false, payments: [] }, config, clients));
+                setShowAnularConfirm(false);
+              }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 14 }}>
+                Sí, anular
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cobroValidError && (
                   <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setCobroValidError("")}>
                     <div style={{ background: T.bg2, border: `2px solid ${T.red}`, borderRadius: 18, padding: 28, maxWidth: 360, width: "100%", textAlign: "center", boxShadow: `0 0 40px ${T.red}40` }} onClick={e => e.stopPropagation()}>
                       <div style={{ width: 60, height: 60, borderRadius: "50%", background: `${T.red}15`, border: `2px solid ${T.red}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 28 }}>⚠️</div>
@@ -5506,13 +5539,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       <div style={{ flex: 1, padding: "16px 0", borderRadius: 10, textAlign: "center", fontSize: 15, fontWeight: 700, background: `${T.green}15`, border: `2px solid ${T.green}`, color: T.green }}>✅ COBRADO</div>
                       {/* Anular cobro — solo si NO hay factura ni comprobante emitido */}
                       {!o.factura && !o.ticket && (
-                        <button onClick={() => {
-                          setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: false, payments: [] } : o2));
-                          setSelCobro(prev => ({ ...prev, cobrado: false }));
-                          setCobroPay([]);
-                        }}
-                          style={{ padding: "14px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, background: `${T.red}10`, border: `2px solid ${T.red}60`, color: T.red, cursor: "pointer", whiteSpace: "nowrap" }}>
-                          🔙 Anular cobro
+                        <button
+                          onClick={() => setShowAnularConfirm(true)}
+                          title="Anular cobro"
+                          style={{ padding: "8px 10px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+                            background: "transparent", border: `1px solid ${T.border}`, color: T.gray,
+                            cursor: "pointer", display: "flex", alignItems: "center", gap: 5, opacity: 0.7 }}>
+                          ↩ Anular
                         </button>
                       )}
                     </div>
@@ -6240,7 +6273,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {(egresoForm.categoria === "otro" || egresoForm.categoria === "repuesto" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida" || egresoForm.categoria === "alquiler") && (
                 <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle del gasto..." /></div>
               )}
-              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
+              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto ? Number(egresoForm.monto).toLocaleString("es-AR") : ""} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
               {/* NUEVO: Medio de pago del egreso */}
               <div style={{ marginBottom: 12 }}>
                 <label style={labelStyle}>Medio de pago del egreso</label>
@@ -6309,7 +6342,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 <>
                   <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📝 Otro Ingreso</div>
                   <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción *</label><input inputMode="text" value={ingresoForm.desc} onChange={e => setIngresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Cobro de garantía, devolución..." /></div>
-                  <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.green }}>$</span><input inputMode="numeric" value={ingresoForm.monto} onChange={e => setIngresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
+                  <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.green }}>$</span><input inputMode="numeric" value={ingresoForm.monto ? Number(ingresoForm.monto).toLocaleString("es-AR") : ""} onChange={e => setIngresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={labelStyle}>Forma de ingreso</label>
                     <div style={{ display: "flex", gap: 8 }}>
@@ -6864,7 +6897,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 <div><label style={labelStyle}>Monto *</label>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                     <span style={{ fontWeight: 700, color: T.accent }}>$</span>
-                    <input inputMode="numeric" value={factProvForm.monto} onChange={e => setFactProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                    <input inputMode="numeric" value={factProvForm.monto ? Number(factProvForm.monto).toLocaleString("es-AR") : ""} onChange={e => setFactProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
                   </div>
                 </div>
               </div>
@@ -7372,7 +7405,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Internet, Alquiler" /></div>
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                <div><label style={labelStyle}>Monto habitual</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
+                <div><label style={labelStyle}>Monto habitual</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto ? Number(servForm.monto).toLocaleString("es-AR") : ""} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
                 <div><label style={labelStyle}>Método usual</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
@@ -7838,7 +7871,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <label style={labelStyle}>Monto *</label>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                     <span style={{ fontWeight: 700, color: T.accent }}>$</span>
-                    <input inputMode="numeric" value={igForm.monto} onChange={e => setIgForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" />
+                    <input inputMode="numeric" value={igForm.monto ? Number(igForm.monto).toLocaleString("es-AR") : ""} onChange={e => setIgForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" />
                   </div>
                 </div>
                 <div>
