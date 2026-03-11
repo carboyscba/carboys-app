@@ -4970,9 +4970,31 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
 const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres }) => {
   const [tab, setTab] = useState(initialTab || "resumen");
   const [showTotalVentas, setShowTotalVentas] = useState(false);
-  const [selCobro, setSelCobro] = useState(initialOrder || null);
-  const [cobroPay, setCobroPay] = useState([]);
-  const [cobroClient, setCobroClient] = useState(null);
+  // Helper: construye el array de pagos inicial desde paymentPref / payments del order
+  const buildInitPay = (o, _config, _clients) => {
+    const _oTotal = (o.works || []).reduce((s, w) => s + (w.price || 0), 0);
+    const _ivaRate = _config?.ivaRate || 21;
+    const _pref = o.paymentPref;
+    const _pays = o.payments || [];
+    const _cobradoPays = o.cobrado && _pays.length > 0 && _pays[0].method;
+    if (_cobradoPays) {
+      return _pays.map(p => ({ ...p }));
+    } else if (_pref?.method) {
+      const _withIva = _pref.withIva ?? false;
+      const _savedAmt = _pref.amount && _pref.amount > 0 ? _pref.amount : null;
+      const _autoAmt = _savedAmt
+        ? String(_savedAmt)
+        : (_withIva ? String(Math.round(_oTotal * (1 + _ivaRate / 100))) : String(_oTotal));
+      return [{ method: _pref.method, amount: _autoAmt, account: _pref.account || "1", withIva: _withIva, invoiceType: _pref.invoiceType || (_pref.account === "2" ? "C" : _withIva && o.cuit ? "A" : "B") }];
+    } else if (_pays.length > 0 && _pays[0].method) {
+      return _pays.map(p => ({ ...p, amount: p.amount || String(_oTotal) }));
+    }
+    return [{ method: "", amount: "", account: "1", withIva: null, invoiceType: "" }];
+  };
+  const _initOrder = initialOrder || null;
+  const [selCobro, setSelCobro] = useState(_initOrder);
+  const [cobroPay, setCobroPay] = useState(_initOrder ? buildInitPay(_initOrder, config, clients) : []);
+  const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => c.id === _initOrder.clientId); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
@@ -5646,36 +5668,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 return (
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
-                      const _oTotal = (o.works || []).reduce((s, w) => s + (w.price || 0), 0);
-                      const _ivaRate = config?.ivaRate || 21;
-                      // Prioridad:
-                      // 1. Ya cobrado → usar payments guardados con monto real
-                      // 2. paymentPref con método → pre-cargar método + calcular monto
-                      // 3. payments[0] tiene method (de edición) → usar
-                      // 4. Vacío
-                      const _pref = o.paymentPref;
-                      const _pays = o.payments || [];
-                      const _cobradoPays = o.cobrado && _pays.length > 0 && _pays[0].method;
-                      let initPay;
-                      if (_cobradoPays) {
-                        // Ya cobrado: mostrar los pagos tal cual
-                        initPay = _pays.map(p => ({ ...p }));
-                      } else if (_pref?.method) {
-                        // Tiene preferencia guardada: usar monto exacto si lo tiene,
-                        // sino calcular desde works
-                        const _withIva = _pref.withIva ?? false;
-                        const _savedAmt = _pref.amount && _pref.amount > 0 ? _pref.amount : null;
-                        const _autoAmt = _savedAmt
-                          ? String(_savedAmt)
-                          : (_withIva ? String(Math.round(_oTotal * (1 + _ivaRate / 100))) : String(_oTotal));
-                        initPay = [{ method: _pref.method, amount: _autoAmt, account: _pref.account || "1", withIva: _withIva, invoiceType: _pref.invoiceType || "" }];
-                      } else if (_pays.length > 0 && _pays[0].method) {
-                        // Tiene pagos editados con método pero sin cobrar
-                        initPay = _pays.map(p => ({ ...p, amount: p.amount || String(_oTotal) }));
-                      } else {
-                        initPay = [{ method: "", amount: "", account: "1", withIva: null, invoiceType: "" }];
-                      }
-                      setCobroPay(initPay);
+                      setCobroPay(buildInitPay(o, config, clients));
                       const _cl = clients.find(c => c.id === o.clientId);
                       setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null);
                     }}
