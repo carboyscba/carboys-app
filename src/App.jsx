@@ -31,14 +31,32 @@ const objToFs  = (obj) => ({ fields: Object.fromEntries(Object.entries(obj).map(
 const fsToObj  = (doc) => Object.fromEntries(Object.entries(doc.fields || {}).map(([k, v]) => [k, fromFsVal(v)]));
 
 // CRUD helpers (con auth token)
+// ── Sync activity tracker (module-level, reactive) ──
+let _fsActiveOps = 0;   // number of in-flight Firebase writes
+let _fsLastError  = 0;  // timestamp of last error
+const _notifySync = () => window.dispatchEvent(new CustomEvent('fs-sync-change', {
+  detail: { active: _fsActiveOps, lastError: _fsLastError }
+}));
+
 const fsSave = async (col, id, data) => {
   const url = `${FS_BASE}/${col}/${encodeURIComponent(String(id))}`;
+  _fsActiveOps++;
+  _notifySync();
   try {
     const h = await fsHeaders();
     const r = await fetch(url, { method: "PATCH", headers: h, body: JSON.stringify(objToFs(data)) });
-    if (!r.ok) console.error('[FS] save error', col, id, await r.text());
+    if (!r.ok) {
+      console.error('[FS] save error', col, id, await r.text());
+      _fsLastError = Date.now();
+    }
     return r;
-  } catch(e) { console.error('[FS] save fetch error:', e); }
+  } catch(e) {
+    console.error('[FS] save fetch error:', e);
+    _fsLastError = Date.now();
+  } finally {
+    _fsActiveOps = Math.max(0, _fsActiveOps - 1);
+    _notifySync();
+  }
 };
 const fsDel = async (col, id) => {
   const h = await fsHeaders();
@@ -940,6 +958,7 @@ const FontLoader = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: ${T.bg}; }
     ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
@@ -12927,7 +12946,10 @@ export default function App() {
   const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
   const [dbLoading,   setDbLoading]   = useState(true);
-  const [syncPending, setSyncPending] = useState(0);  // docs pendientes de sync // esperando Firestore
+  // ── Sync state: reactive, driven by fsSave activity tracker ──
+  const [syncState, setSyncState] = useState('ok'); // 'ok' | 'syncing' | 'error' | 'offline'
+  const [syncActive, setSyncActive] = useState(0);  // active Firebase writes
+  const syncPending = syncActive; // alias for backward compat
 
   // ── Restaurar sesión guardada al inicio (sin popup de Google) ─
   useEffect(() => {
@@ -13210,35 +13232,55 @@ export default function App() {
       }
       if (!idbReadyRef.current) return;
 
-      const syncPendingItems = async () => {
-        try {
-          const [po, pc] = await Promise.all([
-            idbGetPending('orders'),
-            idbGetPending('clients'),
-          ]);
-          setSyncPending(po.length + pc.length);
+      // ── Reactive sync listener ──
+      // Responde al evento fs-sync-change disparado por cada fsSave/fsDel
+      const onSyncChange = (e) => {
+        const { active, lastError } = e.detail;
+        setSyncActive(active);
+        if (!navigator.onLine) {
+          setSyncState('offline');
+        } else if (lastError && Date.now() - lastError < 15000) {
+          setSyncState('error');
+        } else if (active > 0) {
+          setSyncState('syncing');
+        } else {
+          setSyncState('ok');
+        }
+      };
+      window.addEventListener('fs-sync-change', onSyncChange);
 
-          // Retry: intentar enviar pendientes a Firestore si hay conexión
-          if (navigator.onLine) {
-            po.forEach(o => {
-              const clean = idbStrip(o);
-              fsSave('orders', clean.id, clean)
-                .then(r => { if (r?.ok) idbMarkSynced('orders', String(clean.id)); })
-                .catch(() => {});
-            });
-            pc.forEach(c => {
-              const clean = idbStrip(c);
-              fsSave('clients', clean.id, clean)
-                .then(r => { if (r?.ok) idbMarkSynced('clients', String(clean.id)); })
+      // Detectar cambios de conectividad
+      const onOnline  = () => setSyncState('ok');
+      const onOffline = () => setSyncState('offline');
+      window.addEventListener('online',  onOnline);
+      window.addEventListener('offline', onOffline);
+
+      // Retry pendientes al reconectar
+      const retryPending = async () => {
+        if (!navigator.onLine) return;
+        try {
+          const allStores = ['orders','clients','adm_egresos','adm_proveedores',
+            'adm_factprov','adm_servicios','adm_igastos','adm_cierres'];
+          for (const store of allStores) {
+            const pending = await idbGetPending(store);
+            pending.forEach(item => {
+              const clean = idbStrip(item);
+              const col = store;
+              fsSave(col, clean.id, clean)
+                .then(r => { if (r?.ok) idbMarkSynced(store, String(clean.id)); })
                 .catch(() => {});
             });
           }
         } catch(e) { /* silencioso */ }
       };
-
-      syncPendingItems();
-      const iv = setInterval(syncPendingItems, 10000);
-      return () => clearInterval(iv);
+      retryPending();
+      const iv = setInterval(retryPending, 30000);
+      return () => {
+        clearInterval(iv);
+        window.removeEventListener('fs-sync-change', onSyncChange);
+        window.removeEventListener('online', onOnline);
+        window.removeEventListener('offline', onOffline);
+      };
     };
     waitAndStart();
   }, []);
@@ -13328,20 +13370,28 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {/* Indicador de sincronización */}
             {(() => {
-              const online = typeof navigator !== "undefined" ? navigator.onLine : true;
-              if (!online) return (
-                <div title="Sin conexión — datos guardados localmente" style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(229,57,53,.12)", border: "1px solid rgba(229,57,53,.3)", fontSize: 11, fontWeight: 700, color: T.red }}>
-                  📵 Sin red
-                </div>
-              );
-              if (syncPending > 0) return (
-                <div title={`${syncPending} cambio${syncPending > 1 ? "s" : ""} pendiente${syncPending > 1 ? "s" : ""} de sincronizar`} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(255,152,0,.12)", border: "1px solid rgba(255,152,0,.3)", fontSize: 11, fontWeight: 700, color: T.orange }}>
-                  ⟳ {syncPending}
-                </div>
-              );
+              const states = {
+                offline: {
+                  bg: 'rgba(229,57,53,.12)', border: 'rgba(229,57,53,.3)', color: T.red,
+                  icon: '📵', label: 'Sin red', title: 'Sin conexión — cambios guardados localmente'
+                },
+                error: {
+                  bg: 'rgba(229,57,53,.12)', border: 'rgba(229,57,53,.3)', color: T.red,
+                  icon: '⚠', label: 'Error sync', title: 'Error al sincronizar — reintentando...'
+                },
+                syncing: {
+                  bg: 'rgba(255,152,0,.12)', border: 'rgba(255,152,0,.3)', color: T.orange,
+                  icon: '⟳', label: `${syncActive > 1 ? syncActive + ' ' : ''}Sync...`, title: `Guardando ${syncActive} cambio${syncActive > 1 ? 's' : ''}...`
+                },
+                ok: {
+                  bg: 'rgba(67,160,71,.10)', border: 'rgba(67,160,71,.25)', color: T.green,
+                  icon: '✓', label: 'Sync', title: 'Todo sincronizado con la nube'
+                }
+              };
+              const s = states[syncState] || states.ok;
               return (
-                <div title="Todo sincronizado" style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(67,160,71,.10)", border: "1px solid rgba(67,160,71,.25)", fontSize: 11, fontWeight: 700, color: T.green }}>
-                  ✓ Sync
+                <div title={s.title} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none' }}>
+                  <span style={{ display: 'inline-block', animation: syncState === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>{s.icon}</span> {s.label}
                 </div>
               );
             })()}
