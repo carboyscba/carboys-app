@@ -64,11 +64,13 @@ const fsDel = async (col, id) => {
 };
 // Comparador inteligente para IDs mixtos (numérico o "ord_XXXX")
 const cmpId = (a, b) => {
+  // 1. Ordenar por fecha descendente (más reciente primero)
+  const da = a.date || "";
+  const db = b.date || "";
+  if (da !== db) return db.localeCompare(da);
+  // 2. Empate de fecha → ID numérico descendente (IDs altos del taller primero)
   const va = typeof a.id === 'number' ? a.id : (parseInt((String(a.id).match(/\d+/)||['0'])[0]) || 0);
   const vb = typeof b.id === 'number' ? b.id : (parseInt((String(b.id).match(/\d+/)||['0'])[0]) || 0);
-  // Órdenes reales del taller (IDs altos numéricos) van primero
-  // Historial importado (ord_XXXX) va después ordenado por fecha
-  if (a.date && b.date && a.date !== b.date) return b.date.localeCompare(a.date);
   return vb - va;
 };
 
@@ -1204,7 +1206,7 @@ const NewOrderScreen = (props) => {
     const d = domainSearch.toUpperCase().trim();
     if (!d) return;
     for (const c of clients) {
-      const v = c.vehicles.find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
+      const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
       if (v) {
         // Vehicle found — show history panel first
         const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled")
@@ -1298,13 +1300,13 @@ const NewOrderScreen = (props) => {
     } else if (editMode) {
       setClients(prev => prev.map(c => c.id === foundClient.id ? {
         ...c, name: form.name, lastName: form.lastName, dni: form.dni, cuit: form.cuit, phone: form.phone,
-        vehicles: c.vehicles.map(v => v.domain === foundVehicle.domain ? { ...v, brand: form.brand, model: form.model, year: parseInt(form.year), km: finalKm } : v)
+        vehicles: (c.vehicles || []).map(v => v.domain === foundVehicle.domain ? { ...v, brand: form.brand, model: form.model, year: parseInt(form.year), km: finalKm } : v)
       } : c));
       setEditMode(false);
     } else {
       setClients(prev => prev.map(c => c.id === foundClient.id ? {
         ...c,
-        vehicles: c.vehicles.map(v => v.domain === foundVehicle.domain ? { ...v, km: finalKm } : v)
+        vehicles: (c.vehicles || []).map(v => v.domain === foundVehicle.domain ? { ...v, km: finalKm } : v)
       } : c));
     }
     setStep(3);
@@ -1368,11 +1370,12 @@ const NewOrderScreen = (props) => {
   const [lastCreatedOrderId, setLastCreatedOrderId] = React.useState(null);
 
   const confirmOrder = () => {
+    if (!foundClient) { console.error('[confirmOrder] No foundClient — abortando'); return; }
     const newId = Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1;
     const p0pref = payments[0] || {};
     const newOrder = {
       id: newId,
-      clientId: foundClient?.id || Date.now(),
+      clientId: foundClient.id,
       domain: form.domain,
       status: "pending",
       works: works.map(w => ({ ...w, price: parseFloat(w.price) || 0 })),
@@ -1440,7 +1443,7 @@ const NewOrderScreen = (props) => {
               {domainSearch.length > 1 && !historyVehicle && (() => {
                 const matches = [];
                 for (const c of clients) {
-                  for (const v of c.vehicles) {
+                  for (const v of (c.vehicles || [])) {
                     if (v.domain.replace(/\s/g,"").toLowerCase().includes(domainSearch.replace(/\s/g,"").toLowerCase())) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled"].includes(o.status));
@@ -1704,7 +1707,7 @@ const NewOrderScreen = (props) => {
                             <div style={{ fontSize: 12, color: T.gray }}>DNI: {c.dni || "—"}{c.cuit ? " • CUIT: " + c.cuit : ""}</div>
                           </div>
                         </div>
-                        {c.vehicles.map((v, i) => {
+                        {(c.vehicles || []).map((v, i) => {
                           const activeOrder = orders.find(o => o.domain === v.domain && ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
                           const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                           return (
@@ -1965,7 +1968,7 @@ const NewOrderScreen = (props) => {
                 <button onClick={() => {
                   const newOrder = {
                     id: Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1,
-                    clientId: foundClient?.id || Date.now(),
+                    clientId: foundClient?.id ?? null,
                     domain: form.domain,
                     status: "inspection",
                     budgetCategory,
@@ -2426,7 +2429,7 @@ const NewOrderScreen = (props) => {
               <button onClick={() => {
                 setClients(prev => prev.map(c => c.id === unlinkVehicle.client.id ? {
                   ...c,
-                  vehicles: c.vehicles.filter(v => v.domain !== unlinkVehicle.vehicle.domain)
+                  vehicles: (c.vehicles || []).filter(v => v.domain !== unlinkVehicle.vehicle.domain)
                 } : c));
                 setUnlinkVehicle(null);
               }} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 13 }}>Sí, desvincular</button>
@@ -2466,7 +2469,7 @@ const NewOrderScreen = (props) => {
                   if (!isNew && !addingNewVehicle && !editMode) {
                     setClients(prev => prev.map(c => c.id === foundClient.id ? {
                       ...c,
-                      vehicles: c.vehicles.map(v => v.domain === foundVehicle.domain ? { ...v, km: finalKm } : v)
+                      vehicles: (c.vehicles || []).map(v => v.domain === foundVehicle.domain ? { ...v, km: finalKm } : v)
                     } : c));
                   }
                   setStep(3);
@@ -2569,7 +2572,7 @@ const NewOrderScreen = (props) => {
                       updatePayment(i, "method", v);
                       // Reset IVA/cuenta al cambiar método
                       updatePayment(i, "account", "");
-                      updatePayment(i, "withIva", undefined);
+                      updatePayment(i, "withIva", null);
                       updatePayment(i, "invoiceType", "");
                     }} placeholder="Seleccionar" />
                 </div>
@@ -2651,7 +2654,7 @@ const NewOrderScreen = (props) => {
               )}
 
               {/* ── TIPO DE FACTURA: cuando hay método + IVA definido (o transferencia con cuenta) ── */}
-              {p.method && (isTransf ? !!p.account : p.withIva !== undefined) && (() => {
+              {p.method && (isTransf ? !!p.account : p.withIva !== null && p.withIva !== undefined) && (() => {
                 let availFc = [];
                 if (isTransf) {
                   availFc = p.account === "2" ? ["C"] : hasCuit ? ["A", "B"] : ["B"];
@@ -2694,7 +2697,7 @@ const NewOrderScreen = (props) => {
               })()}
 
               {/* ── PAGO MIXTO: pregunta qué facturar ── */}
-              {isMixto && i === payments.length - 1 && payments.some(px => px.withIva) && payments.some(px => !px.withIva || px.withIva === undefined) && (
+              {isMixto && i === payments.length - 1 && payments.some(px => px.withIva) && payments.some(px => !px.withIva || px.withIva === null || px.withIva === undefined) && (
                 <div style={{ marginTop: 16, padding: "12px 14px", background: `${T.orange}10`, border: `1px solid ${T.orange}40`, borderRadius: 10 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, marginBottom: 8 }}>⚡ PAGO MIXTO — ¿Qué monto facturar?</div>
                   {[
@@ -3122,7 +3125,7 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
   const [selVehicle, setSelVehicle] = useState(() => {
     if (!initialDomain) return null;
     for (const c of clients) {
-      const v = c.vehicles.find(v => v.domain.replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
+      const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
       if (v) return v;
     }
     return null;
@@ -3130,7 +3133,7 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
   const [selClient, setSelClient] = useState(null);
 
   const results = q.length > 1 ? clients.filter(c =>
-    c.vehicles.some(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())) ||
+    (c.vehicles || []).some(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())) ||
     c.name.toLowerCase().includes(q.toLowerCase()) ||
     c.lastName.toLowerCase().includes(q.toLowerCase()) ||
     (c.dni && c.dni.includes(q)) ||
@@ -3142,7 +3145,7 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
   // Vehicle history view
   if (selVehicle) {
     const vOrders = orders.filter(o => o.domain === selVehicle.domain && o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    const cl = clients.find(c => c.vehicles.some(v => v.domain === selVehicle.domain));
+    const cl = clients.find(c => (c.vehicles || []).some(v => v.domain === selVehicle.domain));
     return (
       <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
         <button onClick={() => { setSelVehicle(null); setSelClient(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
@@ -3263,13 +3266,13 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
                 <div>
                   <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{c.name} {c.lastName}</div>
                   <div style={{ fontSize: 13, color: T.gray }}>DNI: {c.dni || "—"}{c.cuit ? " • CUIT: " + c.cuit : ""}</div>
-                  <div style={{ fontSize: 12, color: T.grayLight, marginTop: 4 }}>{c.vehicles.length} vehículo{c.vehicles.length !== 1 ? "s" : ""}: {c.vehicles.map(v => fmtD(v.domain)).join(", ")}</div>
+                  <div style={{ fontSize: 12, color: T.grayLight, marginTop: 4 }}>{(c.vehicles||[]).length} vehículo{(c.vehicles||[]).length !== 1 ? "s" : ""}: {(c.vehicles||[]).map(v => fmtD(v.domain)).join(", ")}</div>
                 </div>
                 <div style={{ fontSize: 20, color: T.gray }}>→</div>
               </div>
             </div>
           ) : (
-            c.vehicles.filter(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())).map(v => {
+            (c.vehicles || []).filter(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())).map(v => {
               const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
               const activeOrder = orders.find(o => o.domain === v.domain && !["delivered", "cancelled"].includes(o.status));
               return (
@@ -3563,8 +3566,8 @@ const VehicleDetailScreen = (props) => {
       {/* Works */}
       <div style={{ ...card, padding: 20, marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, fontFamily: fontD }}>TRABAJOS</div>
-        {order.works.map((w, i) => (
-          <div key={i} style={{ padding: "10px 0", borderBottom: i < order.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
+        {(order.works || []).map((w, i) => (
+          <div key={i} style={{ padding: "10px 0", borderBottom: i < (order.works||[]).length - 1 ? `1px solid ${T.border}` : "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{w.type}{w.escapeType ? (w.escapeType === "deportivo" ? " — Deportivo" : " — Original") : ""}</div>
@@ -3679,7 +3682,7 @@ const VehicleDetailScreen = (props) => {
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
-            setEditWorks(order.works.map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
+            setEditWorks((order.works || []).map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
             setShowEditOrder(true);
           }, bg: "rgba(30,136,229,.08)" },
           { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
@@ -3687,8 +3690,9 @@ const VehicleDetailScreen = (props) => {
             setShowAddWork(true);
           }, bg: "rgba(30,136,229,.08)" },
           { icon: "💬", label: "Contactar Cliente", show: user.role !== "mecánico", color: T.accent, action: () => {
-            const phone = client?.phone || "";
-            sendWA(phone, "", config?.wahaUrl, config?.wahaApiKey);
+            const phone = (client?.phone || "").replace(/\D/g, "");
+            if (!phone) return;
+            window.open("https://wa.me/549" + phone, "_blank");
           }, bg: "rgba(30,136,229,.08)" },
 
           ...((order.status === "done" || order.status === "delivered") && hasFojaWork ? [{ icon: "📑", label: "Fojas", show: true, color: T.accent, action: () => setShowFojaMenu(true), bg: "rgba(30,136,229,.08)" }] : []),
@@ -11421,8 +11425,8 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
           <div style={{ padding: "8px 22px 16px" }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJO REALIZADO</div>
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              {order.works.map((w, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: i < order.works.length - 1 ? "1px solid #F0F0F0" : "none" }}>
+              {(order.works || []).map((w, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: i < (order.works||[]).length - 1 ? "1px solid #F0F0F0" : "none" }}>
                   <div>
                     <span style={{ fontSize: 9, fontWeight: 700, color: "#0D1B2A" }}>{w.type}</span>
                     {w.desc && <span style={{ fontSize: 8, color: "#718096", marginLeft: 6 }}>— {w.desc}</span>}
@@ -12136,8 +12140,8 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
                     {/* TRABAJOS Y TOTAL */}
           <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "8px 12px", border: "1px solid #EDF0F5", marginBottom: 10 }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#1B2D45", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>TRABAJOS REALIZADOS</div>
-            {order.works.map((w, i) => (
-              <div key={i} style={{ padding: "3px 0", borderBottom: i < order.works.length - 1 ? "1px solid #F0F2F5" : "none" }}>
+            {(order.works || []).map((w, i) => (
+              <div key={i} style={{ padding: "3px 0", borderBottom: i < (order.works||[]).length - 1 ? "1px solid #F0F2F5" : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 9, color: "#1B2D45", fontWeight: 700 }}>{w.type}</span>
                   <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+w.price.toLocaleString("es-AR")}</span>
@@ -13019,7 +13023,7 @@ export default function App() {
         }
         // Config desde IDB
         const idbCfg = idbConfigs[0];
-        if (idbCfg) _setConfig(idbCfg);
+        if (idbCfg) _setConfig({ ...INITIAL_CONFIG, ...idbCfg });
         idbLoaded = true;
         idbReadyRef.current = true;
       } catch(e) {
@@ -13105,7 +13109,7 @@ export default function App() {
 
       unsubConfig = onSnapshotDoc('meta', 'config', snap => {
         if (snap.exists()) {
-          const cfg = snap.data();
+          const cfg = { ...INITIAL_CONFIG, ...snap.data() };
           _setConfig(cfg);
           idbSave('config', 'config', cfg, true).catch(console.error);
         } else {
