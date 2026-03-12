@@ -1,7 +1,213 @@
 import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
-// ── Firestore REST API (sin SDK, compatible con Claude artifacts) ──
-const FS_PROJECT = "carboys-6625b";
-const FS_BASE = `https://firestore.googleapis.com/v1/projects/${FS_PROJECT}/databases/(default)/documents`;
+// ══════════════════════════════════════════════════════════════════
+// ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
+// Cada sucursal tiene su propia nube Firebase.
+// El Gerente General tiene acceso a TODAS las sucursales.
+// Los demás solo acceden a la sucursal asociada a su Gmail.
+// ══════════════════════════════════════════════════════════════════
+
+// Master Firebase (nube central — siempre accesible para datos compartidos)
+const MASTER_PROJECT = "carboys-6625b";
+const MASTER_API_KEY = "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ";
+const MASTER_GOOGLE_CLIENT_ID = "388940973377-6c93fbvahg743n9l131nfpj5f68hl2es.apps.googleusercontent.com";
+const _getMasterBase = () => `https://firestore.googleapis.com/v1/projects/${MASTER_PROJECT}/databases/(default)/documents`;
+
+// ── Registro de Sucursales (dinámico — se carga desde Firestore Master al iniciar) ──
+// Fallback hardcodeado: Casa Central siempre existe como mínimo
+const SUCURSAL_CENTRAL_DEFAULT = {
+  id: "central",
+  nombre: "Casa Central",
+  gmails: ["carboys.cba@gmail.com"],
+  firebaseProject: "carboys-6625b",
+  apiKey: "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ",
+  googleClientId: "388940973377-6c93fbvahg743n9l131nfpj5f68hl2es.apps.googleusercontent.com",
+  isMaster: true,
+  modules: { ignacio: true },
+  icon: "🏠",
+  color: "#e53935",
+  // Datos de facturación
+  razonSocial: "CarBoys SAS",
+  cuit: "30-71745468-1",
+  condIva: "Responsable Inscripto",
+  puntoVenta: "0001",
+  direccion: "",
+  telefono: "",
+  // Cuenta personal del GG (solo en central)
+  cuentaPersonal: {
+    nombre: "Ignacio Karqui",
+    cuit: "20-34441217-1",
+    puntoVenta: "0002",
+    condIva: "Monotributo",
+  },
+  activa: true,
+};
+
+// Registro mutable — se actualiza desde Firestore Master
+let SUCURSALES_REGISTRY = [SUCURSAL_CENTRAL_DEFAULT];
+let GERENTE_GENERAL_GMAILS = ["carboys.cba@gmail.com"];
+let _registryLoaded = false;
+
+// Busca sucursales accesibles para un email dado
+const findSucursalesForEmail = (email) => {
+  const e = (email || "").toLowerCase();
+  const isGG = GERENTE_GENERAL_GMAILS.some(g => g.toLowerCase() === e);
+  if (isGG) return SUCURSALES_REGISTRY.filter(s => s.activa !== false);
+  return SUCURSALES_REGISTRY.filter(s => s.activa !== false && s.gmails.some(g => g.toLowerCase() === e));
+};
+
+// Verifica si un email es Gerente General
+const isGerenteGeneral = (email) => GERENTE_GENERAL_GMAILS.some(g => g.toLowerCase() === (email || "").toLowerCase());
+
+// ── Firestore Master: leer registro sin auth (lectura pública en Firestore rules) ──
+const fsMasterGetDoc = async (col, id, useAuth = false) => {
+  const url = `${_getMasterBase()}/${col}/${encodeURIComponent(String(id))}`;
+  const headers = { "Content-Type": "application/json" };
+  if (useAuth) {
+    const token = await getAuthToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+  try {
+    const r = await fetch(url, { headers });
+    if (!r.ok) return null;
+    const json = await r.json();
+    return fsToObj(json);
+  } catch(e) { console.error('[MASTER] getDoc error:', col, id, e); return null; }
+};
+
+const fsMasterSave = async (col, id, data) => {
+  const url = `${_getMasterBase()}/${col}/${encodeURIComponent(String(id))}`;
+  const h = await fsHeaders();
+  try {
+    const r = await fetch(url, { method: "PATCH", headers: h, body: JSON.stringify(objToFs(data)) });
+    if (!r.ok) console.error('[MASTER] save error', col, id, await r.text());
+    return r;
+  } catch(e) { console.error('[MASTER] save error:', e); return null; }
+};
+
+// ── Cargar registro de sucursales desde Firestore Master ──
+// Se ejecuta al arrancar la app, ANTES del login
+const loadSucursalesRegistry = async () => {
+  try {
+    const doc = await fsMasterGetDoc('meta', 'sucursales');
+    if (doc && doc.lista && Array.isArray(doc.lista) && doc.lista.length > 0) {
+      SUCURSALES_REGISTRY = doc.lista;
+      // Extraer emails de GG
+      if (doc.gerenteGeneralGmails && Array.isArray(doc.gerenteGeneralGmails)) {
+        GERENTE_GENERAL_GMAILS = doc.gerenteGeneralGmails;
+      }
+      _registryLoaded = true;
+      console.log(`[MULTI-TENANT] Registry cargado: ${SUCURSALES_REGISTRY.length} sucursal(es)`);
+      return true;
+    }
+    // Si no existe en Firestore, guardar el default (primera vez)
+    await fsMasterSave('meta', 'sucursales', {
+      lista: [SUCURSAL_CENTRAL_DEFAULT],
+      gerenteGeneralGmails: GERENTE_GENERAL_GMAILS,
+      updatedAt: new Date().toISOString(),
+    });
+    _registryLoaded = true;
+    console.log('[MULTI-TENANT] Registry inicializado con Casa Central');
+    return true;
+  } catch(e) {
+    console.warn('[MULTI-TENANT] Error cargando registry, usando fallback:', e);
+    _registryLoaded = true;
+    return false; // usará el fallback hardcodeado
+  }
+};
+
+// ── Guardar registro actualizado en Firestore Master ──
+const saveSucursalesRegistry = async () => {
+  return fsMasterSave('meta', 'sucursales', {
+    lista: SUCURSALES_REGISTRY,
+    gerenteGeneralGmails: GERENTE_GENERAL_GMAILS,
+    updatedAt: new Date().toISOString(),
+  });
+};
+
+// ── Verificar conexión con un Firebase de sucursal ──
+const testFirebaseConnection = async (project, apiKey) => {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/meta/test?key=${apiKey}`;
+    const r = await fetch(url, { method: 'GET' });
+    // 404 = proyecto existe pero doc no existe (OK)
+    // 200 = existe (OK)
+    // 403 = sin permisos (necesita configurar rules)
+    return r.status === 200 || r.status === 404;
+  } catch(e) { return false; }
+};
+
+// ── Inicializar colecciones base en una nube nueva de sucursal ──
+const initSucursalFirestore = async (sucursal) => {
+  // Guardar config inicial en la nube de la nueva sucursal
+  const prevProject = _FS_PROJECT;
+  const prevApiKey = _FS_API_KEY;
+  const prevSucId = _activeSucursalId;
+
+  // Temporalmente apuntar a la nube nueva
+  _FS_PROJECT = sucursal.firebaseProject;
+  _FS_API_KEY = sucursal.apiKey;
+  _activeSucursalId = sucursal.id;
+
+  try {
+    // Config inicial
+    await fsSave('meta', 'config', {
+      surcharge3: 15, surcharge6: 25, ivaRate: 21,
+      sucursalId: sucursal.id,
+      sucursalNombre: sucursal.nombre,
+      razonSocial: sucursal.razonSocial || "",
+      cuit: sucursal.cuit || "",
+      condIva: sucursal.condIva || "",
+      puntoVenta: sucursal.puntoVenta || "0001",
+      direccion: sucursal.direccion || "",
+      telefono: sucursal.telefono || "",
+      ctaInicializado: true,
+    });
+
+    // Usuario Gerente General inyectado automáticamente
+    await fsSave('users', 'gg_1', {
+      id: 'gg_1',
+      name: "Ignacio",
+      role: "dueño",
+      pin: "0000",
+      initial: "I",
+      color: "#e53935",
+      canAuthorize: true,
+      isGG: true, // marcador de Gerente General
+    });
+
+    console.log(`[MULTI-TENANT] Nube de ${sucursal.nombre} inicializada`);
+    return true;
+  } catch(e) {
+    console.error('[MULTI-TENANT] Error inicializando nube:', e);
+    return false;
+  } finally {
+    // Restaurar conexión anterior
+    _FS_PROJECT = prevProject;
+    _FS_API_KEY = prevApiKey;
+    _activeSucursalId = prevSucId;
+  }
+};
+
+// ── Firestore REST API (conexión dinámica por sucursal) ──────────
+// Estas variables se actualizan al seleccionar una sucursal
+let _FS_PROJECT = "carboys-6625b";
+let _FS_API_KEY = "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ";
+let _FS_GOOGLE_CLIENT_ID = "388940973377-6c93fbvahg743n9l131nfpj5f68hl2es.apps.googleusercontent.com";
+let _activeSucursalId = "central";
+const _getBase = () => `https://firestore.googleapis.com/v1/projects/${_FS_PROJECT}/databases/(default)/documents`;
+
+// Cambia la conexión activa a otra sucursal
+const switchFirebase = (sucursal) => {
+  _FS_PROJECT = sucursal.firebaseProject;
+  _FS_API_KEY = sucursal.apiKey;
+  _FS_GOOGLE_CLIENT_ID = sucursal.googleClientId || MASTER_GOOGLE_CLIENT_ID;
+  _activeSucursalId = sucursal.id;
+  // Reset IDB para usar la base local de esta sucursal
+  if (_idb) { try { _idb.close(); } catch(e) {} }
+  _idb = null;
+  _IDB_NAME = `carboys_${sucursal.id}`;
+  console.log(`[MULTI-TENANT] Conectado a: ${sucursal.nombre} (${sucursal.firebaseProject})`);
+};
 
 // Convierte valor JS → formato Firestore
 const toFsVal = (v) => {
@@ -39,7 +245,7 @@ const _notifySync = () => window.dispatchEvent(new CustomEvent('fs-sync-change',
 }));
 
 const fsSave = async (col, id, data) => {
-  const url = `${FS_BASE}/${col}/${encodeURIComponent(String(id))}`;
+  const url = `${_getBase()}/${col}/${encodeURIComponent(String(id))}`;
   _fsActiveOps++;
   _notifySync();
   try {
@@ -60,7 +266,7 @@ const fsSave = async (col, id, data) => {
 };
 const fsDel = async (col, id) => {
   const h = await fsHeaders();
-  return fetch(`${FS_BASE}/${col}/${encodeURIComponent(String(id))}`, { method: "DELETE", headers: h });
+  return fetch(`${_getBase()}/${col}/${encodeURIComponent(String(id))}`, { method: "DELETE", headers: h });
 };
 // Comparador inteligente para IDs mixtos (numérico o "ord_XXXX")
 const cmpId = (a, b) => {
@@ -80,7 +286,7 @@ const fsGetCol = async (col) => {
   let pageToken = null;
   let safetyLimit = 20; // máximo 20 páginas = 10.000 docs
   do {
-    const url = `${FS_BASE}/${col}?pageSize=500${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    const url = `${_getBase()}/${col}?pageSize=500${pageToken ? `&pageToken=${pageToken}` : ''}`;
     const r = await fetch(url, { headers: h });
     if (!r.ok) break;
     const json = await r.json();
@@ -92,7 +298,7 @@ const fsGetCol = async (col) => {
 };
 const fsGetDoc = async (col, id) => {
   const h = await fsHeaders();
-  const r = await fetch(`${FS_BASE}/${col}/${encodeURIComponent(String(id))}`, { headers: h });
+  const r = await fetch(`${_getBase()}/${col}/${encodeURIComponent(String(id))}`, { headers: h });
   if (!r.ok) return null;
   return fsToObj(await r.json());
 };
@@ -103,9 +309,9 @@ const fsGetDoc = async (col, id) => {
 //        cuando Firestore confirma → marcar synced:true en IDB
 //        IDB actúa como caché offline: datos disponibles sin internet
 // ══════════════════════════════════════════════════════════════════
-const IDB_NAME    = "carboys_local";
-const IDB_VERSION = 3;
-const IDB_STORES  = ["orders", "clients", "config", "sync_queue",
+let _IDB_NAME    = "carboys_central"; // se actualiza en switchFirebase()
+const IDB_VERSION = 4;
+const IDB_STORES  = ["orders", "clients", "config", "sync_queue", "users",
   "adm_egresos", "adm_proveedores", "adm_factprov",
   "adm_servicios", "adm_igastos", "adm_cierres"];
 
@@ -113,7 +319,7 @@ let _idb = null; // instancia abierta
 
 const idbOpen = () => new Promise((resolve, reject) => {
   if (_idb) { resolve(_idb); return; }
-  const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+  const req = indexedDB.open(_IDB_NAME, IDB_VERSION);
   req.onupgradeneeded = (e) => {
     const db = e.target.result;
     IDB_STORES.forEach(store => {
@@ -203,8 +409,8 @@ const idbLoad = async (store) => {
 
 
 // ── Firebase Auth REST (anónimo) ─────────────────────────────
-const FB_API_KEY = "AIzaSyAvpd31ZhXPz52KD4h3AubAUJ1pgwc2XpQ";
-const CARBOYS_EMAIL = "carboys.cba@gmail.com";
+// FB_API_KEY ahora es dinámico → usar _FS_API_KEY (definido arriba en multi-tenant)
+// CARBOYS_EMAIL eliminado → reemplazado por SUCURSALES_REGISTRY + GERENTE_GENERAL_GMAILS
 
 // ── Google OAuth via GSI + Firebase signInWithIdp ─────────────
 const CB_STORAGE_KEY = "carboys_session_v1"; // clave localStorage por dispositivo
@@ -251,7 +457,7 @@ const loadSession = () => {
 // Usa el refreshToken para obtener un nuevo idToken sin popup
 const refreshAuthToken = async (refreshToken) => {
   const r = await fetch(
-    `https://securetoken.googleapis.com/v1/token?key=${FB_API_KEY}`,
+    `https://securetoken.googleapis.com/v1/token?key=${_FS_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -301,13 +507,13 @@ const loadGSI = () => new Promise((resolve, reject) => {
 // Intercambia Google ID token por Firebase token
 const exchangeGoogleToken = async (googleIdToken) => {
   const r = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FB_API_KEY}`,
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${_FS_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         postBody: `id_token=${googleIdToken}&providerId=google.com`,
-        requestUri: "https://carboys-6625b.firebaseapp.com",
+        requestUri: `https://${_FS_PROJECT}.firebaseapp.com`,
         returnIdpCredential: true,
         returnSecureToken: true,
       })
@@ -325,7 +531,7 @@ const signInWithGoogle = (googleClientId) => new Promise(async (resolve) => {
       callback: async (response) => {
         try {
           const fbR = await fetch(
-            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FB_API_KEY}`,
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${_FS_API_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -457,7 +663,10 @@ const GoogleLoginScreen = ({ onSuccess }) => {
 
   // Client ID hardcodeado desde Firebase → Authentication → Google → SDK web
   React.useEffect(() => {
-    setGoogleClientId("388940973377-6c93fbvahg743n9l131nfpj5f68hl2es.apps.googleusercontent.com");
+    // Client ID: usar el de la primera sucursal del registro (para login inicial)
+    // Después de seleccionar sucursal, se usará el Client ID específico
+    const firstSuc = SUCURSALES_REGISTRY[0];
+    if (firstSuc) setGoogleClientId(firstSuc.googleClientId);
   }, []);
 
   const handleSignIn = async () => {
@@ -471,9 +680,11 @@ const GoogleLoginScreen = ({ onSuccess }) => {
         setErrorMsg(result.error || "Error desconocido");
         return;
       }
-      if (result.email.toLowerCase() !== CARBOYS_EMAIL.toLowerCase()) {
+      // Multi-tenant: verificar si el email tiene acceso a alguna sucursal
+      const sucursalesAccesibles = findSucursalesForEmail(result.email);
+      if (sucursalesAccesibles.length === 0) {
         setStatus("error");
-        setErrorMsg(`Acceso denegado. Solo puede acceder ${CARBOYS_EMAIL}`);
+        setErrorMsg(`Acceso denegado. Este email no está autorizado en ninguna sucursal.`);
         _authToken = null;
         return;
       }
@@ -522,7 +733,7 @@ const GoogleLoginScreen = ({ onSuccess }) => {
       <div style={{
         fontSize:11, color:"#4a6fa5", letterSpacing:3, textTransform:"uppercase",
         marginBottom:48
-      }}>Sistema de Gestión • Taller</div>
+      }}>Sistema de Gestión Integral</div>
 
       {/* Card de login */}
       <div style={{
@@ -599,22 +810,26 @@ const GoogleLoginScreen = ({ onSuccess }) => {
           </div>
         )}
 
-        {/* Cuenta esperada */}
+        {/* Cuentas autorizadas */}
         <div style={{
-          display:"flex", alignItems:"center", gap:8,
           borderTop:"1px solid #1a2744", paddingTop:16, width:"100%"
         }}>
-          <div style={{
-            width:32,height:32,borderRadius:"50%",
-            background:"linear-gradient(135deg,#e53935,#c62828)",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:13,fontWeight:700,color:"#fff",flexShrink:0
-          }}>C</div>
-          <div>
-            <div style={{fontSize:11,color:"#4a6fa5"}}>Cuenta autorizada</div>
-            <div style={{fontSize:12,color:"#8ab4d4",fontWeight:600}}>{CARBOYS_EMAIL}</div>
-          </div>
-          <div style={{marginLeft:"auto",fontSize:16}}>🔒</div>
+          <div style={{fontSize:11,color:"#4a6fa5",marginBottom:8}}>Cuentas autorizadas</div>
+          {SUCURSALES_REGISTRY.map(s => (
+            <div key={s.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+              <div style={{
+                width:28,height:28,borderRadius:"50%",
+                background:s.color || "#e53935",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:12,flexShrink:0
+              }}>{s.icon || "📍"}</div>
+              <div>
+                <div style={{fontSize:11,color:"#8ab4d4",fontWeight:600}}>{s.nombre}</div>
+                <div style={{fontSize:10,color:"#4a6fa5"}}>{s.gmails[0]}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{marginTop:6,fontSize:16,textAlign:"right"}}>🔒</div>
         </div>
       </div>
 
@@ -622,6 +837,103 @@ const GoogleLoginScreen = ({ onSuccess }) => {
         CarBoys SAS © {new Date().getFullYear()}
       </div>
       <style>{`@keyframes fb-pulse{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}`}</style>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════
+// ── MULTI-TENANT: Selector de Sucursal ───────────────────────────
+// Se muestra después del Google Login si el email tiene acceso
+// a más de una sucursal. Si solo tiene una, se auto-selecciona.
+// ══════════════════════════════════════════════════════════════════
+const SucursalSelector = ({ sucursales, email, onSelect }) => {
+  const esGG = isGerenteGeneral(email);
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#080e1a",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      gap: 0, padding: 24, position: "relative", overflow: "hidden"
+    }}>
+      {/* Fondo decorativo */}
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+        <div style={{ position: "absolute", top: -120, right: -120, width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(229,57,53,0.08) 0%, transparent 70%)" }} />
+        <div style={{ position: "absolute", bottom: -80, left: -80, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(30,136,229,0.06) 0%, transparent 70%)" }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, transparent, #e53935 30%, #e53935 70%, transparent)" }} />
+      </div>
+
+      {/* Logo */}
+      <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 42, fontWeight: 900, color: "#f0f4f8", letterSpacing: 3, marginBottom: 4, textAlign: "center" }}>
+        Car<span style={{ color: "#e53935" }}>Boys</span>
+      </div>
+      <div style={{ fontSize: 11, color: "#4a6fa5", letterSpacing: 3, textTransform: "uppercase", marginBottom: 8 }}>
+        Sistema de Gestión Integral
+      </div>
+
+      {esGG && (
+        <div style={{
+          background: "rgba(229,57,53,0.08)", border: "1px solid rgba(229,57,53,0.2)",
+          borderRadius: 10, padding: "8px 16px", marginBottom: 20,
+          fontSize: 12, color: "#e57373", fontWeight: 700, letterSpacing: 0.5
+        }}>
+          👑 Gerente General — Acceso a todas las sucursales
+        </div>
+      )}
+
+      <div style={{ fontSize: 15, color: "#9badc4", marginBottom: 24, fontWeight: 500 }}>
+        Seleccioná una sucursal
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: sucursales.length > 2 ? "1fr 1fr" : `repeat(${sucursales.length}, 1fr)`, gap: 14, maxWidth: 500, width: "100%" }}>
+        {sucursales.map((suc, i) => (
+          <div key={suc.id} onClick={() => onSelect(suc)}
+            style={{
+              background: "#0d1526", border: "1px solid #1a2744",
+              borderRadius: 16, padding: "24px 20px", cursor: "pointer",
+              textAlign: "center", transition: "all .2s",
+              animation: `fadeUp .4s ease ${.1 * i}s both`,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = suc.color || "#e53935"; e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = `0 8px 24px ${suc.color || "#e53935"}20`; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1a2744"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 10 }}>{suc.icon || "📍"}</div>
+            <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 20, fontWeight: 700, color: "#f0f4f8", marginBottom: 4 }}>
+              {suc.nombre}
+            </div>
+            <div style={{ fontSize: 11, color: "#4a6fa5" }}>
+              {suc.isMaster ? "Sede principal" : "Sucursal"}
+            </div>
+          </div>
+        ))}
+
+        {/* Vista Global — solo para Gerente General con 2+ sucursales */}
+        {esGG && sucursales.length > 1 && (
+          <div onClick={() => onSelect({ id: "__global__", nombre: "Vista Global", isGlobal: true })}
+            style={{
+              background: "#0d1526", border: "1px solid #1a2744",
+              borderRadius: 16, padding: "24px 20px", cursor: "pointer",
+              textAlign: "center", transition: "all .2s",
+              gridColumn: sucursales.length % 2 === 0 ? "1 / -1" : "auto",
+              animation: `fadeUp .4s ease ${.1 * sucursales.length}s both`,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#9C27B0"; e.currentTarget.style.transform = "translateY(-3px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1a2744"; e.currentTarget.style.transform = "none"; }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 10 }}>📊</div>
+            <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 20, fontWeight: 700, color: "#f0f4f8", marginBottom: 4 }}>
+              Vista Global
+            </div>
+            <div style={{ fontSize: 11, color: "#9C27B0", fontWeight: 600 }}>
+              Todas las sucursales
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 11, color: "#2a3550", marginTop: 32 }}>
+        CarBoys SAS © {new Date().getFullYear()}
+      </div>
+      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }`}</style>
     </div>
   );
 };
@@ -852,10 +1164,11 @@ const FULL_SS = {
 
 
 const ROLE_PERMS_DEFAULTS = {
-  dueño:    { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
-  admin:    { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true,  facturar: true  },
-  encargado:{ precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true,  facturar: false },
-  mecánico: { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false, facturar: false },
+  dueño:            { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
+  gerente_sucursal: { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
+  admin:            { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true,  facturar: true  },
+  encargado:        { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true,  facturar: false },
+  mecánico:         { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false, facturar: false },
 };
 const getPerm = (user, key) => {
   if (!user) return false;
@@ -864,6 +1177,130 @@ const getPerm = (user, key) => {
 };
 
 const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
+
+// ══════════════════════════════════════════════════════════════════
+// ── Cuentas de facturación dinámicas (leen de config por sucursal) ──
+// Reemplazan los hardcodeados "CarBoys SAS" / "Ignacio Karqui"
+// ══════════════════════════════════════════════════════════════════
+
+// Obtiene los datos de la cuenta 1 (principal — con IVA)
+const getCta1 = (cfg) => ({
+  nombre: cfg?.razonSocial || "Empresa",
+  cuit:   cfg?.cuit || "",
+  pv:     cfg?.puntoVenta || "0001",
+  condIva: cfg?.condIva || "Responsable Inscripto",
+  label:  cfg?.razonSocial || "Cuenta Principal",
+  sub:    "Con IVA · Fact. A / B",
+  iva:    true,
+});
+
+// Obtiene los datos de la cuenta 2 (personal / sin IVA) — puede estar deshabilitada
+const getCta2 = (cfg) => ({
+  nombre:  cfg?.cta2Nombre || "",
+  cuit:    cfg?.cta2Cuit || "",
+  pv:      cfg?.cta2PuntoVenta || "0002",
+  condIva: cfg?.cta2CondIva || "Monotributo",
+  label:   cfg?.cta2Nombre || "Cuenta Secundaria",
+  sub:     "Sin IVA · Fact. C",
+  iva:     false,
+  enabled: cfg?.cta2Enabled !== false, // true por defecto para compatibilidad
+});
+
+// ¿La cuenta 2 está habilitada en esta sucursal?
+const isCta2Enabled = (cfg) => cfg?.cta2Enabled !== false;
+
+// Devuelve nombre de la cuenta según account id ("1" o "2")
+const getCuentaNombre = (cfg, accountId) => accountId === "2" ? getCta2(cfg).nombre : getCta1(cfg).nombre;
+
+// Devuelve CUIT del emisor según account id
+const getCuentaCuit = (cfg, accountId) => accountId === "2" ? getCta2(cfg).cuit : getCta1(cfg).cuit;
+
+// Devuelve punto de venta según account id
+const getCuentaPV = (cfg, accountId) => accountId === "2" ? getCta2(cfg).pv : getCta1(cfg).pv;
+
+// Genera las opciones de cuenta para selectores de pago
+// Si cta2 está deshabilitada, solo devuelve cta1
+const getCuentaOptions = (cfg) => {
+  const cta1 = getCta1(cfg);
+  const cta2 = getCta2(cfg);
+  const opts = [{ acc: "1", label: cta1.label, sub: cta1.sub, iva: true }];
+  if (cta2.enabled) {
+    opts.push({ acc: "2", label: cta2.label, sub: cta2.sub, iva: false });
+  }
+  return opts;
+};
+
+// ══════════════════════════════════════════════════════════════════
+// ── CROSS-SUCURSAL: Búsqueda de clientes/vehículos entre nubes ──
+// Consulta las Firestores de otras sucursales para encontrar
+// un dominio, DNI o CUIT que no existe en la sucursal local.
+// ══════════════════════════════════════════════════════════════════
+
+// Busca en UNA sucursal específica por dominio (patente)
+const _crossSearchInSucursal = async (suc, searchType, searchValue) => {
+  if (suc.id === _activeSucursalId) return null; // no buscar en la propia
+  if (suc.activa === false) return null;
+
+  const base = `https://firestore.googleapis.com/v1/projects/${suc.firebaseProject}/databases/(default)/documents`;
+  const h = await fsHeaders();
+
+  try {
+    // Traer todos los clientes de esa sucursal
+    const r = await fetch(`${base}/clients?pageSize=500`, { headers: h });
+    if (!r.ok) return null;
+    const json = await r.json();
+    const clients = (json.documents || []).map(fsToObj);
+
+    const sv = searchValue.replace(/\s/g, "").toUpperCase();
+
+    for (const c of clients) {
+      if (searchType === "domain") {
+        const found = (c.vehicles || []).find(v => (v.domain || "").replace(/\s/g, "").toUpperCase() === sv);
+        if (found) {
+          // Traer órdenes de ese dominio
+          const rOrd = await fetch(`${base}/orders?pageSize=500`, { headers: h });
+          let orders = [];
+          if (rOrd.ok) {
+            const jOrd = await rOrd.json();
+            orders = (jOrd.documents || []).map(fsToObj)
+              .filter(o => o.domain === found.domain && o.status !== "cancelled")
+              .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          }
+          return { sucursal: suc, client: c, vehicle: found, orders };
+        }
+      } else {
+        // DNI o CUIT
+        if ((c.dni && c.dni === searchValue) || (c.cuit && c.cuit === searchValue)) {
+          // Traer órdenes de este cliente
+          const rOrd = await fetch(`${base}/orders?pageSize=500`, { headers: h });
+          let orders = [];
+          if (rOrd.ok) {
+            const jOrd = await rOrd.json();
+            orders = (jOrd.documents || []).map(fsToObj)
+              .filter(o => o.clientId === c.id && o.status !== "cancelled")
+              .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          }
+          return { sucursal: suc, client: c, vehicles: c.vehicles || [], orders };
+        }
+      }
+    }
+    return null;
+  } catch(e) {
+    console.warn(`[CROSS-SEARCH] Error en ${suc.nombre}:`, e.message);
+    return null;
+  }
+};
+
+// Busca en TODAS las sucursales (excepto la activa) — retorna primer resultado
+const crossSearch = async (searchType, searchValue) => {
+  if (!searchValue || searchValue.length < 3) return null;
+  const otherSucs = SUCURSALES_REGISTRY.filter(s => s.id !== _activeSucursalId && s.activa !== false);
+  if (otherSucs.length === 0) return null;
+
+  // Buscar en paralelo en todas las sucursales
+  const results = await Promise.all(otherSucs.map(s => _crossSearchInSucursal(s, searchType, searchValue)));
+  return results.find(r => r !== null) || null;
+};
 
 const FontLoader = () => (
   <style>{`
@@ -1182,6 +1619,8 @@ const NewOrderScreen = (props) => {
   const [dniSearch, setDniSearch] = useState("");
   const [unlinkVehicle, setUnlinkVehicle] = useState(null);
   const [dniFoundClient, setDniFoundClient] = useState(null);
+  const [crossResult, setCrossResult] = useState(null); // resultado de búsqueda cross-sucursal
+  const [crossSearching, setCrossSearching] = useState(false); // buscando en otras sucursales
   const [deleteClientConfirm, setDeleteClientConfirm] = useState(null); // client to delete
   const [addingNewVehicle, setAddingNewVehicle] = useState(false);
   const [foundClient, setFoundClient] = useState(null);
@@ -1457,9 +1896,70 @@ const NewOrderScreen = (props) => {
                 if (matches.length === 0) return (
                   <div style={{ ...card, padding: 20, textAlign: "center", marginTop: 12 }}>
                     <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Sin resultados</div>
-                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>No existe "{domainSearch}" — ¿Es un cliente nuevo?</div>
-                    <button onClick={searchDomain} style={btnPrimary()}>+ Crear nuevo cliente</button>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Sin resultados en esta sucursal</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>No existe "{domainSearch}" en la base local</div>
+
+                    {/* Cross-sucursal search */}
+                    {SUCURSALES_REGISTRY.length > 1 && !crossResult && !crossSearching && (
+                      <button onClick={async () => {
+                        setCrossSearching(true);
+                        const result = await crossSearch("domain", domainSearch);
+                        setCrossResult(result);
+                        setCrossSearching(false);
+                      }} style={{ ...btnPrimary(T.accent), fontSize: 12, marginBottom: 10, width: "100%" }}>
+                        🔍 Buscar en otras sucursales
+                      </button>
+                    )}
+
+                    {crossSearching && (
+                      <div style={{ padding: 12, fontSize: 13, color: T.accent }}>
+                        ⏳ Buscando en otras sucursales...
+                      </div>
+                    )}
+
+                    {crossResult && (
+                      <div style={{ ...card, padding: 16, textAlign: "left", marginBottom: 12, borderColor: T.green, background: `${T.green}06` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 18 }}>{crossResult.sucursal.icon || "📍"}</span>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: T.green }}>✅ Encontrado en {crossResult.sucursal.nombre}</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                          👤 {crossResult.client.name} {crossResult.client.lastName}
+                        </div>
+                        <div style={{ fontSize: 12, color: T.gray, marginBottom: 2 }}>
+                          {crossResult.client.phone ? `📱 ${crossResult.client.phone}` : ""} {crossResult.client.dni ? `· DNI: ${crossResult.client.dni}` : ""}
+                        </div>
+                        {crossResult.vehicle && (
+                          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6, color: T.accent }}>
+                            🚗 {crossResult.vehicle.brand} {crossResult.vehicle.model} ({crossResult.vehicle.year}) — {crossResult.vehicle.domain}
+                          </div>
+                        )}
+                        {crossResult.orders && crossResult.orders.length > 0 && (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 6 }}>HISTORIAL EN {crossResult.sucursal.nombre.toUpperCase()}</div>
+                            {crossResult.orders.slice(0, 5).map(o => (
+                              <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
+                                <span style={{ color: T.grayLight }}>{fmtDate(o.date)} — {(o.works || []).map(w => w.type).join(", ") || "Sin detalle"}</span>
+                                <span style={{ fontWeight: 700, color: T.accent }}>{o.km ? `${parseInt(o.km).toLocaleString("es-AR")} km` : ""}</span>
+                              </div>
+                            ))}
+                            {crossResult.orders.length > 5 && <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>...y {crossResult.orders.length - 5} más</div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {crossResult && crossResult.sucursal && (
+                      <div style={{ fontSize: 11, color: T.gray, marginBottom: 12, padding: "8px 12px", background: `${T.accent}08`, borderRadius: 8 }}>
+                        💡 Los datos se muestran como referencia desde {crossResult.sucursal.nombre}. Al crear la orden, se generará una ficha nueva en esta sucursal.
+                      </div>
+                    )}
+
+                    <button onClick={() => { setCrossResult(null); searchDomain(); }} style={btnPrimary()}>
+                      + {crossResult ? "Crear orden con estos datos" : "Crear nuevo cliente"}
+                    </button>
                   </div>
                 );
                 const shown = matches.slice(0, 8);
@@ -2663,10 +3163,7 @@ const NewOrderScreen = (props) => {
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>¿A qué cuenta?</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    {[
-                      { acc: "1", label: "CarBoys SAS", sub: "Con IVA · Fact. A / B", iva: true },
-                      { acc: "2", label: "Ignacio Karqui", sub: "Sin IVA · Fact. C", iva: false }
-                    ].map(opt => (
+                    {getCuentaOptions(config).map(opt => (
                       <div key={opt.acc} onClick={() => {
                         updatePayment(i, "account", opt.acc);
                         updatePayment(i, "withIva", opt.iva);
@@ -3027,6 +3524,145 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
         <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
         <button onClick={() => setConfirmed(true)} disabled={!allValid}
           style={{ ...btnPrimary(T.green), opacity: allValid ? 1 : 0.4 }}>✅ Confirmar Venta</button>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════
+// ── DASHBOARD GLOBAL — Vista multi-sucursal (solo Gerente General)
+// Conecta a todas las nubes y muestra KPIs en tiempo real
+// ══════════════════════════════════════════════════════════════════
+const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
+  const [data, setData] = useState({}); // { sucId: { orders, clients, loading, error } }
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      const results = {};
+      const activeSucs = SUCURSALES_REGISTRY.filter(s => s.activa !== false);
+
+      await Promise.all(activeSucs.map(async (suc) => {
+        const base = `https://firestore.googleapis.com/v1/projects/${suc.firebaseProject}/databases/(default)/documents`;
+        const h = await fsHeaders();
+        try {
+          const [rOrders, rClients] = await Promise.all([
+            fetch(`${base}/orders?pageSize=500`, { headers: h }),
+            fetch(`${base}/clients?pageSize=500`, { headers: h }),
+          ]);
+          const jOrders = rOrders.ok ? await rOrders.json() : {};
+          const jClients = rClients.ok ? await rClients.json() : {};
+          results[suc.id] = {
+            orders: (jOrders.documents || []).map(fsToObj),
+            clients: (jClients.documents || []).map(fsToObj),
+            loading: false,
+            error: false,
+          };
+        } catch(e) {
+          results[suc.id] = { orders: [], clients: [], loading: false, error: true };
+        }
+      }));
+
+      setData(results);
+      setLoading(false);
+    };
+    fetchAll();
+    const iv = setInterval(fetchAll, 30000); // refresh cada 30s
+    return () => clearInterval(iv);
+  }, []);
+
+  const today = new Date().toISOString().split("T")[0];
+  const activeSucs = SUCURSALES_REGISTRY.filter(s => s.activa !== false);
+
+  // KPIs globales
+  const allOrders = Object.values(data).flatMap(d => d.orders || []);
+  const todayOrders = allOrders.filter(o => o.date === today);
+  const activeOrders = allOrders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+  const totalClients = Object.values(data).reduce((s, d) => s + (d.clients || []).length, 0);
+  const todayRevenue = todayOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+
+  return (
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Vista Global</div>
+          <div style={{ fontSize: 12, color: T.gray }}>{activeSucs.length} sucursal{activeSucs.length !== 1 ? "es" : ""} activa{activeSucs.length !== 1 ? "s" : ""}</div>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {loading && <div style={{ fontSize: 12, color: T.accent }}>⟳ Cargando datos...</div>}
+        </div>
+      </div>
+
+      {/* KPIs globales */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        {[
+          { l: "Facturación Hoy", v: fmt(todayRevenue), c: T.accent, ic: "💰" },
+          { l: "Autos en Taller", v: activeOrders.length, c: T.green, ic: "🔧" },
+          { l: "Órdenes Hoy", v: todayOrders.length, c: T.orange, ic: "📋" },
+          { l: "Clientes Totales", v: totalClients, c: "#9C27B0", ic: "👥" },
+        ].map(s => (
+          <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
+            <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
+            <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Cards por sucursal */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.grayLight, marginBottom: 12 }}>SUCURSALES</div>
+      <div style={{ display: "grid", gridTemplateColumns: activeSucs.length > 2 ? "1fr 1fr" : `repeat(${activeSucs.length}, 1fr)`, gap: 14 }}>
+        {activeSucs.map(suc => {
+          const d = data[suc.id] || { orders: [], clients: [], loading: true };
+          const sucActive = d.orders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+          const sucToday = d.orders.filter(o => o.date === today);
+          const sucRevenue = sucToday.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+          const sucPending = sucActive.filter(o => o.status === "pending").length;
+          const sucWorking = sucActive.filter(o => o.status === "working").length;
+          const sucDone = sucActive.filter(o => o.status === "done").length;
+
+          return (
+            <div key={suc.id} onClick={() => onSelectSucursal(suc)}
+              style={{ ...card, padding: 20, cursor: "pointer", transition: "all .2s", borderLeft: `4px solid ${suc.color || T.accent}` }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = suc.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.borderLeftColor = suc.color; e.currentTarget.style.transform = "none"; }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>{suc.icon || "📍"}</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{suc.nombre}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{d.clients.length} clientes</div>
+                </div>
+                {d.error && <span style={{ fontSize: 10, color: T.red, fontWeight: 700, marginLeft: "auto" }}>⚠️ Error</span>}
+                {d.loading && <span style={{ fontSize: 10, color: T.accent, marginLeft: "auto" }}>Cargando...</span>}
+              </div>
+
+              {/* Mini KPIs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(sucRevenue)}</div>
+                  <div style={{ fontSize: 10, color: T.gray }}>Ventas hoy</div>
+                </div>
+                <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{sucActive.length}</div>
+                  <div style={{ fontSize: 10, color: T.gray }}>En taller</div>
+                </div>
+              </div>
+
+              {/* Status pills */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {sucPending > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.orange}15`, color: T.orange }}>⏳ {sucPending} pendiente{sucPending > 1 ? "s" : ""}</span>}
+                {sucWorking > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.accent}15`, color: T.accent }}>🔧 {sucWorking} en trabajo</span>}
+                {sucDone > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.green}15`, color: T.green }}>✅ {sucDone} listo{sucDone > 1 ? "s" : ""}</span>}
+                {sucActive.length === 0 && <span style={{ fontSize: 10, color: T.gray }}>Sin actividad hoy</span>}
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 11, color: T.accent, fontWeight: 600 }}>
+                Entrar a {suc.nombre} →
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -4213,9 +4849,9 @@ const VehicleDetailScreen = (props) => {
                 </div>
                 {pm.method === "Transferencia" && (
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    {[{ a: "1", l: "Cuenta 1 — Con IVA" }, { a: "2", l: "Cuenta 2 — Sin IVA" }].map(opt => (
-                      <div key={opt.a} onClick={() => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, account: opt.a, withIva: opt.a === "1", invoiceType: opt.a === "2" ? "C" : p.invoiceType } : p))}
-                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.a ? T.accent : T.border}`, color: pm.account === opt.a ? T.accent : T.gray, background: pm.account === opt.a ? `${T.accent}15` : T.bg }}>{opt.l}</div>
+                    {getCuentaOptions(config).map(opt => (
+                      <div key={opt.acc} onClick={() => setEditPayments(ps => ps.map((p, j) => j === i ? { ...p, account: opt.acc, withIva: opt.iva, invoiceType: opt.acc === "2" ? "C" : p.invoiceType } : p))}
+                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.acc ? T.accent : T.border}`, color: pm.account === opt.acc ? T.accent : T.gray, background: pm.account === opt.acc ? `${T.accent}15` : T.bg }}>{opt.label}</div>
                     ))}
                   </div>
                 )}
@@ -4451,7 +5087,7 @@ const VehicleDetailScreen = (props) => {
         const { order: fo, client: fc, vehicle: fv } = facturaMenuData;
         const esTicket = facturaMenuData.tipo === "ticket";
         const mainPay = (fo.payments || [])[0] || {};
-        const cuenta = mainPay.account === "2" ? "Ignacio Karqui" : "CarBoys SAS";
+        const cuenta = getCuentaNombre(config, mainPay.account);
         const invoiceType = fo.factura?.tipo || mainPay.invoiceType || (esTicket ? "T" : "B");
         const fcColor = invoiceType === "A" ? T.orange : invoiceType === "B" ? T.accent : esTicket ? T.orange : T.gray;
         return (
@@ -4781,9 +5417,9 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   // Determinar tipo de factura y cuenta emisora
   const mainPayment = (payments || order.payments || [])[0] || {};
   const invoiceType = mainPayment.invoiceType || "B";
-  const cuenta = mainPayment.account === "2" ? "Ignacio Karqui" : "CarBoys SAS";
-  const cuitEmisor = mainPayment.account === "2" ? "20-34441217-1" : "30-71745468-1";
-  const puntoVenta = mainPayment.account === "2" ? "0002" : "0001";
+  const cuenta = getCuentaNombre(config, mainPayment.account);
+  const cuitEmisor = getCuentaCuit(config, mainPayment.account);
+  const puntoVenta = getCuentaPV(config, mainPayment.account);
 
   const withIva = mainPayment.withIva;
   const neto = withIva ? total : total;
@@ -5195,7 +5831,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     { key: "ctacte", icon: "💰", l: "Cta. Cte." },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
-    { key: "ignacio", icon: "👑", l: "Ignacio" },
+    // Multi-tenant: Ignacio solo en sucursales con módulo habilitado
+    ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
     { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
   ];
 
@@ -5205,7 +5842,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     const { order, payments, client } = facturaModal;
     const now = new Date();
     const mainPay = (payments || [])[0] || {};
-    const puntoVenta = mainPay.account === "2" ? "0002" : "0001";
+    const puntoVenta = getCuentaPV(config, mainPay.account);
     const factura = {
       numero: `${puntoVenta}-${String(Date.now()).slice(-8)}`,
       fecha: now.toLocaleDateString("es-AR"),
@@ -5457,10 +6094,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       {/* Transferencia → elegir cuenta */}
                       {isTransf && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                          {[{ a: "1", l: "CarBoys SAS", sub: "Con IVA" }, { a: "2", l: "Ignacio Karqui", sub: "Sin IVA · Fact. C" }].map(opt => (
-                            <div key={opt.a} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, account: opt.a, withIva: opt.a === "1", invoiceType: opt.a === "2" ? "C" : "" } : p))}
-                              style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.a ? T.accent : T.border}`, background: pm.account === opt.a ? `${T.accent}10` : T.bg, color: pm.account === opt.a ? T.accent : T.gray }}>
-                              {opt.l}
+                          {getCuentaOptions(config).map(opt => (
+                            <div key={opt.acc} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, account: opt.acc, withIva: opt.iva, invoiceType: opt.acc === "2" ? "C" : "" } : p))}
+                              style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.acc ? T.accent : T.border}`, background: pm.account === opt.acc ? `${T.accent}10` : T.bg, color: pm.account === opt.acc ? T.accent : T.gray }}>
+                              {opt.label}
                               <div style={{ fontSize: 10, color: T.gray, fontWeight: 400, marginTop: 2 }}>{opt.sub}</div>
                             </div>
                           ))}
@@ -5632,12 +6269,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         // 3. Transferencia → cuenta obligatoria + tipo factura en Cta 1
                         if (pm.method === "Transferencia") {
                           if (!pm.account) {
-                            setCobroValidError(`En Transferencia${nro}: elegí la cuenta (CarBoys SAS o Ignacio Karqui).`);
+                            const _cta1Name = getCta1(config).nombre;
+                            const _cta2 = getCta2(config);
+                            const _ctaMsg = _cta2.enabled ? `${_cta1Name} o ${_cta2.nombre}` : _cta1Name;
+                            setCobroValidError(`En Transferencia${nro}: elegí la cuenta (${_ctaMsg}).`);
                             return false;
                           }
                           if (pm.account === "1" && !pm.invoiceType) {
                             const opts = hasCuitVal ? "A o B" : "B";
-                            setCobroValidError(`En Transferencia CarBoys SAS${nro}: seleccioná el tipo de factura (${opts}).`);
+                            setCobroValidError(`En Transferencia ${getCta1(config).nombre}${nro}: seleccioná el tipo de factura (${opts}).`);
                             return false;
                           }
                           // Cta 2 → Sin IVA, Fact. C — se setea automático.
@@ -8632,7 +9272,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           { key: "ventas",      icon: "💰", l: "Ventas" },
           { key: "proveedores", icon: "📦", l: "Proveedores" },
           { key: "servicios",   icon: "🔧", l: "Servicios" },
-          { key: "ignacio",     icon: "👑", l: "Ignacio" },
+          // Multi-tenant: Ignacio solo en sucursales con módulo habilitado
+          ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
           { key: "sueldos",     icon: "👤", l: "Sueldos" },
         ];
 
@@ -8697,7 +9338,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 {[
                   { key: "proveedores", label: "📦 Proveedores", total: totalProvMes, sub: `${factsDelMes.length} factura${factsDelMes.length !== 1 ? "s" : ""}`, color: T.orange },
                   { key: "servicios", label: "🔧 Servicios", total: totalServMes, sub: `${servPagosDelMes.length} pago${servPagosDelMes.length !== 1 ? "s" : ""}`, color: T.accent },
-                  { key: "ignacio", label: "👑 Gastos Ignacio", total: totalIgMes, sub: `${igDelMes.length} movimiento${igDelMes.length !== 1 ? "s" : ""}`, color: "#9C27B0" },
+                  // Multi-tenant: Ignacio solo si módulo habilitado
+                  ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", label: "👑 Gastos Ignacio", total: totalIgMes, sub: `${igDelMes.length} movimiento${igDelMes.length !== 1 ? "s" : ""}`, color: "#9C27B0" }] : []),
                   { key: "sueldos", label: "👤 Sueldos", total: totalSueldosMes, sub: `${sueldosDelMes.length} pago${sueldosDelMes.length !== 1 ? "s" : ""}`, color: T.green },
                 ].map(row => (
                   <div key={row.key} onClick={() => setCmSub(row.key)}
@@ -13225,7 +13867,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
   );
 };
 
-const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNavigate }) => {
+const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNavigate, activeSucursal, googleAuth }) => {
   const [section, setSection] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [showNewUser, setShowNewUser] = useState(false);
@@ -13236,7 +13878,8 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
   const showSaved = (msg) => { setSavedMsg(msg); setTimeout(() => setSavedMsg(""), 2000); };
 
   const ROLES = [
-    { key: "dueño", label: "Dueño", desc: "Acceso total al sistema", color: T.red, icon: "👑" },
+    { key: "dueño", label: "Gerente General", desc: "Acceso total al sistema + todas las sucursales", color: T.red, icon: "👑" },
+    { key: "gerente_sucursal", label: "Gerente de Sucursal", desc: "Acceso total dentro de su sucursal", color: "#9C27B0", icon: "🏪" },
     { key: "admin", label: "Administración", desc: "Todo excepto gestión de usuarios", color: T.orange, icon: "🛡️" },
     { key: "encargado", label: "Encargado", desc: "Crea órdenes, ve precios, entrega", color: T.accent, icon: "📋" },
     { key: "mecánico", label: "Mecánico", desc: "Solo ve y trabaja en órdenes asignadas", color: T.green, icon: "🔧" },
@@ -13262,19 +13905,18 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
   const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#00BCD4", "#FF5722", "#795548"];
 
   const sections = [
-    { key: "users", icon: "👥", label: "Gestión de Usuarios", desc: "Crear, editar y administrar usuarios", only: "dueño" },
+    { key: "sucursales", icon: "🏢", label: "Sucursales", desc: "Crear y administrar sucursales", only: "dueño" },
+    { key: "users", icon: "👥", label: "Gestión de Usuarios", desc: "Crear, editar y administrar usuarios", only: "dueño,gerente_sucursal" },
+    { key: "facturacion", icon: "🧾", label: "Facturación", desc: "Razón social, CUIT, punto de venta", only: "dueño,gerente_sucursal" },
     { key: "surcharges", icon: "💳", label: "Recargos Tarjeta", desc: "Cuotas e IVA" },
     { key: "whatsapp", icon: "📱", label: "WhatsApp Business", desc: "Mensajes y conexión" },
-    
     { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
     { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
     { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
-    { key: "taller", icon: "🏠", label: "Datos del Taller", desc: "Nombre, dirección, CUIT" },
-    { key: "cuentas", icon: "🏦", label: "Cuentas Bancarias", desc: "CBU y Alias" },
+    { key: "taller", icon: "🏠", label: "Datos del Taller", desc: "Nombre, dirección, teléfono" },
     { key: "categorias", icon: "📦", label: "Categorías de Trabajo", desc: "Tipos de servicio" },
-    
 
-  ].filter(s => !s.only || s.only === user.role);
+  ].filter(s => !s.only || s.only.split(",").includes(user.role));
 
   if (!section) return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
@@ -13639,6 +14281,301 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     </div>
   );
 
+  // ══════════════════════════════════════════════════════════════════
+  // ── SECCIÓN: GESTIÓN DE SUCURSALES (solo Gerente General) ────────
+  // ══════════════════════════════════════════════════════════════════
+  if (section === "sucursales") {
+    const [sucForm, setSucForm] = React.useState({ nombre: "", gmail: "", firebaseProject: "", apiKey: "", googleClientId: "", direccion: "", telefono: "", razonSocial: "", cuit: "", condIva: "Responsable Inscripto", puntoVenta: "", icon: "📍", color: "#1e88e5" });
+    const [sucSaving, setSucSaving] = React.useState(false);
+    const [sucMsg, setSucMsg] = React.useState("");
+    const [sucEdit, setSucEdit] = React.useState(null); // id de suc en edición
+    const [sucShowNew, setSucShowNew] = React.useState(false);
+    const [sucTestResult, setSucTestResult] = React.useState(null);
+
+    const ICONS = ["🏠","📍","🔧","🏭","⭐","🏪","🏢","🚗"];
+    const SUC_COLORS = ["#e53935","#1e88e5","#43a047","#ff9800","#9C27B0","#00BCD4","#FF5722","#795548"];
+
+    const handleTestConnection = async () => {
+      setSucTestResult("testing");
+      const ok = await testFirebaseConnection(sucForm.firebaseProject, sucForm.apiKey);
+      setSucTestResult(ok ? "ok" : "error");
+      setTimeout(() => setSucTestResult(null), 3000);
+    };
+
+    const handleCreateSucursal = async () => {
+      if (!sucForm.nombre || !sucForm.gmail || !sucForm.firebaseProject || !sucForm.apiKey) {
+        setSucMsg("⚠️ Completá nombre, Gmail, Project ID y API Key");
+        return;
+      }
+      setSucSaving(true);
+      setSucMsg("");
+
+      const newSuc = {
+        id: sucForm.firebaseProject.replace(/[^a-z0-9-]/gi, "_").toLowerCase(),
+        nombre: sucForm.nombre,
+        gmails: [sucForm.gmail.toLowerCase()],
+        firebaseProject: sucForm.firebaseProject,
+        apiKey: sucForm.apiKey,
+        googleClientId: sucForm.googleClientId || MASTER_GOOGLE_CLIENT_ID,
+        isMaster: false,
+        modules: {},
+        icon: sucForm.icon,
+        color: sucForm.color,
+        razonSocial: sucForm.razonSocial,
+        cuit: sucForm.cuit,
+        condIva: sucForm.condIva,
+        puntoVenta: sucForm.puntoVenta,
+        direccion: sucForm.direccion,
+        telefono: sucForm.telefono,
+        activa: true,
+      };
+
+      // Verificar conexión
+      const testOk = await testFirebaseConnection(newSuc.firebaseProject, newSuc.apiKey);
+      if (!testOk) {
+        setSucMsg("❌ No se pudo conectar con el Firebase. Verificá Project ID y API Key.");
+        setSucSaving(false);
+        return;
+      }
+
+      // Agregar al registro
+      SUCURSALES_REGISTRY = [...SUCURSALES_REGISTRY, newSuc];
+
+      // Guardar en Firestore Master
+      await saveSucursalesRegistry();
+
+      // Inicializar colecciones en la nube nueva
+      await initSucursalFirestore(newSuc);
+
+      setSucSaving(false);
+      setSucMsg(`✅ ${newSuc.nombre} creada y conectada exitosamente`);
+      setSucShowNew(false);
+      setSucForm({ nombre: "", gmail: "", firebaseProject: "", apiKey: "", googleClientId: "", direccion: "", telefono: "", razonSocial: "", cuit: "", condIva: "Responsable Inscripto", puntoVenta: "", icon: "📍", color: "#1e88e5" });
+    };
+
+    const handleToggleSucursal = async (sucId) => {
+      SUCURSALES_REGISTRY = SUCURSALES_REGISTRY.map(s =>
+        s.id === sucId ? { ...s, activa: !s.activa } : s
+      );
+      await saveSucursalesRegistry();
+      setSucMsg("✓ Sucursal actualizada");
+      setTimeout(() => setSucMsg(""), 2000);
+    };
+
+    return (
+      <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <span onClick={() => sucShowNew ? setSucShowNew(false) : setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🏢 Gestión de Sucursales</div>
+            <div style={{ fontSize: 12, color: T.gray }}>{SUCURSALES_REGISTRY.length} sucursal{SUCURSALES_REGISTRY.length !== 1 ? "es" : ""} registrada{SUCURSALES_REGISTRY.length !== 1 ? "s" : ""}</div>
+          </div>
+          {!sucShowNew && (
+            <button onClick={() => setSucShowNew(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nueva Sucursal</button>
+          )}
+        </div>
+
+        {sucMsg && <div style={{ ...card, padding: 12, marginBottom: 16, borderColor: sucMsg.startsWith("✅") || sucMsg.startsWith("✓") ? T.green : T.red, background: sucMsg.startsWith("✅") || sucMsg.startsWith("✓") ? `${T.green}08` : `${T.red}08`, textAlign: "center", fontSize: 13, fontWeight: 700, color: sucMsg.startsWith("✅") || sucMsg.startsWith("✓") ? T.green : T.red }}>{sucMsg}</div>}
+
+        {!sucShowNew ? (
+          <div>
+            {/* Lista de sucursales existentes */}
+            {SUCURSALES_REGISTRY.map(suc => (
+              <div key={suc.id} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: `4px solid ${suc.color || T.accent}`, opacity: suc.activa !== false ? 1 : 0.5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ fontSize: 28 }}>{suc.icon || "📍"}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{suc.nombre}</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{suc.gmails?.[0] || "—"}</div>
+                    <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>
+                      {suc.firebaseProject} {suc.isMaster && <span style={{ color: T.orange, fontWeight: 700 }}>• MASTER</span>}
+                    </div>
+                    {suc.razonSocial && <div style={{ fontSize: 11, color: T.grayLight, marginTop: 2 }}>{suc.razonSocial} • CUIT: {suc.cuit || "—"}</div>}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: suc.activa !== false ? `${T.green}15` : `${T.red}15`, color: suc.activa !== false ? T.green : T.red }}>
+                      {suc.activa !== false ? "✅ ACTIVA" : "⏸️ INACTIVA"}
+                    </div>
+                    {!suc.isMaster && (
+                      <button onClick={() => handleToggleSucursal(suc.id)} style={{ fontSize: 10, color: T.gray, cursor: "pointer", background: "none", border: `1px solid ${T.border}`, padding: "3px 8px", borderRadius: 4, fontFamily: font }}>
+                        {suc.activa !== false ? "Desactivar" : "Activar"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div>
+            {/* Formulario nueva sucursal */}
+            <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 16, color: T.accent }}>📍 Datos de la nueva sucursal</div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div><label style={labelStyle}>Nombre de la sucursal *</label><input inputMode="text" value={sucForm.nombre} onChange={e => setSucForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: Sucursal Docta" /></div>
+                <div><label style={labelStyle}>Gmail de la sucursal *</label><input inputMode="email" value={sucForm.gmail} onChange={e => setSucForm(f => ({ ...f, gmail: e.target.value }))} style={inputStyle} placeholder="carboys.docta@gmail.com" /></div>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>ÍCONO Y COLOR</div>
+              <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {ICONS.map(ic => (
+                    <div key={ic} onClick={() => setSucForm(f => ({ ...f, icon: ic }))} style={{ width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, border: sucForm.icon === ic ? `2px solid ${T.accent}` : `1px solid ${T.border}`, background: sucForm.icon === ic ? `${T.accent}15` : T.bg }}>{ic}</div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {SUC_COLORS.map(c => (
+                    <div key={c} onClick={() => setSucForm(f => ({ ...f, color: c }))} style={{ width: 28, height: 28, borderRadius: 6, background: c, cursor: "pointer", border: sucForm.color === c ? "3px solid #FFF" : "3px solid transparent", boxShadow: sucForm.color === c ? `0 0 0 2px ${c}` : "none" }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.orange }}>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 4, color: T.orange }}>🔥 Datos de Firebase</div>
+              <div style={{ fontSize: 12, color: T.gray, marginBottom: 16, lineHeight: 1.5 }}>
+                Estos datos se obtienen de <strong>console.firebase.google.com</strong> al crear el proyecto.
+              </div>
+
+              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Firebase Project ID *</label><input inputMode="text" value={sucForm.firebaseProject} onChange={e => setSucForm(f => ({ ...f, firebaseProject: e.target.value }))} style={inputStyle} placeholder="carboys-docta-xxxxx" /></div>
+              <div style={{ marginBottom: 12 }}><label style={labelStyle}>API Key *</label><input inputMode="text" value={sucForm.apiKey} onChange={e => setSucForm(f => ({ ...f, apiKey: e.target.value }))} style={inputStyle} placeholder="AIzaSy..." /></div>
+              <div style={{ marginBottom: 12 }}><label style={labelStyle}>Google Client ID (opcional)</label><input inputMode="text" value={sucForm.googleClientId} onChange={e => setSucForm(f => ({ ...f, googleClientId: e.target.value }))} style={inputStyle} placeholder="Si no se completa, usa el de Casa Central" /></div>
+
+              <button onClick={handleTestConnection} disabled={!sucForm.firebaseProject || !sucForm.apiKey} style={{ ...btnPrimary(sucTestResult === "ok" ? T.green : sucTestResult === "error" ? T.red : T.accent), fontSize: 12, padding: "8px 16px", opacity: !sucForm.firebaseProject || !sucForm.apiKey ? 0.5 : 1 }}>
+                {sucTestResult === "testing" ? "⏳ Verificando..." : sucTestResult === "ok" ? "✅ Conexión OK" : sucTestResult === "error" ? "❌ Error — Verificá datos" : "🔌 Verificar Conexión"}
+              </button>
+            </div>
+
+            <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 16, color: T.green }}>🧾 Datos Fiscales</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div><label style={labelStyle}>Razón Social</label><input inputMode="text" value={sucForm.razonSocial} onChange={e => setSucForm(f => ({ ...f, razonSocial: e.target.value }))} style={inputStyle} placeholder="CarBoys Docta SAS" /></div>
+                <div><label style={labelStyle}>CUIT</label><input inputMode="text" value={sucForm.cuit} onChange={e => setSucForm(f => ({ ...f, cuit: e.target.value }))} style={inputStyle} placeholder="30-XXXXXXXX-X" /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={labelStyle}>Condición IVA</label>
+                  <select value={sucForm.condIva} onChange={e => setSucForm(f => ({ ...f, condIva: e.target.value }))} style={selectStyle}>
+                    <option value="Responsable Inscripto">Responsable Inscripto</option>
+                    <option value="Monotributo">Monotributo</option>
+                    <option value="Exento">Exento</option>
+                  </select>
+                </div>
+                <div><label style={labelStyle}>Punto de Venta</label><input inputMode="text" value={sucForm.puntoVenta} onChange={e => setSucForm(f => ({ ...f, puntoVenta: e.target.value }))} style={inputStyle} placeholder="0003" /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div><label style={labelStyle}>Dirección</label><input inputMode="text" value={sucForm.direccion} onChange={e => setSucForm(f => ({ ...f, direccion: e.target.value }))} style={inputStyle} placeholder="Av. Fuerza Aérea 1234" /></div>
+                <div><label style={labelStyle}>Teléfono</label><input inputMode="tel" value={sucForm.telefono} onChange={e => setSucForm(f => ({ ...f, telefono: e.target.value }))} style={inputStyle} placeholder="351-XXXXXXX" /></div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setSucShowNew(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+              <button onClick={handleCreateSucursal} disabled={sucSaving} style={{ ...btnPrimary(T.green), flex: 2, opacity: sucSaving ? 0.6 : 1 }}>
+                {sucSaving ? "⏳ Creando sucursal..." : "✓ Crear Sucursal"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ── SECCIÓN: FACTURACIÓN (datos fiscales de esta sucursal) ──────
+  // ══════════════════════════════════════════════════════════════════
+  if (section === "facturacion") {
+    const suc = SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId);
+
+    return (
+      <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 600, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>🧾 Facturación</div>
+          <button onClick={() => setSection(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+        </div>
+
+        {savedMsg && <div style={{ ...card, padding: 12, marginBottom: 16, borderColor: T.green, background: `${T.green}08`, textAlign: "center", fontSize: 13, fontWeight: 700, color: T.green }}>{savedMsg}</div>}
+
+        {/* Cuenta principal (datos de la sucursal) */}
+        <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.accent }}>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 4, color: T.accent }}>Cuenta 1 — {config.razonSocial || suc?.razonSocial || "Empresa"}</div>
+          <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>Facturación con IVA (Fact. A / B)</div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div><label style={labelStyle}>Razón Social</label><input inputMode="text" value={config.razonSocial || ""} onChange={e => setConfig(prev => ({ ...prev, razonSocial: e.target.value }))} style={inputStyle} placeholder="CarBoys SAS" /></div>
+            <div><label style={labelStyle}>CUIT</label><input inputMode="text" value={config.cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cuit: e.target.value }))} style={inputStyle} placeholder="30-XXXXXXXX-X" /></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={labelStyle}>Condición IVA</label>
+              <select value={config.condIva || "Responsable Inscripto"} onChange={e => setConfig(prev => ({ ...prev, condIva: e.target.value }))} style={selectStyle}>
+                <option value="Responsable Inscripto">Responsable Inscripto</option>
+                <option value="Monotributo">Monotributo</option>
+                <option value="Exento">Exento</option>
+              </select>
+            </div>
+            <div><label style={labelStyle}>Punto de Venta</label><input inputMode="text" value={config.puntoVenta || ""} onChange={e => setConfig(prev => ({ ...prev, puntoVenta: e.target.value }))} style={inputStyle} placeholder="0001" /></div>
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 16 }}>DATOS BANCARIOS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div><label style={labelStyle}>Banco</label><input inputMode="text" value={config.cta1Banco || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Banco: e.target.value }))} style={inputStyle} placeholder="Ej: Banco Galicia" /></div>
+            <div><label style={labelStyle}>Titular</label><input inputMode="text" value={config.cta1Titular || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Titular: e.target.value }))} style={inputStyle} placeholder="Nombre del titular" /></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div><label style={labelStyle}>CBU</label><input inputMode="numeric" value={config.cta1Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
+            <div><label style={labelStyle}>Alias</label><input inputMode="text" value={config.cta1Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta1Alias: e.target.value }))} style={inputStyle} placeholder="CARBOYS.IVA" /></div>
+          </div>
+        </div>
+
+        {/* Cuenta 2 — personal / sin IVA (puede deshabilitarse) */}
+        <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: config.cta2Enabled !== false ? T.orange : T.border, opacity: config.cta2Enabled !== false ? 1 : 0.6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: config.cta2Enabled !== false ? T.orange : T.gray }}>Cuenta 2 — Sin IVA</div>
+              <div style={{ fontSize: 12, color: T.gray }}>Facturación con Fact. C o sin factura</div>
+            </div>
+            <div onClick={() => setConfig(prev => ({ ...prev, cta2Enabled: prev.cta2Enabled === false ? true : false }))}
+              style={{ width: 48, height: 26, borderRadius: 13, background: config.cta2Enabled !== false ? T.orange : T.border, padding: 3, cursor: "pointer", transition: "all .2s" }}>
+              <div style={{ width: 20, height: 20, borderRadius: 10, background: "#FFF", transform: config.cta2Enabled !== false ? "translateX(22px)" : "translateX(0)", transition: "transform .2s" }} />
+            </div>
+          </div>
+
+          {config.cta2Enabled !== false ? (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div><label style={labelStyle}>Nombre / Razón Social</label><input inputMode="text" value={config.cta2Nombre || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Nombre: e.target.value }))} style={inputStyle} placeholder="Nombre" /></div>
+                <div><label style={labelStyle}>CUIT</label><input inputMode="text" value={config.cta2Cuit || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cuit: e.target.value }))} style={inputStyle} placeholder="20-XXXXXXXX-X" /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div><label style={labelStyle}>Punto de Venta</label><input inputMode="text" value={config.cta2PuntoVenta || ""} onChange={e => setConfig(prev => ({ ...prev, cta2PuntoVenta: e.target.value }))} style={inputStyle} placeholder="0002" /></div>
+                <div>
+                  <label style={labelStyle}>Condición IVA</label>
+                  <select value={config.cta2CondIva || "Monotributo"} onChange={e => setConfig(prev => ({ ...prev, cta2CondIva: e.target.value }))} style={selectStyle}>
+                    <option value="Monotributo">Monotributo</option>
+                    <option value="Responsable Inscripto">Responsable Inscripto</option>
+                    <option value="Exento">Exento</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div><label style={labelStyle}>CBU</label><input inputMode="numeric" value={config.cta2Cbu || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Cbu: e.target.value }))} style={inputStyle} placeholder="0000000000000000000000" /></div>
+                <div><label style={labelStyle}>Alias</label><input inputMode="text" value={config.cta2Alias || ""} onChange={e => setConfig(prev => ({ ...prev, cta2Alias: e.target.value }))} style={inputStyle} placeholder="ALIAS" /></div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: "12px 0", fontSize: 13, color: T.gray, textAlign: "center" }}>
+              Cuenta deshabilitada — todos los cobros irán a Cuenta 1
+            </div>
+          )}
+        </div>
+
+        <button onClick={() => showSaved("Datos de facturación guardados ✓")} style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%" }}>💾 Guardar</button>
+      </div>
+    );
+  }
+
   return null;
 };
 
@@ -13657,6 +14594,7 @@ export default function App() {
 
   const [googleAuth, setGoogleAuth] = useState(null); // { email, name, photo } tras Google login
   const [sessionChecked, setSessionChecked] = useState(false); // true cuando terminó de chequear localStorage
+  const [activeSucursal, setActiveSucursal] = useState(null); // sucursal seleccionada (multi-tenant)
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
@@ -13669,12 +14607,27 @@ export default function App() {
   const [syncActive, setSyncActive] = useState(0);  // active Firebase writes
   const syncPending = syncActive; // alias for backward compat
 
-  // ── Restaurar sesión guardada al inicio (sin popup de Google) ─
+  // ── Cargar registro de sucursales + restaurar sesión ────────────
+  // Paso 1: Bajar registro de sucursales de Firestore Master
+  // Paso 2: Intentar restaurar sesión de localStorage
   useEffect(() => {
-    restoreSession().then(saved => {
-      if (saved) setGoogleAuth(saved); // sesión válida → entrar directo
-      setSessionChecked(true);         // terminó el chequeo (con o sin sesión)
-    });
+    const init = async () => {
+      // Primero: cargar registry (no necesita auth)
+      await loadSucursalesRegistry();
+      // Segundo: intentar restaurar sesión
+      const saved = await restoreSession();
+      if (saved) {
+        setGoogleAuth(saved);
+        // Multi-tenant: auto-seleccionar sucursal si solo tiene una
+        const sucs = findSucursalesForEmail(saved.email);
+        if (sucs.length === 1) {
+          switchFirebase(sucs[0]);
+          setActiveSucursal(sucs[0]);
+        }
+      }
+      setSessionChecked(true);
+    };
+    init();
   }, []);
 
   // ── Estado interno (React) ─────────────────────────────────
@@ -13717,7 +14670,9 @@ export default function App() {
   const setServicios   = _mkAdminSetter('adm_servicios',   'adm_servicios',   _setServicios);
   const setIgGastos    = _mkAdminSetter('adm_igastos',     'adm_igastos',     _setIgGastos);
   const setCierres     = _mkAdminSetter('adm_cierres',     'adm_cierres',     _setCierres);
-  const [users,   setUsers]    = useState(USERS);
+  // ── Users — ahora persistidos en Firestore por sucursal ──
+  const [users, _setUsers_raw] = useState(USERS);
+  const setUsers = _mkAdminSetter('users', 'users', _setUsers_raw);
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
 
@@ -13742,6 +14697,23 @@ export default function App() {
       setConfig(c => ({ ...c, ctaInicializado: true }));
     }
   }, [dbLoading, config.ctaInicializado]);
+
+  // ── Migración única: empujar USERS a Firestore si aún no están ──
+  const usersMigratedRef = useRef(false);
+  useEffect(() => {
+    if (usersMigratedRef.current) return;
+    if (dbLoading) return;
+    if (config.usersEnFirestore) { usersMigratedRef.current = true; return; }
+    usersMigratedRef.current = true;
+    // Primera vez: guardar los users actuales (del state/hardcoded) en Firestore
+    users.forEach(u => {
+      const key = String(u.id);
+      idbSave('users', key, u, false).catch(console.error);
+      fsSave('users', key, u).then(() => idbMarkSynced('users', key)).catch(console.error);
+    });
+    setConfig(c => ({ ...c, usersEnFirestore: true }));
+    console.log('[MIGRATION] Users empujados a Firestore:', users.length);
+  }, [dbLoading, config.usersEnFirestore]);
 
   // ── Refs para evitar writes en la carga inicial ────────────
   const isLoadingRef  = useRef(true);
@@ -13821,6 +14793,7 @@ export default function App() {
   // ── Carga inicial: IDB primero (offline-first), luego Firestore ──
   useEffect(() => {
     if (!googleAuth) return;
+    if (!activeSucursal) return; // Multi-tenant: esperar a que se seleccione sucursal
 
     let unsubOrders, unsubClients, unsubConfig;
     let ordersReady = false, clientsReady = false, configReady = false;
@@ -13836,10 +14809,11 @@ export default function App() {
     // ── PASO 1: Cargar IDB al instante (UI disponible offline) ──
     const loadFromIDB = async () => {
       try {
-        const [idbOrders, idbClients, idbConfigs] = await Promise.all([
+        const [idbOrders, idbClients, idbConfigs, idbUsers] = await Promise.all([
           idbLoad('orders'),
           idbLoad('clients'),
           idbLoad('config'),
+          idbLoad('users'),
         ]);
         // Órdenes desde IDB
         if (idbOrders.length > 0) {
@@ -13856,6 +14830,10 @@ export default function App() {
         // Config desde IDB
         const idbCfg = idbConfigs[0];
         if (idbCfg) _setConfig({ ...INITIAL_CONFIG, ...idbCfg });
+        // Users desde IDB (fallback a USERS hardcodeados si no hay datos)
+        if (idbUsers.length > 0) {
+          _setUsers_raw(idbUsers);
+        }
         idbLoaded = true;
         idbReadyRef.current = true;
       } catch(e) {
@@ -13952,8 +14930,9 @@ export default function App() {
       }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
     });
 
-      // ── Admin collections — polling cada 8s igual que orders/clients ──
+      // ── Admin collections + Users — polling cada 90s ──
       const adminCols = [
+        { col: 'users',            setter: _setUsers_raw  },
         { col: 'adm_egresos',     setter: _setEgresos     },
         { col: 'adm_proveedores', setter: _setProveedores },
         { col: 'adm_factprov',    setter: _setFactProv    },
@@ -13982,7 +14961,7 @@ export default function App() {
       unsubConfig?.();
       unsubAdmins.forEach(u => u?.());
     };
-  }, [googleAuth]);
+  }, [googleAuth, activeSucursal]);
 
   // Cuando vuelve la conexión → disparar sync inmediato de pendientes
   useEffect(() => {
@@ -14065,7 +15044,7 @@ export default function App() {
       const retryPending = async () => {
         if (!navigator.onLine) return;
         try {
-          const allStores = ['orders','clients','adm_egresos','adm_proveedores',
+          const allStores = ['orders','clients','users','adm_egresos','adm_proveedores',
             'adm_factprov','adm_servicios','adm_igastos','adm_cierres'];
           for (const store of allStores) {
             const pending = await idbGetPending(store);
@@ -14108,12 +15087,49 @@ export default function App() {
       <FontLoader />
       <GoogleLoginScreen onSuccess={(gAuth) => {
         setGoogleAuth(gAuth);
-        // Iniciar polling Firestore recién después de autenticar
+        // Multi-tenant: auto-seleccionar si solo tiene una sucursal
+        const sucs = findSucursalesForEmail(gAuth.email);
+        if (sucs.length === 1) {
+          switchFirebase(sucs[0]);
+          setActiveSucursal(sucs[0]);
+        }
+        // Si tiene más de una → se mostrará SucursalSelector
       }} />
     </NumPadProvider>
   );
 
-  // 2 — Después del Google Login: conectar Firestore (loading)
+  // 1.5 — Multi-tenant: Selección de sucursal (si hay más de una)
+  if (!activeSucursal) {
+    const sucsDisponibles = findSucursalesForEmail(googleAuth.email);
+    // Si por alguna razón hay exactamente una y no se auto-seleccionó, hacerlo ahora
+    if (sucsDisponibles.length === 1) {
+      switchFirebase(sucsDisponibles[0]);
+      setActiveSucursal(sucsDisponibles[0]);
+      return null; // re-render
+    }
+    return (
+      <div>
+        <FontLoader />
+        <SucursalSelector
+          sucursales={sucsDisponibles}
+          email={googleAuth.email}
+          onSelect={(suc) => {
+            if (suc.isGlobal) {
+              // Vista Global: por ahora conectar a Casa Central, en Fase 4 se implementa completo
+              const master = SUCURSALES_REGISTRY.find(s => s.isMaster) || SUCURSALES_REGISTRY[0];
+              switchFirebase(master);
+              setActiveSucursal({ ...master, _vistaGlobal: true });
+            } else {
+              switchFirebase(suc);
+              setActiveSucursal(suc);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 2 — Después de seleccionar sucursal: conectar Firestore (loading)
   if (dbLoading) return (
     <div style={{ minHeight: "100vh", background: "#080e1a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
       <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 42, fontWeight: 900, color: "#f0f4f8", letterSpacing: 2 }}>
@@ -14125,8 +15141,41 @@ export default function App() {
             animation: "fb-pulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
         ))}
       </div>
-      <div style={{ fontSize: 13, color: "#4a6fa5", letterSpacing: 1 }}>Conectando con la nube...</div>
+      <div style={{ fontSize: 13, color: "#4a6fa5", letterSpacing: 1 }}>
+        Conectando con {activeSucursal?.nombre || "la nube"}...
+      </div>
       <style>{`@keyframes fb-pulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }`}</style>
+    </div>
+  );
+
+  // 2.5 — Vista Global (solo GG, consulta todas las sucursales)
+  if (activeSucursal?._vistaGlobal) return (
+    <div>
+      <FontLoader />
+      <div style={{ background: T.bg, minHeight: "100vh", fontFamily: font, color: T.white }}>
+        <div style={{ background: "rgba(6,10,22,.95)", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span style={{ fontFamily: fontD, fontSize: 28, fontWeight: 700, letterSpacing: 1 }}>
+              <span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: T.red }}>Boys</span>
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 8, background: "rgba(156,39,176,0.12)", border: "1px solid rgba(156,39,176,0.3)" }}>
+              <span style={{ fontSize: 14 }}>📊</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#9C27B0" }}>Vista Global</span>
+            </div>
+          </div>
+          <button onClick={() => { setActiveSucursal(null); setDbLoading(true); _setOrders([]); _setClients([]); }}
+            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12 }}>← Cambiar sucursal</button>
+        </div>
+        <GlobalDashboard googleAuth={googleAuth} onSelectSucursal={(suc) => {
+          switchFirebase(suc);
+          setActiveSucursal(suc);
+          setUser(null);
+          setDbLoading(true);
+          _setOrders([]);
+          _setClients([]);
+          _setConfig(INITIAL_CONFIG);
+        }} />
+      </div>
     </div>
   );
 
@@ -14149,7 +15198,7 @@ export default function App() {
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
       case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
-            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} /> : null;
+            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
       default: return null;
     }
   };
@@ -14172,6 +15221,46 @@ export default function App() {
                 <span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: T.red }}>Boys</span>
               </span>
             </div>
+            {/* Indicador de sucursal activa */}
+            {activeSucursal && (
+              <div
+                onClick={() => {
+                  // Solo Gerente General puede cambiar de sucursal
+                  if (isGerenteGeneral(googleAuth?.email)) {
+                    setActiveSucursal(null);
+                    setUser(null);
+                    setDbLoading(true);
+                    _setOrders([]);
+                    _setClients([]);
+                    _setConfig(INITIAL_CONFIG);
+                    _setEgresos([]);
+                    _setProveedores([]);
+                    _setFactProv([]);
+                    _setServicios([]);
+                    _setIgGastos([]);
+                    _setCierres([]);
+                    if (_idb) { try { _idb.close(); } catch(e) {} _idb = null; }
+                  }
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "4px 12px", borderRadius: 8,
+                  background: `${activeSucursal.color || T.accent}15`,
+                  border: `1px solid ${activeSucursal.color || T.accent}40`,
+                  cursor: isGerenteGeneral(googleAuth?.email) ? "pointer" : "default",
+                  transition: "all .15s",
+                }}
+                title={isGerenteGeneral(googleAuth?.email) ? "Click para cambiar de sucursal" : activeSucursal.nombre}
+              >
+                <span style={{ fontSize: 14 }}>{activeSucursal.icon || "📍"}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: activeSucursal.color || T.accent }}>
+                  {activeSucursal.nombre}
+                </span>
+                {isGerenteGeneral(googleAuth?.email) && (
+                  <span style={{ fontSize: 10, color: T.gray, marginLeft: 2 }}>▼</span>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {/* Indicador de sincronización */}
