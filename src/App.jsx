@@ -1176,7 +1176,7 @@ const getPerm = (user, key) => {
   return ROLE_PERMS_DEFAULTS[user.role]?.[key] ?? false;
 };
 
-const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, serviceKm: 10000, alertGreen: 1500, alertYellow: 500, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
+const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
 
 // ══════════════════════════════════════════════════════════════════
 // ── Cuentas de facturación dinámicas (leen de config por sucursal) ──
@@ -1621,7 +1621,6 @@ const NewOrderScreen = (props) => {
   const [dniFoundClient, setDniFoundClient] = useState(null);
   const [crossResult, setCrossResult] = useState(null); // resultado de búsqueda cross-sucursal
   const [crossSearching, setCrossSearching] = useState(false); // buscando en otras sucursales
-  const [crossNotif, setCrossNotif] = useState(null); // notificación automática: vehículo atendido en otra suc
   const [deleteClientConfirm, setDeleteClientConfirm] = useState(null); // client to delete
   const [addingNewVehicle, setAddingNewVehicle] = useState(false);
   const [foundClient, setFoundClient] = useState(null);
@@ -1646,7 +1645,6 @@ const NewOrderScreen = (props) => {
   const searchDomain = () => {
     const d = domainSearch.toUpperCase().trim();
     if (!d) return;
-    setCrossNotif(null); // limpiar notificación previa
     for (const c of clients) {
       const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
       if (v) {
@@ -1657,12 +1655,6 @@ const NewOrderScreen = (props) => {
         setFoundClient(c);
         setFoundVehicle(v);
         setForm({ name: c.name, lastName: c.lastName, dni: c.dni || "", cuit: c.cuit || "", phone: c.phone || "", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
-        // ── Cross-sucursal: buscar en background si fue atendido en otra sede ──
-        if (SUCURSALES_REGISTRY.length > 1) {
-          crossSearch("domain", v.domain).then(result => {
-            if (result) setCrossNotif(result);
-          }).catch(() => {});
-        }
         return;
       }
     }
@@ -1993,12 +1985,7 @@ const NewOrderScreen = (props) => {
                           setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
                           setFoundClient(c);
                           setFoundVehicle(v);
-                          setCrossNotif(null);
                           setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
-                          // Cross-sucursal: buscar si fue atendido en otra sede
-                          if (SUCURSALES_REGISTRY.length > 1) {
-                            crossSearch("domain", v.domain).then(r => { if (r) setCrossNotif(r); }).catch(() => {});
-                          }
                         }} style={{ ...card, padding: 14, cursor: activeOrder ? "not-allowed" : "pointer", borderColor: activeOrder ? T.orange : T.border, opacity: activeOrder ? 0.7 : 1 }}
                           onMouseEnter={e => { if (!activeOrder) e.currentTarget.style.background = T.bg3; }}
                           onMouseLeave={e => { if (!activeOrder) e.currentTarget.style.background = T.bg2; }}>
@@ -2050,37 +2037,6 @@ const NewOrderScreen = (props) => {
                       </div>
                       {/* Botón Nueva Visita — exclusivo de este flujo */}
                       <div style={{ marginTop: 16 }}>
-                        {/* ── Notificación cross-sucursal automática ── */}
-                        {crossNotif && (
-                          <div style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(30,136,229,0.08)", border: `1px solid rgba(30,136,229,0.25)`, animation: "fadeUp .3s ease" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                              <span style={{ fontSize: 16 }}>{crossNotif.sucursal.icon || "📍"}</span>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>
-                                También atendido en {crossNotif.sucursal.nombre}
-                              </div>
-                            </div>
-                            {crossNotif.orders && crossNotif.orders.length > 0 && (
-                              <div>
-                                {crossNotif.orders.slice(0, 3).map(o => (
-                                  <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
-                                    <span style={{ color: T.grayLight }}>
-                                      {fmtDate(o.date)} — {(o.works || []).map(w => w.type).join(", ") || "Sin detalle"}
-                                    </span>
-                                    <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>
-                                      {o.km ? `${parseInt(o.km).toLocaleString("es-AR")} km` : ""}
-                                    </span>
-                                  </div>
-                                ))}
-                                {crossNotif.orders.length > 3 && (
-                                  <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>
-                                    +{crossNotif.orders.length - 3} servicio{crossNotif.orders.length - 3 !== 1 ? "s" : ""} más en {crossNotif.sucursal.nombre}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
                         {activeOrder && (
                           <div style={{ fontSize: 12, color: T.orange, fontWeight: 600, padding: "10px 14px", background: `${T.orange}10`, borderRadius: 8, marginBottom: 10 }}>
                             ⚠️ Este vehículo ya tiene una orden activa en taller
@@ -3578,12 +3534,8 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
 // Conecta a todas las nubes y muestra KPIs en tiempo real
 // ══════════════════════════════════════════════════════════════════
 const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
-  const [data, setData] = useState({}); // { sucId: { orders, clients, egresos, loading, error } }
+  const [data, setData] = useState({}); // { sucId: { orders, clients, loading, error } }
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("resumen"); // resumen | reportes
-  const [period, setPeriod] = useState("mes"); // dia | semana | mes
-  const [repMonth, setRepMonth] = useState(new Date().getMonth());
-  const [repYear, setRepYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -3594,22 +3546,20 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
         const base = `https://firestore.googleapis.com/v1/projects/${suc.firebaseProject}/databases/(default)/documents`;
         const h = await fsHeaders();
         try {
-          const [rOrders, rClients, rEgresos] = await Promise.all([
+          const [rOrders, rClients] = await Promise.all([
             fetch(`${base}/orders?pageSize=500`, { headers: h }),
             fetch(`${base}/clients?pageSize=500`, { headers: h }),
-            fetch(`${base}/adm_egresos?pageSize=500`, { headers: h }),
           ]);
           const jOrders = rOrders.ok ? await rOrders.json() : {};
           const jClients = rClients.ok ? await rClients.json() : {};
-          const jEgresos = rEgresos.ok ? await rEgresos.json() : {};
           results[suc.id] = {
             orders: (jOrders.documents || []).map(fsToObj),
             clients: (jClients.documents || []).map(fsToObj),
-            egresos: (jEgresos.documents || []).map(fsToObj),
-            loading: false, error: false,
+            loading: false,
+            error: false,
           };
         } catch(e) {
-          results[suc.id] = { orders: [], clients: [], egresos: [], loading: false, error: true };
+          results[suc.id] = { orders: [], clients: [], loading: false, error: true };
         }
       }));
 
@@ -3617,380 +3567,103 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
       setLoading(false);
     };
     fetchAll();
-    const iv = setInterval(fetchAll, 30000);
+    const iv = setInterval(fetchAll, 30000); // refresh cada 30s
     return () => clearInterval(iv);
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
   const activeSucs = SUCURSALES_REGISTRY.filter(s => s.activa !== false);
-  const MESES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-  // ── Helpers de período ──
-  const nowDate = new Date();
-  const weekAgo = new Date(nowDate.getTime() - 7 * 86400000).toISOString().split("T")[0];
-  const ym = `${repYear}-${String(repMonth + 1).padStart(2, "0")}`;
-
-  const filterByPeriod = (orders) => {
-    const completed = orders.filter(o => o.status === "delivered" || o.status === "ready" || o.status === "done");
-    if (period === "dia") return completed.filter(o => o.date === today);
-    if (period === "semana") return completed.filter(o => o.date >= weekAgo);
-    return completed.filter(o => (o.date || "").startsWith(ym));
-  };
-
-  const getRevenue = (orders) => orders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
-  const getTicket = (orders) => orders.length > 0 ? getRevenue(orders) / orders.length : 0;
-
-  // ── KPIs globales ──
+  // KPIs globales
   const allOrders = Object.values(data).flatMap(d => d.orders || []);
   const todayOrders = allOrders.filter(o => o.date === today);
   const activeOrders = allOrders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
   const totalClients = Object.values(data).reduce((s, d) => s + (d.clients || []).length, 0);
   const todayRevenue = todayOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
 
-  // ── Barra comparativa helper ──
-  const Bar = ({ value, max, color, label, sub }) => (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color }}>{sub}</span>
-      </div>
-      <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-        <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? `${Math.min(100, (value / max) * 100)}%` : "0%", transition: "width .5s ease" }} />
-      </div>
-    </div>
-  );
-
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", animation: "fadeUp .3s ease" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Vista Global</div>
           <div style={{ fontSize: 12, color: T.gray }}>{activeSucs.length} sucursal{activeSucs.length !== 1 ? "es" : ""} activa{activeSucs.length !== 1 ? "s" : ""}</div>
         </div>
-        {loading && <div style={{ fontSize: 12, color: T.accent }}>⟳ Cargando...</div>}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {loading && <div style={{ fontSize: 12, color: T.accent }}>⟳ Cargando datos...</div>}
+        </div>
       </div>
 
-      {/* Tabs: Resumen / Reportes */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {[{ k: "resumen", l: "🏢 Sucursales", ic: "" }, { k: "reportes", l: "📈 Reportes Comparativos", ic: "" }].map(t => (
-          <div key={t.k} onClick={() => setView(t.k)}
-            style={{ padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700,
-              background: view === t.k ? T.accent : T.bg2, color: view === t.k ? "#fff" : T.gray,
-              border: `1px solid ${view === t.k ? T.accent : T.border}`, transition: "all .15s" }}>
-            {t.l}
+      {/* KPIs globales */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        {[
+          { l: "Facturación Hoy", v: fmt(todayRevenue), c: T.accent, ic: "💰" },
+          { l: "Autos en Taller", v: activeOrders.length, c: T.green, ic: "🔧" },
+          { l: "Órdenes Hoy", v: todayOrders.length, c: T.orange, ic: "📋" },
+          { l: "Clientes Totales", v: totalClients, c: "#9C27B0", ic: "👥" },
+        ].map(s => (
+          <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
+            <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
+            <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{s.l}</div>
           </div>
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════ */}
-      {/* ══════ VISTA: RESUMEN (sucursales) ══════ */}
-      {/* ══════════════════════════════════════════ */}
-      {view === "resumen" && (
-        <div>
-          {/* KPIs globales */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-            {[
-              { l: "Facturación Hoy", v: fmt(todayRevenue), c: T.accent, ic: "💰" },
-              { l: "Autos en Taller", v: activeOrders.length, c: T.green, ic: "🔧" },
-              { l: "Órdenes Hoy", v: todayOrders.length, c: T.orange, ic: "📋" },
-              { l: "Clientes Totales", v: totalClients, c: "#9C27B0", ic: "👥" },
-            ].map(s => (
-              <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
-                <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
-                <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
-                <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{s.l}</div>
-              </div>
-            ))}
-          </div>
+      {/* Cards por sucursal */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.grayLight, marginBottom: 12 }}>SUCURSALES</div>
+      <div style={{ display: "grid", gridTemplateColumns: activeSucs.length > 2 ? "1fr 1fr" : `repeat(${activeSucs.length}, 1fr)`, gap: 14 }}>
+        {activeSucs.map(suc => {
+          const d = data[suc.id] || { orders: [], clients: [], loading: true };
+          const sucActive = d.orders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+          const sucToday = d.orders.filter(o => o.date === today);
+          const sucRevenue = sucToday.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+          const sucPending = sucActive.filter(o => o.status === "pending").length;
+          const sucWorking = sucActive.filter(o => o.status === "working").length;
+          const sucDone = sucActive.filter(o => o.status === "done").length;
 
-          {/* Cards por sucursal */}
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.grayLight, marginBottom: 12 }}>SUCURSALES</div>
-          <div style={{ display: "grid", gridTemplateColumns: activeSucs.length > 2 ? "1fr 1fr" : `repeat(${activeSucs.length}, 1fr)`, gap: 14 }}>
-            {activeSucs.map(suc => {
-              const d = data[suc.id] || { orders: [], clients: [], loading: true };
-              const sucActive = d.orders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
-              const sucToday = d.orders.filter(o => o.date === today);
-              const sucRevenue = sucToday.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
-              const sucPending = sucActive.filter(o => o.status === "pending").length;
-              const sucWorking = sucActive.filter(o => o.status === "working").length;
-              const sucDone = sucActive.filter(o => o.status === "done").length;
-              return (
-                <div key={suc.id} onClick={() => onSelectSucursal(suc)}
-                  style={{ ...card, padding: 20, cursor: "pointer", transition: "all .2s", borderLeft: `4px solid ${suc.color || T.accent}` }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = suc.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.borderLeftColor = suc.color; e.currentTarget.style.transform = "none"; }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: 24 }}>{suc.icon || "📍"}</span>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 16 }}>{suc.nombre}</div>
-                      <div style={{ fontSize: 11, color: T.gray }}>{d.clients.length} clientes</div>
-                    </div>
-                    {d.error && <span style={{ fontSize: 10, color: T.red, fontWeight: 700, marginLeft: "auto" }}>⚠️ Error</span>}
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                    <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(sucRevenue)}</div>
-                      <div style={{ fontSize: 10, color: T.gray }}>Ventas hoy</div>
-                    </div>
-                    <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{sucActive.length}</div>
-                      <div style={{ fontSize: 10, color: T.gray }}>En taller</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {sucPending > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.orange}15`, color: T.orange }}>⏳ {sucPending}</span>}
-                    {sucWorking > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.accent}15`, color: T.accent }}>🔧 {sucWorking}</span>}
-                    {sucDone > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.green}15`, color: T.green }}>✅ {sucDone}</span>}
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 11, color: T.accent, fontWeight: 600 }}>Entrar a {suc.nombre} →</div>
+          return (
+            <div key={suc.id} onClick={() => onSelectSucursal(suc)}
+              style={{ ...card, padding: 20, cursor: "pointer", transition: "all .2s", borderLeft: `4px solid ${suc.color || T.accent}` }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = suc.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.borderLeftColor = suc.color; e.currentTarget.style.transform = "none"; }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>{suc.icon || "📍"}</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{suc.nombre}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{d.clients.length} clientes</div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                {d.error && <span style={{ fontSize: 10, color: T.red, fontWeight: 700, marginLeft: "auto" }}>⚠️ Error</span>}
+                {d.loading && <span style={{ fontSize: 10, color: T.accent, marginLeft: "auto" }}>Cargando...</span>}
+              </div>
 
-      {/* ══════════════════════════════════════════════════ */}
-      {/* ══════ VISTA: REPORTES COMPARATIVOS ══════════════ */}
-      {/* ══════════════════════════════════════════════════ */}
-      {view === "reportes" && (
-        <div>
-          {/* Selector de período */}
-          <div style={{ ...card, padding: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[{ k: "dia", l: "Hoy" }, { k: "semana", l: "Semana" }, { k: "mes", l: "Mes" }].map(p => (
-                <div key={p.k} onClick={() => setPeriod(p.k)}
-                  style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
-                    background: period === p.k ? T.accent : T.bg, color: period === p.k ? "#fff" : T.gray,
-                    border: `1px solid ${period === p.k ? T.accent : T.border}` }}>{p.l}</div>
-              ))}
+              {/* Mini KPIs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(sucRevenue)}</div>
+                  <div style={{ fontSize: 10, color: T.gray }}>Ventas hoy</div>
+                </div>
+                <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{sucActive.length}</div>
+                  <div style={{ fontSize: 10, color: T.gray }}>En taller</div>
+                </div>
+              </div>
+
+              {/* Status pills */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {sucPending > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.orange}15`, color: T.orange }}>⏳ {sucPending} pendiente{sucPending > 1 ? "s" : ""}</span>}
+                {sucWorking > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.accent}15`, color: T.accent }}>🔧 {sucWorking} en trabajo</span>}
+                {sucDone > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.green}15`, color: T.green }}>✅ {sucDone} listo{sucDone > 1 ? "s" : ""}</span>}
+                {sucActive.length === 0 && <span style={{ fontSize: 10, color: T.gray }}>Sin actividad hoy</span>}
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 11, color: T.accent, fontWeight: 600 }}>
+                Entrar a {suc.nombre} →
+              </div>
             </div>
-            {period === "mes" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-                <button onClick={() => setRepYear(y => y - 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", color: T.gray, cursor: "pointer", fontSize: 12 }}>‹</button>
-                <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, minWidth: 36, textAlign: "center" }}>{repYear}</span>
-                <button onClick={() => setRepYear(y => y + 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", color: T.gray, cursor: "pointer", fontSize: 12 }}>›</button>
-                <div style={{ display: "flex", gap: 3, marginLeft: 6 }}>
-                  {MESES_SHORT.map((m, i) => (
-                    <div key={i} onClick={() => setRepMonth(i)}
-                      style={{ padding: "5px 8px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700,
-                        background: repMonth === i ? T.accent : T.bg, color: repMonth === i ? "#fff" : T.gray,
-                        border: `1px solid ${repMonth === i ? T.accent : T.border}` }}>{m}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {(() => {
-            // Calcular métricas por sucursal para el período seleccionado
-            const metrics = activeSucs.map(suc => {
-              const d = data[suc.id] || { orders: [], clients: [], egresos: [] };
-              const periodOrders = filterByPeriod(d.orders);
-              const allCompleted = d.orders.filter(o => o.status === "delivered" || o.status === "ready");
-              const revenue = getRevenue(periodOrders);
-              const ticket = getTicket(periodOrders);
-              const totalEgresos = (d.egresos || []).filter(e => period === "mes" ? (e.fecha || "").startsWith(ym) : period === "semana" ? e.fecha >= weekAgo : e.fecha === today).reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-
-              // Métodos de pago
-              const payMethods = { Efectivo: 0, Transferencia: 0, Tarjeta: 0, "Cuenta Corriente": 0 };
-              periodOrders.forEach(o => (o.payments || []).forEach(p => { if (payMethods[p.method] !== undefined) payMethods[p.method] += parseFloat(p.amount) || 0; }));
-              const payTotal = Object.values(payMethods).reduce((s, v) => s + v, 0);
-
-              // Tiempo promedio en taller (días)
-              const tiempos = allCompleted.filter(o => o.date && o.deliveredAt).map(o => {
-                const start = new Date(o.date);
-                const end = new Date(o.deliveredAt);
-                return Math.max(0, (end - start) / 86400000);
-              }).filter(t => t > 0 && t < 60);
-              const avgDays = tiempos.length > 0 ? (tiempos.reduce((s, t) => s + t, 0) / tiempos.length).toFixed(1) : "—";
-
-              // Clientes recurrentes
-              const clientVisits = {};
-              allCompleted.forEach(o => { clientVisits[o.clientId] = (clientVisits[o.clientId] || 0) + 1; });
-              const totalUniqueClients = Object.keys(clientVisits).length;
-              const recurrentClients = Object.values(clientVisits).filter(v => v >= 2).length;
-              const recurrentPct = totalUniqueClients > 0 ? Math.round((recurrentClients / totalUniqueClients) * 100) : 0;
-
-              // Clientes nuevos del mes
-              const newClientsMonth = d.clients.filter(c => {
-                const firstOrder = allCompleted.filter(o => o.clientId === c.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""))[0];
-                return firstOrder && (firstOrder.date || "").startsWith(ym);
-              }).length;
-
-              // Top servicios
-              const workCounts = {};
-              periodOrders.forEach(o => (o.works || []).forEach(w => { workCounts[w.type] = (workCounts[w.type] || 0) + 1; }));
-              const topWork = Object.entries(workCounts).sort((a, b) => b[1] - a[1])[0];
-
-              return {
-                suc, revenue, ticket, orders: periodOrders.length, totalEgresos,
-                payMethods, payTotal, avgDays, clients: d.clients.length,
-                recurrentPct, newClientsMonth, topWork: topWork ? topWork[0] : "—",
-                margin: revenue > 0 ? Math.round(((revenue - totalEgresos) / revenue) * 100) : 0,
-              };
-            });
-
-            const maxRevenue = Math.max(...metrics.map(m => m.revenue), 1);
-            const maxOrders = Math.max(...metrics.map(m => m.orders), 1);
-            const maxClients = Math.max(...metrics.map(m => m.clients), 1);
-            const maxTicket = Math.max(...metrics.map(m => m.ticket), 1);
-
-            return (
-              <div>
-                {/* ── BLOQUE 1: FACTURACIÓN ── */}
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💰 Facturación</div>
-                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>{period === "dia" ? "Hoy" : period === "semana" ? "Última semana" : `${MESES_SHORT[repMonth]} ${repYear}`}</div>
-
-                  {/* Cards comparativas */}
-                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10, marginBottom: 16 }}>
-                    {metrics.map(m => (
-                      <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, borderLeft: `3px solid ${m.suc.color}` }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{m.suc.icon} {m.suc.nombre}</div>
-                        <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: m.suc.color }}>{fmt(m.revenue)}</div>
-                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{m.orders} órdenes · Ticket: {fmt(m.ticket)}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Barras: facturación */}
-                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.revenue} max={maxRevenue} color={m.suc.color} sub={fmt(m.revenue)} />)}
-
-                  {/* Método de pago más usado */}
-                  <div style={{ marginTop: 16, fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>MÉTODO DE PAGO MÁS USADO</div>
-                  {metrics.map(m => {
-                    const topMethod = Object.entries(m.payMethods).sort((a, b) => b[1] - a[1])[0];
-                    const pct = m.payTotal > 0 ? Math.round((topMethod[1] / m.payTotal) * 100) : 0;
-                    return (
-                      <div key={m.suc.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 12 }}>
-                        <span style={{ fontWeight: 700, minWidth: 120 }}>{m.suc.icon} {m.suc.nombre}</span>
-                        <span style={{ color: T.accent, fontWeight: 600 }}>{topMethod[0]}</span>
-                        <span style={{ color: T.gray }}>({pct}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* ── BLOQUE 2: PRODUCTIVIDAD ── */}
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>⚡ Productividad</div>
-
-                  {/* Barras: órdenes completadas */}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>ÓRDENES COMPLETADAS</div>
-                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.orders} max={maxOrders} color={m.suc.color} sub={`${m.orders}`} />)}
-
-                  {/* Tiempo promedio */}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 16 }}>TIEMPO PROMEDIO EN TALLER</div>
-                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10 }}>
-                    {metrics.map(m => (
-                      <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>{m.suc.icon} {m.suc.nombre}</div>
-                        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: parseFloat(m.avgDays) > 3 ? T.orange : T.green }}>{m.avgDays}</div>
-                        <div style={{ fontSize: 10, color: T.gray }}>días promedio</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Ticket promedio */}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 16 }}>TICKET PROMEDIO</div>
-                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.ticket} max={maxTicket} color={m.suc.color} sub={fmt(m.ticket)} />)}
-                </div>
-
-                {/* ── BLOQUE 3: CLIENTES ── */}
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>👥 Clientes</div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10, marginBottom: 16 }}>
-                    {metrics.map(m => (
-                      <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, borderLeft: `3px solid ${m.suc.color}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>{m.suc.icon} {m.suc.nombre}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, color: T.gray }}>Total</span>
-                          <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: m.suc.color }}>{m.clients}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, color: T.gray }}>Recurrentes</span>
-                          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: m.recurrentPct > 40 ? T.green : T.orange }}>{m.recurrentPct}%</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 12, color: T.gray }}>Nuevos (mes)</span>
-                          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>+{m.newClientsMonth}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Barras: total clientes */}
-                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.clients} max={maxClients} color={m.suc.color} sub={`${m.clients}`} />)}
-                </div>
-
-                {/* ── BLOQUE 4: SERVICIOS ── */}
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>🔧 Servicios</div>
-
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>SERVICIO MÁS REALIZADO</div>
-                  {metrics.map(m => (
-                    <div key={m.suc.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13 }}>
-                      <span style={{ fontWeight: 700, minWidth: 120 }}>{m.suc.icon} {m.suc.nombre}</span>
-                      <span style={{ padding: "4px 10px", borderRadius: 6, background: `${m.suc.color}15`, color: m.suc.color, fontWeight: 700, fontSize: 12 }}>{m.topWork}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* ── BLOQUE 5: FINANCIERO (Rentabilidad) ── */}
-                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📊 Rentabilidad</div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10, marginBottom: 16 }}>
-                    {metrics.map(m => {
-                      const marginColor = m.margin > 40 ? T.green : m.margin > 20 ? T.orange : T.red;
-                      return (
-                        <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, borderLeft: `3px solid ${m.suc.color}` }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{m.suc.icon} {m.suc.nombre}</div>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontSize: 12, color: T.gray }}>Ingresos</span>
-                            <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.green }}>{fmt(m.revenue)}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontSize: 12, color: T.gray }}>Egresos</span>
-                            <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.red }}>{fmt(m.totalEgresos)}</span>
-                          </div>
-                          <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: T.grayLight }}>Margen</span>
-                            <span style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: marginColor }}>{m.margin}%</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Barras: ingresos vs egresos */}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>INGRESOS VS EGRESOS</div>
-                  {metrics.map(m => (
-                    <div key={m.suc.id} style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{m.suc.icon} {m.suc.nombre}</div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <div style={{ flex: 1, height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 4, background: T.green, width: maxRevenue > 0 ? `${(m.revenue / Math.max(...metrics.map(x => x.revenue), 1)) * 100}%` : "0%" }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: T.green, fontWeight: 700, minWidth: 70, textAlign: "right" }}>{fmt(m.revenue)}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3 }}>
-                        <div style={{ flex: 1, height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 4, background: T.red, width: maxRevenue > 0 ? `${(m.totalEgresos / Math.max(...metrics.map(x => x.revenue), 1)) * 100}%` : "0%" }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: T.red, fontWeight: 700, minWidth: 70, textAlign: "right" }}>{fmt(m.totalEgresos)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -4094,7 +3767,9 @@ const DashboardScreen = (props) => {
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
           { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: getPerm(user, "quickSale") },
           { icon: "🔧", label: "En Taller", action: "workshop", show: getPerm(user, "workshop") },
-          ...(getPerm(user, "cobro") ? [{ icon: "💲", label: "Cobro", action: "admin_cobros", show: true }] : []),
+          ...(getPerm(user, "cobro") && !getPerm(user, "admin") ? [
+            { icon: "💲", label: "Cobro", action: "admin", show: true },
+          ] : []),
           ...(getPerm(user, "admin") ? [
             { icon: "📊", label: "Administración", action: "admin", show: true },
           ] : []),
@@ -4102,13 +3777,7 @@ const DashboardScreen = (props) => {
             { icon: "⚙️", label: "Configuración", action: "config", show: true },
           ] : []),
         ].filter(b => b.show !== false).map((b, i) => (
-          <div key={i} onClick={() => {
-            if (b.action === "admin_cobros") {
-              onNavigate("admin", { initialTab: "cobros" });
-            } else {
-              onNavigate(b.action);
-            }
-          }}
+          <div key={i} onClick={() => onNavigate(b.action)}
             style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center", transition: "all .2s" }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>{b.icon}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{b.label}</div>
@@ -5462,9 +5131,7 @@ const VehicleDetailScreen = (props) => {
                   setShowFacturaMenu(false);
                   const phone = fc?.phone || "";
                   const nro = fo.factura?.numero || "";
-                  const msg = `Hola ${fc?.name || ""}! Te enviamos la Factura ${invoiceType} Nro ${nro} de tu ${fv?.brand || ""} ${fv?.model || ""} (${fmtD(fo.domain)}).
-
-¡Gracias por confiar en *CarBoys*! 🔧`;
+                  const msg = "Hola " + (fc?.name || "") + "! Te enviamos la Factura " + invoiceType + " Nro " + nro + " de tu " + (fv?.brand || "") + " " + (fv?.model || "") + " (" + fmtD(fo.domain) + ").\n\n" + "Gracias por confiar en *CarBoys*! 🔧";
                   if (phone) sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
                   else alert("El cliente no tiene teléfono registrado.");
                 }} style={{ ...btnPrimary(T.green), fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -6000,8 +5667,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
-  const [statYear, setStatYear] = useState(new Date().getFullYear());
-  const [statMonth, setStatMonth] = useState(new Date().getMonth());
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [saldoReal, setSaldoReal] = useState("");
@@ -6077,15 +5742,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-  // Período basado en año/mes seleccionados (no "últimos 30 días")
-  const statYM = `${statYear}-${String(statMonth + 1).padStart(2, "0")}`;
-  const statYearStart = `${statYear}-01-01`;
-  const statYearEnd = `${statYear}-12-31`;
-  const statMonthStart = `${statYear}-${String(statMonth + 1).padStart(2, "0")}-01`;
-  const statMonthEnd = `${statYear}-${String(statMonth + 1).padStart(2, "0")}-31`; // 31 funciona como tope
-
-  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : period === "anual" ? statYearStart : statMonthStart;
-  const endDate = period === "dia" ? today : period === "semana" ? today : period === "anual" ? statYearEnd : statMonthEnd;
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : monthAgo;
   // Normaliza cualquier formato de fecha a "YYYY-MM-DD"
   const normDate = (d) => {
     if (!d) return "";
@@ -6095,10 +5753,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   };
 
   const completed = orders.filter(o => o.status === "done" || o.status === "delivered");
-  const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= endDate);
+  const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today);
   const totalVentas = periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
   const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-  const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= endDate);
+  const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
   // esIngreso: true = son ingresos reales (cobro CTA CTE, saldo_inicial) → suman al saldo, no restan
   const egresosEfectivo = periodEgresos.filter(e => (!e.metodoPago || e.metodoPago === "Efectivo") && !e.esIngreso);
@@ -6163,43 +5821,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   completed.forEach(o => { clientStats[o.clientId] = (clientStats[o.clientId] || 0) + 1; });
   const topClients = Object.entries(clientStats).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => x.id === parseInt(id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
 
-  const MESES_STAT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   const PB = (k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>;
-
-  const periodLabel = period === "dia" ? "Hoy" : period === "semana" ? "Última semana" : period === "anual" ? `Año ${statYear}` : `${MESES_STAT[statMonth]} ${statYear}`;
-
-  // Selector de período completo (año + período + mes)
-  const PeriodSelector = ({ showAnual = true }) => (
-    <div style={{ ...card, padding: 12, marginBottom: 16 }}>
-      {/* Fila 1: Año + Períodos */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        {/* Selector de año */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 8 }}>
-          <button onClick={() => setStatYear(y => y - 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 8px", color: T.gray, cursor: "pointer", fontSize: 14, fontFamily: font }}>‹</button>
-          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, minWidth: 42, textAlign: "center" }}>{statYear}</span>
-          <button onClick={() => setStatYear(y => y + 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 8px", color: T.gray, cursor: "pointer", fontSize: 14, fontFamily: font }}>›</button>
-        </div>
-        {/* Botones de período */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {PB("dia", "Hoy")}
-          {PB("semana", "Semana")}
-          {PB("mes", "Mes")}
-          {showAnual && PB("anual", "Anual")}
-        </div>
-      </div>
-      {/* Fila 2: Meses (solo si período = mes) */}
-      {period === "mes" && (
-        <div style={{ display: "flex", gap: 4, marginTop: 10, flexWrap: "wrap" }}>
-          {MESES_STAT.map((m, i) => (
-            <div key={i} onClick={() => setStatMonth(i)}
-              style={{ padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
-                background: statMonth === i ? T.accent : T.bg, color: statMonth === i ? "#fff" : T.gray,
-                border: `1px solid ${statMonth === i ? T.accent : T.border}` }}>{m}</div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   const _ALL_TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
@@ -6211,12 +5833,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     { key: "ctacte", icon: "💰", l: "Cta. Cte." },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
-    // Multi-tenant: Ignacio solo en sucursales con módulo habilitado
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
     { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "campanas", icon: "📣", l: "Campañas" },
   ];
-  // Si el usuario solo tiene permiso de cobro (no admin), mostrar solo tab Cobros
   const TABS = cobroOnly ? _ALL_TABS.filter(t => t.key === "cobros") : _ALL_TABS;
 
   // ── Handler emitir factura ──
@@ -6283,7 +5903,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     )}
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>{cobroOnly ? "💲 Cobros" : "📊 Administración"}</div>
+        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Administración</div>
         <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
 
@@ -6299,8 +5919,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         </div>
       )}
 
-      {/* Tabs — ocultar si cobro-only (un solo tab) */}
-      {!cobroOnly && (
+      {/* Tabs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 20 }}>
         {TABS.map(t => (
           <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); setSelProv(null); setSelServ(null); setSelIgnacio(null); }}
@@ -6310,11 +5929,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         ))}
       </div>
-      )}
 
       {/* ══════ RESUMEN ══════ */}
       {tab === "resumen" && (<div>
-        <PeriodSelector showAnual={false} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
           {[
             { l: "Total Ventas", v: showTotalVentas ? fmt(totalVentas) : "• • • • •", c: T.accent, ic: "💰", tap: true },
@@ -7265,7 +6883,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         )}
 
-        <PeriodSelector showAnual={false} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
 
         {/* ── RESUMEN POR MÉTODO ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
@@ -7870,7 +7488,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
             {tab === "facturas" && (<div>
         {/* ── Filtro de período ── */}
-        <PeriodSelector showAnual={false} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
 
         {(() => {
           // Facturas reales (A, B, C) + Comprobantes (sin validez fiscal), ordenados más reciente primero
@@ -9174,7 +8792,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           { key: "reportes", icon: "📊", label: "Reportes" },
           { key: "pagos", icon: "💳", label: "Medios de Pago" },
           { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
-          { key: "clientes", icon: "👥", label: "Clientes Frecuentes" },
           { key: "productividad", icon: "⚡", label: "Productividad" },
           { key: "retencion", icon: "📈", label: "Retención" },
         ];
@@ -9197,67 +8814,39 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           <div>
             <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Estadísticas</button>
 
-            {/* ══════ REPORTES COMPLETOS ══════ */}
             {statView === "reportes" && (() => {
               const repRevenue = periodOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
               const repTicket = periodOrders.length > 0 ? repRevenue / periodOrders.length : 0;
-
-              // Tiempo promedio en taller
-              const tiempos = completed.filter(o => o.date && o.deliveredAt).map(o => {
-                const start = new Date(o.date); const end = new Date(o.deliveredAt);
-                return Math.max(0, (end - start) / 86400000);
-              }).filter(t => t > 0 && t < 60);
+              const tiempos = completed.filter(o => o.date && o.deliveredAt).map(o => Math.max(0, (new Date(o.deliveredAt) - new Date(o.date)) / 86400000)).filter(t => t > 0 && t < 60);
               const avgDays = tiempos.length > 0 ? (tiempos.reduce((s, t) => s + t, 0) / tiempos.length).toFixed(1) : "—";
-
-              // Clientes recurrentes
               const uniqueClients = Object.keys(clientStats).length;
               const recurrentCount = Object.values(clientStats).filter(v => v >= 2).length;
               const recurrentPct = uniqueClients > 0 ? Math.round((recurrentCount / uniqueClients) * 100) : 0;
-
-              // Clientes nuevos del período seleccionado
-              const newClientsMonth = clients.filter(c => {
-                const firstOrd = completed.filter(o => o.clientId === c.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""))[0];
-                if (!firstOrd) return false;
-                const fd = normDate(firstOrd.date);
-                return fd >= startDate && fd <= endDate;
-              }).length;
-
-              // Egresos del período (usa mismo startDate/endDate que periodOrders)
-              const egresosPeriod = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= endDate);
+              const egresosPeriod = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
               const totalEgresosPeriod = egresosPeriod.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
               const margin = repRevenue > 0 ? Math.round(((repRevenue - totalEgresosPeriod) / repRevenue) * 100) : 0;
               const marginColor = margin > 40 ? T.green : margin > 20 ? T.orange : T.red;
-
-              // Top servicio
               const workRev = {};
               periodOrders.forEach(o => (o.works || []).forEach(w => { workRev[w.type] = (workRev[w.type] || 0) + (parseFloat(w.price) || 0); }));
               const topWorkRev = Object.entries(workRev).sort((a, b) => b[1] - a[1]);
-
-              // Método de pago
               const payM = { Efectivo: 0, Transferencia: 0, Tarjeta: 0, "Cuenta Corriente": 0 };
               periodOrders.forEach(o => (o.payments || []).forEach(p => { if (payM[p.method] !== undefined) payM[p.method] += parseFloat(p.amount) || 0; }));
               const payTotal = Object.values(payM).reduce((s, v) => s + v, 0);
-              const topPayMethod = Object.entries(payM).sort((a, b) => b[1] - a[1])[0] || ["—", 0];
-
-              const BarLocal = ({ label, value, max, color, sub }) => (
+              const BarR = (label, value, max, color, sub) => (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color }}>{sub}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color: color }}>{sub}</span>
                   </div>
                   <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                    <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? `${Math.min(100, (value / max) * 100)}%` : "0%", transition: "width .5s ease" }} />
+                    <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? Math.min(100, (value / max) * 100) + "%" : "0%", transition: "width .5s ease" }} />
                   </div>
                 </div>
               );
-
               return (
                 <div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📊 Reportes</div>
-                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Métricas completas de tu sucursal — <strong style={{ color: T.accent }}>{periodLabel}</strong></div>
-                  <PeriodSelector />
-
-                  {/* ── KPIs principales ── */}
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📊 Reportes</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
                     {[
                       { l: "Facturación", v: fmt(repRevenue), c: T.accent, ic: "💰" },
@@ -9265,15 +8854,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       { l: "Ticket Promedio", v: fmt(repTicket), c: "#9C27B0", ic: "🎯" },
                       { l: "Días en Taller", v: avgDays, c: parseFloat(avgDays) > 3 ? T.orange : T.green, ic: "⏱️" },
                     ].map(s => (
-                      <div key={s.l} style={{ ...card, padding: 14, borderLeft: `3px solid ${s.c}` }}>
+                      <div key={s.l} style={{ ...card, padding: 14, borderLeft: "3px solid " + s.c }}>
                         <div style={{ fontSize: 20, marginBottom: 2 }}>{s.ic}</div>
                         <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: s.c }}>{s.v}</div>
                         <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>{s.l}</div>
                       </div>
                     ))}
                   </div>
-
-                  {/* ── RENTABILIDAD ── */}
                   <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📊 Rentabilidad</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -9290,26 +8877,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: marginColor }}>{margin}%</div>
                       </div>
                     </div>
-                    {/* Barra visual */}
-                    <div style={{ marginBottom: 6 }}>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <div style={{ flex: 1, height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 5, background: T.green, width: "100%" }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: T.green, fontWeight: 700, minWidth: 70, textAlign: "right" }}>Ingresos</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <div style={{ flex: 1, height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 5, background: T.red, width: repRevenue > 0 ? `${Math.min(100, (totalEgresosPeriod / repRevenue) * 100)}%` : "0%" }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: T.red, fontWeight: 700, minWidth: 70, textAlign: "right" }}>Egresos</span>
-                      </div>
-                    </div>
                   </div>
-
-                  {/* ── CLIENTES ── */}
                   <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👥 Clientes</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
@@ -9320,54 +8888,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
                         <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>RECURRENTES</div>
                         <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: recurrentPct > 40 ? T.green : T.orange }}>{recurrentPct}%</div>
-                        <div style={{ fontSize: 10, color: T.gray }}>{recurrentCount} de {uniqueClients}</div>
                       </div>
                       <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>NUEVOS (MES)</div>
-                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>+{newClientsMonth}</div>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>EN PERIODO</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>{periodOrders.length}</div>
                       </div>
                     </div>
                   </div>
-
-                  {/* ── SERVICIOS MÁS RENTABLES ── */}
                   <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>🔧 Servicios más Rentables</div>
-                    {topWorkRev.slice(0, 8).map(([type, rev], i) => (
-                      <BarLocal key={type} label={`${i + 1}. ${type}`} value={rev} max={topWorkRev[0]?.[1] || 1} color={T.accent} sub={fmt(rev)} />
-                    ))}
-                    {topWorkRev.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos en este período</div>}
+                    {topWorkRev.slice(0, 8).map(function(item, idx) { return BarR((idx + 1) + ". " + item[0], item[1], topWorkRev[0] ? topWorkRev[0][1] : 1, T.accent, fmt(item[1])); })}
+                    {topWorkRev.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
                   </div>
-
-                  {/* ── MÉTODOS DE PAGO ── */}
                   <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>💳 Métodos de Pago</div>
-                    {Object.entries(payM).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([method, amount]) => {
-                      const pct = payTotal > 0 ? Math.round(amount * 100 / payTotal) : 0;
-                      const pc = { Efectivo: T.green, Transferencia: T.accent, Tarjeta: "#9C27B0", "Cuenta Corriente": T.orange }[method] || T.gray;
-                      return <BarLocal key={method} label={`${method} (${pct}%)`} value={amount} max={payTotal} color={pc} sub={fmt(amount)} />;
+                    {Object.entries(payM).filter(function(e) { return e[1] > 0; }).sort(function(a, b) { return b[1] - a[1]; }).map(function(e) {
+                      var pct = payTotal > 0 ? Math.round(e[1] * 100 / payTotal) : 0;
+                      var pc = { Efectivo: T.green, Transferencia: T.accent, Tarjeta: "#9C27B0", "Cuenta Corriente": T.orange }[e[0]] || T.gray;
+                      return BarR(e[0] + " (" + pct + "%)", e[1], payTotal, pc, fmt(e[1]));
                     })}
-                    {payTotal === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
                   </div>
-
-                  {/* ── RENDIMIENTO POR MECÁNICO ── */}
                   <div style={{ ...card, padding: 20 }}>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👤 Rendimiento por Mecánico</div>
-                    {(() => {
-                      const ms = {}; periodOrders.forEach(o => { const m = o.tech || o.assignedTo || "Sin asignar"; ms[m] = { count: (ms[m]?.count || 0) + 1, rev: (ms[m]?.rev || 0) + (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0) }; });
-                      const entries = Object.entries(ms).sort((a, b) => b[1].count - a[1].count);
+                    {(function() {
+                      var ms = {};
+                      periodOrders.forEach(function(o) { var m = o.tech || o.assignedTo || "Sin asignar"; if (!ms[m]) ms[m] = { count: 0, rev: 0 }; ms[m].count++; ms[m].rev += (o.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0); });
+                      var entries = Object.entries(ms).sort(function(a, b) { return b[1].count - a[1].count; });
                       if (entries.length === 0) return <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>;
-                      const maxCount = entries[0][1].count;
-                      return entries.map(([name, { count, rev }]) => (
-                        <div key={name} style={{ marginBottom: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700 }}>{name}</span>
-                            <span style={{ fontSize: 12, color: T.gray }}>{count} órdenes · <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(rev)}</span></span>
-                          </div>
-                          <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                            <div style={{ height: "100%", borderRadius: 4, background: T.green, width: `${Math.round(count * 100 / maxCount)}%` }} />
-                          </div>
-                        </div>
-                      ));
+                      var maxC = entries[0][1].count;
+                      return entries.map(function(e) { return BarR(e[0], e[1].count, maxC, T.green, e[1].count + " ord. - " + fmt(e[1].rev)); });
                     })()}
                   </div>
                 </div>
@@ -9376,7 +8925,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
             {statView === "pagos" && (<div>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
-              <PeriodSelector />
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
               <div style={{ ...card, padding: 20 }}>
                 {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
                   const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
@@ -9385,10 +8934,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <div key={method} style={{ marginBottom: 14 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                         <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
-                        <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color }}>{pct}%</span>
+                        <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: color }}>{pct}%</span>
                       </div>
                       <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 5, background: color }} />
+                        <div style={{ width: pct + "%", height: "100%", borderRadius: 5, background: color }} />
                       </div>
                     </div>
                   );
@@ -9483,259 +9032,134 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
       {/* ══════ CAMPAÑAS ══════ */}
       {tab === "campanas" && (() => {
-        const SERVICE_KM = config.serviceKm || 10000;
-        const ALERT_GREEN = config.alertGreen || 1500;
-        const ALERT_YELLOW = config.alertYellow || 500;
-        const DEFAULT_KM_DAY = 33; // ~10.000 km / 10 meses
-
-        // ── Algoritmo Service Recordatorio ──
-        // Para cada vehículo con service previo, calcula km estimados actuales
+        const SERVICE_KM = 10000;
+        const ALERT_GREEN = 1500;
+        const ALERT_YELLOW = 500;
+        const DEFAULT_KM_DAY = 33;
         const serviceAlerts = [];
-        const serviceTypes = ["Service Full", "Service Base"];
-
-        clients.forEach(c => {
-          (c.vehicles || []).forEach(v => {
-            // Buscar último service de este vehículo
-            const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled"
-              && (o.works || []).some(w => serviceTypes.includes(w.type)))
-              .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-
+        var serviceTypes = ["Service Full", "Service Base"];
+        clients.forEach(function(c) {
+          (c.vehicles || []).forEach(function(v) {
+            var vOrders = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && (o.works || []).some(function(w) { return serviceTypes.indexOf(w.type) >= 0; }); }).sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
             if (vOrders.length === 0) return;
-
-            const lastService = vOrders[0];
-            const lastKm = parseInt(lastService.km) || parseInt(v.km) || 0;
-            const lastDate = lastService.date;
+            var lastService = vOrders[0];
+            var lastKm = parseInt(lastService.km) || parseInt(v.km) || 0;
+            var lastDate = lastService.date;
             if (!lastDate || !lastKm) return;
-
-            // Calcular velocidad promedio (km/día) usando todas las visitas
-            const allVisits = orders.filter(o => o.domain === v.domain && o.status !== "cancelled" && o.km)
-              .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-
-            let kmPerDay = DEFAULT_KM_DAY;
+            var allVisits = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && o.km; }).sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); });
+            var kmPerDay = DEFAULT_KM_DAY;
             if (allVisits.length >= 2) {
-              const first = allVisits[0];
-              const last = allVisits[allVisits.length - 1];
-              const kmDiff = (parseInt(last.km) || 0) - (parseInt(first.km) || 0);
-              const daysDiff = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+              var first = allVisits[0]; var last = allVisits[allVisits.length - 1];
+              var kmDiff = (parseInt(last.km) || 0) - (parseInt(first.km) || 0);
+              var daysDiff = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
               if (kmDiff > 0) kmPerDay = Math.round(kmDiff / daysDiff);
             }
-            // Sanity check: entre 5 y 100 km/día
             kmPerDay = Math.max(5, Math.min(100, kmPerDay));
-
-            // Estimar km actuales
-            const daysSinceService = Math.max(0, (Date.now() - new Date(lastDate).getTime()) / 86400000);
-            const estimatedKm = lastKm + Math.round(daysSinceService * kmPerDay);
-            const nextServiceKm = lastKm + SERVICE_KM;
-            const kmRemaining = nextServiceKm - estimatedKm;
-            const daysRemaining = kmPerDay > 0 ? Math.round(kmRemaining / kmPerDay) : 999;
-
-            // Solo mostrar si está dentro del rango de alerta
+            var daysSinceService = Math.max(0, (Date.now() - new Date(lastDate).getTime()) / 86400000);
+            var estimatedKm = lastKm + Math.round(daysSinceService * kmPerDay);
+            var nextServiceKm = lastKm + SERVICE_KM;
+            var kmRemaining = nextServiceKm - estimatedKm;
+            var daysRemaining = kmPerDay > 0 ? Math.round(kmRemaining / kmPerDay) : 999;
             if (kmRemaining < ALERT_GREEN) {
-              const urgency = kmRemaining < ALERT_YELLOW ? (kmRemaining < 0 ? "overdue" : "red") : "yellow";
-              serviceAlerts.push({
-                client: c, vehicle: v, lastService, lastKm, lastDate,
-                kmPerDay, estimatedKm, nextServiceKm, kmRemaining, daysRemaining,
-                urgency, visits: allVisits.length,
-              });
+              var urgency = kmRemaining < ALERT_YELLOW ? (kmRemaining < 0 ? "overdue" : "red") : "yellow";
+              serviceAlerts.push({ client: c, vehicle: v, lastService: lastService, lastKm: lastKm, lastDate: lastDate, kmPerDay: kmPerDay, estimatedKm: estimatedKm, nextServiceKm: nextServiceKm, kmRemaining: kmRemaining, daysRemaining: daysRemaining, urgency: urgency, visits: allVisits.length });
             }
           });
         });
-
-        serviceAlerts.sort((a, b) => a.kmRemaining - b.kmRemaining);
-
-        // Filtrar descartados (vuelven a aparecer si el auto ingresa de nuevo al taller)
-        const dismissed = config.dismissedReminders || {};
-        const filteredAlerts = serviceAlerts.filter(a => !dismissed[a.vehicle.domain]);
-
-        // ── Sub-vistas ──
-        const CAMP_VIEWS = [
-          { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: filteredAlerts.length },
-          { key: "promo", icon: "📣", l: "Promoción" },
-          { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
-        ];
-
-        // Usar statView como sub-navegación de campañas
-        const cv = statView;
-
+        serviceAlerts.sort(function(a, b) { return a.kmRemaining - b.kmRemaining; });
+        var dismissed = config.dismissedReminders || {};
+        var filteredAlerts = serviceAlerts.filter(function(a) { return !dismissed[a.vehicle.domain]; });
+        var cv = statView;
         if (!cv) return (
           <div>
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              {CAMP_VIEWS.map(v => (
-                <div key={v.key} onClick={() => { setStatView(v.key); setHistDetail(null); }}
-                  style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+              {[
+                { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: filteredAlerts.length },
+                { key: "promo", icon: "📣", l: "Promoción" },
+                { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
+              ].map(function(v) { return (
+                <div key={v.key} onClick={function() { setStatView(v.key); setHistDetail(null); }} style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center" }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>{v.icon}</div>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{v.l}</div>
-                  {v.count > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: T.orange }}>{v.count} pendiente{v.count !== 1 ? "s" : ""}</div>
-                  )}
+                  {v.count > 0 && <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: T.orange }}>{v.count} pendientes</div>}
                 </div>
-              ))}
+              ); })}
             </div>
           </div>
         );
-
         return (
           <div>
-            <button onClick={() => { setStatView(null); setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
-
-            {/* ── SERVICE RECORDATORIO ── */}
+            <button onClick={function() { setStatView(null); setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
             {cv === "recordatorio" && (
               <div>
-                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>🔔 Service Recordatorio</div>
-                <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>
-                  Vehículos próximos a los {SERVICE_KM.toLocaleString("es-AR")} km desde su último service
-                </div>
-
-                {/* Leyenda */}
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, fontSize: 11 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.red, display: "inline-block" }} /> Menos de {ALERT_YELLOW} km</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.orange, display: "inline-block" }} /> {ALERT_YELLOW}-{ALERT_GREEN} km</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.green, display: "inline-block" }} /> Más de {ALERT_GREEN} km</span>
-                </div>
-
-                {filteredAlerts.length === 0 && (
-                  <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>
-                    ✅ No hay vehículos próximos a su service
-                  </div>
-                )}
-
-                {filteredAlerts.map(a => {
-                  const urgColor = a.urgency === "overdue" ? T.red : a.urgency === "red" ? T.red : T.orange;
+                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔔 Service Recordatorio</div>
+                {filteredAlerts.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>No hay vehiculos proximos a su service</div>}
+                {filteredAlerts.map(function(a) {
+                  var urgColor = a.urgency === "overdue" || a.urgency === "red" ? T.red : T.orange;
                   return (
-                    <div key={a.vehicle.domain} style={{ ...card, padding: 0, marginBottom: 12, borderLeft: `4px solid ${urgColor}`, overflow: "hidden" }}>
-                      <div style={{ padding: "14px 16px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                              <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>{fmtD(a.vehicle.domain)}</span>
-                              {a.urgency === "overdue" && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: `${T.red}15`, color: T.red }}>⚠️ PASADO</span>}
-                            </div>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>👤 {a.client.name} {a.client.lastName}</div>
-                            <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>{a.vehicle.brand} {a.vehicle.model} {a.vehicle.year}</div>
-                          </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: urgColor }}>
-                              {a.kmRemaining > 0 ? `${a.kmRemaining.toLocaleString("es-AR")} km` : `+${Math.abs(a.kmRemaining).toLocaleString("es-AR")} km`}
-                            </div>
-                            <div style={{ fontSize: 11, color: T.gray }}>
-                              {a.kmRemaining > 0 ? `~${a.daysRemaining} día${a.daysRemaining !== 1 ? "s" : ""}` : "Ya debería hacer service"}
-                            </div>
-                          </div>
+                    <div key={a.vehicle.domain} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "4px solid " + urgColor }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>{fmtD(a.vehicle.domain)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{a.client.name} {a.client.lastName}</div>
+                          <div style={{ fontSize: 12, color: T.grayLight }}>{a.vehicle.brand} {a.vehicle.model} {a.vehicle.year}</div>
                         </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
-                          <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}>
-                            <div style={{ color: T.gray }}>Último service</div>
-                            <div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div>
-                            <div style={{ color: T.gray, fontSize: 10 }}>{fmtDate(a.lastDate)}</div>
-                          </div>
-                          <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}>
-                            <div style={{ color: T.gray }}>Estimado actual</div>
-                            <div style={{ fontWeight: 700, color: T.accent }}>~{a.estimatedKm.toLocaleString("es-AR")} km</div>
-                          </div>
-                          <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}>
-                            <div style={{ color: T.gray }}>Próx. service</div>
-                            <div style={{ fontWeight: 700, color: urgColor }}>{a.nextServiceKm.toLocaleString("es-AR")} km</div>
-                          </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: urgColor }}>{a.kmRemaining > 0 ? a.kmRemaining.toLocaleString("es-AR") + " km" : "+" + Math.abs(a.kmRemaining).toLocaleString("es-AR") + " km"}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{a.kmRemaining > 0 ? "~" + a.daysRemaining + " dias" : "Ya deberia hacer service"}</div>
                         </div>
-
-                        <div style={{ fontSize: 10, color: T.gray, marginTop: 6 }}>
-                          Velocidad: ~{a.kmPerDay} km/día ({a.visits} visita{a.visits !== 1 ? "s" : ""} registrada{a.visits !== 1 ? "s" : ""})
-                        </div>
-
-                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                          <button onClick={() => {
-                            const msg = (config.serviceReminderMsg || `Hola {nombre}, desde CarBoys le recordamos que su vehículo {vehiculo} ({dominio}) está próximo a los ${SERVICE_KM.toLocaleString("es-AR")} km para realizar el service. ¡Los esperamos! 🔧`)
-                              .replace("{nombre}", `${a.client.name} ${a.client.lastName}`)
-                              .replace("{vehiculo}", `${a.vehicle.brand} ${a.vehicle.model}`)
-                              .replace("{dominio}", a.vehicle.domain);
-                            const wahaUrl = config.wahaUrl || "";
-                            const wahaKey = config.wahaApiKey || "";
-                            if (a.client.phone) sendWA(a.client.phone, msg, wahaUrl, wahaKey);
-                          }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>
-                            📱 Enviar recordatorio
-                          </button>
-                          <button onClick={() => {
-                            // Descartar recordatorio (se guarda en config para no volver a mostrarlo)
-                            setConfig(prev => ({
-                              ...prev,
-                              dismissedReminders: {
-                                ...(prev.dismissedReminders || {}),
-                                [a.vehicle.domain]: new Date().toISOString().split("T")[0],
-                              }
-                            }));
-                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "8px 14px" }}
-                            title="Descartar recordatorio">
-                            ✕
-                          </button>
-                          </button>
-                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Ultimo service</div><div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div></div>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Estimado</div><div style={{ fontWeight: 700, color: T.accent }}>~{a.estimatedKm.toLocaleString("es-AR")} km</div></div>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Prox. service</div><div style={{ fontWeight: 700, color: urgColor }}>{a.nextServiceKm.toLocaleString("es-AR")} km</div></div>
+                      </div>
+                      <div style={{ fontSize: 10, color: T.gray, marginTop: 6 }}>~{a.kmPerDay} km/dia ({a.visits} visitas)</div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <button onClick={function() {
+                          var msg = (config.serviceReminderMsg || "Hola {nombre}, desde CarBoys le recordamos que su vehiculo {vehiculo} ({dominio}) esta proximo al service. Los esperamos!").replace("{nombre}", a.client.name + " " + a.client.lastName).replace("{vehiculo}", a.vehicle.brand + " " + a.vehicle.model).replace("{dominio}", a.vehicle.domain);
+                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                        }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>📱 Enviar recordatorio</button>
+                        <button onClick={function() { setConfig(function(prev) { var dr = Object.assign({}, prev.dismissedReminders || {}); dr[a.vehicle.domain] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedReminders: dr }); }); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, padding: "8px 14px" }}>✕</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-
-            {/* ── CAMPAÑA DE PROMOCIÓN ── */}
-            {cv === "promo" && (() => {
-              // Agrupar clientes por tipo de servicio realizado
-              const serviceGroups = {};
-              const allCompleted = orders.filter(o => o.status === "delivered" || o.status === "done");
-              allCompleted.forEach(o => {
-                (o.works || []).forEach(w => {
-                  if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set();
-                  serviceGroups[w.type].add(o.clientId);
-                });
-              });
-
-              const groups = Object.entries(serviceGroups)
-                .map(([type, clientIds]) => ({ type, clientIds: [...clientIds], count: clientIds.size }))
-                .sort((a, b) => b.count - a.count);
-
+            {cv === "promo" && (function() {
+              var serviceGroups = {};
+              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
+              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set(); serviceGroups[w.type].add(o.clientId); }); });
+              var groups = Object.entries(serviceGroups).map(function(e) { return { type: e[0], clientIds: Array.from(e[1]), count: e[1].size }; }).sort(function(a, b) { return b.count - a.count; });
               return (
                 <div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📣 Campaña de Promoción</div>
-                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Enviá promos segmentadas por tipo de servicio</div>
-
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Promocion</div>
                   {!histDetail ? (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                      {groups.map(g => (
-                        <div key={g.type} onClick={() => setHistDetail(g)}
-                          style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                      {groups.map(function(g) { return (
+                        <div key={g.type} onClick={function() { setHistDetail(g); }} style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center" }}>
                           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
                           <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{g.count}</div>
-                          <div style={{ fontSize: 10, color: T.gray }}>cliente{g.count !== 1 ? "s" : ""}</div>
+                          <div style={{ fontSize: 10, color: T.gray }}>clientes</div>
                         </div>
-                      ))}
+                      ); })}
                     </div>
                   ) : (
                     <div>
-                      <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, marginBottom: 12 }}>← Volver</button>
+                      <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} clientes</div>
-                      {histDetail.clientIds.map(cId => {
-                        const cl = clients.find(x => x.id === cId);
+                      {histDetail.clientIds.map(function(cId) {
+                        var cl = clients.find(function(x) { return x.id === cId; });
                         if (!cl) return null;
-                        const lastOrd = allCompleted.filter(o => o.clientId === cId && (o.works || []).some(w => w.type === histDetail.type)).sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
-                        const veh = lastOrd ? cl.vehicles?.find(v => v.domain === lastOrd.domain) : null;
                         return (
                           <div key={cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700 }}>👤 {cl.name} {cl.lastName}</div>
-                              {veh && <div style={{ fontSize: 12, color: T.grayLight }}>{veh.brand} {veh.model} — {fmtD(veh.domain)}</div>}
-                              {lastOrd && <div style={{ fontSize: 11, color: T.gray }}>Último: {fmtDate(lastOrd.date)}</div>}
+                              <div style={{ fontSize: 14, fontWeight: 700 }}>{cl.name} {cl.lastName}</div>
+                              {cl.phone && <div style={{ fontSize: 11, color: T.gray }}>{cl.phone}</div>}
                             </div>
-                            <button onClick={() => {
-                              if (cl.phone) {
-                                const cleanPhone = String(cl.phone).replace(/\D/g, "");
-                                window.open("https://wa.me/549" + cleanPhone, "_blank");
-                              }
-                            }} style={{ ...btnPrimary(T.green), fontSize: 11, padding: "6px 12px" }}>📷 WhatsApp</button>
+                            <button onClick={function() { if (cl.phone) { window.open("https://wa.me/549" + String(cl.phone).replace(/\D/g, ""), "_blank"); } }} style={{ ...btnPrimary(T.green), fontSize: 11, padding: "6px 12px" }}>📷 WhatsApp</button>
                           </div>
                         );
                       })}
@@ -9744,76 +9168,48 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 </div>
               );
             })()}
-
-            {/* ── CLIENTES DORMIDOS ── */}
-            {cv === "dormidos" && (() => {
-              const SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
-              const allCompleted = orders.filter(o => o.status === "delivered" || o.status === "done" || o.status === "ready");
-
-              // Agrupar por tipo de servicio, filtrar clientes con última visita > 6 meses
-              const dormidosGroups = {};
-              allCompleted.forEach(o => {
-                (o.works || []).forEach(w => {
-                  if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {};
-                  const cId = o.clientId;
-                  if (!dormidosGroups[w.type][cId] || o.date > dormidosGroups[w.type][cId]) {
-                    dormidosGroups[w.type][cId] = o.date;
-                  }
-                });
-              });
-
-              const groups = Object.entries(dormidosGroups).map(([type, clientDates]) => {
-                const dormidos = Object.entries(clientDates)
-                  .filter(([, lastDate]) => lastDate < SIX_MONTHS_AGO)
-                  .map(([cId, lastDate]) => ({ cId: parseInt(cId), lastDate }));
-                return { type, dormidos, count: dormidos.length };
-              }).filter(g => g.count > 0).sort((a, b) => b.count - a.count);
-
-              const totalDormidos = new Set(groups.flatMap(g => g.dormidos.map(d => d.cId))).size;
-
+            {cv === "dormidos" && (function() {
+              var SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
+              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
+              var dormidosGroups = {};
+              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {}; if (!dormidosGroups[w.type][o.clientId] || o.date > dormidosGroups[w.type][o.clientId]) dormidosGroups[w.type][o.clientId] = o.date; }); });
+              var groups = Object.entries(dormidosGroups).map(function(e) {
+                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO; }).map(function(d) { return { cId: parseInt(d[0]), lastDate: d[1] }; });
+                return { type: e[0], dormidos: dormidos, count: dormidos.length };
+              }).filter(function(g) { return g.count > 0; }).sort(function(a, b) { return b.count - a.count; });
               return (
                 <div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>💤 Clientes Dormidos</div>
-                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Clientes que no vienen hace más de 6 meses — {totalDormidos} en total</div>
-
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💤 Clientes Dormidos</div>
                   {!histDetail ? (
                     <div>
-                      {groups.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>✅ No hay clientes dormidos</div>}
+                      {groups.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>No hay clientes dormidos</div>}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                        {groups.map(g => (
-                          <div key={g.type} onClick={() => setHistDetail(g)}
-                            style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = T.orange; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                        {groups.map(function(g) { return (
+                          <div key={g.type} onClick={function() { setHistDetail(g); }} style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center" }}>
                             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
                             <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{g.count}</div>
-                            <div style={{ fontSize: 10, color: T.gray }}>dormido{g.count !== 1 ? "s" : ""}</div>
+                            <div style={{ fontSize: 10, color: T.gray }}>dormidos</div>
                           </div>
-                        ))}
+                        ); })}
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, marginBottom: 12 }}>← Volver</button>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>💤 {histDetail.type} — {histDetail.count} dormidos</div>
-                      {histDetail.dormidos.sort((a, b) => a.lastDate.localeCompare(b.lastDate)).map(d => {
-                        const cl = clients.find(x => x.id === d.cId);
+                      <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} dormidos</div>
+                      {histDetail.dormidos.sort(function(a, b) { return a.lastDate.localeCompare(b.lastDate); }).map(function(d) {
+                        var cl = clients.find(function(x) { return x.id === d.cId; });
                         if (!cl) return null;
-                        const daysSince = Math.round((Date.now() - new Date(d.lastDate).getTime()) / 86400000);
-                        const months = Math.round(daysSince / 30);
+                        var months = Math.round((Date.now() - new Date(d.lastDate).getTime()) / 86400000 / 30);
                         return (
-                          <div key={d.cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, borderLeft: `3px solid ${T.orange}` }}>
+                          <div key={d.cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, borderLeft: "3px solid " + T.orange }}>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700 }}>👤 {cl.name} {cl.lastName}</div>
-                              <div style={{ fontSize: 12, color: T.orange, fontWeight: 600 }}>Última visita: {fmtDate(d.lastDate)} ({months} meses)</div>
-                              {cl.phone && <div style={{ fontSize: 11, color: T.gray }}>📱 {cl.phone}</div>}
+                              <div style={{ fontSize: 14, fontWeight: 700 }}>{cl.name} {cl.lastName}</div>
+                              <div style={{ fontSize: 12, color: T.orange, fontWeight: 600 }}>Ultima visita: {fmtDate(d.lastDate)} ({months} meses)</div>
                             </div>
-                            <button onClick={() => {
-                              const msg = (config.dormidoMsg || `Hola {nombre}! Hace tiempo que no nos visitás. ¡Te esperamos en CarBoys! 🔧`)
-                                .replace("{nombre}", cl.name);
-                              const wahaUrl = config.wahaUrl || "";
-                              const wahaKey = config.wahaApiKey || "";
-                              if (cl.phone) sendWA(cl.phone, msg, wahaUrl, wahaKey);
+                            <button onClick={function() {
+                              var msg = (config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitas. Te esperamos en CarBoys!").replace("{nombre}", cl.name);
+                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
                             }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "6px 12px" }}>📱 Enviar</button>
                           </div>
                         );
@@ -14742,14 +14138,14 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
       <div style={{ ...card, padding: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#FF6F00" }}>🔔 Mensaje de Recordatorio de Service</div>
         <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{vehiculo}"} {"{dominio}"}</div>
-        <textarea value={config.serviceReminderMsg || "Hola {nombre}! Desde *CarBoys* le recordamos que su vehículo {vehiculo} ({dominio}) está próximo a los 10.000 km para realizar el service.\n\n¡Los esperamos! 🔧\n\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, serviceReminderMsg: e.target.value }))}
+        <textarea value={config.serviceReminderMsg || "Hola {nombre}! Desde *CarBoys* le recordamos que su vehiculo {vehiculo} ({dominio}) esta proximo al service.\n\nLos esperamos!\n\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, serviceReminderMsg: e.target.value }))}
           style={{ ...inputStyle, minHeight: 140, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
       </div>
 
       <div style={{ ...card, padding: 20, marginTop: 12 }}>
         <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#7B1FA2" }}>💤 Mensaje de Cliente Dormido</div>
         <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"}</div>
-        <textarea value={config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitás. ¡Te esperamos en *CarBoys*! 🔧\n\nTenemos promos especiales para vos.\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, dormidoMsg: e.target.value }))}
+        <textarea value={config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitas. Te esperamos en *CarBoys*!\n\nTenemos promos especiales para vos.\n\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, dormidoMsg: e.target.value }))}
           style={{ ...inputStyle, minHeight: 140, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
       </div>
 
@@ -14791,7 +14187,6 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     buscarDominio: "🔍 Ver Buscar Dominio",
     workshop: "🔧 Ver En Taller",
     quickSale: "⚡ Ver Venta Rápida",
-    cobro: "💲 Cobrar órdenes",
     crearOrden: "📝 Crear/editar órdenes",
     facturar: "🧾 Emitir Facturas",
     precios: "💰 Ver precios y montos",
@@ -15952,8 +15347,6 @@ export default function App() {
           }
         } catch(e) { /* silencioso */ }
       };
-      // Exponer para forzar sync manual desde el botón de la barra
-      window._cbForceSync = retryPending;
       retryPending();
       const iv = setInterval(retryPending, 30000);
       return () => {
@@ -16174,16 +15567,7 @@ export default function App() {
               };
               const s = states[syncState] || states.ok;
               return (
-                <div title={s.title + " — Click para forzar sincronización"}
-                  onClick={() => {
-                    if (window._cbForceSync) {
-                      window._cbForceSync();
-                      // Feedback visual: flash rápido del ícono
-                      setSyncState('syncing');
-                      setTimeout(() => { if (syncActive === 0) setSyncState('ok'); }, 1500);
-                    }
-                  }}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none', cursor: 'pointer' }}>
+                <div title={s.title} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none' }}>
                   <span style={{ display: 'inline-block', animation: syncState === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>{s.icon}</span> {s.label}
                 </div>
               );
