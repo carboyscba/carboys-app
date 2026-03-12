@@ -3578,8 +3578,12 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
 // Conecta a todas las nubes y muestra KPIs en tiempo real
 // ══════════════════════════════════════════════════════════════════
 const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
-  const [data, setData] = useState({}); // { sucId: { orders, clients, loading, error } }
+  const [data, setData] = useState({}); // { sucId: { orders, clients, egresos, loading, error } }
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("resumen"); // resumen | reportes
+  const [period, setPeriod] = useState("mes"); // dia | semana | mes
+  const [repMonth, setRepMonth] = useState(new Date().getMonth());
+  const [repYear, setRepYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -3590,20 +3594,22 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
         const base = `https://firestore.googleapis.com/v1/projects/${suc.firebaseProject}/databases/(default)/documents`;
         const h = await fsHeaders();
         try {
-          const [rOrders, rClients] = await Promise.all([
+          const [rOrders, rClients, rEgresos] = await Promise.all([
             fetch(`${base}/orders?pageSize=500`, { headers: h }),
             fetch(`${base}/clients?pageSize=500`, { headers: h }),
+            fetch(`${base}/adm_egresos?pageSize=500`, { headers: h }),
           ]);
           const jOrders = rOrders.ok ? await rOrders.json() : {};
           const jClients = rClients.ok ? await rClients.json() : {};
+          const jEgresos = rEgresos.ok ? await rEgresos.json() : {};
           results[suc.id] = {
             orders: (jOrders.documents || []).map(fsToObj),
             clients: (jClients.documents || []).map(fsToObj),
-            loading: false,
-            error: false,
+            egresos: (jEgresos.documents || []).map(fsToObj),
+            loading: false, error: false,
           };
         } catch(e) {
-          results[suc.id] = { orders: [], clients: [], loading: false, error: true };
+          results[suc.id] = { orders: [], clients: [], egresos: [], loading: false, error: true };
         }
       }));
 
@@ -3611,103 +3617,380 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
       setLoading(false);
     };
     fetchAll();
-    const iv = setInterval(fetchAll, 30000); // refresh cada 30s
+    const iv = setInterval(fetchAll, 30000);
     return () => clearInterval(iv);
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
   const activeSucs = SUCURSALES_REGISTRY.filter(s => s.activa !== false);
+  const MESES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-  // KPIs globales
+  // ── Helpers de período ──
+  const nowDate = new Date();
+  const weekAgo = new Date(nowDate.getTime() - 7 * 86400000).toISOString().split("T")[0];
+  const ym = `${repYear}-${String(repMonth + 1).padStart(2, "0")}`;
+
+  const filterByPeriod = (orders) => {
+    const completed = orders.filter(o => o.status === "delivered" || o.status === "ready" || o.status === "done");
+    if (period === "dia") return completed.filter(o => o.date === today);
+    if (period === "semana") return completed.filter(o => o.date >= weekAgo);
+    return completed.filter(o => (o.date || "").startsWith(ym));
+  };
+
+  const getRevenue = (orders) => orders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+  const getTicket = (orders) => orders.length > 0 ? getRevenue(orders) / orders.length : 0;
+
+  // ── KPIs globales ──
   const allOrders = Object.values(data).flatMap(d => d.orders || []);
   const todayOrders = allOrders.filter(o => o.date === today);
   const activeOrders = allOrders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
   const totalClients = Object.values(data).reduce((s, d) => s + (d.clients || []).length, 0);
   const todayRevenue = todayOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
 
+  // ── Barra comparativa helper ──
+  const Bar = ({ value, max, color, label, sub }) => (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color }}>{sub}</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? `${Math.min(100, (value / max) * 100)}%` : "0%", transition: "width .5s ease" }} />
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", animation: "fadeUp .3s ease" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
           <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Vista Global</div>
           <div style={{ fontSize: 12, color: T.gray }}>{activeSucs.length} sucursal{activeSucs.length !== 1 ? "es" : ""} activa{activeSucs.length !== 1 ? "s" : ""}</div>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {loading && <div style={{ fontSize: 12, color: T.accent }}>⟳ Cargando datos...</div>}
-        </div>
+        {loading && <div style={{ fontSize: 12, color: T.accent }}>⟳ Cargando...</div>}
       </div>
 
-      {/* KPIs globales */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        {[
-          { l: "Facturación Hoy", v: fmt(todayRevenue), c: T.accent, ic: "💰" },
-          { l: "Autos en Taller", v: activeOrders.length, c: T.green, ic: "🔧" },
-          { l: "Órdenes Hoy", v: todayOrders.length, c: T.orange, ic: "📋" },
-          { l: "Clientes Totales", v: totalClients, c: "#9C27B0", ic: "👥" },
-        ].map(s => (
-          <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
-            <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
-            <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
-            <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{s.l}</div>
+      {/* Tabs: Resumen / Reportes */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {[{ k: "resumen", l: "🏢 Sucursales", ic: "" }, { k: "reportes", l: "📈 Reportes Comparativos", ic: "" }].map(t => (
+          <div key={t.k} onClick={() => setView(t.k)}
+            style={{ padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700,
+              background: view === t.k ? T.accent : T.bg2, color: view === t.k ? "#fff" : T.gray,
+              border: `1px solid ${view === t.k ? T.accent : T.border}`, transition: "all .15s" }}>
+            {t.l}
           </div>
         ))}
       </div>
 
-      {/* Cards por sucursal */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: T.grayLight, marginBottom: 12 }}>SUCURSALES</div>
-      <div style={{ display: "grid", gridTemplateColumns: activeSucs.length > 2 ? "1fr 1fr" : `repeat(${activeSucs.length}, 1fr)`, gap: 14 }}>
-        {activeSucs.map(suc => {
-          const d = data[suc.id] || { orders: [], clients: [], loading: true };
-          const sucActive = d.orders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
-          const sucToday = d.orders.filter(o => o.date === today);
-          const sucRevenue = sucToday.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
-          const sucPending = sucActive.filter(o => o.status === "pending").length;
-          const sucWorking = sucActive.filter(o => o.status === "working").length;
-          const sucDone = sucActive.filter(o => o.status === "done").length;
+      {/* ══════════════════════════════════════════ */}
+      {/* ══════ VISTA: RESUMEN (sucursales) ══════ */}
+      {/* ══════════════════════════════════════════ */}
+      {view === "resumen" && (
+        <div>
+          {/* KPIs globales */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+            {[
+              { l: "Facturación Hoy", v: fmt(todayRevenue), c: T.accent, ic: "💰" },
+              { l: "Autos en Taller", v: activeOrders.length, c: T.green, ic: "🔧" },
+              { l: "Órdenes Hoy", v: todayOrders.length, c: T.orange, ic: "📋" },
+              { l: "Clientes Totales", v: totalClients, c: "#9C27B0", ic: "👥" },
+            ].map(s => (
+              <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
+                <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
+                <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
+                <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
 
-          return (
-            <div key={suc.id} onClick={() => onSelectSucursal(suc)}
-              style={{ ...card, padding: 20, cursor: "pointer", transition: "all .2s", borderLeft: `4px solid ${suc.color || T.accent}` }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = suc.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.borderLeftColor = suc.color; e.currentTarget.style.transform = "none"; }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}>{suc.icon || "📍"}</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{suc.nombre}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{d.clients.length} clientes</div>
+          {/* Cards por sucursal */}
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.grayLight, marginBottom: 12 }}>SUCURSALES</div>
+          <div style={{ display: "grid", gridTemplateColumns: activeSucs.length > 2 ? "1fr 1fr" : `repeat(${activeSucs.length}, 1fr)`, gap: 14 }}>
+            {activeSucs.map(suc => {
+              const d = data[suc.id] || { orders: [], clients: [], loading: true };
+              const sucActive = d.orders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+              const sucToday = d.orders.filter(o => o.date === today);
+              const sucRevenue = sucToday.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+              const sucPending = sucActive.filter(o => o.status === "pending").length;
+              const sucWorking = sucActive.filter(o => o.status === "working").length;
+              const sucDone = sucActive.filter(o => o.status === "done").length;
+              return (
+                <div key={suc.id} onClick={() => onSelectSucursal(suc)}
+                  style={{ ...card, padding: 20, cursor: "pointer", transition: "all .2s", borderLeft: `4px solid ${suc.color || T.accent}` }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = suc.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.borderLeftColor = suc.color; e.currentTarget.style.transform = "none"; }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <span style={{ fontSize: 24 }}>{suc.icon || "📍"}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>{suc.nombre}</div>
+                      <div style={{ fontSize: 11, color: T.gray }}>{d.clients.length} clientes</div>
+                    </div>
+                    {d.error && <span style={{ fontSize: 10, color: T.red, fontWeight: 700, marginLeft: "auto" }}>⚠️ Error</span>}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                    <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(sucRevenue)}</div>
+                      <div style={{ fontSize: 10, color: T.gray }}>Ventas hoy</div>
+                    </div>
+                    <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{sucActive.length}</div>
+                      <div style={{ fontSize: 10, color: T.gray }}>En taller</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {sucPending > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.orange}15`, color: T.orange }}>⏳ {sucPending}</span>}
+                    {sucWorking > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.accent}15`, color: T.accent }}>🔧 {sucWorking}</span>}
+                    {sucDone > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.green}15`, color: T.green }}>✅ {sucDone}</span>}
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 11, color: T.accent, fontWeight: 600 }}>Entrar a {suc.nombre} →</div>
                 </div>
-                {d.error && <span style={{ fontSize: 10, color: T.red, fontWeight: 700, marginLeft: "auto" }}>⚠️ Error</span>}
-                {d.loading && <span style={{ fontSize: 10, color: T.accent, marginLeft: "auto" }}>Cargando...</span>}
-              </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-              {/* Mini KPIs */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(sucRevenue)}</div>
-                  <div style={{ fontSize: 10, color: T.gray }}>Ventas hoy</div>
-                </div>
-                <div style={{ background: T.bg, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{sucActive.length}</div>
-                  <div style={{ fontSize: 10, color: T.gray }}>En taller</div>
-                </div>
-              </div>
-
-              {/* Status pills */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {sucPending > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.orange}15`, color: T.orange }}>⏳ {sucPending} pendiente{sucPending > 1 ? "s" : ""}</span>}
-                {sucWorking > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.accent}15`, color: T.accent }}>🔧 {sucWorking} en trabajo</span>}
-                {sucDone > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${T.green}15`, color: T.green }}>✅ {sucDone} listo{sucDone > 1 ? "s" : ""}</span>}
-                {sucActive.length === 0 && <span style={{ fontSize: 10, color: T.gray }}>Sin actividad hoy</span>}
-              </div>
-
-              <div style={{ marginTop: 10, fontSize: 11, color: T.accent, fontWeight: 600 }}>
-                Entrar a {suc.nombre} →
-              </div>
+      {/* ══════════════════════════════════════════════════ */}
+      {/* ══════ VISTA: REPORTES COMPARATIVOS ══════════════ */}
+      {/* ══════════════════════════════════════════════════ */}
+      {view === "reportes" && (
+        <div>
+          {/* Selector de período */}
+          <div style={{ ...card, padding: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[{ k: "dia", l: "Hoy" }, { k: "semana", l: "Semana" }, { k: "mes", l: "Mes" }].map(p => (
+                <div key={p.k} onClick={() => setPeriod(p.k)}
+                  style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                    background: period === p.k ? T.accent : T.bg, color: period === p.k ? "#fff" : T.gray,
+                    border: `1px solid ${period === p.k ? T.accent : T.border}` }}>{p.l}</div>
+              ))}
             </div>
-          );
-        })}
-      </div>
+            {period === "mes" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+                <button onClick={() => setRepYear(y => y - 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", color: T.gray, cursor: "pointer", fontSize: 12 }}>‹</button>
+                <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, minWidth: 36, textAlign: "center" }}>{repYear}</span>
+                <button onClick={() => setRepYear(y => y + 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", color: T.gray, cursor: "pointer", fontSize: 12 }}>›</button>
+                <div style={{ display: "flex", gap: 3, marginLeft: 6 }}>
+                  {MESES_SHORT.map((m, i) => (
+                    <div key={i} onClick={() => setRepMonth(i)}
+                      style={{ padding: "5px 8px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700,
+                        background: repMonth === i ? T.accent : T.bg, color: repMonth === i ? "#fff" : T.gray,
+                        border: `1px solid ${repMonth === i ? T.accent : T.border}` }}>{m}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {(() => {
+            // Calcular métricas por sucursal para el período seleccionado
+            const metrics = activeSucs.map(suc => {
+              const d = data[suc.id] || { orders: [], clients: [], egresos: [] };
+              const periodOrders = filterByPeriod(d.orders);
+              const allCompleted = d.orders.filter(o => o.status === "delivered" || o.status === "ready");
+              const revenue = getRevenue(periodOrders);
+              const ticket = getTicket(periodOrders);
+              const totalEgresos = (d.egresos || []).filter(e => period === "mes" ? (e.fecha || "").startsWith(ym) : period === "semana" ? e.fecha >= weekAgo : e.fecha === today).reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+
+              // Métodos de pago
+              const payMethods = { Efectivo: 0, Transferencia: 0, Tarjeta: 0, "Cuenta Corriente": 0 };
+              periodOrders.forEach(o => (o.payments || []).forEach(p => { if (payMethods[p.method] !== undefined) payMethods[p.method] += parseFloat(p.amount) || 0; }));
+              const payTotal = Object.values(payMethods).reduce((s, v) => s + v, 0);
+
+              // Tiempo promedio en taller (días)
+              const tiempos = allCompleted.filter(o => o.date && o.deliveredAt).map(o => {
+                const start = new Date(o.date);
+                const end = new Date(o.deliveredAt);
+                return Math.max(0, (end - start) / 86400000);
+              }).filter(t => t > 0 && t < 60);
+              const avgDays = tiempos.length > 0 ? (tiempos.reduce((s, t) => s + t, 0) / tiempos.length).toFixed(1) : "—";
+
+              // Clientes recurrentes
+              const clientVisits = {};
+              allCompleted.forEach(o => { clientVisits[o.clientId] = (clientVisits[o.clientId] || 0) + 1; });
+              const totalUniqueClients = Object.keys(clientVisits).length;
+              const recurrentClients = Object.values(clientVisits).filter(v => v >= 2).length;
+              const recurrentPct = totalUniqueClients > 0 ? Math.round((recurrentClients / totalUniqueClients) * 100) : 0;
+
+              // Clientes nuevos del mes
+              const newClientsMonth = d.clients.filter(c => {
+                const firstOrder = allCompleted.filter(o => o.clientId === c.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""))[0];
+                return firstOrder && (firstOrder.date || "").startsWith(ym);
+              }).length;
+
+              // Top servicios
+              const workCounts = {};
+              periodOrders.forEach(o => (o.works || []).forEach(w => { workCounts[w.type] = (workCounts[w.type] || 0) + 1; }));
+              const topWork = Object.entries(workCounts).sort((a, b) => b[1] - a[1])[0];
+
+              return {
+                suc, revenue, ticket, orders: periodOrders.length, totalEgresos,
+                payMethods, payTotal, avgDays, clients: d.clients.length,
+                recurrentPct, newClientsMonth, topWork: topWork ? topWork[0] : "—",
+                margin: revenue > 0 ? Math.round(((revenue - totalEgresos) / revenue) * 100) : 0,
+              };
+            });
+
+            const maxRevenue = Math.max(...metrics.map(m => m.revenue), 1);
+            const maxOrders = Math.max(...metrics.map(m => m.orders), 1);
+            const maxClients = Math.max(...metrics.map(m => m.clients), 1);
+            const maxTicket = Math.max(...metrics.map(m => m.ticket), 1);
+
+            return (
+              <div>
+                {/* ── BLOQUE 1: FACTURACIÓN ── */}
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💰 Facturación</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>{period === "dia" ? "Hoy" : period === "semana" ? "Última semana" : `${MESES_SHORT[repMonth]} ${repYear}`}</div>
+
+                  {/* Cards comparativas */}
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10, marginBottom: 16 }}>
+                    {metrics.map(m => (
+                      <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, borderLeft: `3px solid ${m.suc.color}` }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{m.suc.icon} {m.suc.nombre}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: m.suc.color }}>{fmt(m.revenue)}</div>
+                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{m.orders} órdenes · Ticket: {fmt(m.ticket)}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Barras: facturación */}
+                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.revenue} max={maxRevenue} color={m.suc.color} sub={fmt(m.revenue)} />)}
+
+                  {/* Método de pago más usado */}
+                  <div style={{ marginTop: 16, fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>MÉTODO DE PAGO MÁS USADO</div>
+                  {metrics.map(m => {
+                    const topMethod = Object.entries(m.payMethods).sort((a, b) => b[1] - a[1])[0];
+                    const pct = m.payTotal > 0 ? Math.round((topMethod[1] / m.payTotal) * 100) : 0;
+                    return (
+                      <div key={m.suc.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 12 }}>
+                        <span style={{ fontWeight: 700, minWidth: 120 }}>{m.suc.icon} {m.suc.nombre}</span>
+                        <span style={{ color: T.accent, fontWeight: 600 }}>{topMethod[0]}</span>
+                        <span style={{ color: T.gray }}>({pct}%)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── BLOQUE 2: PRODUCTIVIDAD ── */}
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>⚡ Productividad</div>
+
+                  {/* Barras: órdenes completadas */}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>ÓRDENES COMPLETADAS</div>
+                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.orders} max={maxOrders} color={m.suc.color} sub={`${m.orders}`} />)}
+
+                  {/* Tiempo promedio */}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 16 }}>TIEMPO PROMEDIO EN TALLER</div>
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10 }}>
+                    {metrics.map(m => (
+                      <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>{m.suc.icon} {m.suc.nombre}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: parseFloat(m.avgDays) > 3 ? T.orange : T.green }}>{m.avgDays}</div>
+                        <div style={{ fontSize: 10, color: T.gray }}>días promedio</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Ticket promedio */}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, marginTop: 16 }}>TICKET PROMEDIO</div>
+                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.ticket} max={maxTicket} color={m.suc.color} sub={fmt(m.ticket)} />)}
+                </div>
+
+                {/* ── BLOQUE 3: CLIENTES ── */}
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>👥 Clientes</div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10, marginBottom: 16 }}>
+                    {metrics.map(m => (
+                      <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, borderLeft: `3px solid ${m.suc.color}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>{m.suc.icon} {m.suc.nombre}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, color: T.gray }}>Total</span>
+                          <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: m.suc.color }}>{m.clients}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, color: T.gray }}>Recurrentes</span>
+                          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: m.recurrentPct > 40 ? T.green : T.orange }}>{m.recurrentPct}%</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 12, color: T.gray }}>Nuevos (mes)</span>
+                          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>+{m.newClientsMonth}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Barras: total clientes */}
+                  {metrics.map(m => <Bar key={m.suc.id} label={`${m.suc.icon} ${m.suc.nombre}`} value={m.clients} max={maxClients} color={m.suc.color} sub={`${m.clients}`} />)}
+                </div>
+
+                {/* ── BLOQUE 4: SERVICIOS ── */}
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>🔧 Servicios</div>
+
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>SERVICIO MÁS REALIZADO</div>
+                  {metrics.map(m => (
+                    <div key={m.suc.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13 }}>
+                      <span style={{ fontWeight: 700, minWidth: 120 }}>{m.suc.icon} {m.suc.nombre}</span>
+                      <span style={{ padding: "4px 10px", borderRadius: 6, background: `${m.suc.color}15`, color: m.suc.color, fontWeight: 700, fontSize: 12 }}>{m.topWork}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── BLOQUE 5: FINANCIERO (Rentabilidad) ── */}
+                <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📊 Rentabilidad</div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(activeSucs.length, 4)}, 1fr)`, gap: 10, marginBottom: 16 }}>
+                    {metrics.map(m => {
+                      const marginColor = m.margin > 40 ? T.green : m.margin > 20 ? T.orange : T.red;
+                      return (
+                        <div key={m.suc.id} style={{ background: T.bg, borderRadius: 10, padding: 14, borderLeft: `3px solid ${m.suc.color}` }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{m.suc.icon} {m.suc.nombre}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontSize: 12, color: T.gray }}>Ingresos</span>
+                            <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.green }}>{fmt(m.revenue)}</span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontSize: 12, color: T.gray }}>Egresos</span>
+                            <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.red }}>{fmt(m.totalEgresos)}</span>
+                          </div>
+                          <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: T.grayLight }}>Margen</span>
+                            <span style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: marginColor }}>{m.margin}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Barras: ingresos vs egresos */}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>INGRESOS VS EGRESOS</div>
+                  {metrics.map(m => (
+                    <div key={m.suc.id} style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{m.suc.icon} {m.suc.nombre}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <div style={{ flex: 1, height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 4, background: T.green, width: maxRevenue > 0 ? `${(m.revenue / Math.max(...metrics.map(x => x.revenue), 1)) * 100}%` : "0%" }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: T.green, fontWeight: 700, minWidth: 70, textAlign: "right" }}>{fmt(m.revenue)}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3 }}>
+                        <div style={{ flex: 1, height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 4, background: T.red, width: maxRevenue > 0 ? `${(m.totalEgresos / Math.max(...metrics.map(x => x.revenue), 1)) * 100}%` : "0%" }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: T.red, fontWeight: 700, minWidth: 70, textAlign: "right" }}>{fmt(m.totalEgresos)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 };
