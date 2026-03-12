@@ -9125,6 +9125,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
       {tab === "stats" && (() => {
         const STAT_ITEMS = [
+          { key: "reportes", icon: "📊", label: "Reportes" },
           { key: "pagos", icon: "💳", label: "Medios de Pago" },
           { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
           { key: "clientes", icon: "👥", label: "Clientes Frecuentes" },
@@ -9150,6 +9151,186 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         return (
           <div>
             <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Estadísticas</button>
+
+            {/* ══════ REPORTES COMPLETOS ══════ */}
+            {statView === "reportes" && (() => {
+              const repRevenue = periodOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+              const repTicket = periodOrders.length > 0 ? repRevenue / periodOrders.length : 0;
+
+              // Tiempo promedio en taller
+              const tiempos = completed.filter(o => o.date && o.deliveredAt).map(o => {
+                const start = new Date(o.date); const end = new Date(o.deliveredAt);
+                return Math.max(0, (end - start) / 86400000);
+              }).filter(t => t > 0 && t < 60);
+              const avgDays = tiempos.length > 0 ? (tiempos.reduce((s, t) => s + t, 0) / tiempos.length).toFixed(1) : "—";
+
+              // Clientes recurrentes
+              const uniqueClients = Object.keys(clientStats).length;
+              const recurrentCount = Object.values(clientStats).filter(v => v >= 2).length;
+              const recurrentPct = uniqueClients > 0 ? Math.round((recurrentCount / uniqueClients) * 100) : 0;
+
+              // Clientes nuevos este mes
+              const ym = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+              const newClientsMonth = clients.filter(c => {
+                const firstOrd = completed.filter(o => o.clientId === c.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""))[0];
+                return firstOrd && (firstOrd.date || "").startsWith(ym);
+              }).length;
+
+              // Egresos del período
+              const egresosPeriod = egresos.filter(e => {
+                if (period === "dia") return e.fecha === today;
+                if (period === "semana") return e.fecha >= new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+                return (e.fecha || "").startsWith(ym);
+              });
+              const totalEgresosPeriod = egresosPeriod.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+              const margin = repRevenue > 0 ? Math.round(((repRevenue - totalEgresosPeriod) / repRevenue) * 100) : 0;
+              const marginColor = margin > 40 ? T.green : margin > 20 ? T.orange : T.red;
+
+              // Top servicio
+              const workRev = {};
+              periodOrders.forEach(o => (o.works || []).forEach(w => { workRev[w.type] = (workRev[w.type] || 0) + (parseFloat(w.price) || 0); }));
+              const topWorkRev = Object.entries(workRev).sort((a, b) => b[1] - a[1]);
+
+              // Método de pago
+              const payM = { Efectivo: 0, Transferencia: 0, Tarjeta: 0, "Cuenta Corriente": 0 };
+              periodOrders.forEach(o => (o.payments || []).forEach(p => { if (payM[p.method] !== undefined) payM[p.method] += parseFloat(p.amount) || 0; }));
+              const payTotal = Object.values(payM).reduce((s, v) => s + v, 0);
+              const topPayMethod = Object.entries(payM).sort((a, b) => b[1] - a[1])[0] || ["—", 0];
+
+              const BarLocal = ({ label, value, max, color, sub }) => (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color }}>{sub}</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? `${Math.min(100, (value / max) * 100)}%` : "0%", transition: "width .5s ease" }} />
+                  </div>
+                </div>
+              );
+
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📊 Reportes</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Métricas completas de tu sucursal</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+
+                  {/* ── KPIs principales ── */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
+                    {[
+                      { l: "Facturación", v: fmt(repRevenue), c: T.accent, ic: "💰" },
+                      { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "📋" },
+                      { l: "Ticket Promedio", v: fmt(repTicket), c: "#9C27B0", ic: "🎯" },
+                      { l: "Días en Taller", v: avgDays, c: parseFloat(avgDays) > 3 ? T.orange : T.green, ic: "⏱️" },
+                    ].map(s => (
+                      <div key={s.l} style={{ ...card, padding: 14, borderLeft: `3px solid ${s.c}` }}>
+                        <div style={{ fontSize: 20, marginBottom: 2 }}>{s.ic}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: s.c }}>{s.v}</div>
+                        <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ── RENTABILIDAD ── */}
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📊 Rentabilidad</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>INGRESOS</div>
+                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(repRevenue)}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>EGRESOS</div>
+                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.red }}>{fmt(totalEgresosPeriod)}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>MARGEN</div>
+                        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: marginColor }}>{margin}%</div>
+                      </div>
+                    </div>
+                    {/* Barra visual */}
+                    <div style={{ marginBottom: 6 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <div style={{ flex: 1, height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 5, background: T.green, width: "100%" }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: T.green, fontWeight: 700, minWidth: 70, textAlign: "right" }}>Ingresos</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <div style={{ flex: 1, height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 5, background: T.red, width: repRevenue > 0 ? `${Math.min(100, (totalEgresosPeriod / repRevenue) * 100)}%` : "0%" }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: T.red, fontWeight: 700, minWidth: 70, textAlign: "right" }}>Egresos</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── CLIENTES ── */}
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👥 Clientes</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>TOTAL</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>{clients.length}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>RECURRENTES</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: recurrentPct > 40 ? T.green : T.orange }}>{recurrentPct}%</div>
+                        <div style={{ fontSize: 10, color: T.gray }}>{recurrentCount} de {uniqueClients}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>NUEVOS (MES)</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>+{newClientsMonth}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── SERVICIOS MÁS RENTABLES ── */}
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>🔧 Servicios más Rentables</div>
+                    {topWorkRev.slice(0, 8).map(([type, rev], i) => (
+                      <BarLocal key={type} label={`${i + 1}. ${type}`} value={rev} max={topWorkRev[0]?.[1] || 1} color={T.accent} sub={fmt(rev)} />
+                    ))}
+                    {topWorkRev.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos en este período</div>}
+                  </div>
+
+                  {/* ── MÉTODOS DE PAGO ── */}
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>💳 Métodos de Pago</div>
+                    {Object.entries(payM).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([method, amount]) => {
+                      const pct = payTotal > 0 ? Math.round(amount * 100 / payTotal) : 0;
+                      const pc = { Efectivo: T.green, Transferencia: T.accent, Tarjeta: "#9C27B0", "Cuenta Corriente": T.orange }[method] || T.gray;
+                      return <BarLocal key={method} label={`${method} (${pct}%)`} value={amount} max={payTotal} color={pc} sub={fmt(amount)} />;
+                    })}
+                    {payTotal === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
+                  </div>
+
+                  {/* ── RENDIMIENTO POR MECÁNICO ── */}
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👤 Rendimiento por Mecánico</div>
+                    {(() => {
+                      const ms = {}; periodOrders.forEach(o => { const m = o.tech || o.assignedTo || "Sin asignar"; ms[m] = { count: (ms[m]?.count || 0) + 1, rev: (ms[m]?.rev || 0) + (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0) }; });
+                      const entries = Object.entries(ms).sort((a, b) => b[1].count - a[1].count);
+                      if (entries.length === 0) return <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>;
+                      const maxCount = entries[0][1].count;
+                      return entries.map(([name, { count, rev }]) => (
+                        <div key={name} style={{ marginBottom: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>{name}</span>
+                            <span style={{ fontSize: 12, color: T.gray }}>{count} órdenes · <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(rev)}</span></span>
+                          </div>
+                          <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                            <div style={{ height: "100%", borderRadius: 4, background: T.green, width: `${Math.round(count * 100 / maxCount)}%` }} />
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              );
+            })()}
 
             {statView === "pagos" && (<div>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
