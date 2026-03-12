@@ -1552,7 +1552,7 @@ const NewOrderScreen = (props) => {
                     {hOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
 
                     {hOrders.map(o => {
-                      const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                      const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                       const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
                       const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
                       return (
@@ -1578,7 +1578,7 @@ const NewOrderScreen = (props) => {
                           {(o.works||[]).map((w, i) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", paddingLeft: 10, borderBottom: i < o.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
                               <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                              <span style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price || 0)}</span>
+                              <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price) || 0)}</span>
                             </div>
                           ))}
                           {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
@@ -1599,7 +1599,7 @@ const NewOrderScreen = (props) => {
                 const o = historyOrderDetail;
                 const hv = historyVehicle?.vehicle;
                 const hc = historyVehicle?.client;
-                const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                 const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
                 return (
                   <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
@@ -1632,7 +1632,7 @@ const NewOrderScreen = (props) => {
                         <div key={i} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}>
                             <span>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                            <span style={{ color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
+                            <span style={{ color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
                           </div>
                           {w.trenItems?.filter(ti => ti.selected).map((ti, j) => (
                             <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14, marginTop: 3 }}>
@@ -1651,7 +1651,7 @@ const NewOrderScreen = (props) => {
                         {(o.payments||[]).map((p, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                             <span>{p.method}{p.installments > 1 ? ` (${p.installments} cuotas)` : ""}</span>
-                            <span style={{ fontWeight: 700, fontFamily: fontD, color: T.green }}>{fmt(p.amount || 0)}</span>
+                            <span style={{ fontWeight: 700, fontFamily: fontD, color: T.green }}>{fmt(parseFloat(p.amount) || 0)}</span>
                           </div>
                         ))}
                       </div>
@@ -2643,7 +2643,7 @@ const NewOrderScreen = (props) => {
                     <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
                     {i === 0 && payments.length > 1 ? (
                       <div style={{ ...inputStyle, flex: 1, background: `${T.accent}10`, borderColor: T.accent, fontWeight: 800, color: T.accent, fontFamily: fontD, fontSize: 16, display: "flex", alignItems: "center", padding: "10px 12px" }}>
-                        {Number(p.amount || 0).toLocaleString("es-AR")}
+                        {Number(parseFloat(p.amount) || 0).toLocaleString("es-AR")}
                       </div>
                     ) : (
                       <input inputMode="numeric" pattern="[0-9]*" value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
@@ -3232,7 +3232,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
         </div>
         {vOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
         {vOrders.map(o => {
-          const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+          const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
           const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
           const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
           return (
@@ -3261,7 +3261,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
               {(o.works||[]).map((w, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", paddingLeft: 10, borderBottom: i < o.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
                   <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price || 0)}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price) || 0)}</span>
                 </div>
               ))}
               {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
@@ -3491,7 +3491,7 @@ const VehicleDetailScreen = (props) => {
   // Foja: solo aparece si hay trabajos con foja correspondiente
   const FOJA_TYPES = ["Service Full", "Service Base", "Baterías", "Escape", "Pastillas de Freno", "Tren Delantero", "Tren Trasero"];
   const hasFojaWork = (order.works || []).some(w => FOJA_TYPES.includes(w.type));
-  const total = (order.works || []).reduce((s, w) => s + (w.price || 0), 0);
+  const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [showFojaMenu, setShowFojaMenu] = useState(false);
   const [showFacturaMenu, setShowFacturaMenu] = useState(false);
@@ -4483,7 +4483,7 @@ const VehicleDetailScreen = (props) => {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                   <span style={{ color: T.gray }}>Total</span>
-                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt((fo.works||[]).reduce((s, w) => s + (w.price || 0), 0))}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt((fo.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</span>
                 </div>
               </div>
               {/* Acciones */}
@@ -4596,7 +4596,7 @@ const PieChart = ({ data, size = 180 }) => {
 const TicketModal = ({ data, onClose, onEmit, config }) => {
   const { order, payments, client, vehicle, readonly } = data;
   if (!order) return null;
-  const total = (order.works || []).reduce((s, w) => s + (w.price || 0), 0);
+  const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
   const iva = config?.ivaRate || 21;
   const mainPayment = (payments || order.payments || [])[0] || {};
   const withIva = mainPayment.withIva;
@@ -4714,7 +4714,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{w.desc ? ` — ${w.desc}` : ""}</div>
                 </div>
                 <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right" }}>
-                  {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(w.price || 0)}
+                  {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(w.price) || 0)}
                 </div>
               </div>
             ))}
@@ -4775,7 +4775,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
 const FacturaModal = ({ data, onClose, onEmit, config }) => {
   const { order, payments, client, vehicle, readonly } = data;
   if (!order) return null;
-  const total = (order.works || []).reduce((s, w) => s + (w.price || 0), 0);
+  const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
   const iva = config?.ivaRate || 21;
 
   // Determinar tipo de factura y cuenta emisora
@@ -4916,7 +4916,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
                     ))}
                   </div>
                   <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right", whiteSpace: "nowrap" }}>
-                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(w.price || 0)}
+                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(w.price) || 0)}
                   </div>
                 </div>
               </div>
@@ -4988,7 +4988,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [showTotalVentas, setShowTotalVentas] = useState(false);
   // Helper: construye el array de pagos inicial desde paymentPref / payments del order
   const buildInitPay = (o, _config, _clients) => {
-    const _oTotal = (o.works || []).reduce((s, w) => s + (w.price || 0), 0);
+    const _oTotal = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
     const _ivaRate = _config?.ivaRate || 21;
     const _pref = o.paymentPref;
     const _pays = o.payments || [];
@@ -5116,8 +5116,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
   const completed = orders.filter(o => o.status === "done" || o.status === "delivered");
   const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today);
-  const totalVentas = periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
-  const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const totalVentas = periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+  const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
   const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
   // esIngreso: true = son ingresos reales (cobro CTA CTE, saldo_inicial) → suman al saldo, no restan
@@ -5128,10 +5128,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const totalEgrVirtual = egresosVirtuales.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
   const totalIngresosExtra = ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
   // Cobros por método
-  const efIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
-  const tarjIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
-  const transfIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
-  const ctaCteIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const efIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+  const tarjIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+  const transfIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+  const ctaCteIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
   const saldoCajaCalculado = efIngresado + totalIngresosExtra - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
@@ -5148,19 +5148,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const faltaCierre = (esSabado || esLunes) && (!lastCierreDate || lastCierreDate < sabadoPasadoStr);
 
   const payTotals = {};
-  periodOrders.forEach(o => (o.payments || []).forEach(p => { payTotals[p.method || "Sin definir"] = (payTotals[p.method || "Sin definir"] || 0) + (p.amount || 0); }));
+  periodOrders.forEach(o => (o.payments || []).forEach(p => { payTotals[p.method || "Sin definir"] = (payTotals[p.method || "Sin definir"] || 0) + (parseFloat(p.amount) || 0); }));
   const payEntries = Object.entries(payTotals).sort((a, b) => b[1] - a[1]);
   const payColors = { "Efectivo": "#43a047", "Transferencia": "#1E88E5", "Tarjeta": "#9C27B0", "Cuenta Corriente": "#FF9800" };
 
   const ctaCte = orders.filter(o => {
     if (o.ctaCobrada) return false;
-    const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+    const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
     return (monto - pagadoParcial) > 0;
   });
   const ctaFiltered = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
   const ctaTotal = ctaCte.reduce((s, o) => {
-    const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0);
+    const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
     const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
     return s + Math.max(0, monto - pagadoParcial);
   }, 0);
@@ -5312,7 +5312,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           {periodOrders.slice(-8).reverse().map(o => {
             const c = clients.find(x => x.id === o.clientId);
             const v = c?.vehicles?.find(x => x.domain === o.domain);
-            const tot = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+            const tot = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
                 <div>
@@ -5343,7 +5343,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             const o = selCobro;
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+            const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             const iva = config.ivaRate || 21;
             return (
               <div>
@@ -5383,7 +5383,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <div key={i} style={{ marginBottom: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                         <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
                       </div>
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
                         <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, padding: "2px 0 2px 14px" }}>
@@ -5471,7 +5471,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       {(isEfectivo || isTarjeta || isCtaCte) && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <div onClick={() => (() => {
-                              const totalBase = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                              const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                               const ivaRate = config.ivaRate || 21;
                               setCobroPay(ps => ps.map((p, j) => {
                                 if (j !== i) return p;
@@ -5484,7 +5484,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                             <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{iva}% · Fact. A/B</div>
                           </div>
                           <div onClick={() => (() => {
-                              const totalBase = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                              const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                               setCobroPay(ps => ps.map((p, j) => {
                                 if (j !== i) return p;
                                 const newAmt = ps.length === 1 ? String(totalBase) : p.amount;
@@ -5752,7 +5752,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                 const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
                 const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : "ESPERANDO";
-                const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                 return (
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
@@ -5819,7 +5819,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             const o = histDetail;
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+            const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             return (
               <div>
                 <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
@@ -5843,7 +5843,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <div key={i} style={{ marginBottom: 6 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                         <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(w.price || 0)}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
                       </div>
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
                         <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14 }}>
@@ -5927,7 +5927,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               const y = new Date(o.date || Date.now()).getFullYear();
               if (!byYear[y]) byYear[y] = { orders: [], total: 0 };
               byYear[y].orders.push(o);
-              byYear[y].total += (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+              byYear[y].total += (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             });
             const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
 
@@ -5984,7 +5984,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       const [y, m] = ym.split("-");
                       const monthName = months[parseInt(m) - 1];
                       const mOrders = byMonth[ym];
-                      const mTotal = mOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+                      const mTotal = mOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
                       return (
                         <div key={ym} style={{ marginBottom: 10 }}>
                           <div style={{ ...card, padding: "12px 16px", marginBottom: 1, background: T.bg3, borderLeft: `3px solid ${T.accent}` }}>
@@ -5997,7 +5997,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                             </div>
                           </div>
                           {mOrders.map(o => {
-                            const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                            const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                             const metodo = metodoLabel(o);
                             return (
                               <div key={o.id} onClick={() => setHistDetail(o)}
@@ -6052,13 +6052,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {/* Grid de meses */}
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>
-                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0))}
+                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
                     const mOrders = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi);
                     const cnt = mOrders.length;
-                    const mTotal = mOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+                    const mTotal = mOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
                     return (
                       <div key={mi} onClick={() => setHistMonth(histMonth === mi ? null : mi)}
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
@@ -6077,7 +6077,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {(monthOrders || yearOrders).map(o => {
                 const cl = clients.find(c => c.id === o.clientId);
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                const total = (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                 const metodo = metodoLabel(o);
                 return (
                   <div key={o.id} onClick={() => setHistDetail(o)}
@@ -6119,7 +6119,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         {ctaFiltered.map(o => {
           const c = clients.find(x => x.id === o.clientId);
           const v = c?.vehicles?.find(x => x.domain === o.domain);
-          const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+          const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
           const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
           const saldo = Math.max(0, ctaMonto - pagadoParcial);
           if (o.ctaCobrada) return null;
@@ -6151,7 +6151,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         {/* ══ MODAL PAGO CTA CTE ══ */}
         {showCtaPago && ctaPagoOrder && (() => {
           const cl = clients.find(x => x.id === ctaPagoOrder.clientId);
-          const ctaMonto = (ctaPagoOrder.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+          const ctaMonto = (ctaPagoOrder.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
           return (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
               onClick={() => setShowCtaPago(false)}>
@@ -6321,7 +6321,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           
           {/* Cobros efectivo */}
           {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Efectivo")).map(o => {
-            const efAmt = (o.payments || []).filter(p => p.method === "Efectivo").reduce((s, p) => s + (p.amount || 0), 0);
+            const efAmt = (o.payments || []).filter(p => p.method === "Efectivo").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
             return (
               <div key={"ef-" + o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
                 <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> <span style={{ color: T.green, fontSize: 11, fontWeight: 700, marginRight: 4 }}>EFECTIVO</span> {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
@@ -6332,7 +6332,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           
           {/* Cobros tarjeta/transferencia — VIRTUALES */}
           {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Tarjeta" || p.method === "Transferencia")).map(o => {
-            const virtAmt = (o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").reduce((s, p) => s + (p.amount || 0), 0);
+            const virtAmt = (o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
             const mets = [...new Set((o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").map(p => p.method))].join("/");
             return (
               <div key={"virt-" + o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13, opacity: 0.75 }}>
@@ -6563,7 +6563,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               {ingresoTipo === "ctacte" && (() => {
                 const ctaPendientes = orders.filter(o => {
                   if (o.ctaCobrada) return false;
-                  const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                  const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                   const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
                   return (monto - pagadoParcial) > 0;
                 });
@@ -6573,7 +6573,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 const totalSel = ctaSelOrders.reduce((s, id) => {
                   const o = orders.find(x => x.id === id);
                   if (!o) return s;
-                  const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0);
+                  const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
                   const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
                   return s + Math.max(0, monto - pagadoParcial);
                 }, 0);
@@ -6587,7 +6587,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     {ctaFiltradas.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 12, textAlign: "center" }}>Sin cuentas corrientes pendientes</div>}
                     {ctaFiltradas.map(o => {
                       const c = clients.find(x => x.id === o.clientId);
-                      const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                      const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                       const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
                       const saldo = Math.max(0, ctaMonto - pagadoParcial);
                       const sel = ctaSelOrders.includes(o.id);
@@ -6753,7 +6753,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                                 desc: ctaIngresoDesc,
                               };
                               const updPagos = [...(o.ctaPagos || []), nuevoPago];
-                              const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                              const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                               const totalPagado = updPagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
                               const saldoFinal = ctaMonto - totalPagado;
                               return { ...o, ctaPagos: updPagos, ctaCobrada: saldoFinal <= 0, cobrado: saldoFinal <= 0 };
@@ -6850,7 +6850,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         {(() => {
           // Facturas reales (A, B, C) + Comprobantes (sin validez fiscal), ordenados más reciente primero
           const lista = [...conFactura, ...conTicket].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-          const montoTotal = conFactura.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+          const montoTotal = conFactura.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const cntA = factA.length, cntB = factB.length, cntC = factC.length;
 
           return (
@@ -6891,7 +6891,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               ) : (
                 lista.map(o => {
                   const c = clients.find(x => x.id === o.clientId);
-                  const monto = (o.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+                  const monto = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                   const tipos = [...new Set((o.payments || []).map(p => p.invoiceType).filter(Boolean))];
                   const tipoColor = tipos.includes("A") ? T.accent : tipos.includes("B") ? "#9C27B0" : T.orange;
                   const nroFact = o.factura?.numero || o.ticket?.numero || null;
@@ -8251,7 +8251,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 {(() => {
                   const ms = {}; completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; ms[m] = (ms[m] || 0) + 1; });
                   return Object.entries(ms).sort((a, b) => b[1] - a[1]).map(([name, cnt]) => {
-                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
                     return (<div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
                       <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{cnt} órdenes</div></div>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(rev)}</div>
@@ -8616,7 +8616,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         // ── VENTAS del mes ──
         const completed = orders.filter(o => o.status === "delivered" || o.status === "ready");
         const ventasDelMes = completed.filter(o => (o.date || "").startsWith(ym));
-        const totalVentasMes = ventasDelMes.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+        const totalVentasMes = ventasDelMes.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
         const metodosVenta = ["Efectivo","Transferencia","Tarjeta","Cuenta Corriente"];
         const ventasPorMetodo = Object.fromEntries(metodosVenta.map(m => [
           m,
@@ -8624,7 +8624,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         ]));
         const montoPorMetodo = Object.fromEntries(metodosVenta.map(m => [
           m,
-          ventasDelMes.reduce((s, o) => s + (o.payments || []).filter(p => p.method === m).reduce((s2, p) => s2 + (p.amount || 0), 0), 0)
+          ventasDelMes.reduce((s, o) => s + (o.payments || []).filter(p => p.method === m).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0)
         ]));
 
         const SUB_TABS = [
@@ -8734,7 +8734,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 ? ventasDelMes.filter(o => (o.payments || []).some(p => p.method === cmVentaMetodo))
                 : ventasDelMes;
               const montoFiltrado = cmVentaMetodo
-                ? ventasDelMes.reduce((s, o) => s + (o.payments || []).filter(p => p.method === cmVentaMetodo).reduce((s2, p) => s2 + (p.amount || 0), 0), 0)
+                ? ventasDelMes.reduce((s, o) => s + (o.payments || []).filter(p => p.method === cmVentaMetodo).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0)
                 : totalVentasMes;
 
               return (
@@ -8793,8 +8793,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       {[...ordenesFiltradas].sort((a, b) => (b.date || "").localeCompare(a.date || "")).map(o => {
                         const cl = clients.find(x => x.id === o.clientId);
                         const tot = cmVentaMetodo
-                          ? (o.payments || []).filter(p => p.method === cmVentaMetodo).reduce((s, p) => s + (p.amount || 0), 0)
-                          : (o.works||[]).reduce((s, w) => s + (w.price || 0), 0);
+                          ? (o.payments || []).filter(p => p.method === cmVentaMetodo).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+                          : (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                         const mets = [...new Set((o.payments || []).map(p => p.method).filter(Boolean))];
                         return (
                           <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
@@ -9083,7 +9083,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       o.startedBy === emp.name ||
                       (o.works || []).some(w => w.tech === emp.name)
                     );
-                    const facturadoEmp = ordsTrabajadas.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
+                    const facturadoEmp = ordsTrabajadas.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
 
                     return (
                       <div key={emp.id} style={{ ...card, padding: 0, marginBottom: 14, overflow: "hidden",
