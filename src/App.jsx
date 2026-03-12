@@ -6163,13 +6163,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     { key: "caja", icon: "📒", l: "Caja" },
     { key: "facturas", icon: "🧾", l: "Facturación" },
     { key: "historial", icon: "📚", l: "Historial" },
-    { key: "stats", icon: "📈", l: "Estadísticas" },
+    { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
     { key: "ctacte", icon: "💰", l: "Cta. Cte." },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
     // Multi-tenant: Ignacio solo en sucursales con módulo habilitado
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
-    { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
+    { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "campanas", icon: "📣", l: "Campañas" },
   ];
   // Si el usuario solo tiene permiso de cobro (no admin), mostrar solo tab Cobros
@@ -9503,9 +9503,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
         serviceAlerts.sort((a, b) => a.kmRemaining - b.kmRemaining);
 
+        // Filtrar descartados (vuelven a aparecer si el auto ingresa de nuevo al taller)
+        const dismissed = config.dismissedReminders || {};
+        const filteredAlerts = serviceAlerts.filter(a => !dismissed[a.vehicle.domain]);
+
         // ── Sub-vistas ──
         const CAMP_VIEWS = [
-          { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: serviceAlerts.length },
+          { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: filteredAlerts.length },
           { key: "promo", icon: "📣", l: "Promoción" },
           { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
         ];
@@ -9518,7 +9522,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {CAMP_VIEWS.map(v => (
-                <div key={v.key} onClick={() => setStatView(v.key)}
+                <div key={v.key} onClick={() => { setStatView(v.key); setHistDetail(null); }}
                   style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
@@ -9535,7 +9539,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
         return (
           <div>
-            <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
+            <button onClick={() => { setStatView(null); setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
 
             {/* ── SERVICE RECORDATORIO ── */}
             {cv === "recordatorio" && (
@@ -9552,13 +9556,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.green, display: "inline-block" }} /> Más de {ALERT_GREEN} km</span>
                 </div>
 
-                {serviceAlerts.length === 0 && (
+                {filteredAlerts.length === 0 && (
                   <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>
                     ✅ No hay vehículos próximos a su service
                   </div>
                 )}
 
-                {serviceAlerts.map(a => {
+                {filteredAlerts.map(a => {
                   const urgColor = a.urgency === "overdue" ? T.red : a.urgency === "red" ? T.red : T.orange;
                   return (
                     <div key={a.vehicle.domain} style={{ ...card, padding: 0, marginBottom: 12, borderLeft: `4px solid ${urgColor}`, overflow: "hidden" }}>
@@ -9613,6 +9617,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                             if (a.client.phone) sendWA(a.client.phone, msg, wahaUrl, wahaKey);
                           }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>
                             📱 Enviar recordatorio
+                          </button>
+                          <button onClick={() => {
+                            // Descartar recordatorio (se guarda en config para no volver a mostrarlo)
+                            setConfig(prev => ({
+                              ...prev,
+                              dismissedReminders: {
+                                ...(prev.dismissedReminders || {}),
+                                [a.vehicle.domain]: new Date().toISOString().split("T")[0],
+                              }
+                            }));
+                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, padding: "8px 14px" }}
+                            title="Descartar recordatorio">
+                            ✕
+                          </button>
                           </button>
                         </div>
                       </div>
@@ -9690,7 +9708,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             {/* ── CLIENTES DORMIDOS ── */}
             {cv === "dormidos" && (() => {
               const SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
-              const allCompleted = orders.filter(o => o.status === "delivered" || o.status === "done");
+              const allCompleted = orders.filter(o => o.status === "delivered" || o.status === "done" || o.status === "ready");
 
               // Agrupar por tipo de servicio, filtrar clientes con última visita > 6 meses
               const dormidosGroups = {};
