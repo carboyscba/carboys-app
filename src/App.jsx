@@ -1621,6 +1621,7 @@ const NewOrderScreen = (props) => {
   const [dniFoundClient, setDniFoundClient] = useState(null);
   const [crossResult, setCrossResult] = useState(null); // resultado de búsqueda cross-sucursal
   const [crossSearching, setCrossSearching] = useState(false); // buscando en otras sucursales
+  const [crossNotif, setCrossNotif] = useState(null); // notificación automática: vehículo atendido en otra suc
   const [deleteClientConfirm, setDeleteClientConfirm] = useState(null); // client to delete
   const [addingNewVehicle, setAddingNewVehicle] = useState(false);
   const [foundClient, setFoundClient] = useState(null);
@@ -1645,6 +1646,7 @@ const NewOrderScreen = (props) => {
   const searchDomain = () => {
     const d = domainSearch.toUpperCase().trim();
     if (!d) return;
+    setCrossNotif(null); // limpiar notificación previa
     for (const c of clients) {
       const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
       if (v) {
@@ -1655,6 +1657,12 @@ const NewOrderScreen = (props) => {
         setFoundClient(c);
         setFoundVehicle(v);
         setForm({ name: c.name, lastName: c.lastName, dni: c.dni || "", cuit: c.cuit || "", phone: c.phone || "", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
+        // ── Cross-sucursal: buscar en background si fue atendido en otra sede ──
+        if (SUCURSALES_REGISTRY.length > 1) {
+          crossSearch("domain", v.domain).then(result => {
+            if (result) setCrossNotif(result);
+          }).catch(() => {});
+        }
         return;
       }
     }
@@ -1985,7 +1993,12 @@ const NewOrderScreen = (props) => {
                           setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
                           setFoundClient(c);
                           setFoundVehicle(v);
+                          setCrossNotif(null);
                           setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
+                          // Cross-sucursal: buscar si fue atendido en otra sede
+                          if (SUCURSALES_REGISTRY.length > 1) {
+                            crossSearch("domain", v.domain).then(r => { if (r) setCrossNotif(r); }).catch(() => {});
+                          }
                         }} style={{ ...card, padding: 14, cursor: activeOrder ? "not-allowed" : "pointer", borderColor: activeOrder ? T.orange : T.border, opacity: activeOrder ? 0.7 : 1 }}
                           onMouseEnter={e => { if (!activeOrder) e.currentTarget.style.background = T.bg3; }}
                           onMouseLeave={e => { if (!activeOrder) e.currentTarget.style.background = T.bg2; }}>
@@ -2037,6 +2050,37 @@ const NewOrderScreen = (props) => {
                       </div>
                       {/* Botón Nueva Visita — exclusivo de este flujo */}
                       <div style={{ marginTop: 16 }}>
+                        {/* ── Notificación cross-sucursal automática ── */}
+                        {crossNotif && (
+                          <div style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(30,136,229,0.08)", border: `1px solid rgba(30,136,229,0.25)`, animation: "fadeUp .3s ease" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                              <span style={{ fontSize: 16 }}>{crossNotif.sucursal.icon || "📍"}</span>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>
+                                También atendido en {crossNotif.sucursal.nombre}
+                              </div>
+                            </div>
+                            {crossNotif.orders && crossNotif.orders.length > 0 && (
+                              <div>
+                                {crossNotif.orders.slice(0, 3).map(o => (
+                                  <div key={o.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
+                                    <span style={{ color: T.grayLight }}>
+                                      {fmtDate(o.date)} — {(o.works || []).map(w => w.type).join(", ") || "Sin detalle"}
+                                    </span>
+                                    <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>
+                                      {o.km ? `${parseInt(o.km).toLocaleString("es-AR")} km` : ""}
+                                    </span>
+                                  </div>
+                                ))}
+                                {crossNotif.orders.length > 3 && (
+                                  <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>
+                                    +{crossNotif.orders.length - 3} servicio{crossNotif.orders.length - 3 !== 1 ? "s" : ""} más en {crossNotif.sucursal.nombre}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {activeOrder && (
                           <div style={{ fontSize: 12, color: T.orange, fontWeight: 600, padding: "10px 14px", background: `${T.orange}10`, borderRadius: 8, marginBottom: 10 }}>
                             ⚠️ Este vehículo ya tiene una orden activa en taller
