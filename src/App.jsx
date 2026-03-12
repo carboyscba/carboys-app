@@ -5072,6 +5072,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [pagoMesForm, setPagoMesForm]   = useState({ nroFc: "", vencimiento: "", monto: "", metodo: "" });
   const [showNuevaFcServ, setShowNuevaFcServ] = useState(false);
   const [nuevaFcServForm, setNuevaFcServForm] = useState({ anio: new Date().getFullYear(), mes: new Date().getMonth(), monto: "", fechaEmision: new Date().toISOString().split("T")[0], vencimiento: "" });
+  const [delFcServConfirm, setDelFcServConfirm] = useState(false);
   const [showConfirmDelServ, setShowConfirmDelServ] = useState(null); // id servicio a eliminar
   const [showConfirmDelProv, setShowConfirmDelProv] = useState(null); // id proveedor a eliminar
   // CTA CTE — pago directo
@@ -6999,8 +7000,28 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
                 return pagado < (f.monto || 0) && f.fechaVenc && f.fechaVenc < today;
               }).length;
+              const proxVencer = pvFacts.filter(f => {
+                const pagado = (f.pagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+                if (pagado >= (f.monto || 0) || !f.fechaVenc || f.fechaVenc < today) return false;
+                const diff = Math.ceil((new Date(f.fechaVenc) - new Date(today)) / 86400000);
+                return diff <= 7;
+              }).length;
+
+              // Badge de estado
+              let badgeColor, badgeText, badgeBg, cardBorderL;
+              if (vencidas > 0) {
+                badgeColor = T.red; badgeText = `⚠️ FC vencida${vencidas > 1 ? "s" : ""}`; badgeBg = `${T.red}15`; cardBorderL = T.red;
+              } else if (proxVencer > 0) {
+                badgeColor = "#F59E0B"; badgeText = `⏰ FC por vencer`; badgeBg = `#F59E0B15`; cardBorderL = "#F59E0B";
+              } else if (pvTotal === 0 && pvFacts.length > 0) {
+                badgeColor = T.green; badgeText = "✅ Al día"; badgeBg = `${T.green}12`; cardBorderL = T.green;
+              } else {
+                badgeColor = T.gray; badgeText = null; badgeBg = "transparent"; cardBorderL = T.border;
+              }
+
               return (
-                <div key={pv.id} style={{ ...card, padding: 16, marginBottom: 10, position: "relative" }}>
+                <div key={pv.id} style={{ ...card, padding: 16, marginBottom: 10, position: "relative",
+                  borderLeft: `4px solid ${cardBorderL}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
                     onClick={() => { setSelProv(pv); setFactsSeleccionadas(new Set()); }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -7011,9 +7032,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       </div>
                     </div>
                     <div style={{ textAlign: "right", marginRight: 30 }}>
-                      {pvTotal > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(pvTotal)}</div>}
-                      {vencidas > 0 && <div style={{ fontSize: 10, color: T.red, fontWeight: 700 }}>⚠️ {vencidas} vencida{vencidas !== 1 ? "s" : ""}</div>}
-                      {pvTotal === 0 && <div style={{ fontSize: 12, color: T.green }}>✅ Al día</div>}
+                      {pvTotal > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange, marginBottom: 4 }}>{fmt(pvTotal)}</div>}
+                      {badgeText && (
+                        <div style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, background: badgeBg,
+                          fontSize: 11, fontWeight: 700, color: badgeColor, border: `1px solid ${badgeColor}40` }}>
+                          {badgeText}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {/* Botón editar proveedor */}
@@ -7341,7 +7366,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {(selServ || selServMes) && (
-              <span onClick={() => { if (selServMes) { setSelServMes(null); } else { setSelServ(null); } }}
+              <span onClick={() => { if (selServMes) { setSelServMes(null); setDelFcServConfirm(false); } else { setSelServ(null); } }}
                 style={{ cursor: "pointer", fontSize: 20, color: T.gray, padding: "0 4px" }}>←</span>
             )}
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>
@@ -7355,9 +7380,27 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
         {/* ══ NIVEL 3: detalle de un MES dentro de un servicio ══ */}
         {selServMes && selServ && (() => {
-          const mesKey = `${selServMes.year}-${String(selServMes.month + 1).padStart(2, "0")}`;
+          const mesKey  = `${selServMes.year}-${String(selServMes.month + 1).padStart(2, "0")}`;
           const mesData = (selServ.meses || {})[mesKey] || {};
-          const pagado = mesData.pagado || false;
+          const pagado  = mesData.pagado || false;
+          const hoy     = new Date().toISOString().split("T")[0];
+
+          const updateMes = (fields) => {
+            const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, ...fields } } };
+            setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+            setSelServ(upd);
+          };
+
+          const eliminarFc = () => {
+            const mesesSinEste = { ...(selServ.meses || {}) };
+            delete mesesSinEste[mesKey];
+            if (mesData.egresoId) setEgresos(p => p.filter(e => e.id !== mesData.egresoId));
+            const upd = { ...selServ, meses: mesesSinEste };
+            setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+            setSelServ(upd);
+            setSelServMes(null);
+            setDelFcServConfirm(false);
+          };
 
           return (
             <div>
@@ -7368,23 +7411,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <div>
                     <label style={labelStyle}>Nro. de Factura</label>
                     <input inputMode="text" value={mesData.nroFc || ""} disabled={pagado}
-                      onChange={e => {
-                        const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, nroFc: e.target.value } } };
-                        setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-                        setSelServ(upd);
-                      }}
+                      onChange={e => updateMes({ nroFc: e.target.value })}
                       style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} placeholder="Ej: 0001-00012345" />
                   </div>
                   <div>
                     <label style={labelStyle}>Vencimiento</label>
                     <input type="date" value={mesData.vencimiento || ""} disabled={pagado}
-                      onChange={e => {
-                        const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, vencimiento: e.target.value } } };
-                        setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-                        setSelServ(upd);
-                      }}
+                      onChange={e => updateMes({ vencimiento: e.target.value })}
                       style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} />
                   </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Fecha de emisión</label>
+                  <input type="date" value={mesData.fechaEmision || ""} disabled={pagado}
+                    onChange={e => updateMes({ fechaEmision: e.target.value })}
+                    style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} />
                 </div>
                 <div>
                   <label style={labelStyle}>Monto</label>
@@ -7392,21 +7433,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
                     <input inputMode="numeric" disabled={pagado}
                       value={mesData.monto ? Number(mesData.monto).toLocaleString("es-AR") : ""}
-                      onChange={e => {
-                        const val = e.target.value.replace(/[^0-9]/g, "");
-                        const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, monto: val } } };
-                        setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-                        setSelServ(upd);
-                      }}
+                      onChange={e => updateMes({ monto: e.target.value.replace(/[^0-9]/g, "") })}
                       style={{ ...inputStyle, flex: 1, opacity: pagado ? 0.5 : 1 }} placeholder="0" />
                   </div>
                 </div>
                 {/* Vencimiento warning */}
                 {mesData.vencimiento && !pagado && (() => {
-                  const hoy = new Date().toISOString().split("T")[0];
                   const diff = Math.ceil((new Date(mesData.vencimiento) - new Date(hoy)) / 86400000);
                   if (diff < 0) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.red}15`, border: `1px solid ${T.red}40`, fontSize: 12, fontWeight: 700, color: T.red }}>⚠️ Vencida hace {Math.abs(diff)} día{Math.abs(diff) !== 1 ? "s" : ""}</div>;
-                  if (diff <= 5) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.orange}15`, border: `1px solid ${T.orange}40`, fontSize: 12, fontWeight: 700, color: T.orange }}>⏰ Vence en {diff} día{diff !== 1 ? "s" : ""}</div>;
+                  if (diff <= 7) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.orange}15`, border: `1px solid ${T.orange}40`, fontSize: 12, fontWeight: 700, color: T.orange }}>⏰ Vence en {diff} día{diff !== 1 ? "s" : ""}</div>;
                   return null;
                 })()}
               </div>
@@ -7426,11 +7461,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       </div>
                     </div>
                     <button onClick={() => {
-                      // Deshacer pago — quitar también el egreso de caja
-                      const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, pagado: false, pagoMetodo: undefined, pagoFecha: undefined, pagoMonto: undefined, egresoId: undefined } } };
                       if (mesData.egresoId) setEgresos(p => p.filter(e => e.id !== mesData.egresoId));
-                      setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-                      setSelServ(upd);
+                      updateMes({ pagado: false, pagoMetodo: undefined, pagoFecha: undefined, pagoMonto: undefined, egresoId: undefined });
                     }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 11, marginLeft: "auto", padding: "6px 12px", color: T.red }}>
                       Deshacer
                     </button>
@@ -7445,6 +7477,28 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   💳 Pagar Factura
                 </button>
               )}
+
+              {/* Zona eliminar FC */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+                {!delFcServConfirm ? (
+                  <button onClick={() => setDelFcServConfirm(true)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, width: "100%", fontSize: 13 }}>
+                    🗑️ Eliminar esta factura
+                  </button>
+                ) : (
+                  <div style={{ background: `${T.red}10`, borderRadius: 10, padding: 14, border: `1px solid ${T.red}40` }}>
+                    <div style={{ fontSize: 13, color: T.red, fontWeight: 700, marginBottom: 10, textAlign: "center" }}>
+                      ¿Eliminar factura {selServMes.label}?{pagado ? " También se eliminará el egreso de caja." : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setDelFcServConfirm(false)}
+                        style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>Cancelar</button>
+                      <button onClick={eliminarFc}
+                        style={{ ...btnPrimary(T.red), flex: 1, fontSize: 12, fontWeight: 800 }}>🗑️ Sí, eliminar</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })()}
@@ -7462,7 +7516,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           const anioActual = now.getFullYear();
           const anioMin    = 2026;
           const aniosConDatos = [...new Set(Object.keys(svMeses).map(k => parseInt(k.split("-")[0])))].filter(y => y >= anioMin);
-          const maxAnio = Math.max(anioActual + 1, ...aniosConDatos, anioMin);
+          const maxAnio = Math.max(anioActual, ...aniosConDatos, anioMin);
           const anios   = Array.from({ length: maxAnio - anioMin + 1 }, (_, i) => maxAnio - i); // más reciente primero
           const anioExpandido = selServAnio !== null ? selServAnio : anioActual >= anioMin ? anioActual : anioMin;
 
@@ -7599,20 +7653,36 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             {servicios.map(s => {
               const svMeses = s.meses || {};
               const now = new Date();
-              const mesActualKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-              const mesActualPagado = svMeses[mesActualKey]?.pagado || false;
-              const hoy = new Date().toISOString().split("T")[0];
-              const tieneVencidos = Object.entries(svMeses).some(([k, m]) => !m.pagado && m.vencimiento && m.vencimiento < hoy);
-              const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
+              const hoy = now.toISOString().split("T")[0];
+              const todosLosMeses = Object.values(svMeses);
+              const tieneVencidas = todosLosMeses.some(m => !m.pagado && m.vencimiento && m.vencimiento < hoy);
+              const tieneProxVencer = !tieneVencidas && todosLosMeses.some(m => {
+                if (m.pagado || !m.vencimiento || m.vencimiento < hoy) return false;
+                const diff = Math.ceil((new Date(m.vencimiento) - new Date(hoy)) / 86400000);
+                return diff <= 7;
+              });
+              const tienePendientes = todosLosMeses.some(m => !m.pagado && m.monto);
+              const cantPagados = todosLosMeses.filter(m => m.pagado).length;
+
+              // Badge de estado
+              let badgeColor, badgeText, badgeBg, cardBorderL;
+              if (tieneVencidas) {
+                badgeColor = T.red; badgeText = "⚠️ FC vencidas"; badgeBg = `${T.red}15`; cardBorderL = T.red;
+              } else if (tieneProxVencer) {
+                badgeColor = "#F59E0B"; badgeText = "⏰ FC por vencer"; badgeBg = `#F59E0B15`; cardBorderL = "#F59E0B";
+              } else if (!tienePendientes && cantPagados > 0) {
+                badgeColor = T.green; badgeText = "✅ Al día"; badgeBg = `${T.green}12`; cardBorderL = T.green;
+              } else {
+                badgeColor = T.gray; badgeText = null; badgeBg = "transparent"; cardBorderL = T.border;
+              }
 
               return (
                 <div key={s.id} style={{ ...card, padding: 16, marginBottom: 10,
-                    borderLeft: `4px solid ${mesActualPagado ? T.green : tieneVencidos ? T.red : T.border}`,
-                    position: "relative" }}>
+                    borderLeft: `4px solid ${cardBorderL}`, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
                     onClick={() => setSelServ(s)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontSize: 28 }}>{mesActualPagado ? "✅" : tieneVencidos ? "⚠️" : "🔌"}</div>
+                      <div style={{ fontSize: 28 }}>🔌</div>
                       <div>
                         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{s.nombre}</div>
                         {s.desc && <div style={{ fontSize: 12, color: T.gray }}>{s.desc}</div>}
@@ -7620,10 +7690,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       </div>
                     </div>
                     <div style={{ textAlign: "right", marginRight: 30 }}>
-                      {mesActualPagado
-                        ? <div style={{ fontSize: 12, color: T.green, fontWeight: 700 }}>✅ Mes actual</div>
-                        : tieneVencidos ? <div style={{ fontSize: 12, color: T.red, fontWeight: 700 }}>⚠️ Vencida</div>
-                        : <div style={{ fontSize: 18, color: T.gray }}>›</div>}
+                      {badgeText && (
+                        <div style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, background: badgeBg,
+                          fontSize: 11, fontWeight: 700, color: badgeColor, border: `1px solid ${badgeColor}40` }}>
+                          {badgeText}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {/* Botón editar */}
