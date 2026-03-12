@@ -5072,6 +5072,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [pagoMesForm, setPagoMesForm]   = useState({ nroFc: "", vencimiento: "", monto: "", metodo: "" });
   const [showConfirmDelServ, setShowConfirmDelServ] = useState(null); // id servicio a eliminar
   const [showConfirmDelProv, setShowConfirmDelProv] = useState(null); // id proveedor a eliminar
+  // CTA CTE — pago directo
+  const [showCtaPago, setShowCtaPago] = useState(false);
+  const [ctaPagoOrder, setCtaPagoOrder] = useState(null);
+  const [ctaPagoForm, setCtaPagoForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Efectivo" });
+  // PROVEEDORES — edición
+  const [editProvModal, setEditProvModal] = useState(null); // proveedor obj
+  const [editProvForm, setEditProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
+  const [delProvConfirm, setDelProvConfirm] = useState(0); // 0, 1, 2
+  // SERVICIOS — edición
+  const [editServModal, setEditServModal] = useState(null); // servicio obj
+  const [editServForm, setEditServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "" });
+  const [delServConfirm, setDelServConfirm] = useState(0);
+  // CAJA — saldo inicial
+  const [showSaldoInicial, setShowSaldoInicial] = useState(false);
+  const [saldoInicialMonto, setSaldoInicialMonto] = useState("");
   const [showPagoIg, setShowPagoIg] = useState(false);
   const [selGastoIg, setSelGastoIg] = useState(null);
   const [pagoIgForm, setPagoIgForm] = useState({ fecha: new Date().toISOString().split("T")[0], metodo: "" });
@@ -5086,12 +5101,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
   const startDate = period === "dia" ? today : period === "semana" ? weekAgo : monthAgo;
+  // Normaliza cualquier formato de fecha a "YYYY-MM-DD"
+  const normDate = (d) => {
+    if (!d) return "";
+    if (typeof d === "number") return new Date(d).toISOString().split("T")[0];
+    if (typeof d === "string") return d.slice(0, 10);
+    return "";
+  };
 
   const completed = orders.filter(o => o.status === "done" || o.status === "delivered");
-  const periodOrders = completed.filter(o => (o.date || "") >= startDate);
+  const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today);
   const totalVentas = periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (w.price || 0), 0), 0);
   const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
-  const periodEgresos = egresos.filter(e => e.fecha >= startDate);
+  const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
   const egresosEfectivo = periodEgresos.filter(e => !e.metodoPago || e.metodoPago === "Efectivo");
   const egresosVirtuales = periodEgresos.filter(e => e.metodoPago && e.metodoPago !== "Efectivo");
@@ -5821,12 +5843,29 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 {o.payments && o.payments.length > 0 && (
                   <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Pago</div>
-                    {(o.payments||[]).map((pm, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
-                        <span>{pm.method || "—"}{pm.account ? " — Cta " + pm.account : ""}{pm.withIva ? " (con IVA)" : ""}{pm.invoiceType ? " Fact. " + pm.invoiceType : ""}</span>
-                        <span style={{ fontWeight: 700, color: T.accent }}>{fmt(pm.amount || 0)}</span>
-                      </div>
-                    ))}
+                    {(o.payments||[]).map((pm, i) => {
+                      const invLabel = pm.invoiceType === "T" ? "Comprobante" : pm.invoiceType ? `Factura ${pm.invoiceType}` : "";
+                      const ivaLabel = pm.withIva ? " · Con IVA" : "";
+                      return (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                          <span style={{ color: T.grayLight }}>
+                            {pm.method || "—"}
+                            {ivaLabel}
+                            {invLabel ? <span style={{ fontSize: 11, color: T.gray, marginLeft: 6 }}>· {invLabel}</span> : null}
+                          </span>
+                          <span style={{ fontWeight: 700, color: T.accent }}>{fmt(pm.amount || 0)}</span>
+                        </div>
+                      );
+                    })}
+                    {/* Botón Ver Factura / Comprobante */}
+                    {(o.factura || o.ticket) && (
+                      <button onClick={() => {
+                        if (o.factura) setFacturaModal({ order: o, payments: o.payments, client: clients.find(c => c.id === o.clientId), vehicle: clients.find(c => c.id === o.clientId)?.vehicles?.find(v => v.domain === o.domain) });
+                        else setTicketModal({ order: o, payments: o.payments, client: clients.find(c => c.id === o.clientId), vehicle: clients.find(c => c.id === o.clientId)?.vehicles?.find(v => v.domain === o.domain) });
+                      }} style={{ ...btnPrimary(T.accent), marginTop: 12, width: "100%", fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        🧾 Ver {o.factura ? "Factura" : "Comprobante"}
+                      </button>
+                    )}
                   </div>
                 )}
                 {o.techNotes && o.techNotes.length > 0 && o.techNotes.some(n => n) && (
@@ -6064,9 +6103,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           const c = clients.find(x => x.id === o.clientId);
           const v = c?.vehicles?.find(x => x.domain === o.domain);
           const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+          if (o.ctaCobrada) return null;
           return (
-            <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => onNavigate("vehicleDetail", o)}>
                 <div>
                   <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
                   <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
@@ -6079,10 +6119,79 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <div style={{ fontSize: 10, fontWeight: 700, color: o.status === "delivered" ? T.green : T.orange, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : "EN TALLER"}</div>
                 </div>
               </div>
+              <button onClick={e => { e.stopPropagation(); setCtaPagoOrder(o); setCtaPagoForm({ fecha: today, monto: String(ctaMonto), metodo: "Efectivo" }); setShowCtaPago(true); }}
+                style={{ ...btnPrimary(T.green), width: "100%", marginTop: 10, fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                💰 Registrar Pago
+              </button>
             </div>
           );
         })}
-        {ctaFiltered.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin cuentas corrientes{ctaFilter ? " para ese filtro" : ""}</div>}
+        {ctaFiltered.filter(o => !o.ctaCobrada).length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin cuentas corrientes pendientes{ctaFilter ? " para ese filtro" : ""}</div>}
+
+        {/* ══ MODAL PAGO CTA CTE ══ */}
+        {showCtaPago && ctaPagoOrder && (() => {
+          const cl = clients.find(x => x.id === ctaPagoOrder.clientId);
+          const ctaMonto = (ctaPagoOrder.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
+              onClick={() => setShowCtaPago(false)}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 400, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 4 }}>💰 Registrar Pago</div>
+                <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 20 }}>
+                  {fmtD(ctaPagoOrder.domain)} · {cl ? cl.name + " " + cl.lastName : "—"}
+                </div>
+                <div style={{ ...card, padding: 12, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: T.gray }}>Total Cta. Cte.</span>
+                  <span style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(ctaMonto)}</span>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Fecha de pago *</label>
+                  <input type="date" value={ctaPagoForm.fecha} onChange={e => setCtaPagoForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Monto recibido *</label>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontWeight: 800, color: T.accent, fontSize: 16 }}>$</span>
+                    <input inputMode="numeric" value={ctaPagoForm.monto ? Number(ctaPagoForm.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => setCtaPagoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                      style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 700 }} placeholder="0" />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={labelStyle}>Forma de pago *</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["Efectivo", "Transferencia", "Tarjeta"].map(m => (
+                      <div key={m} onClick={() => setCtaPagoForm(f => ({ ...f, metodo: m }))}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, textAlign: "center",
+                          background: ctaPagoForm.metodo === m ? (m === "Efectivo" ? `${T.green}25` : m === "Tarjeta" ? "#9C27B025" : `${T.accent}25`) : T.bg,
+                          color: ctaPagoForm.metodo === m ? (m === "Efectivo" ? T.green : m === "Tarjeta" ? "#9C27B0" : T.accent) : T.gray,
+                          border: `2px solid ${ctaPagoForm.metodo === m ? (m === "Efectivo" ? T.green : m === "Tarjeta" ? "#9C27B0" : T.accent) : T.border}` }}>
+                        {m === "Efectivo" ? "💵" : m === "Tarjeta" ? "💳" : "🔁"}<br/>{m}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowCtaPago(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button onClick={() => {
+                    if (!ctaPagoForm.monto || !ctaPagoForm.metodo || !ctaPagoForm.fecha) return;
+                    const monto = parseFloat(ctaPagoForm.monto) || 0;
+                    // Marcar ctaCobrada y agregar pago real
+                    setOrders(prev => prev.map(o => o.id === ctaPagoOrder.id ? {
+                      ...o, ctaCobrada: true, cobrado: true,
+                      payments: (o.payments || []).map(p => p.method === "Cuenta Corriente" ? { ...p, method: ctaPagoForm.metodo, amount: monto, ctaFechaPago: ctaPagoForm.fecha } : p)
+                    } : o));
+                    // Registrar ingreso en caja
+                    const egresoEntry = { id: Date.now(), desc: `Cobro Cta. Cte. — ${fmtD(ctaPagoOrder.domain)}`, monto, fecha: ctaPagoForm.fecha, categoria: "cobro_cta_cte", metodoPago: ctaPagoForm.metodo, esIngreso: true };
+                    setEgresos(prev => [...prev, egresoEntry]);
+                    setShowCtaPago(false);
+                    setCtaPagoOrder(null);
+                  }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 15 }}>✓ Confirmar Pago</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>)}
 
       {/* ══════ CAJA ══════ */}
@@ -6150,6 +6259,41 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           <button onClick={() => { setShowIngreso(true); setIngresoTipo(""); setCtaSelOrders([]); setCtaSearchIngreso(""); setCtaIngresoMonto(""); setCtaIngresoStep(1); }} style={{ ...btnPrimary(T.green), fontSize: 13, padding: "14px 0" }}>➕ Registrar Ingreso</button>
           <button onClick={() => setShowEgreso(true)} style={{ ...btnPrimary(T.red), fontSize: 13, padding: "14px 0" }}>➖ Registrar Egreso</button>
         </div>
+        {/* Botón saldo inicial — solo si nunca se estableció */}
+        {!ultimoCierre && !egresos.some(e => e.categoria === "saldo_inicial") && (
+          <button onClick={() => { setSaldoInicialMonto(""); setShowSaldoInicial(true); }}
+            style={{ ...btnPrimary(T.bg3), border: `2px dashed ${T.border}`, width: "100%", marginBottom: 16, fontSize: 13, padding: "12px 0", color: T.grayLight, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            💰 Establecer saldo inicial de caja
+          </button>
+        )}
+
+        {/* ══ MODAL SALDO INICIAL ══ */}
+        {showSaldoInicial && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
+            onClick={() => setShowSaldoInicial(false)}>
+            <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 360, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 36, textAlign: "center", marginBottom: 10 }}>💰</div>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, textAlign: "center", marginBottom: 8 }}>Saldo inicial de caja</div>
+              <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 20, lineHeight: 1.6 }}>
+                Ingresá el dinero en efectivo que tenés en caja al momento de empezar a usar la app.
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 24 }}>
+                <span style={{ fontWeight: 800, fontSize: 20, color: T.accent }}>$</span>
+                <input inputMode="numeric" value={saldoInicialMonto ? Number(saldoInicialMonto).toLocaleString("es-AR") : ""}
+                  onChange={e => setSaldoInicialMonto(e.target.value.replace(/[^0-9]/g, ""))}
+                  style={{ ...inputStyle, flex: 1, fontSize: 22, fontWeight: 800, textAlign: "center" }} placeholder="0" autoFocus />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowSaldoInicial(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!saldoInicialMonto) return;
+                  setEgresos(prev => [...prev, { id: Date.now(), desc: "Saldo inicial de caja", monto: parseFloat(saldoInicialMonto) || 0, fecha: today, categoria: "saldo_inicial", metodoPago: "Efectivo", esIngreso: true }]);
+                  setShowSaldoInicial(false);
+                }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 15 }}>✓ Confirmar</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── MOVIMIENTOS DEL PERÍODO ── */}
         <div style={{ ...card, padding: 16, marginBottom: 16 }}>
@@ -6864,11 +7008,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       {pvTotal === 0 && <div style={{ fontSize: 12, color: T.green }}>✅ Al día</div>}
                     </div>
                   </div>
-                  {/* Botón eliminar proveedor */}
-                  <div onClick={e => { e.stopPropagation(); setShowConfirmDelProv(pv.id); }}
-                    style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%",
-                      background: `${T.red}20`, border: `1px solid ${T.red}40`, display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: "pointer", fontSize: 12, color: T.red, fontWeight: 700 }}>✕</div>
+                  {/* Botón editar proveedor */}
+                  <div onClick={e => { e.stopPropagation(); setEditProvForm({ nombre: pv.nombre, rubro: pv.rubro || "", diasPago: pv.diasPago || "30", cuit: pv.cuit || "", tel: pv.tel || "" }); setDelProvConfirm(0); setEditProvModal(pv); }}
+                    style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 8,
+                      background: `${T.accent}18`, border: `1px solid ${T.accent}40`, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", fontSize: 14 }}>✏️</div>
                 </div>
               );
             })}
@@ -6903,7 +7047,63 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         )}
 
-        {/* ══ MODAL NUEVA FACTURA ══ */}
+        {/* ══ MODAL EDITAR PROVEEDOR ══ */}
+        {editProvModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(4px)" }}
+            onClick={() => { setEditProvModal(null); setDelProvConfirm(0); }}>
+            <div style={{ background: T.bg2, borderRadius: 18, padding: 26, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 18 }}>✏️ Editar Proveedor</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={editProvForm.nombre} onChange={e => setEditProvForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>Rubro</label><input inputMode="text" value={editProvForm.rubro} onChange={e => setEditProvForm(f => ({ ...f, rubro: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Días de pago</label><input inputMode="numeric" value={editProvForm.diasPago} onChange={e => setEditProvForm(f => ({ ...f, diasPago: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                <div><label style={labelStyle}>CUIT</label><input inputMode="numeric" value={editProvForm.cuit} onChange={e => setEditProvForm(f => ({ ...f, cuit: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Teléfono</label><input inputMode="tel" value={editProvForm.tel} onChange={e => setEditProvForm(f => ({ ...f, tel: e.target.value }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                <button onClick={() => { setEditProvModal(null); setDelProvConfirm(0); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!editProvForm.nombre) return;
+                  setProveedores(p => p.map(x => x.id === editProvModal.id ? { ...x, ...editProvForm } : x));
+                  setEditProvModal(null); setDelProvConfirm(0);
+                }} style={{ ...btnPrimary(T.accent), flex: 2, fontWeight: 800 }}>✓ Guardar cambios</button>
+              </div>
+              {/* Zona peligrosa — eliminar */}
+              <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
+                {delProvConfirm === 0 && (
+                  <button onClick={() => setDelProvConfirm(1)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, width: "100%", fontSize: 13 }}>
+                    🗑️ Eliminar proveedor
+                  </button>
+                )}
+                {delProvConfirm === 1 && (
+                  <div style={{ background: `${T.red}10`, borderRadius: 10, padding: 14, border: `1px solid ${T.red}40` }}>
+                    <div style={{ fontSize: 13, color: T.red, fontWeight: 700, marginBottom: 10 }}>¿Eliminar "{editProvModal.nombre}" y todas sus facturas?</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setDelProvConfirm(0)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>No, cancelar</button>
+                      <button onClick={() => setDelProvConfirm(2)} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 12 }}>Sí, eliminar</button>
+                    </div>
+                  </div>
+                )}
+                {delProvConfirm === 2 && (
+                  <div style={{ background: `${T.red}18`, borderRadius: 10, padding: 14, border: `2px solid ${T.red}` }}>
+                    <div style={{ fontSize: 13, color: T.red, fontWeight: 800, marginBottom: 6, textAlign: "center" }}>⚠️ ÚLTIMA CONFIRMACIÓN</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 12, textAlign: "center" }}>Esta acción es irreversible</div>
+                    <button onClick={() => {
+                      setProveedores(p => p.filter(x => x.id !== editProvModal.id));
+                      setFactProv(p => p.filter(f => f.provId !== String(editProvModal.id)));
+                      setEditProvModal(null); setDelProvConfirm(0);
+                    }} style={{ ...btnPrimary(T.red), width: "100%", fontWeight: 800, fontSize: 14 }}>🗑️ ELIMINAR DEFINITIVAMENTE</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ MODAL CONFIRMAR ELIMINAR PROVEEDOR (legacy — ya no se usa, se mantiene por compatibilidad) ══ */}
         {showFactProv && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowFactProv(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
@@ -7402,11 +7602,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         : <div style={{ fontSize: 10, color: T.gray }}>›</div>}
                     </div>
                   </div>
-                  {/* Botón eliminar */}
-                  <div onClick={e => { e.stopPropagation(); setShowConfirmDelServ(s.id); }}
-                    style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%",
-                      background: `${T.red}20`, border: `1px solid ${T.red}40`, display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: "pointer", fontSize: 12, color: T.red, fontWeight: 700 }}>✕</div>
+                  {/* Botón editar */}
+                  <div onClick={e => { e.stopPropagation(); setEditServForm({ nombre: s.nombre, desc: s.desc || "", monto: s.monto || "", metodo: s.metodo || "" }); setDelServConfirm(0); setEditServModal(s); }}
+                    style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 8,
+                      background: `${T.accent}18`, border: `1px solid ${T.accent}40`, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", fontSize: 14 }}>✏️</div>
                 </div>
               );
             })}
@@ -7432,6 +7632,67 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
                   setShowServ(false);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ MODAL EDITAR SERVICIO ══ */}
+        {editServModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(4px)" }}
+            onClick={() => { setEditServModal(null); setDelServConfirm(0); }}>
+            <div style={{ background: T.bg2, borderRadius: 18, padding: 26, maxWidth: 400, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 18 }}>✏️ Editar Servicio</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={editServForm.nombre} onChange={e => setEditServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={editServForm.desc} onChange={e => setEditServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                <div><label style={labelStyle}>Monto habitual</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={editServForm.monto ? Number(editServForm.monto).toLocaleString("es-AR") : ""} onChange={e => setEditServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                  </div>
+                </div>
+                <div><label style={labelStyle}>Método usual</label>
+                  <select value={editServForm.metodo} onChange={e => setEditServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}>
+                    <option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                <button onClick={() => { setEditServModal(null); setDelServConfirm(0); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!editServForm.nombre) return;
+                  setServicios(p => p.map(x => x.id === editServModal.id ? { ...x, ...editServForm } : x));
+                  setEditServModal(null); setDelServConfirm(0);
+                }} style={{ ...btnPrimary(T.accent), flex: 2, fontWeight: 800 }}>✓ Guardar cambios</button>
+              </div>
+              {/* Zona peligrosa */}
+              <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
+                {delServConfirm === 0 && (
+                  <button onClick={() => setDelServConfirm(1)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, width: "100%", fontSize: 13 }}>
+                    🗑️ Eliminar servicio
+                  </button>
+                )}
+                {delServConfirm === 1 && (
+                  <div style={{ background: `${T.red}10`, borderRadius: 10, padding: 14, border: `1px solid ${T.red}40` }}>
+                    <div style={{ fontSize: 13, color: T.red, fontWeight: 700, marginBottom: 10 }}>¿Eliminar "{editServModal.nombre}" y todos sus registros?</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setDelServConfirm(0)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>No, cancelar</button>
+                      <button onClick={() => setDelServConfirm(2)} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 12 }}>Sí, eliminar</button>
+                    </div>
+                  </div>
+                )}
+                {delServConfirm === 2 && (
+                  <div style={{ background: `${T.red}18`, borderRadius: 10, padding: 14, border: `2px solid ${T.red}` }}>
+                    <div style={{ fontSize: 13, color: T.red, fontWeight: 800, marginBottom: 6, textAlign: "center" }}>⚠️ ÚLTIMA CONFIRMACIÓN</div>
+                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 12, textAlign: "center" }}>Esta acción es irreversible</div>
+                    <button onClick={() => {
+                      setServicios(p => p.filter(x => x.id !== editServModal.id));
+                      setEditServModal(null); setDelServConfirm(0);
+                    }} style={{ ...btnPrimary(T.red), width: "100%", fontWeight: 800, fontSize: 14 }}>🗑️ ELIMINAR DEFINITIVAMENTE</button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
