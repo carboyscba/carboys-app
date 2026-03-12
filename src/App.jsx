@@ -5120,19 +5120,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
-  const egresosEfectivo = periodEgresos.filter(e => !e.metodoPago || e.metodoPago === "Efectivo");
-  const egresosVirtuales = periodEgresos.filter(e => e.metodoPago && e.metodoPago !== "Efectivo");
-  const totalEgr = egresosEfectivo.reduce((s, e) => s + (e.monto || 0), 0);
-  const totalEgrVirtual = egresosVirtuales.reduce((s, e) => s + (e.monto || 0), 0);
+  // esIngreso: true = son ingresos reales (cobro CTA CTE, saldo_inicial) → suman al saldo, no restan
+  const egresosEfectivo = periodEgresos.filter(e => (!e.metodoPago || e.metodoPago === "Efectivo") && !e.esIngreso);
+  const egresosVirtuales = periodEgresos.filter(e => e.metodoPago && e.metodoPago !== "Efectivo" && !e.esIngreso);
+  const ingresosExtra = periodEgresos.filter(e => e.esIngreso);
+  const totalEgr = egresosEfectivo.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+  const totalEgrVirtual = egresosVirtuales.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+  const totalIngresosExtra = ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
   // Cobros por método
   const efIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const tarjIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const transfIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
   const ctaCteIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
-  const saldoCajaCalculado = efIngresado - totalEgr;
+  const saldoCajaCalculado = efIngresado + totalIngresosExtra - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
-  const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado - totalEgr) : saldoCajaCalculado;
+  const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado + totalIngresosExtra - totalEgr) : saldoCajaCalculado;
   // Cierre semanal: detectar si se debe pedir cierre
   const todayDate = new Date(); 
   const diaSemana = todayDate.getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
@@ -6343,7 +6346,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           {egresosEfectivo.map(e => (
             <div key={"egef-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
               <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> <span style={{ color: T.red, fontSize: 11, fontWeight: 700, marginRight: 4 }}>EGRESO</span> {e.categoriaLabel || e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
-              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.red }}>-{fmt(e.monto)}</span></div>
+              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.red }}>-{fmt(parseFloat(e.monto)||0)}</span></div>
             </div>
           ))}
 
@@ -6351,11 +6354,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           {egresosVirtuales.map(e => (
             <div key={"egvirt-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13, opacity: 0.75 }}>
               <div><span style={{ color: "#FF6B6B", fontWeight: 700 }}>↓</span> <span style={{ color: "#FF6B6B", fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid #FF6B6B40` }}>VIRTUAL · {e.metodoPago}</span> {e.categoriaLabel || e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
-              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: "#FF6B6B" }}>-{fmt(e.monto)}</span></div>
+              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: "#FF6B6B" }}>-{fmt(parseFloat(e.monto)||0)}</span></div>
             </div>
           ))}
 
-          {periodOrders.length === 0 && egresosEfectivo.length === 0 && egresosVirtuales.length === 0 && (
+          {/* Ingresos extra (cobro CTA CTE, saldo inicial, ingreso otro) */}
+          {ingresosExtra.map(e => (
+            <div key={"ingex-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
+              <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> <span style={{ color: T.green, fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid ${T.green}40` }}>{e.metodoPago || "Efectivo"}</span> {e.categoriaLabel || e.desc || e.categoria}</div>
+              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.green }}>+{fmt(parseFloat(e.monto)||0)}</span></div>
+            </div>
+          ))}
+
+          {periodOrders.length === 0 && egresosEfectivo.length === 0 && egresosVirtuales.length === 0 && ingresosExtra.length === 0 && (
             <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos en este período</div>
           )}
         </div>
@@ -6737,7 +6748,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                               if (!ctaSelOrders.includes(o.id)) return o;
                               const nuevoPago = {
                                 fecha: ctaFechaPago,
-                                monto: String(totalMetodos / ctaSelOrders.length),
+                                monto: String(ctaSelOrders.length > 0 ? Math.round(totalMetodos / ctaSelOrders.length) : 0),
                                 metodos: ctaMetodos.filter(m => parseFloat(m.monto) > 0),
                                 desc: ctaIngresoDesc,
                               };
