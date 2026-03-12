@@ -1176,7 +1176,7 @@ const getPerm = (user, key) => {
   return ROLE_PERMS_DEFAULTS[user.role]?.[key] ?? false;
 };
 
-const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
+const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, serviceKm: 10000, alertGreen: 1500, alertYellow: 500, authMessage: "Estimado/a {nombre}, le informamos desde CarBoys que su vehículo {dominio} ({vehiculo}) requiere el siguiente trabajo adicional:\n\n🔧 *{item}*\n\n💰 Precio sin IVA: ${precio}\n💰 Precio con IVA (21%): ${precioIVA}\n💰 *TOTAL: ${total}*\n\nQuedamos a disposición para cualquier consulta.\n\nSaludos cordiales,\n*CarBoys* — Servicio Integral del Automotor 🔧" };
 
 // ══════════════════════════════════════════════════════════════════
 // ── Cuentas de facturación dinámicas (leen de config por sucursal) ──
@@ -6076,7 +6076,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
-  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : monthAgo;
+  const yearAgo = new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
+  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : period === "anual" ? yearAgo : monthAgo;
   // Normaliza cualquier formato de fecha a "YYYY-MM-DD"
   const normDate = (d) => {
     if (!d) return "";
@@ -6169,6 +6170,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     // Multi-tenant: Ignacio solo en sucursales con módulo habilitado
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
     { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
+    { key: "campanas", icon: "📣", l: "Campañas" },
   ];
   // Si el usuario solo tiene permiso de cobro (no admin), mostrar solo tab Cobros
   const TABS = cobroOnly ? _ALL_TABS.filter(t => t.key === "cobros") : _ALL_TABS;
@@ -9131,7 +9133,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           { key: "clientes", icon: "👥", label: "Clientes Frecuentes" },
           { key: "productividad", icon: "⚡", label: "Productividad" },
           { key: "retencion", icon: "📈", label: "Retención" },
-          { key: "campanas", icon: "📣", label: "Campañas" },
         ];
 
         if (!statView) return (
@@ -9180,6 +9181,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               const egresosPeriod = egresos.filter(e => {
                 if (period === "dia") return e.fecha === today;
                 if (period === "semana") return e.fecha >= new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+                if (period === "anual") return e.fecha >= new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
                 return (e.fecha || "").startsWith(ym);
               });
               const totalEgresosPeriod = egresosPeriod.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
@@ -9213,7 +9215,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 <div>
                   <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📊 Reportes</div>
                   <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Métricas completas de tu sucursal</div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}{PB("anual", "Anual")}</div>
 
                   {/* ── KPIs principales ── */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
@@ -9334,7 +9336,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
             {statView === "pagos" && (<div>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}{PB("anual", "Anual")}</div>
               <div style={{ ...card, padding: 20 }}>
                 {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
                   const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
@@ -9343,7 +9345,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <div key={method} style={{ marginBottom: 14 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                         <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color }}>{fmt(amount)} <span style={{ fontSize: 11, color: T.gray }}>({pct}%)</span></span>
+                        <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color }}>{pct}%</span>
                       </div>
                       <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
                         <div style={{ width: `${pct}%`, height: "100%", borderRadius: 5, background: color }} />
@@ -9351,8 +9353,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     </div>
                   );
                 }) : <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
-                {payEntries.length > 0 && <div style={{ height: 1, background: T.border, margin: "16px 0" }} />}
-                {payEntries.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}><span>TOTAL</span><span style={{ color: T.accent }}>{fmt(totalIngresos)}</span></div>}
               </div>
             </div>)}
 
@@ -9437,27 +9437,335 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               </div>
             </div>)}
 
-            {statView === "campanas" && (<div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {[
-                  { name: "Service Recordatorio", desc: "Clientes con +6 meses sin service", target: completed.filter(o => { const d2 = new Date(o.date); return (Date.now() - d2.getTime()) > 180 * 86400000; }).length, color: T.accent, icon: "🔔" },
-                  { name: "Oferta Temporada", desc: "Todos los clientes activos", target: clients.length, color: T.green, icon: "🎯" },
-                  { name: "Revisión Pre-Viaje", desc: "Antes de finde largo", target: clients.length, color: T.orange, icon: "🚗" },
-                  { name: "Promo Personalizada", desc: "Campaña libre", target: 0, color: "#9C27B0", icon: "📣" },
-                ].map(c => (
-                  <div key={c.name} style={{ ...card, padding: 16 }}>
-                    <div style={{ fontSize: 28, marginBottom: 6 }}>{c.icon}</div>
-                    <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{c.name}</div>
-                    <div style={{ fontSize: 11, color: T.gray, marginBottom: 8 }}>{c.desc}</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.target} dest.</span>
-                      <button style={{ ...btnPrimary(c.color), fontSize: 11, padding: "6px 12px" }}>Enviar</button>
-                    </div>
+          </div>
+        );
+      })()}
+
+      {/* ══════ CAMPAÑAS ══════ */}
+      {tab === "campanas" && (() => {
+        const SERVICE_KM = config.serviceKm || 10000;
+        const ALERT_GREEN = config.alertGreen || 1500;
+        const ALERT_YELLOW = config.alertYellow || 500;
+        const DEFAULT_KM_DAY = 33; // ~10.000 km / 10 meses
+
+        // ── Algoritmo Service Recordatorio ──
+        // Para cada vehículo con service previo, calcula km estimados actuales
+        const serviceAlerts = [];
+        const serviceTypes = ["Service Full", "Service Base"];
+
+        clients.forEach(c => {
+          (c.vehicles || []).forEach(v => {
+            // Buscar último service de este vehículo
+            const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled"
+              && (o.works || []).some(w => serviceTypes.includes(w.type)))
+              .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+            if (vOrders.length === 0) return;
+
+            const lastService = vOrders[0];
+            const lastKm = parseInt(lastService.km) || parseInt(v.km) || 0;
+            const lastDate = lastService.date;
+            if (!lastDate || !lastKm) return;
+
+            // Calcular velocidad promedio (km/día) usando todas las visitas
+            const allVisits = orders.filter(o => o.domain === v.domain && o.status !== "cancelled" && o.km)
+              .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+            let kmPerDay = DEFAULT_KM_DAY;
+            if (allVisits.length >= 2) {
+              const first = allVisits[0];
+              const last = allVisits[allVisits.length - 1];
+              const kmDiff = (parseInt(last.km) || 0) - (parseInt(first.km) || 0);
+              const daysDiff = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+              if (kmDiff > 0) kmPerDay = Math.round(kmDiff / daysDiff);
+            }
+            // Sanity check: entre 5 y 100 km/día
+            kmPerDay = Math.max(5, Math.min(100, kmPerDay));
+
+            // Estimar km actuales
+            const daysSinceService = Math.max(0, (Date.now() - new Date(lastDate).getTime()) / 86400000);
+            const estimatedKm = lastKm + Math.round(daysSinceService * kmPerDay);
+            const nextServiceKm = lastKm + SERVICE_KM;
+            const kmRemaining = nextServiceKm - estimatedKm;
+            const daysRemaining = kmPerDay > 0 ? Math.round(kmRemaining / kmPerDay) : 999;
+
+            // Solo mostrar si está dentro del rango de alerta
+            if (kmRemaining < ALERT_GREEN) {
+              const urgency = kmRemaining < ALERT_YELLOW ? (kmRemaining < 0 ? "overdue" : "red") : "yellow";
+              serviceAlerts.push({
+                client: c, vehicle: v, lastService, lastKm, lastDate,
+                kmPerDay, estimatedKm, nextServiceKm, kmRemaining, daysRemaining,
+                urgency, visits: allVisits.length,
+              });
+            }
+          });
+        });
+
+        serviceAlerts.sort((a, b) => a.kmRemaining - b.kmRemaining);
+
+        // ── Sub-vistas ──
+        const CAMP_VIEWS = [
+          { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: serviceAlerts.length },
+          { key: "promo", icon: "📣", l: "Promoción" },
+          { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
+        ];
+
+        const [campView, setCampView] = React.useState ? null : null; // fallback
+        // Usar statView como sub-navegación de campañas
+        const cv = statView; // reusar statView para sub-navegación
+
+        if (!cv) return (
+          <div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {CAMP_VIEWS.map(v => (
+                <div key={v.key} onClick={() => setStatView(v.key)}
+                  style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>{v.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{v.l}</div>
+                  {v.count > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: T.orange }}>{v.count} pendiente{v.count !== 1 ? "s" : ""}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+        return (
+          <div>
+            <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
+
+            {/* ── SERVICE RECORDATORIO ── */}
+            {cv === "recordatorio" && (
+              <div>
+                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>🔔 Service Recordatorio</div>
+                <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>
+                  Vehículos próximos a los {SERVICE_KM.toLocaleString("es-AR")} km desde su último service
+                </div>
+
+                {/* Leyenda */}
+                <div style={{ display: "flex", gap: 12, marginBottom: 16, fontSize: 11 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.red, display: "inline-block" }} /> Menos de {ALERT_YELLOW} km</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.orange, display: "inline-block" }} /> {ALERT_YELLOW}-{ALERT_GREEN} km</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: T.green, display: "inline-block" }} /> Más de {ALERT_GREEN} km</span>
+                </div>
+
+                {serviceAlerts.length === 0 && (
+                  <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>
+                    ✅ No hay vehículos próximos a su service
                   </div>
-                ))}
+                )}
+
+                {serviceAlerts.map(a => {
+                  const urgColor = a.urgency === "overdue" ? T.red : a.urgency === "red" ? T.red : T.orange;
+                  return (
+                    <div key={a.vehicle.domain} style={{ ...card, padding: 0, marginBottom: 12, borderLeft: `4px solid ${urgColor}`, overflow: "hidden" }}>
+                      <div style={{ padding: "14px 16px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>{fmtD(a.vehicle.domain)}</span>
+                              {a.urgency === "overdue" && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: `${T.red}15`, color: T.red }}>⚠️ PASADO</span>}
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>👤 {a.client.name} {a.client.lastName}</div>
+                            <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>{a.vehicle.brand} {a.vehicle.model} {a.vehicle.year}</div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: urgColor }}>
+                              {a.kmRemaining > 0 ? `${a.kmRemaining.toLocaleString("es-AR")} km` : `+${Math.abs(a.kmRemaining).toLocaleString("es-AR")} km`}
+                            </div>
+                            <div style={{ fontSize: 11, color: T.gray }}>
+                              {a.kmRemaining > 0 ? `~${a.daysRemaining} día${a.daysRemaining !== 1 ? "s" : ""}` : "Ya debería hacer service"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+                          <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}>
+                            <div style={{ color: T.gray }}>Último service</div>
+                            <div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div>
+                            <div style={{ color: T.gray, fontSize: 10 }}>{fmtDate(a.lastDate)}</div>
+                          </div>
+                          <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}>
+                            <div style={{ color: T.gray }}>Estimado actual</div>
+                            <div style={{ fontWeight: 700, color: T.accent }}>~{a.estimatedKm.toLocaleString("es-AR")} km</div>
+                          </div>
+                          <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}>
+                            <div style={{ color: T.gray }}>Próx. service</div>
+                            <div style={{ fontWeight: 700, color: urgColor }}>{a.nextServiceKm.toLocaleString("es-AR")} km</div>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: 10, color: T.gray, marginTop: 6 }}>
+                          Velocidad: ~{a.kmPerDay} km/día ({a.visits} visita{a.visits !== 1 ? "s" : ""} registrada{a.visits !== 1 ? "s" : ""})
+                        </div>
+
+                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                          <button onClick={() => {
+                            const msg = (config.serviceReminderMsg || `Hola {nombre}, desde CarBoys le recordamos que su vehículo {vehiculo} ({dominio}) está próximo a los ${SERVICE_KM.toLocaleString("es-AR")} km para realizar el service. ¡Los esperamos! 🔧`)
+                              .replace("{nombre}", `${a.client.name} ${a.client.lastName}`)
+                              .replace("{vehiculo}", `${a.vehicle.brand} ${a.vehicle.model}`)
+                              .replace("{dominio}", a.vehicle.domain);
+                            const wahaUrl = config.wahaUrl || "";
+                            const wahaKey = config.wahaApiKey || "";
+                            if (a.client.phone) sendWA(a.client.phone, msg, wahaUrl, wahaKey);
+                          }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>
+                            📱 Enviar recordatorio
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>)}
+            )}
+
+            {/* ── CAMPAÑA DE PROMOCIÓN ── */}
+            {cv === "promo" && (() => {
+              // Agrupar clientes por tipo de servicio realizado
+              const serviceGroups = {};
+              const allCompleted = orders.filter(o => o.status === "delivered" || o.status === "done");
+              allCompleted.forEach(o => {
+                (o.works || []).forEach(w => {
+                  if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set();
+                  serviceGroups[w.type].add(o.clientId);
+                });
+              });
+
+              const groups = Object.entries(serviceGroups)
+                .map(([type, clientIds]) => ({ type, clientIds: [...clientIds], count: clientIds.size }))
+                .sort((a, b) => b.count - a.count);
+
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📣 Campaña de Promoción</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Enviá promos segmentadas por tipo de servicio</div>
+
+                  {!histDetail ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                      {groups.map(g => (
+                        <div key={g.type} onClick={() => setHistDetail(g)}
+                          style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{g.count}</div>
+                          <div style={{ fontSize: 10, color: T.gray }}>cliente{g.count !== 1 ? "s" : ""}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>
+                      <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, marginBottom: 12 }}>← Volver</button>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} clientes</div>
+                      {histDetail.clientIds.map(cId => {
+                        const cl = clients.find(x => x.id === cId);
+                        if (!cl) return null;
+                        const lastOrd = allCompleted.filter(o => o.clientId === cId && (o.works || []).some(w => w.type === histDetail.type)).sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+                        const veh = lastOrd ? cl.vehicles?.find(v => v.domain === lastOrd.domain) : null;
+                        return (
+                          <div key={cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700 }}>👤 {cl.name} {cl.lastName}</div>
+                              {veh && <div style={{ fontSize: 12, color: T.grayLight }}>{veh.brand} {veh.model} — {fmtD(veh.domain)}</div>}
+                              {lastOrd && <div style={{ fontSize: 11, color: T.gray }}>Último: {fmtDate(lastOrd.date)}</div>}
+                            </div>
+                            <button onClick={() => {
+                              if (cl.phone) {
+                                const cleanPhone = String(cl.phone).replace(/\D/g, "");
+                                window.open("https://wa.me/549" + cleanPhone, "_blank");
+                              }
+                            }} style={{ ...btnPrimary(T.green), fontSize: 11, padding: "6px 12px" }}>📷 WhatsApp</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── CLIENTES DORMIDOS ── */}
+            {cv === "dormidos" && (() => {
+              const SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
+              const allCompleted = orders.filter(o => o.status === "delivered" || o.status === "done");
+
+              // Agrupar por tipo de servicio, filtrar clientes con última visita > 6 meses
+              const dormidosGroups = {};
+              allCompleted.forEach(o => {
+                (o.works || []).forEach(w => {
+                  if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {};
+                  const cId = o.clientId;
+                  if (!dormidosGroups[w.type][cId] || o.date > dormidosGroups[w.type][cId]) {
+                    dormidosGroups[w.type][cId] = o.date;
+                  }
+                });
+              });
+
+              const groups = Object.entries(dormidosGroups).map(([type, clientDates]) => {
+                const dormidos = Object.entries(clientDates)
+                  .filter(([, lastDate]) => lastDate < SIX_MONTHS_AGO)
+                  .map(([cId, lastDate]) => ({ cId: parseInt(cId), lastDate }));
+                return { type, dormidos, count: dormidos.length };
+              }).filter(g => g.count > 0).sort((a, b) => b.count - a.count);
+
+              const totalDormidos = new Set(groups.flatMap(g => g.dormidos.map(d => d.cId))).size;
+
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>💤 Clientes Dormidos</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Clientes que no vienen hace más de 6 meses — {totalDormidos} en total</div>
+
+                  {!histDetail ? (
+                    <div>
+                      {groups.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>✅ No hay clientes dormidos</div>}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                        {groups.map(g => (
+                          <div key={g.type} onClick={() => setHistDetail(g)}
+                            style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", transition: "all .15s" }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = T.orange; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
+                            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{g.count}</div>
+                            <div style={{ fontSize: 10, color: T.gray }}>dormido{g.count !== 1 ? "s" : ""}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, marginBottom: 12 }}>← Volver</button>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>💤 {histDetail.type} — {histDetail.count} dormidos</div>
+                      {histDetail.dormidos.sort((a, b) => a.lastDate.localeCompare(b.lastDate)).map(d => {
+                        const cl = clients.find(x => x.id === d.cId);
+                        if (!cl) return null;
+                        const daysSince = Math.round((Date.now() - new Date(d.lastDate).getTime()) / 86400000);
+                        const months = Math.round(daysSince / 30);
+                        return (
+                          <div key={d.cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, borderLeft: `3px solid ${T.orange}` }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700 }}>👤 {cl.name} {cl.lastName}</div>
+                              <div style={{ fontSize: 12, color: T.orange, fontWeight: 600 }}>Última visita: {fmtDate(d.lastDate)} ({months} meses)</div>
+                              {cl.phone && <div style={{ fontSize: 11, color: T.gray }}>📱 {cl.phone}</div>}
+                            </div>
+                            <button onClick={() => {
+                              const msg = (config.dormidoMsg || `Hola {nombre}! Hace tiempo que no nos visitás. ¡Te esperamos en CarBoys! 🔧`)
+                                .replace("{nombre}", cl.name);
+                              const wahaUrl = config.wahaUrl || "";
+                              const wahaKey = config.wahaApiKey || "";
+                              if (cl.phone) sendWA(cl.phone, msg, wahaUrl, wahaKey);
+                            }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "6px 12px" }}>📱 Enviar</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
@@ -14375,10 +14683,17 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
 
 
       <div style={{ ...card, padding: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.orange }}>📣 Mensaje de Campaña / Promo</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Plantilla para campañas de marketing.</div>
-        <textarea value={config.promoMessage || "¡Hola {nombre}! Desde *CarBoys* te acercamos una promo especial:\n\n🔧 [COMPLETAR PROMO]\n\n📅 Válido hasta [FECHA]\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor 🔧"} onChange={e => setConfig(prev => ({ ...prev, promoMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#FF6F00" }}>🔔 Mensaje de Recordatorio de Service</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{vehiculo}"} {"{dominio}"}</div>
+        <textarea value={config.serviceReminderMsg || "Hola {nombre}! Desde *CarBoys* le recordamos que su vehículo {vehiculo} ({dominio}) está próximo a los 10.000 km para realizar el service.\n\n¡Los esperamos! 🔧\n\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, serviceReminderMsg: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 140, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+      </div>
+
+      <div style={{ ...card, padding: 20, marginTop: 12 }}>
+        <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#7B1FA2" }}>💤 Mensaje de Cliente Dormido</div>
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"}</div>
+        <textarea value={config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitás. ¡Te esperamos en *CarBoys*! 🔧\n\nTenemos promos especiales para vos.\n\nReserva tu turno respondiendo este mensaje.\n\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, dormidoMsg: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 140, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
       </div>
 
       <div style={{ marginTop: 14, fontSize: 11, color: T.grayLight }}>💡 Tip: Usá * para negrita en WhatsApp. Usá \n para salto de línea.</div>
