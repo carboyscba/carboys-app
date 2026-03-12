@@ -6844,10 +6844,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       <div style={{ fontSize: 11, color: T.gray }}>Pendiente</div>
                       <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.red }}>{fmt(pvTotal)}</div>
                     </div>
-                    <div style={{ padding: "8px 16px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: T.gray }}>Pagadas</div>
-                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{pvPagadas.length}</div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -6929,7 +6925,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                         </div>
 
                         <div style={{ textAlign: "right", marginLeft: 12 }}>
-                          <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.grayLight, textDecoration: "line-through" }}>{fmt(f.monto)}</div>
+                          {pagado > 0 && !isPagada && (
+                            <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: T.grayLight, textDecoration: "line-through" }}>{fmt(f.monto)}</div>
+                          )}
                           <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isPagada ? T.green : T.orange }}>
                             {isPagada ? fmt(pagado) : fmt(pendiente)}
                           </div>
