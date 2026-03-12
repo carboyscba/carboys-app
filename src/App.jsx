@@ -5620,7 +5620,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres, user }) => {
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres, user }) => {
   const cobroOnly = user && getPerm(user, "cobro") && !getPerm(user, "admin");
   const [tab, setTab] = useState(initialTab || (cobroOnly ? "cobros" : "resumen"));
   const [showTotalVentas, setShowTotalVentas] = useState(false);
@@ -15485,7 +15485,7 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} /> : null;
+      case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} setConfig={setConfig} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
       default: return null;
