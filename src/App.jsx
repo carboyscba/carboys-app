@@ -841,7 +841,7 @@ const FULL_SS = {
   aceite:{checked:true}, filtro_aceite:{checked:true}, filtro_aire:{checked:true}, filtro_habitaculo:{checked:true}, filtro_combustible:{checked:true},
   td_amortiguadores:{status:"bien",checked:true}, td_parrilla:{status:"bien",checked:true}, td_bujes:{status:"bien",checked:true}, td_extremos:{status:"bien",checked:true}, td_rotulas:{status:"bien",checked:true}, td_axiales:{status:"bien",checked:true}, td_bieletas:{status:"bien",checked:true}, td_discos:{status:"regular",checked:true}, td_pastillas:{percent:60,status:"bien",checked:true}, td_rulemanes:{fluidOk:"bien",checked:true},
   tt_amortiguadores:{status:"bien",checked:true}, tt_freno:{toggle:"Pastillas",percent:65,checked:true}, tt_bujes:{status:"bien",checked:true}, tt_rulemanes:{fluidOk:"bien",checked:true},
-  liq_direccion:{fluidOk:"bien",checked:true}, liq_frenos:{fluidOk:"bien",checked:true,percent:2,added:true}, liq_refrigerante:{fluidOk:"bien",checked:true}, aceite_caja:{fluidOk:"bien",checked:true}, agua_lavaparabrisas:{fluidOk:"nivelado",checked:true},
+  liq_direccion:{fluidOk:"bien",checked:true}, liq_frenos:{fluidOk:"bien",checked:true,percent:2,added:true}, liq_refrigerante:{fluidOk:"bien",checked:true}, aceite_caja:{toggle:"MT",fluidOk:"bien",checked:true}, agua_lavaparabrisas:{fluidOk:"nivelado",checked:true}, cuatrox4:{checked:false},
   correa_distribucion:{status:"bien",checked:true}, bomba_agua:{fluidOk:"bien",checked:true}, correa_poliv:{status:"bien",checked:true}, tensores_poliv:{status:"bien",checked:true}, mangueras_refrig:{fluidOk:"bien",checked:true}, perdidas_aceite:{fluidOk:"bien",checked:true},
   luz_baja:{fluidOk:"funciona",checked:true}, luz_alta:{fluidOk:"funciona",checked:true}, luz_pos_del:{fluidOk:"funciona",checked:true}, luz_pos_tra:{fluidOk:"funciona",checked:true}, luz_stop:{fluidOk:"funciona",checked:true}, guinos:{fluidOk:"funciona",checked:true},
   silenciador_trasero:{status:"bien",checked:true}, silenciador_intermedio:{status:"bien",checked:true}, multiple_escape:{status:"bien",checked:true}, cano_escape:{status:"bien",checked:true}, soporte_escape:{status:"bien",checked:true}, catalizador:{status:"bien",checked:true},
@@ -8838,8 +8838,9 @@ const SF_TEMPLATE = [
     { id: "liq_frenos", label: "Líquido de frenos", type: "brakeFluid", needsAuth: true },
     { id: "liq_direccion", label: "Líquido de dirección", type: "fluid" },
     { id: "liq_refrigerante", label: "Líquido refrigerante", type: "fluid", needsAuth: true },
-    { id: "aceite_caja", label: "Aceite de caja", type: "fluid" , needsAuth: true },
+    { id: "aceite_caja", label: "Aceite de caja", type: "aceite_caja", needsAuth: true },
     { id: "agua_lavaparabrisas", label: "Líquido lavaparabrisas", type: "nivelado" },
+    { id: "cuatrox4", label: "4X4", type: "cuatrox4", optional: true },
   ]},
   { section: "CONTROL VISUAL", icon: "👁️", items: [
     { id: "correa_distribucion", label: "Correa de distribución", type: "optionalBinary" },
@@ -9378,6 +9379,8 @@ const ServiceSheetScreen = (props) => {
       case "percentRC": return d.status === "cambiado" || d.percent >= 0;
       case "batteryPercent": return d.status === "cambiado" || d.percent >= 0;
       case "freno_trasero": return d.status === "cambiado" || (!!d.toggle && d.percent >= 0);
+      case "aceite_caja": return !!d.toggle && !!d.fluidOk;
+      case "cuatrox4": return !d.checked || (!!d.diferencial_ok && !!d.transfer_ok && !!d.engrase_ok);
       case "toggle": return !!d.toggle;
       case "voltage": return !!d.voltage;
       case "dtc": return !!d.dtcStatus;
@@ -10041,6 +10044,116 @@ const ServiceSheetScreen = (props) => {
               <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${d.added ? T.accent : T.border}`, background: d.added ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>{d.added ? "✓" : ""}</div>
               Se niveló
             </div>
+          </div>
+        )}
+
+        {/* ── ACEITE DE CAJA (AT/MT + fluid) ── */}
+        {item.type === "aceite_caja" && !isForced && (
+          <div style={{ ...ml, marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {["AT", "MT"].map(opt => (
+                <div key={opt} onClick={() => upd(item.id, { toggle: d.toggle === opt ? "" : opt })}
+                  style={{ padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: d.toggle === opt ? "rgba(30,136,229,0.12)" : T.bg, color: d.toggle === opt ? T.accent : T.gray, border: `2px solid ${d.toggle === opt ? T.accent : T.border}` }}>
+                  {opt}
+                </div>
+              ))}
+            </div>
+            {d.toggle && (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  {[{ k: "bien", label: "BIEN", color: T.green }, { k: "cambiar", label: "CAMBIAR", color: T.red }].map(s => (
+                    <div key={s.k} onClick={() => upd(item.id, { fluidOk: d.fluidOk === s.k ? "" : s.k })}
+                      style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === s.k ? `${s.color}20` : T.bg, color: d.fluidOk === s.k ? s.color : T.gray, border: `2px solid ${d.fluidOk === s.k ? s.color : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: s.color }} />{s.label}
+                    </div>
+                  ))}
+                  {d.fluidOk === "cambiar" && item.needsAuth && isItemApproved(item.id) && (
+                    <div onClick={() => upd(item.id, { fluidOk: "cambiado" })}
+                      style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `2px solid ${S4_COLORS.cambiado}`, display: "flex", alignItems: "center", gap: 6, animation: "fadeUp .2s ease" }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: S4_COLORS.cambiado }} />🔵 CAMBIADO
+                    </div>
+                  )}
+                  {d.fluidOk === "cambiado" && (
+                    <div style={{ padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: `${S4_COLORS.cambiado}20`, color: S4_COLORS.cambiado, border: `2px solid ${S4_COLORS.cambiado}`, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: S4_COLORS.cambiado }} />✓ CAMBIADO
+                    </div>
+                  )}
+                </div>
+                <div onClick={() => upd(item.id, { added: !d.added })}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.added ? "rgba(30,136,229,0.12)" : T.bg, color: d.added ? T.accent : T.gray, border: `1px solid ${d.added ? T.accent : T.border}` }}>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${d.added ? T.accent : T.border}`, background: d.added ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>{d.added ? "✓" : ""}</div>
+                  Se niveló
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {item.type === "aceite_caja" && isForced && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, ...ml }}>
+            <div onClick={() => upd(item.id, { fluidOk: d.fluidOk === "cambiado" ? "" : "cambiado" })}
+              style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.fluidOk === "cambiado" ? "#1E88E520" : T.bg, color: "#1E88E5", border: "2px solid #1E88E5", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#1E88E5" }} />CAMBIADO
+            </div>
+            <span style={{ fontSize: 10, color: T.orange, fontWeight: 600, display: "flex", alignItems: "center" }}>⚠️ Incluido en la orden</span>
+          </div>
+        )}
+
+        {/* ── 4X4 ── */}
+        {item.type === "cuatrox4" && (
+          <div style={{ ...ml, marginBottom: 8 }}>
+            {!d.checked && (
+              <div style={{ fontSize: 12, color: T.gray, fontStyle: "italic" }}>No aplica — marcá el check para habilitar</div>
+            )}
+            {d.checked && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Aceite de diferencial */}
+                <div style={{ background: T.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${T.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>🔩 Aceite de diferencial</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    {[{ k: "bien", label: "BIEN", color: T.green }, { k: "mal", label: "MAL", color: T.red }].map(s => (
+                      <div key={s.k} onClick={() => upd(item.id, { diferencial_ok: d.diferencial_ok === s.k ? "" : s.k })}
+                        style={{ padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.diferencial_ok === s.k ? `${s.color}20` : T.bg3, color: d.diferencial_ok === s.k ? s.color : T.gray, border: `2px solid ${d.diferencial_ok === s.k ? s.color : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color }} />{s.label}
+                      </div>
+                    ))}
+                  </div>
+                  <div onClick={() => upd(item.id, { diferencial_nivelado: !d.diferencial_nivelado })}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.diferencial_nivelado ? "rgba(30,136,229,0.12)" : T.bg3, color: d.diferencial_nivelado ? T.accent : T.gray, border: `1px solid ${d.diferencial_nivelado ? T.accent : T.border}` }}>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${d.diferencial_nivelado ? T.accent : T.border}`, background: d.diferencial_nivelado ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff" }}>{d.diferencial_nivelado ? "✓" : ""}</div>
+                    Se niveló
+                  </div>
+                </div>
+                {/* Aceite caja de transferencia */}
+                <div style={{ background: T.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${T.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>🔄 Aceite caja de transferencia</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    {[{ k: "bien", label: "BIEN", color: T.green }, { k: "mal", label: "MAL", color: T.red }].map(s => (
+                      <div key={s.k} onClick={() => upd(item.id, { transfer_ok: d.transfer_ok === s.k ? "" : s.k })}
+                        style={{ padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.transfer_ok === s.k ? `${s.color}20` : T.bg3, color: d.transfer_ok === s.k ? s.color : T.gray, border: `2px solid ${d.transfer_ok === s.k ? s.color : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color }} />{s.label}
+                      </div>
+                    ))}
+                  </div>
+                  <div onClick={() => upd(item.id, { transfer_nivelado: !d.transfer_nivelado })}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.transfer_nivelado ? "rgba(30,136,229,0.12)" : T.bg3, color: d.transfer_nivelado ? T.accent : T.gray, border: `1px solid ${d.transfer_nivelado ? T.accent : T.border}` }}>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${d.transfer_nivelado ? T.accent : T.border}`, background: d.transfer_nivelado ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff" }}>{d.transfer_nivelado ? "✓" : ""}</div>
+                    Se niveló
+                  </div>
+                </div>
+                {/* Engrase */}
+                <div style={{ background: T.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${T.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>🟡 Engrase</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["Se realizó", "No equipado"].map(opt => (
+                      <div key={opt} onClick={() => upd(item.id, { engrase_ok: d.engrase_ok === opt ? "" : opt })}
+                        style={{ padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.engrase_ok === opt ? (opt === "Se realizó" ? `${T.green}20` : `${T.gray}20`) : T.bg3, color: d.engrase_ok === opt ? (opt === "Se realizó" ? T.green : T.grayLight) : T.gray, border: `2px solid ${d.engrase_ok === opt ? (opt === "Se realizó" ? T.green : T.gray) : T.border}` }}>
+                        {opt}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -11971,6 +12084,17 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       if (d.fluidOk === "cambiada") return "#1565C0";
       return "#2E7D32";
     }
+    if (item.type === "aceite_caja") {
+      if (!d.toggle) return "#718096";
+      if (d.fluidOk === "cambiado") return "#1565C0";
+      if (d.fluidOk === "cambiar") return "#C62828";
+      if (d.fluidOk === "bien") return "#2E7D32";
+      return "#718096";
+    }
+    if (item.type === "cuatrox4") {
+      if (!d.checked) return "#718096";
+      return "#2E7D32";
+    }
     if (item.type === "percentRC" || item.type === "batteryPercent" || item.type === "freno_trasero") {
       const pct = d.percent;
       if (pct >= 60) return "#2E7D32"; if (pct >= 30) return "#E65100"; return "#C62828";
@@ -12014,6 +12138,22 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       if (d.fluidOk === "bien") return { text: "Bien", color: "#2E7D32", subText: d.added ? "Se niveló" : null, subColor: "#1565C0" };
       if (d.fluidOk === "cambiar") return { text: "Cambiar", color: "#C62828" };
       return { text: d.fluidOk || "", color: "#C62828" };
+    }
+    if (item.type === "aceite_caja") {
+      if (!d.toggle) return { text: "", color: "#718096" };
+      const base = d.toggle; // AT o MT
+      if (d.fluidOk === "cambiado") return { text: `${base} — Cambiado`, color: "#1565C0", wasChanged: true, subText: d.added ? "Se niveló" : null, subColor: "#1565C0" };
+      if (d.fluidOk === "cambiar") return { text: `${base} — Cambiar`, color: "#C62828" };
+      if (d.fluidOk === "bien") return { text: `${base} — Bien`, color: "#2E7D32", subText: d.added ? "Se niveló" : null, subColor: "#1565C0" };
+      return { text: base, color: "#718096" };
+    }
+    if (item.type === "cuatrox4") {
+      if (!d.checked) return { text: "No aplica", color: "#718096" };
+      const parts = [];
+      if (d.diferencial_ok) parts.push(`Dif: ${d.diferencial_ok === "bien" ? "Bien" : "Mal"}${d.diferencial_nivelado ? " ✓" : ""}`);
+      if (d.transfer_ok) parts.push(`Trans: ${d.transfer_ok === "bien" ? "Bien" : "Mal"}${d.transfer_nivelado ? " ✓" : ""}`);
+      if (d.engrase_ok) parts.push(d.engrase_ok);
+      return { text: parts.join(" · ") || "", color: "#2E7D32" };
     }
 
     if (item.type === "binary" || item.type === "ternary" || item.type === "optionalBinary") {
