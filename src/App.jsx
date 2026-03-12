@@ -1444,7 +1444,7 @@ const NewOrderScreen = (props) => {
                 const matches = [];
                 for (const c of clients) {
                   for (const v of (c.vehicles || [])) {
-                    if (v.domain.replace(/\s/g,"").toLowerCase() === domainSearch.replace(/\s/g,"").toLowerCase()) {
+                    if (v.domain.replace(/\s/g,"").toLowerCase().startsWith(domainSearch.replace(/\s/g,"").toLowerCase())) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled"].includes(o.status));
                       matches.push({ c, v, vCount, activeOrder });
@@ -3133,7 +3133,7 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
   const [selClient, setSelClient] = useState(null);
 
   const results = q.length > 1 ? clients.filter(c =>
-    (c.vehicles || []).some(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())) ||
+    (c.vehicles || []).some(v => v.domain.replace(/\s/g, "").toLowerCase().startsWith(q.replace(/\s/g, "").toLowerCase())) ||
     c.name.toLowerCase().includes(q.toLowerCase()) ||
     c.lastName.toLowerCase().includes(q.toLowerCase()) ||
     (c.dni && c.dni.includes(q)) ||
@@ -3272,7 +3272,7 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
               </div>
             </div>
           ) : (
-            (c.vehicles || []).filter(v => v.domain.replace(/\s/g, "").toLowerCase().includes(q.replace(/\s/g, "").toLowerCase())).map(v => {
+            (c.vehicles || []).filter(v => v.domain.replace(/\s/g, "").toLowerCase().startsWith(q.replace(/\s/g, "").toLowerCase())).map(v => {
               const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
               const activeOrder = orders.find(o => o.domain === v.domain && !["delivered", "cancelled"].includes(o.status));
               return (
