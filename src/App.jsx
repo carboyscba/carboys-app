@@ -13875,6 +13875,14 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [savedMsg, setSavedMsg] = useState("");
 
+  // ── Sucursales section state (must be at top level — React hooks rule) ──
+  const [sucForm, setSucForm] = useState({ nombre: "", gmail: "", firebaseProject: "", apiKey: "", googleClientId: "", direccion: "", telefono: "", razonSocial: "", cuit: "", condIva: "Responsable Inscripto", puntoVenta: "", icon: "📍", color: "#1e88e5" });
+  const [sucSaving, setSucSaving] = useState(false);
+  const [sucMsg, setSucMsg] = useState("");
+  const [sucEdit, setSucEdit] = useState(null);
+  const [sucShowNew, setSucShowNew] = useState(false);
+  const [sucTestResult, setSucTestResult] = useState(null);
+
   const showSaved = (msg) => { setSavedMsg(msg); setTimeout(() => setSavedMsg(""), 2000); };
 
   const ROLES = [
@@ -14285,13 +14293,6 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
   // ── SECCIÓN: GESTIÓN DE SUCURSALES (solo Gerente General) ────────
   // ══════════════════════════════════════════════════════════════════
   if (section === "sucursales") {
-    const [sucForm, setSucForm] = React.useState({ nombre: "", gmail: "", firebaseProject: "", apiKey: "", googleClientId: "", direccion: "", telefono: "", razonSocial: "", cuit: "", condIva: "Responsable Inscripto", puntoVenta: "", icon: "📍", color: "#1e88e5" });
-    const [sucSaving, setSucSaving] = React.useState(false);
-    const [sucMsg, setSucMsg] = React.useState("");
-    const [sucEdit, setSucEdit] = React.useState(null); // id de suc en edición
-    const [sucShowNew, setSucShowNew] = React.useState(false);
-    const [sucTestResult, setSucTestResult] = React.useState(null);
-
     const ICONS = ["🏠","📍","🔧","🏭","⭐","🏪","🏢","🚗"];
     const SUC_COLORS = ["#e53935","#1e88e5","#43a047","#ff9800","#9C27B0","#00BCD4","#FF5722","#795548"];
 
@@ -15225,21 +15226,14 @@ export default function App() {
             {activeSucursal && (
               <div
                 onClick={() => {
-                  // Solo Gerente General puede cambiar de sucursal
-                  if (isGerenteGeneral(googleAuth?.email)) {
+                  // Solo Gerente General con 2+ sucursales puede cambiar
+                  const sucs = findSucursalesForEmail(googleAuth?.email);
+                  if (isGerenteGeneral(googleAuth?.email) && sucs.length > 1) {
+                    // Volver al selector de sucursales sin destruir la sesión
                     setActiveSucursal(null);
                     setUser(null);
+                    setScreen("dashboard");
                     setDbLoading(true);
-                    _setOrders([]);
-                    _setClients([]);
-                    _setConfig(INITIAL_CONFIG);
-                    _setEgresos([]);
-                    _setProveedores([]);
-                    _setFactProv([]);
-                    _setServicios([]);
-                    _setIgGastos([]);
-                    _setCierres([]);
-                    if (_idb) { try { _idb.close(); } catch(e) {} _idb = null; }
                   }
                 }}
                 style={{
@@ -15247,7 +15241,7 @@ export default function App() {
                   padding: "4px 12px", borderRadius: 8,
                   background: `${activeSucursal.color || T.accent}15`,
                   border: `1px solid ${activeSucursal.color || T.accent}40`,
-                  cursor: isGerenteGeneral(googleAuth?.email) ? "pointer" : "default",
+                  cursor: (isGerenteGeneral(googleAuth?.email) && findSucursalesForEmail(googleAuth?.email).length > 1) ? "pointer" : "default",
                   transition: "all .15s",
                 }}
                 title={isGerenteGeneral(googleAuth?.email) ? "Click para cambiar de sucursal" : activeSucursal.nombre}
@@ -15256,7 +15250,7 @@ export default function App() {
                 <span style={{ fontSize: 12, fontWeight: 700, color: activeSucursal.color || T.accent }}>
                   {activeSucursal.nombre}
                 </span>
-                {isGerenteGeneral(googleAuth?.email) && (
+                {isGerenteGeneral(googleAuth?.email) && findSucursalesForEmail(googleAuth?.email).length > 1 && (
                   <span style={{ fontSize: 10, color: T.gray, marginLeft: 2 }}>▼</span>
                 )}
               </div>
