@@ -1182,6 +1182,7 @@ const NewOrderScreen = (props) => {
   const [dniSearch, setDniSearch] = useState("");
   const [unlinkVehicle, setUnlinkVehicle] = useState(null);
   const [dniFoundClient, setDniFoundClient] = useState(null);
+  const [deleteClientConfirm, setDeleteClientConfirm] = useState(null); // client to delete
   const [addingNewVehicle, setAddingNewVehicle] = useState(false);
   const [foundClient, setFoundClient] = useState(null);
   const [foundVehicle, setFoundVehicle] = useState(null);
@@ -1440,7 +1441,7 @@ const NewOrderScreen = (props) => {
                 placeholder="Ej: AC 123 BD" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
               {/* Predictivo por dominio */}
-              {domainSearch.length > 1 && !historyVehicle && (() => {
+              {domainSearch.length > 0 && !historyVehicle && (() => {
                 const matches = [];
                 for (const c of clients) {
                   for (const v of (c.vehicles || [])) {
@@ -1702,9 +1703,19 @@ const NewOrderScreen = (props) => {
                       <div key={c.id} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                           <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${T.accent}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
-                          <div>
+                          <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name} {c.lastName}</div>
                             <div style={{ fontSize: 12, color: T.gray }}>DNI: {c.dni || "—"}{c.cuit ? " • CUIT: " + c.cuit : ""}</div>
+                          </div>
+                          {/* ── Botones editar / eliminar ── */}
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={e => { e.stopPropagation();
+                              setFoundClient(c);
+                              setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: "", model: "", year: "", km: "", domain: "" });
+                              setIsNew(false); setEditMode(true); setAddingNewVehicle(false); setStep(2);
+                            }} style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 15, color: T.orange }} title="Editar cliente">✏️</button>
+                            <button onClick={e => { e.stopPropagation(); setDeleteClientConfirm(c); }}
+                              style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 15, color: T.red }} title="Eliminar cliente">🗑️</button>
                           </div>
                         </div>
                         {(c.vehicles || []).map((v, i) => {
@@ -1742,6 +1753,31 @@ const NewOrderScreen = (props) => {
               })()}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── MODAL: Confirmar eliminación de cliente ── */}
+      {deleteClientConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 24 }}>
+          <div style={{ ...card, padding: 28, maxWidth: 380, width: "100%", animation: "fadeUp .2s ease" }}>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>¿Eliminar cliente?</div>
+            <div style={{ fontSize: 14, color: T.grayLight, textAlign: "center", marginBottom: 6 }}>
+              <strong style={{ color: T.white }}>{deleteClientConfirm.name} {deleteClientConfirm.lastName}</strong>
+            </div>
+            <div style={{ fontSize: 12, color: T.gray, textAlign: "center", marginBottom: 20 }}>
+              DNI: {deleteClientConfirm.dni || "—"}{deleteClientConfirm.cuit ? " · CUIT: " + deleteClientConfirm.cuit : ""}
+              <br/>Esta acción <strong style={{ color: T.red }}>no se puede deshacer</strong>.
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setDeleteClientConfirm(null)}
+                style={{ flex: 1, ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>Cancelar</button>
+              <button onClick={() => {
+                setClients(prev => prev.filter(c => c.id !== deleteClientConfirm.id));
+                setDeleteClientConfirm(null);
+              }} style={{ flex: 1, ...btnPrimary(T.red) }}>Sí, eliminar</button>
+            </div>
+          </div>
         </div>
       )}
 
