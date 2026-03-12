@@ -6537,7 +6537,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
               {/* CTA CTE ingreso */}
               {ingresoTipo === "ctacte" && (() => {
-                const ctaPendientes = orders.filter(o => (o.payments || []).some(p => p.method === "Cuenta Corriente") && !o.ctaCobrada);
+                const ctaPendientes = orders.filter(o => {
+                  if (o.ctaCobrada) return false;
+                  const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                  return monto > 0;
+                });
                 const ctaFiltradas = ctaSearchIngreso
                   ? ctaPendientes.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaSearchIngreso.toLowerCase()); })
                   : ctaPendientes;
@@ -6584,7 +6588,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     )}
                     <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                       <button onClick={() => { setIngresoTipo(""); setCtaSelOrders([]); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>← Volver</button>
-                      <button disabled={ctaSelOrders.length === 0} onClick={() => setCtaIngresoStep(2)}
+                      <button disabled={ctaSelOrders.length === 0} onClick={() => { setCtaIngresoMonto(String(totalSel)); setCtaIngresoStep(2); }}
                         style={{ ...btnPrimary(T.orange), flex: 1, opacity: ctaSelOrders.length === 0 ? 0.4 : 1 }}>Continuar →</button>
                     </div>
                   </>
@@ -13419,6 +13423,28 @@ export default function App() {
   const [users,   setUsers]    = useState(USERS);
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
+
+  // ── Migración única: marcar todas las CTA CTE pre-existentes como cobradas ──
+  // Se ejecuta una sola vez cuando orders y config ya cargaron desde IDB/FS
+  const ctaMigratedRef = useRef(false);
+  useEffect(() => {
+    if (ctaMigratedRef.current) return;
+    if (dbLoading) return;
+    if (config.ctaInicializado) { ctaMigratedRef.current = true; return; }
+    // Primera vez: marcar todas las órdenes con CTA CTE como cobradas
+    const needsMigration = orders.filter(o =>
+      !o.ctaCobrada &&
+      (o.payments || []).some(p => p.method === "Cuenta Corriente")
+    );
+    if (needsMigration.length > 0 || !config.ctaInicializado) {
+      ctaMigratedRef.current = true;
+      setOrders(prev => prev.map(o => {
+        const tieneCta = (o.payments || []).some(p => p.method === "Cuenta Corriente");
+        return tieneCta && !o.ctaCobrada ? { ...o, ctaCobrada: true } : o;
+      }));
+      setConfig(c => ({ ...c, ctaInicializado: true }));
+    }
+  }, [dbLoading, config.ctaInicializado]);
 
   // ── Refs para evitar writes en la carga inicial ────────────
   const isLoadingRef  = useRef(true);
