@@ -1444,7 +1444,7 @@ const NewOrderScreen = (props) => {
                 const matches = [];
                 for (const c of clients) {
                   for (const v of (c.vehicles || [])) {
-                    if (v.domain.replace(/\s/g,"").toLowerCase().includes(domainSearch.replace(/\s/g,"").toLowerCase())) {
+                    if (v.domain.replace(/\s/g,"").toLowerCase() === domainSearch.replace(/\s/g,"").toLowerCase()) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled"].includes(o.status));
                       matches.push({ c, v, vCount, activeOrder });
