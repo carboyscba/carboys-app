@@ -5144,7 +5144,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const payEntries = Object.entries(payTotals).sort((a, b) => b[1] - a[1]);
   const payColors = { "Efectivo": "#43a047", "Transferencia": "#1E88E5", "Tarjeta": "#9C27B0", "Cuenta Corriente": "#FF9800" };
 
-  const ctaCte = orders.filter(o => (o.payments || []).some(p => p.method === "Cuenta Corriente"));
+  const ctaCte = orders.filter(o => {
+    if (o.ctaCobrada) return false;
+    const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+    return ctaMonto > 0;
+  });
   const ctaFiltered = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
   const ctaTotal = ctaCte.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
 
