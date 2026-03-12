@@ -1441,11 +1441,13 @@ const NewOrderScreen = (props) => {
                 placeholder="Ej: AC 123 BD" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
               {/* Predictivo por dominio */}
-              {domainSearch.length > 0 && !historyVehicle && (() => {
+              {domainSearch.replace(/\s/g,"").length >= 3 && !historyVehicle && (() => {
                 const matches = [];
+                const dsNorm = domainSearch.replace(/\s/g,"").toUpperCase();
                 for (const c of clients) {
                   for (const v of (c.vehicles || [])) {
-                    if (v.domain.replace(/\s/g,"").toLowerCase().startsWith(domainSearch.replace(/\s/g,"").toLowerCase())) {
+                    if (!v.domain) continue;
+                    if (v.domain.replace(/\s/g,"").toUpperCase().startsWith(dsNorm)) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled"].includes(o.status));
                       matches.push({ c, v, vCount, activeOrder });
@@ -1460,28 +1462,43 @@ const NewOrderScreen = (props) => {
                     <button onClick={searchDomain} style={btnPrimary()}>+ Crear nuevo cliente</button>
                   </div>
                 );
+                const shown = matches.slice(0, 8);
                 return (
                   <div style={{ marginTop: 12 }}>
-                    {matches.map(({ c, v, vCount, activeOrder }) => (
-                      <div key={v.domain} onClick={() => {
-                        const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").sort((a, b) => (b.date||"").localeCompare(a.date||""));
-                        setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
-                        setFoundClient(c);
-                        setFoundVehicle(v);
-                        setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
-                      }} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${T.accent}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = T.bg3}
-                        onMouseLeave={e => e.currentTarget.style.background = T.bg2}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div>
-                            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
-                            <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
-                            <div style={{ fontSize: 12, color: T.gray }}>{c.name} {c.lastName}</div>
-                          </div>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
-                            <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
-                            {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.orange, marginTop: 4 }}>EN TALLER</div>}
+                    {matches.length > 8 && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8, textAlign: "center" }}>Mostrando 8 de {matches.length} resultados — seguí escribiendo para filtrar</div>}
+                    {shown.map(({ c, v, vCount, activeOrder }) => (
+                      <div key={v.domain} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
+                        {/* Fila superior: datos cliente + botones editar/eliminar */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <div style={{ flex: 1, fontSize: 13, color: T.gray }}>👤 {c.name} {c.lastName}{c.phone ? ` · ${c.phone}` : ""}</div>
+                          <button onClick={e => { e.stopPropagation();
+                            setFoundClient(c);
+                            setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", domain: v.domain });
+                            setIsNew(false); setEditMode(true); setAddingNewVehicle(false); setStep(2);
+                          }} style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.orange }} title="Editar cliente">✏️</button>
+                          <button onClick={e => { e.stopPropagation(); setDeleteClientConfirm(c); }}
+                            style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.red }} title="Eliminar cliente">🗑️</button>
+                        </div>
+                        {/* Card del vehículo clickeable */}
+                        <div onClick={() => {
+                          const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").sort((a, b) => (b.date||"").localeCompare(a.date||""));
+                          setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
+                          setFoundClient(c);
+                          setFoundVehicle(v);
+                          setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", lastKm: String(v.km), domain: v.domain });
+                        }} style={{ ...card, padding: 14, cursor: activeOrder ? "not-allowed" : "pointer", borderColor: activeOrder ? T.orange : T.border, opacity: activeOrder ? 0.7 : 1 }}
+                          onMouseEnter={e => { if (!activeOrder) e.currentTarget.style.background = T.bg3; }}
+                          onMouseLeave={e => { if (!activeOrder) e.currentTarget.style.background = T.bg2; }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
+                              <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
+                              <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
+                              {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.orange, marginTop: 4 }}>EN TALLER</div>}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1505,9 +1522,17 @@ const NewOrderScreen = (props) => {
                           <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{hc.name} {hc.lastName}</strong></div>
                           {hv.km && <div style={{ fontSize: 13, color: T.grayLight, marginTop: 4 }}>KM de su última visita: <strong style={{ color: T.text }}>{Number(hv.km).toLocaleString("es-AR")} km</strong></div>}
                         </div>
-                        <div style={{ textAlign: "center" }}>
-                          <div style={{ fontFamily: fontD, fontSize: 36, fontWeight: 800, color: T.accent }}>{hOrders.length}</div>
-                          <div style={{ fontSize: 12, color: T.gray }}>ingreso{hOrders.length !== 1 ? "s" : ""}</div>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: fontD, fontSize: 36, fontWeight: 800, color: T.accent }}>{hOrders.length}</div>
+                            <div style={{ fontSize: 12, color: T.gray }}>ingreso{hOrders.length !== 1 ? "s" : ""}</div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => { setFoundClient(hc); setFoundVehicle(hv); setEditMode(true); setHistoryVehicle(null); setStep(2); }}
+                              style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14, color: T.orange }} title="Editar cliente">✏️ Editar</button>
+                            <button onClick={() => setDeleteClientConfirm(hc)}
+                              style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14, color: T.red }} title="Eliminar cliente">🗑️</button>
+                          </div>
                         </div>
                       </div>
                       {/* Botón Nueva Visita — exclusivo de este flujo */}
@@ -3155,7 +3180,7 @@ const DashboardScreen = (props) => {
   );
 };
 
-const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
+const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }) => {
   const [q, setQ] = useState("");
   const ref = useRef(null);
   const [selVehicle, setSelVehicle] = useState(() => {
@@ -3167,16 +3192,22 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
     return null;
   });
   const [selClient, setSelClient] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const results = q.length > 1 ? clients.filter(c =>
-    (c.vehicles || []).some(v => v.domain.replace(/\s/g, "").toLowerCase().startsWith(q.replace(/\s/g, "").toLowerCase())) ||
-    c.name.toLowerCase().includes(q.toLowerCase()) ||
-    c.lastName.toLowerCase().includes(q.toLowerCase()) ||
-    (c.dni && c.dni.includes(q)) ||
-    (c.cuit && c.cuit.includes(q))
-  ) : [];
-
+  const cleanQ = q.replace(/[^a-z0-9]/gi, "").toLowerCase();
   const isDniSearch = q.length > 1 && /^[0-9\-]+$/.test(q.trim());
+  // Si el input tiene letras Y números => es una patente => solo buscar por dominio
+  const isDomainQuery = /[a-zA-Z]/.test(q) && /[0-9]/.test(q);
+
+  const results = q.length > 0 ? clients.filter(c => {
+    const domainMatch = (c.vehicles || []).some(v => v.domain.replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(cleanQ));
+    if (isDomainQuery) return domainMatch;
+    return domainMatch ||
+      c.name.toLowerCase().includes(q.toLowerCase()) ||
+      c.lastName.toLowerCase().includes(q.toLowerCase()) ||
+      (c.dni && c.dni.includes(q)) ||
+      (c.cuit && c.cuit.includes(q));
+  }) : [];
 
   // Vehicle history view
   if (selVehicle) {
@@ -3308,21 +3339,35 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
               </div>
             </div>
           ) : (
-            (c.vehicles || []).filter(v => v.domain.replace(/\s/g, "").toLowerCase().startsWith(q.replace(/\s/g, "").toLowerCase())).map(v => {
+            (c.vehicles || []).filter(v => v.domain.replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(cleanQ)).map(v => {
               const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
               const activeOrder = orders.find(o => o.domain === v.domain && !["delivered", "cancelled"].includes(o.status));
               return (
-                <div key={v.domain} onClick={() => setSelVehicle(v)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
-                      <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
-                      <div style={{ fontSize: 12, color: T.gray }}>{c.name} {c.lastName}</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
-                      <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
-                      {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.green, marginTop: 4 }}>EN TALLER</div>}
+                <div key={v.domain} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
+                  {/* Fila cliente + botones */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <div style={{ flex: 1, fontSize: 13, color: T.gray }}>👤 {c.name} {c.lastName}{c.phone ? ` · ${c.phone}` : ""}</div>
+                    {setClients && <>
+                      <button onClick={e => { e.stopPropagation(); onNavigate("newOrder", { editClient: c, editVehicle: v }); }}
+                        style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.orange }} title="Editar cliente">✏️</button>
+                      <button onClick={e => { e.stopPropagation(); setDeleteConfirm(c); }}
+                        style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.red }} title="Eliminar cliente">🗑️</button>
+                    </>}
+                  </div>
+                  {/* Card vehículo clickeable */}
+                  <div onClick={() => setSelVehicle(v)} style={{ ...card, padding: 14, cursor: "pointer", borderColor: activeOrder ? T.orange : T.border }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.bg3}
+                    onMouseLeave={e => e.currentTarget.style.background = T.bg2}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{fmtD(v.domain)}</div>
+                        <div style={{ fontSize: 14, color: T.grayLight }}>{v.brand} {v.model} {v.year}</div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{vCount}</div>
+                        <div style={{ fontSize: 11, color: T.gray }}>ingreso{vCount !== 1 ? "s" : ""}</div>
+                        {activeOrder && <div style={{ fontSize: 10, fontWeight: 700, color: T.green, marginTop: 4 }}>EN TALLER</div>}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3331,6 +3376,29 @@ const SearchScreen = ({ clients, orders, onNavigate, initialDomain }) => {
           )}
         </div>
       ))}
+
+      {/* Modal eliminar cliente */}
+      {deleteConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 24 }}>
+          <div style={{ ...card, padding: 28, maxWidth: 380, width: "100%", animation: "fadeUp .2s ease" }}>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>¿Eliminar cliente?</div>
+            <div style={{ fontSize: 14, color: T.grayLight, textAlign: "center", marginBottom: 6 }}>
+              <strong style={{ color: T.white }}>{deleteConfirm.name} {deleteConfirm.lastName}</strong>
+            </div>
+            <div style={{ fontSize: 12, color: T.gray, textAlign: "center", marginBottom: 20 }}>
+              Esta acción <strong style={{ color: T.red }}>no se puede deshacer</strong>.
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>Cancelar</button>
+              <button onClick={() => {
+                setClients(prev => prev.filter(c => c.id !== deleteConfirm.id));
+                setDeleteConfirm(null);
+              }} style={{ flex: 1, ...btnPrimary(T.red) }}>Sí, eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -13343,7 +13411,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} /> : null;
+      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} /> : null;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
