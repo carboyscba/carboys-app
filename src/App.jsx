@@ -5070,6 +5070,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [selServAnio, setSelServAnio]   = useState(null);   // año expandido en el accordion de servicios
   const [showPagoMes, setShowPagoMes]   = useState(false);  // modal pagar factura de un mes
   const [pagoMesForm, setPagoMesForm]   = useState({ nroFc: "", vencimiento: "", monto: "", metodo: "" });
+  const [showNuevaFcServ, setShowNuevaFcServ] = useState(false);
+  const [nuevaFcServForm, setNuevaFcServForm] = useState({ anio: new Date().getFullYear(), mes: new Date().getMonth(), monto: "", fechaEmision: new Date().toISOString().split("T")[0], vencimiento: "" });
   const [showConfirmDelServ, setShowConfirmDelServ] = useState(null); // id servicio a eliminar
   const [showConfirmDelProv, setShowConfirmDelProv] = useState(null); // id proveedor a eliminar
   // CTA CTE — pago directo
@@ -7436,7 +7438,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 </div>
               ) : (
                 <button onClick={() => {
-                  setPagoMesForm({ nroFc: mesData.nroFc || "", vencimiento: mesData.vencimiento || "", monto: mesData.monto || selServ.monto || "", metodo: "" });
+                  setPagoMesForm({ nroFc: mesData.nroFc || "", vencimiento: mesData.vencimiento || "", monto: mesData.monto || "", metodo: "" });
                   setShowPagoMes(true);
                 }}
                   style={{ ...btnPrimary(T.green), width: "100%", fontSize: 15, padding: "16px 0", fontWeight: 800, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
@@ -7447,21 +7449,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           );
         })()}
 
-        {/* ══ NIVEL 2: años → meses dentro de un servicio ══ */}
+        {/* ══ NIVEL 2: años → meses (lista) dentro de un servicio ══ */}
         {selServ && !selServMes && (() => {
-          const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-          const MESES_FULL    = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-          const now    = new Date();
-          const hoy    = now.toISOString().split("T")[0];
+          const MESES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          const now     = new Date();
+          const hoy     = now.toISOString().split("T")[0];
           const svMeses = selServ.meses || {};
-          const totalPagado  = Object.values(svMeses).filter(m => m.pagado).reduce((s, m) => s + (parseFloat(m.pagoMonto || m.monto) || 0), 0);
-          const cantPagados  = Object.values(svMeses).filter(m => m.pagado).length;
+          const totalPagado = Object.values(svMeses).filter(m => m.pagado).reduce((s, m) => s + (parseFloat(m.pagoMonto || m.monto) || 0), 0);
+          const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
 
-          // Armar lista de años a mostrar: desde (año actual - 2) hasta año actual + 1
+          // Solo años 2026 en adelante
           const anioActual = now.getFullYear();
-          const anios = [anioActual + 1, anioActual, anioActual - 1, anioActual - 2].filter(Boolean);
-          // Auto-expandir año actual si nada seleccionado
-          const anioExpandido = selServAnio !== null ? selServAnio : anioActual;
+          const anioMin    = 2026;
+          const aniosConDatos = [...new Set(Object.keys(svMeses).map(k => parseInt(k.split("-")[0])))].filter(y => y >= anioMin);
+          const maxAnio = Math.max(anioActual + 1, ...aniosConDatos, anioMin);
+          const anios   = Array.from({ length: maxAnio - anioMin + 1 }, (_, i) => maxAnio - i); // más reciente primero
+          const anioExpandido = selServAnio !== null ? selServAnio : anioActual >= anioMin ? anioActual : anioMin;
 
           return (
             <div>
@@ -7472,10 +7475,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{selServ.nombre}</div>
                     {selServ.desc && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{selServ.desc}</div>}
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 10, color: T.gray }}>Monto habitual</div>
-                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>{fmt(parseFloat(selServ.monto) || 0)}</div>
-                  </div>
+                  <button onClick={() => {
+                    setNuevaFcServForm({ anio: anioActual >= anioMin ? anioActual : anioMin, mes: now.getMonth(), monto: "", fechaEmision: hoy, vencimiento: "" });
+                    setShowNuevaFcServ(true);
+                  }} style={{ ...btnPrimary(T.accent), fontSize: 13, padding: "10px 18px", fontWeight: 800 }}>
+                    + Agregar FC
+                  </button>
                 </div>
                 {cantPagados > 0 && (
                   <div style={{ display: "flex", gap: 10, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
@@ -7491,73 +7496,87 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 )}
               </div>
 
-              {/* Acordeón por año */}
+              {/* Acordeón por año → lista de meses */}
               {anios.map(anio => {
                 const isOpen = anio === anioExpandido;
-                // Calcular estado del año
-                const mesesDelAnio = Array.from({ length: 12 }, (_, m) => {
+                const esAnioActual = anio === anioActual;
+                // Solo meses que tienen datos registrados para este año
+                const mesesConDatos = Array.from({ length: 12 }, (_, m) => {
                   const key = `${anio}-${String(m + 1).padStart(2, "0")}`;
-                  return { month: m, key, data: svMeses[key] || {} };
-                });
-                const pagadosAnio   = mesesDelAnio.filter(m => m.data.pagado).length;
-                const vencidosAnio  = mesesDelAnio.filter(m => !m.data.pagado && m.data.vencimiento && m.data.vencimiento < hoy).length;
-                const esAnioActual  = anio === anioActual;
+                  return { month: m, key, data: svMeses[key] };
+                }).filter(x => x.data && (x.data.monto || x.data.vencimiento));
+
+                const vencidosAnio = mesesConDatos.filter(m => !m.data.pagado && m.data.vencimiento && m.data.vencimiento < hoy).length;
+                const pagadosAnio  = mesesConDatos.filter(m => m.data.pagado).length;
 
                 return (
                   <div key={anio} style={{ marginBottom: 10 }}>
-                    {/* Header del año — toca para expandir/colapsar */}
+                    {/* Header año */}
                     <div onClick={() => setSelServAnio(isOpen ? -1 : anio)}
                       style={{ ...card, padding: "14px 18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-                        borderLeft: `4px solid ${vencidosAnio > 0 ? T.red : pagadosAnio === 12 ? T.green : esAnioActual ? T.accent : T.border}`,
+                        borderLeft: `4px solid ${vencidosAnio > 0 ? T.red : pagadosAnio > 0 && pagadosAnio === mesesConDatos.length ? T.green : esAnioActual ? T.accent : T.border}`,
                         background: isOpen ? `${T.accent}08` : T.bg2 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontSize: 28 }}>
-                          {vencidosAnio > 0 ? "⚠️" : pagadosAnio === 12 ? "✅" : esAnioActual ? "📌" : "📆"}
+                      <div>
+                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: esAnioActual ? T.accent : T.white }}>
+                          {anio}{esAnioActual ? " · este año" : ""}
                         </div>
-                        <div>
-                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: esAnioActual ? T.accent : T.white }}>
-                            {anio}{esAnioActual ? " (este año)" : ""}
-                          </div>
-                          <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>
-                            {pagadosAnio > 0 ? `${pagadosAnio} mes${pagadosAnio !== 1 ? "es" : ""} pagado${pagadosAnio !== 1 ? "s" : ""}` : "Sin pagos registrados"}
-                            {vencidosAnio > 0 ? ` · ⚠️ ${vencidosAnio} vencida${vencidosAnio !== 1 ? "s" : ""}` : ""}
-                          </div>
+                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>
+                          {mesesConDatos.length === 0 ? "Sin facturas cargadas"
+                            : `${mesesConDatos.length} factura${mesesConDatos.length !== 1 ? "s" : ""} · ${pagadosAnio} pagada${pagadosAnio !== 1 ? "s" : ""}`}
+                          {vencidosAnio > 0 ? ` · ⚠️ ${vencidosAnio} vencida${vencidosAnio !== 1 ? "s" : ""}` : ""}
                         </div>
                       </div>
                       <div style={{ fontSize: 18, color: T.gray, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "none" }}>›</div>
                     </div>
 
-                    {/* Grid de meses — visible solo cuando el año está abierto */}
+                    {/* Lista de meses con datos */}
                     {isOpen && (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: "10px 4px 4px" }}>
-                        {mesesDelAnio.map(({ month, key, data }) => {
-                          const pagado   = data.pagado || false;
-                          const vencido  = !pagado && data.vencimiento && data.vencimiento < hoy;
-                          const esMesAct = esAnioActual && month === now.getMonth();
-                          const tieneDatos = data.nroFc || data.monto;
-                          const label    = MESES_FULL[month];
-                          const corto    = MESES_NOMBRES[month];
-                          const borderC  = pagado ? T.green : vencido ? T.red : esMesAct ? T.accent : T.border;
-                          const bgC      = pagado ? `${T.green}12` : vencido ? `${T.red}10` : esMesAct ? `${T.accent}10` : T.bg2;
+                      <div style={{ paddingTop: 6 }}>
+                        {mesesConDatos.length === 0 ? (
+                          <div style={{ padding: "16px 12px", textAlign: "center", color: T.gray, fontSize: 13 }}>
+                            Sin facturas cargadas para {anio}
+                          </div>
+                        ) : (
+                          mesesConDatos.map(({ month, key, data }) => {
+                            const pagado  = data.pagado || false;
+                            const vencido = !pagado && data.vencimiento && data.vencimiento < hoy;
+                            const diff    = data.vencimiento ? Math.ceil((new Date(data.vencimiento) - new Date(hoy)) / 86400000) : null;
+                            const proxVencer = !pagado && diff !== null && diff >= 0 && diff <= 7;
+                            const label   = MESES_FULL[month];
 
-                          return (
-                            <div key={key} onClick={() => setSelServMes({ year: anio, month, label })}
-                              style={{ padding: "12px 6px", borderRadius: 12, cursor: "pointer", textAlign: "center",
-                                border: `2px solid ${borderC}`, background: bgC, transition: "all .15s" }}>
-                              <div style={{ fontSize: 20, marginBottom: 4 }}>
-                                {pagado ? "✅" : vencido ? "⚠️" : esMesAct ? "📌" : tieneDatos ? "🧾" : "📅"}
-                              </div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: pagado ? T.green : vencido ? T.red : esMesAct ? T.accent : T.grayLight }}>
-                                {corto}
-                              </div>
-                              {data.monto && (
-                                <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>
-                                  {fmt(parseFloat(data.monto) || 0)}
+                            let statusColor = T.gray;
+                            let statusText  = "Pendiente";
+                            let statusBg    = T.bg2;
+                            let borderC     = T.border;
+                            if (pagado)      { statusColor = T.green;  statusText = "✅ Pagada";  statusBg = `${T.green}08`; borderC = `${T.green}40`; }
+                            else if (vencido){ statusColor = T.red;    statusText = "⚠️ Vencida"; statusBg = `${T.red}08`;   borderC = `${T.red}40`; }
+                            else if (proxVencer){ statusColor = "#F59E0B"; statusText = `⏰ Vence en ${diff} día${diff !== 1 ? "s" : ""}`; statusBg = `#F59E0B10`; borderC = `#F59E0B50`; }
+
+                            return (
+                              <div key={key} onClick={() => setSelServMes({ year: anio, month, label })}
+                                style={{ ...card, padding: "14px 16px", marginBottom: 8, cursor: "pointer",
+                                  background: statusBg, border: `1px solid ${borderC}`,
+                                  display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{label} {anio}</div>
+                                  {data.vencimiento && (
+                                    <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>
+                                      Vence: {new Date(data.vencimiento + "T12:00:00").toLocaleDateString("es-AR")}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                <div style={{ textAlign: "right" }}>
+                                  {data.monto && (
+                                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: pagado ? T.green : T.orange }}>
+                                      {fmt(parseFloat(data.monto) || 0)}
+                                    </div>
+                                  )}
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: statusColor, marginTop: 2 }}>{statusText}</div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     )}
                   </div>
@@ -7601,11 +7620,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                       </div>
                     </div>
                     <div style={{ textAlign: "right", marginRight: 30 }}>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(parseFloat(s.monto) || 0)}</div>
                       {mesActualPagado
-                        ? <div style={{ fontSize: 10, color: T.green, fontWeight: 700 }}>✅ MES ACTUAL</div>
-                        : tieneVencidos ? <div style={{ fontSize: 10, color: T.red, fontWeight: 700 }}>⚠️ VENCIDO</div>
-                        : <div style={{ fontSize: 10, color: T.gray }}>›</div>}
+                        ? <div style={{ fontSize: 12, color: T.green, fontWeight: 700 }}>✅ Mes actual</div>
+                        : tieneVencidos ? <div style={{ fontSize: 12, color: T.red, fontWeight: 700 }}>⚠️ Vencida</div>
+                        : <div style={{ fontSize: 18, color: T.gray }}>›</div>}
                     </div>
                   </div>
                   {/* Botón editar */}
@@ -7625,16 +7643,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🔌 Nuevo Servicio</div>
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Internet, Alquiler" /></div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                <div><label style={labelStyle}>Monto habitual</label><div style={{ display: "flex", gap: 4, alignItems: "center" }}><span style={{ fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={servForm.monto ? Number(servForm.monto).toLocaleString("es-AR") : ""} onChange={e => setServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} /></div></div>
-                <div><label style={labelStyle}>Método usual</label><select value={servForm.metodo} onChange={e => setServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}><option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option></select></div>
-              </div>
+              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Descripción <span style={{ fontWeight: 400, color: T.gray, fontSize: 10 }}>(opcional)</span></label><input inputMode="text" value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   if (!servForm.nombre) return;
-                  setServicios(p => [...p, { ...servForm, id: Date.now(), meses: {} }]);
+                  setServicios(p => [...p, { nombre: servForm.nombre, desc: servForm.desc, id: Date.now(), meses: {} }]);
                   setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
                   setShowServ(false);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
@@ -7650,25 +7664,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
             <div style={{ background: T.bg2, borderRadius: 18, padding: 26, maxWidth: 400, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 18 }}>✏️ Editar Servicio</div>
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={editServForm.nombre} onChange={e => setEditServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} /></div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={editServForm.desc} onChange={e => setEditServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-                <div><label style={labelStyle}>Monto habitual</label>
-                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
-                    <input inputMode="numeric" value={editServForm.monto ? Number(editServForm.monto).toLocaleString("es-AR") : ""} onChange={e => setEditServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
-                  </div>
-                </div>
-                <div><label style={labelStyle}>Método usual</label>
-                  <select value={editServForm.metodo} onChange={e => setEditServForm(f => ({ ...f, metodo: e.target.value }))} style={inputStyle}>
-                    <option value="">—</option><option>Efectivo</option><option>Transferencia</option><option>Débito automático</option>
-                  </select>
-                </div>
-              </div>
+              <div style={{ marginBottom: 20 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={editServForm.desc} onChange={e => setEditServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                 <button onClick={() => { setEditServModal(null); setDelServConfirm(0); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   if (!editServForm.nombre) return;
-                  setServicios(p => p.map(x => x.id === editServModal.id ? { ...x, ...editServForm } : x));
+                  setServicios(p => p.map(x => x.id === editServModal.id ? { ...x, nombre: editServForm.nombre, desc: editServForm.desc } : x));
                   setEditServModal(null); setDelServConfirm(0);
                 }} style={{ ...btnPrimary(T.accent), flex: 2, fontWeight: 800 }}>✓ Guardar cambios</button>
               </div>
@@ -7725,6 +7726,101 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     setServicios(p => p.filter(s => s.id !== showConfirmDelServ));
                     setShowConfirmDelServ(null);
                   }} style={{ ...btnPrimary(T.red), flex: 1, fontWeight: 800 }}>Sí, eliminar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ══ MODAL NUEVA FC DE SERVICIO ══ */}
+        {showNuevaFcServ && selServ && (() => {
+          const MESES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          const anioMin   = 2026;
+          const anioMax   = new Date().getFullYear() + 2;
+          const anioOpts  = Array.from({ length: anioMax - anioMin + 1 }, (_, i) => anioMin + i);
+          const mesKey    = `${nuevaFcServForm.anio}-${String(nuevaFcServForm.mes + 1).padStart(2, "0")}`;
+          const yaExiste  = !!(selServ.meses || {})[mesKey]?.monto;
+          const canSave   = nuevaFcServForm.monto && nuevaFcServForm.vencimiento && !yaExiste;
+
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(4px)" }}
+              onClick={() => setShowNuevaFcServ(false)}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>🧾 Nueva Factura</div>
+                <div style={{ fontSize: 13, color: T.gray, marginBottom: 18 }}>{selServ.nombre}</div>
+
+                {/* Período */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Período *</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <select value={nuevaFcServForm.mes}
+                      onChange={e => setNuevaFcServForm(f => ({ ...f, mes: parseInt(e.target.value) }))}
+                      style={inputStyle}>
+                      {MESES_FULL.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    <select value={nuevaFcServForm.anio}
+                      onChange={e => setNuevaFcServForm(f => ({ ...f, anio: parseInt(e.target.value) }))}
+                      style={inputStyle}>
+                      {anioOpts.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  {yaExiste && <div style={{ marginTop: 6, fontSize: 12, color: T.red, fontWeight: 600 }}>⚠️ Ya existe una factura para {MESES_FULL[nuevaFcServForm.mes]} {nuevaFcServForm.anio}</div>}
+                </div>
+
+                {/* Monto */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
+                    <input inputMode="numeric" autoFocus
+                      value={nuevaFcServForm.monto ? Number(nuevaFcServForm.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => setNuevaFcServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                      style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 700 }} placeholder="0" />
+                  </div>
+                </div>
+
+                {/* Fecha emisión */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Fecha de emisión</label>
+                  <input type="date" value={nuevaFcServForm.fechaEmision}
+                    onChange={e => setNuevaFcServForm(f => ({ ...f, fechaEmision: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+
+                {/* Fecha vencimiento */}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={labelStyle}>Fecha de vencimiento *</label>
+                  <input type="date" value={nuevaFcServForm.vencimiento}
+                    onChange={e => setNuevaFcServForm(f => ({ ...f, vencimiento: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowNuevaFcServ(false)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button disabled={!canSave} onClick={() => {
+                    if (!canSave) return;
+                    const upd = {
+                      ...selServ,
+                      meses: {
+                        ...(selServ.meses || {}),
+                        [mesKey]: {
+                          monto:       nuevaFcServForm.monto,
+                          fechaEmision: nuevaFcServForm.fechaEmision,
+                          vencimiento: nuevaFcServForm.vencimiento,
+                          pagado:      false,
+                        }
+                      }
+                    };
+                    setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
+                    setSelServ(upd);
+                    // Auto-expandir el año recién creado
+                    setSelServAnio(nuevaFcServForm.anio);
+                    setShowNuevaFcServ(false);
+                  }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, opacity: !canSave ? 0.4 : 1 }}>
+                    ✅ Guardar Factura
+                  </button>
                 </div>
               </div>
             </div>
