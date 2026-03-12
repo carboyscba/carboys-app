@@ -6000,6 +6000,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
+  const [statYear, setStatYear] = useState(new Date().getFullYear());
+  const [statMonth, setStatMonth] = useState(new Date().getMonth());
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [saldoReal, setSaldoReal] = useState("");
@@ -6075,9 +6077,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
-  const yearAgo = new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
-  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : period === "anual" ? yearAgo : monthAgo;
+  // Período basado en año/mes seleccionados (no "últimos 30 días")
+  const statYM = `${statYear}-${String(statMonth + 1).padStart(2, "0")}`;
+  const statYearStart = `${statYear}-01-01`;
+  const statYearEnd = `${statYear}-12-31`;
+  const statMonthStart = `${statYear}-${String(statMonth + 1).padStart(2, "0")}-01`;
+  const statMonthEnd = `${statYear}-${String(statMonth + 1).padStart(2, "0")}-31`; // 31 funciona como tope
+
+  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : period === "anual" ? statYearStart : statMonthStart;
+  const endDate = period === "dia" ? today : period === "semana" ? today : period === "anual" ? statYearEnd : statMonthEnd;
   // Normaliza cualquier formato de fecha a "YYYY-MM-DD"
   const normDate = (d) => {
     if (!d) return "";
@@ -6087,10 +6095,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   };
 
   const completed = orders.filter(o => o.status === "done" || o.status === "delivered");
-  const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today);
+  const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= endDate);
   const totalVentas = periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
   const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-  const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
+  const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= endDate);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
   // esIngreso: true = son ingresos reales (cobro CTA CTE, saldo_inicial) → suman al saldo, no restan
   const egresosEfectivo = periodEgresos.filter(e => (!e.metodoPago || e.metodoPago === "Efectivo") && !e.esIngreso);
@@ -6155,7 +6163,43 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   completed.forEach(o => { clientStats[o.clientId] = (clientStats[o.clientId] || 0) + 1; });
   const topClients = Object.entries(clientStats).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => x.id === parseInt(id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
 
+  const MESES_STAT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   const PB = (k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>;
+
+  const periodLabel = period === "dia" ? "Hoy" : period === "semana" ? "Última semana" : period === "anual" ? `Año ${statYear}` : `${MESES_STAT[statMonth]} ${statYear}`;
+
+  // Selector de período completo (año + período + mes)
+  const PeriodSelector = ({ showAnual = true }) => (
+    <div style={{ ...card, padding: 12, marginBottom: 16 }}>
+      {/* Fila 1: Año + Períodos */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {/* Selector de año */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 8 }}>
+          <button onClick={() => setStatYear(y => y - 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 8px", color: T.gray, cursor: "pointer", fontSize: 14, fontFamily: font }}>‹</button>
+          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, minWidth: 42, textAlign: "center" }}>{statYear}</span>
+          <button onClick={() => setStatYear(y => y + 1)} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 8px", color: T.gray, cursor: "pointer", fontSize: 14, fontFamily: font }}>›</button>
+        </div>
+        {/* Botones de período */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {PB("dia", "Hoy")}
+          {PB("semana", "Semana")}
+          {PB("mes", "Mes")}
+          {showAnual && PB("anual", "Anual")}
+        </div>
+      </div>
+      {/* Fila 2: Meses (solo si período = mes) */}
+      {period === "mes" && (
+        <div style={{ display: "flex", gap: 4, marginTop: 10, flexWrap: "wrap" }}>
+          {MESES_STAT.map((m, i) => (
+            <div key={i} onClick={() => setStatMonth(i)}
+              style={{ padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                background: statMonth === i ? T.accent : T.bg, color: statMonth === i ? "#fff" : T.gray,
+                border: `1px solid ${statMonth === i ? T.accent : T.border}` }}>{m}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   const _ALL_TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
@@ -6270,7 +6314,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
       {/* ══════ RESUMEN ══════ */}
       {tab === "resumen" && (<div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <PeriodSelector showAnual={false} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
           {[
             { l: "Total Ventas", v: showTotalVentas ? fmt(totalVentas) : "• • • • •", c: T.accent, ic: "💰", tap: true },
@@ -7221,7 +7265,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <PeriodSelector showAnual={false} />
 
         {/* ── RESUMEN POR MÉTODO ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
@@ -7826,7 +7870,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
             {tab === "facturas" && (<div>
         {/* ── Filtro de período ── */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        <PeriodSelector showAnual={false} />
 
         {(() => {
           // Facturas reales (A, B, C) + Comprobantes (sin validez fiscal), ordenados más reciente primero
@@ -9170,20 +9214,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               const recurrentCount = Object.values(clientStats).filter(v => v >= 2).length;
               const recurrentPct = uniqueClients > 0 ? Math.round((recurrentCount / uniqueClients) * 100) : 0;
 
-              // Clientes nuevos este mes
-              const ym = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+              // Clientes nuevos del período seleccionado
               const newClientsMonth = clients.filter(c => {
                 const firstOrd = completed.filter(o => o.clientId === c.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""))[0];
-                return firstOrd && (firstOrd.date || "").startsWith(ym);
+                if (!firstOrd) return false;
+                const fd = normDate(firstOrd.date);
+                return fd >= startDate && fd <= endDate;
               }).length;
 
-              // Egresos del período
-              const egresosPeriod = egresos.filter(e => {
-                if (period === "dia") return e.fecha === today;
-                if (period === "semana") return e.fecha >= new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-                if (period === "anual") return e.fecha >= new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
-                return (e.fecha || "").startsWith(ym);
-              });
+              // Egresos del período (usa mismo startDate/endDate que periodOrders)
+              const egresosPeriod = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= endDate);
               const totalEgresosPeriod = egresosPeriod.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
               const margin = repRevenue > 0 ? Math.round(((repRevenue - totalEgresosPeriod) / repRevenue) * 100) : 0;
               const marginColor = margin > 40 ? T.green : margin > 20 ? T.orange : T.red;
@@ -9214,8 +9254,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
               return (
                 <div>
                   <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📊 Reportes</div>
-                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Métricas completas de tu sucursal</div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}{PB("anual", "Anual")}</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Métricas completas de tu sucursal — <strong style={{ color: T.accent }}>{periodLabel}</strong></div>
+                  <PeriodSelector />
 
                   {/* ── KPIs principales ── */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
@@ -9336,7 +9376,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
             {statView === "pagos" && (<div>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}{PB("anual", "Anual")}</div>
+              <PeriodSelector />
               <div style={{ ...card, padding: 20 }}>
                 {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
                   const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
