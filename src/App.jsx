@@ -9510,9 +9510,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
         ];
 
-        const [campView, setCampView] = React.useState ? null : null; // fallback
         // Usar statView como sub-navegación de campañas
-        const cv = statView; // reusar statView para sub-navegación
+        const cv = statView;
 
         if (!cv) return (
           <div>
