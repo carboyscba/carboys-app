@@ -1342,7 +1342,7 @@ const NewOrderScreen = (props) => {
     const othersTotal = arr.slice(1).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
     return [{ ...arr[0], amount: String(Math.max(0, tw - othersTotal)) }, ...arr.slice(1)];
   };
-  const addPayment = () => setPayments(p => recalcFirst([...p, { method: "", amount: "0", account: "", installments: 1 }], totalWorks));
+  const addPayment = () => setPayments(p => recalcFirst([...p, { method: "", amount: "", account: "", installments: 1 }], totalWorks));
   const updatePayment = (i, field, val) => setPayments(prev => {
     const updated = prev.map((x, j) => j === i ? { ...x, [field]: val } : x);
     // Auto-recalc amount when IVA or installments change (single payment only)
@@ -2646,7 +2646,7 @@ const NewOrderScreen = (props) => {
                         {Number(p.amount || 0).toLocaleString("es-AR")}
                       </div>
                     ) : (
-                      <input inputMode="numeric" value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
+                      <input inputMode="numeric" pattern="[0-9]*" value={p.amount ? Number(p.amount).toLocaleString("es-AR") : ""} onChange={e => updatePayment(i, "amount", e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="0" style={{ ...inputStyle, flex: 1 }} />
                     )}
                   </div>
@@ -5043,6 +5043,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
   const [ctaIngresoDesc, setCtaIngresoDesc] = useState("");
   const [ctaIngresoMetodo, setCtaIngresoMetodo] = useState("Efectivo");
   const [ctaIngresoStep, setCtaIngresoStep] = useState(1); // 1=lista, 2=confirmacion
+  const [ctaMetodos, setCtaMetodos] = useState([{ metodo: "", monto: "" }]); // multi-método pago parcial
+  const [ctaFechaPago, setCtaFechaPago] = useState(new Date().toISOString().split("T")[0]);
   // Cierre semanal
   const [showCierreAlert, setShowCierreAlert] = useState(false);
   const [ctaFilter, setCtaFilter] = useState("");
@@ -5149,11 +5151,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
   const ctaCte = orders.filter(o => {
     if (o.ctaCobrada) return false;
-    const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
-    return ctaMonto > 0;
+    const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+    const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+    return (monto - pagadoParcial) > 0;
   });
   const ctaFiltered = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
-  const ctaTotal = ctaCte.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0), 0);
+  const ctaTotal = ctaCte.reduce((s, o) => {
+    const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0);
+    const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+    return s + Math.max(0, monto - pagadoParcial);
+  }, 0);
 
   const conFactura = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T"));
   const conTicket = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T"));
@@ -6110,6 +6117,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           const c = clients.find(x => x.id === o.clientId);
           const v = c?.vehicles?.find(x => x.domain === o.domain);
           const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+          const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+          const saldo = Math.max(0, ctaMonto - pagadoParcial);
           if (o.ctaCobrada) return null;
           return (
             <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10 }}>
@@ -6121,12 +6130,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(ctaMonto)}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(saldo)}</div>
+                  {pagadoParcial > 0 && <div style={{ fontSize: 10, color: T.gray }}>De {fmt(ctaMonto)} · abonó {fmt(pagadoParcial)}</div>}
                   <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: o.status === "delivered" ? T.green : T.orange, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : "EN TALLER"}</div>
                 </div>
               </div>
-              <button onClick={e => { e.stopPropagation(); setCtaPagoOrder(o); setCtaPagoForm({ fecha: today, monto: String(ctaMonto), metodo: "Efectivo" }); setShowCtaPago(true); }}
+              <button onClick={e => { e.stopPropagation(); setCtaPagoOrder(o); setCtaPagoForm({ fecha: today, monto: String(saldo), metodo: "Efectivo" }); setShowCtaPago(true); }}
                 style={{ ...btnPrimary(T.green), width: "100%", marginTop: 10, fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 💰 Registrar Pago
               </button>
@@ -6543,14 +6553,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                 const ctaPendientes = orders.filter(o => {
                   if (o.ctaCobrada) return false;
                   const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
-                  return monto > 0;
+                  const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                  return (monto - pagadoParcial) > 0;
                 });
                 const ctaFiltradas = ctaSearchIngreso
                   ? ctaPendientes.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaSearchIngreso.toLowerCase()); })
                   : ctaPendientes;
                 const totalSel = ctaSelOrders.reduce((s, id) => {
                   const o = orders.find(x => x.id === id);
-                  return s + (o ? (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0) : 0);
+                  if (!o) return s;
+                  const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (p.amount || 0), 0);
+                  const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+                  return s + Math.max(0, monto - pagadoParcial);
                 }, 0);
                 const montoAbonado = parseFloat(ctaIngresoMonto) || 0;
                 const diferencial = montoAbonado - totalSel;
@@ -6563,6 +6577,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                     {ctaFiltradas.map(o => {
                       const c = clients.find(x => x.id === o.clientId);
                       const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                      const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
+                      const saldo = Math.max(0, ctaMonto - pagadoParcial);
                       const sel = ctaSelOrders.includes(o.id);
                       return (
                         <div key={o.id} onClick={() => setCtaSelOrders(prev => sel ? prev.filter(id => id !== o.id) : [...prev, o.id])}
@@ -6574,7 +6590,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                               <div style={{ fontSize: 12, color: T.gray }}>{fmtDate(o.date)} • {(o.works||[]).map(w => w.type).join(", ")}</div>
                             </div>
                             <div style={{ textAlign: "right" }}>
-                              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.orange }}>{fmt(ctaMonto)}</div>
+                              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.orange }}>{fmt(saldo)}</div>
+                              {pagadoParcial > 0 && <div style={{ fontSize: 10, color: T.gray }}>De {fmt(ctaMonto)} · abonó {fmt(pagadoParcial)}</div>}
                               {sel && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700 }}>✓ Seleccionada</div>}
                             </div>
                           </div>
@@ -6597,50 +6614,153 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
                   </>
                 );
 
-                if (ctaIngresoStep === 2) return (
-                  <>
-                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>💵 Registrar Pago</div>
-                    <div style={{ ...card, padding: 14, marginBottom: 14, borderColor: T.orange }}>
-                      <div style={{ fontSize: 13, color: T.gray, marginBottom: 4 }}>Total de las órdenes seleccionadas</div>
-                      <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{fmt(totalSel)}</div>
-                    </div>
-                    <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto abonado *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.green }}>$</span><input inputMode="numeric" value={ctaIngresoMonto} onChange={e => setCtaIngresoMonto(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="0" autoFocus /></div></div>
-                    {ctaIngresoMonto && (
-                      <div style={{ ...card, padding: 12, marginBottom: 12, borderColor: diferencial === 0 ? T.green : diferencial > 0 ? T.accent : T.red }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}>
-                          <span>Diferencial</span>
-                          <span style={{ color: diferencial === 0 ? T.green : diferencial > 0 ? T.accent : T.red, fontFamily: fontD }}>
-                            {diferencial === 0 ? "✅ Pago exacto" : diferencial > 0 ? `+${fmt(diferencial)} (pago de más)` : `${fmt(diferencial)} (pago parcial)`}
-                          </span>
-                        </div>
+                if (ctaIngresoStep === 2) {
+                  const totalMetodos = ctaMetodos.reduce((s, m) => s + (parseFloat(m.monto) || 0), 0);
+                  const esParcial = totalMetodos < totalSel && totalMetodos > 0;
+                  const esExacto  = totalMetodos === totalSel;
+                  const esDemas   = totalMetodos > totalSel;
+                  const canConfirm = totalMetodos > 0 && ctaMetodos.every(m => m.metodo && parseFloat(m.monto) > 0);
+
+                  return (
+                    <>
+                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>💵 Registrar Pago</div>
+
+                      {/* Resumen deuda */}
+                      <div style={{ ...card, padding: 14, marginBottom: 14, borderColor: T.orange }}>
+                        <div style={{ fontSize: 13, color: T.gray, marginBottom: 4 }}>Saldo a cobrar</div>
+                        <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{fmt(totalSel)}</div>
                       </div>
-                    )}
-                    <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={ctaIngresoDesc} onChange={e => setCtaIngresoDesc(e.target.value)} style={inputStyle} placeholder="Ej: Pago parcial ctacte, acuerdo..." /></div>
-                    <div style={{ marginBottom: 14 }}>
-                      <label style={labelStyle}>Forma de pago</label>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {["Efectivo", "Transferencia", "Cheque"].map(m => (
-                          <div key={m} onClick={() => setCtaIngresoMetodo(m)}
-                            style={{ flex: 1, padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
-                              border: `2px solid ${ctaIngresoMetodo === m ? T.green : T.border}`,
-                              background: ctaIngresoMetodo === m ? `${T.green}15` : T.bg,
-                              color: ctaIngresoMetodo === m ? T.green : T.gray }}>
-                            {m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "🏦"} {m}
+
+                      {/* Métodos de pago */}
+                      <label style={labelStyle}>Métodos de pago *</label>
+                      {ctaMetodos.map((m, idx) => (
+                        <div key={idx} style={{ ...card, padding: 12, marginBottom: 8, borderColor: m.metodo ? T.green : T.border }}>
+                          {/* Selector método */}
+                          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                            {["Efectivo", "Transferencia", "Cheque"].map(op => (
+                              <div key={op} onClick={() => setCtaMetodos(prev => prev.map((x, i) => i === idx ? { ...x, metodo: op } : x))}
+                                style={{ flex: 1, padding: "8px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 11, fontWeight: 700,
+                                  border: `2px solid ${m.metodo === op ? T.green : T.border}`,
+                                  background: m.metodo === op ? `${T.green}15` : T.bg,
+                                  color: m.metodo === op ? T.green : T.gray }}>
+                                {op === "Efectivo" ? "💵" : op === "Transferencia" ? "🔁" : "🏦"} {op}
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                          {/* Monto del método */}
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontWeight: 700, color: T.green, fontSize: 15 }}>$</span>
+                            <input inputMode="numeric"
+                              value={m.monto ? Number(m.monto).toLocaleString("es-AR") : ""}
+                              onChange={e => setCtaMetodos(prev => prev.map((x, i) => i === idx ? { ...x, monto: e.target.value.replace(/[^0-9]/g, "") } : x))}
+                              style={{ ...inputStyle, flex: 1, fontSize: 16, fontWeight: 700 }} placeholder="0" />
+                            {ctaMetodos.length > 1 && (
+                              <button onClick={() => setCtaMetodos(prev => prev.filter((_, i) => i !== idx))}
+                                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, padding: "8px 12px", fontSize: 13 }}>✕</button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Botón agregar otro método */}
+                      <button onClick={() => setCtaMetodos(prev => [...prev, { metodo: "", monto: "" }])}
+                        style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, width: "100%", fontSize: 13, marginBottom: 12 }}>
+                        + Agregar otro método de pago
+                      </button>
+
+                      {/* Resumen total ingresado */}
+                      {totalMetodos > 0 && (
+                        <div style={{ ...card, padding: 12, marginBottom: 12,
+                          borderColor: esExacto ? T.green : esParcial ? "#F59E0B" : esDemas ? T.red : T.border }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, marginBottom: esParcial ? 8 : 0 }}>
+                            <span>Total ingresado</span>
+                            <span style={{ fontFamily: fontD, color: esExacto ? T.green : esParcial ? "#F59E0B" : T.red }}>{fmt(totalMetodos)}</span>
+                          </div>
+                          {esExacto  && <div style={{ fontSize: 12, color: T.green,    fontWeight: 600 }}>✅ Pago total — se cerrará la cuenta</div>}
+                          {esDemas   && <div style={{ fontSize: 12, color: T.red,      fontWeight: 600 }}>⚠️ El monto supera la deuda ({fmt(totalMetodos - totalSel)} de más)</div>}
+                          {esParcial && (
+                            <div style={{ padding: "8px 10px", borderRadius: 8, background: "#F59E0B15", border: "1px solid #F59E0B40" }}>
+                              <div style={{ fontSize: 12, color: "#F59E0B", fontWeight: 700 }}>💛 PAGO PARCIAL</div>
+                              <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2 }}>
+                                Saldo restante: <strong style={{ color: T.orange, fontFamily: fontD }}>{fmt(totalSel - totalMetodos)}</strong>
+                              </div>
+                              <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>La cuenta continuará abierta con el saldo pendiente</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Descripción */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>Descripción <span style={{ color: T.gray, fontSize: 10, fontWeight: 400 }}>(opcional)</span></label>
+                        <input inputMode="text" value={ctaIngresoDesc} onChange={e => setCtaIngresoDesc(e.target.value)}
+                          style={inputStyle} placeholder="Ej: Pago parcial, acuerdo..." />
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => setCtaIngresoStep(1)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>← Volver</button>
-                      <button disabled={!ctaIngresoMonto} onClick={() => {
-                        if (!ctaIngresoMonto) return;
-                        // Marcar las órdenes como ctaCobrada
-                        setOrders(prev => prev.map(o => ctaSelOrders.includes(o.id) ? { ...o, ctaCobrada: true, cobrado: true } : o));
-                        setShowIngreso(false); setIngresoTipo(""); setCtaSelOrders([]); setCtaIngresoMonto(""); setCtaIngresoDesc(""); setCtaIngresoStep(1);
-                      }} style={{ ...btnPrimary(T.green), flex: 1, opacity: !ctaIngresoMonto ? 0.4 : 1 }}>✅ Confirmar Pago</button>
-                    </div>
-                  </>
-                );
+
+                      {/* Fecha */}
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>Fecha de pago</label>
+                        <input type="date" value={ctaFechaPago} onChange={e => setCtaFechaPago(e.target.value)} style={inputStyle} />
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={() => setCtaIngresoStep(1)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>← Volver</button>
+                        <button disabled={!canConfirm || esDemas} onClick={() => {
+                          if (!canConfirm || esDemas) return;
+
+                          // Registrar un egreso por cada método de pago
+                          ctaMetodos.forEach(m => {
+                            const montoM = parseFloat(m.monto) || 0;
+                            if (!montoM) return;
+                            const egresoId = Date.now() + Math.random();
+                            setEgresos(prev => [...prev, {
+                              id: egresoId,
+                              desc: `CTA CTE${ctaIngresoDesc ? " — " + ctaIngresoDesc : ""} (${ctaSelOrders.length} orden${ctaSelOrders.length > 1 ? "es" : ""})`,
+                              monto: montoM,
+                              fecha: ctaFechaPago,
+                              categoria: "cobro_cta_cte",
+                              categoriaLabel: "Cobro CTA CTE",
+                              metodoPago: m.metodo,
+                              esIngreso: true,
+                            }]);
+                          });
+
+                          if (esExacto) {
+                            // Pago total: cerrar todas las órdenes
+                            setOrders(prev => prev.map(o =>
+                              ctaSelOrders.includes(o.id) ? { ...o, ctaCobrada: true, cobrado: true } : o
+                            ));
+                          } else {
+                            // Pago parcial: acumular en ctaPagos, reducir saldo
+                            // Distribuir el pago proporcionalmente entre las órdenes seleccionadas
+                            setOrders(prev => prev.map(o => {
+                              if (!ctaSelOrders.includes(o.id)) return o;
+                              const nuevoPago = {
+                                fecha: ctaFechaPago,
+                                monto: String(totalMetodos / ctaSelOrders.length),
+                                metodos: ctaMetodos.filter(m => parseFloat(m.monto) > 0),
+                                desc: ctaIngresoDesc,
+                              };
+                              const updPagos = [...(o.ctaPagos || []), nuevoPago];
+                              const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (p.amount || 0), 0);
+                              const totalPagado = updPagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                              const saldoFinal = ctaMonto - totalPagado;
+                              return { ...o, ctaPagos: updPagos, ctaCobrada: saldoFinal <= 0, cobrado: saldoFinal <= 0 };
+                            }));
+                          }
+
+                          // Reset
+                          setShowIngreso(false); setIngresoTipo(""); setCtaSelOrders([]);
+                          setCtaIngresoMonto(""); setCtaIngresoDesc(""); setCtaIngresoStep(1);
+                          setCtaMetodos([{ metodo: "", monto: "" }]);
+                          setCtaFechaPago(new Date().toISOString().split("T")[0]);
+                        }} style={{ ...btnPrimary(esParcial ? "#F59E0B" : T.green), flex: 2, fontWeight: 800, opacity: (!canConfirm || esDemas) ? 0.4 : 1 }}>
+                          {esParcial ? "💛 Confirmar Pago Parcial" : "✅ Confirmar Pago Total"}
+                        </button>
+                      </div>
+                    </>
+                  );
+                }
                 return null;
               })()}
             </div>
