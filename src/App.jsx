@@ -1164,11 +1164,11 @@ const FULL_SS = {
 
 
 const ROLE_PERMS_DEFAULTS = {
-  dueño:            { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
-  gerente_sucursal: { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true  },
-  admin:            { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true,  facturar: true  },
-  encargado:        { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true,  facturar: false },
-  mecánico:         { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false, facturar: false },
+  dueño:            { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true,  cobro: true  },
+  gerente_sucursal: { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: true,  cancelar: true,  buscarDominio: true,  workshop: true,  quickSale: true,  facturar: true,  cobro: true  },
+  admin:            { precios: true,  crearOrden: false, finalizar: true,  entregar: true,  presupuesto: true,  admin: true,  config: false, cancelar: false, buscarDominio: true,  workshop: false, quickSale: true,  facturar: true,  cobro: false },
+  encargado:        { precios: true,  crearOrden: true,  finalizar: true,  entregar: true,  presupuesto: true,  admin: false, config: false, cancelar: false, buscarDominio: true,  workshop: true,  quickSale: true,  facturar: false, cobro: false },
+  mecánico:         { precios: false, crearOrden: false, finalizar: true,  entregar: false, presupuesto: false, admin: false, config: false, cancelar: false, buscarDominio: false, workshop: true,  quickSale: false, facturar: false, cobro: false },
 };
 const getPerm = (user, key) => {
   if (!user) return false;
@@ -3767,6 +3767,7 @@ const DashboardScreen = (props) => {
           ...(canCreate ? [{ icon: "📋", label: "Nueva Orden", action: "newOrder", show: true }] : []),
           { icon: "🛒", label: "Venta Rápida", action: "quickSale", show: getPerm(user, "quickSale") },
           { icon: "🔧", label: "En Taller", action: "workshop", show: getPerm(user, "workshop") },
+          ...(getPerm(user, "cobro") ? [{ icon: "💲", label: "Cobro", action: "admin_cobros", show: true }] : []),
           ...(getPerm(user, "admin") ? [
             { icon: "📊", label: "Administración", action: "admin", show: true },
           ] : []),
@@ -3774,7 +3775,13 @@ const DashboardScreen = (props) => {
             { icon: "⚙️", label: "Configuración", action: "config", show: true },
           ] : []),
         ].filter(b => b.show !== false).map((b, i) => (
-          <div key={i} onClick={() => onNavigate(b.action)}
+          <div key={i} onClick={() => {
+            if (b.action === "admin_cobros") {
+              onNavigate("admin", { initialTab: "cobros" });
+            } else {
+              onNavigate(b.action);
+            }
+          }}
             style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center", transition: "all .2s" }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>{b.icon}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{b.label}</div>
@@ -5619,8 +5626,9 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres }) => {
-  const [tab, setTab] = useState(initialTab || "resumen");
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres, user }) => {
+  const cobroOnly = user && getPerm(user, "cobro") && !getPerm(user, "admin");
+  const [tab, setTab] = useState(initialTab || (cobroOnly ? "cobros" : "resumen"));
   const [showTotalVentas, setShowTotalVentas] = useState(false);
   // Helper: construye el array de pagos inicial desde paymentPref / payments del order
   const buildInitPay = (o, _config, _clients) => {
@@ -5821,7 +5829,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
 
   const PB = (k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>;
 
-  const TABS = [
+  const _ALL_TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
     { key: "cobros", icon: "🧾", l: "Cobros" },
     { key: "caja", icon: "📒", l: "Caja" },
@@ -5835,6 +5843,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
     { key: "cierremensual", icon: "📅", l: "Cierre Mensual" },
   ];
+  // Si el usuario solo tiene permiso de cobro (no admin), mostrar solo tab Cobros
+  const TABS = cobroOnly ? _ALL_TABS.filter(t => t.key === "cobros") : _ALL_TABS;
 
   // ── Handler emitir factura ──
   const handleEmitirFactura = () => {
@@ -5900,7 +5910,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
     )}
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Administración</div>
+        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>{cobroOnly ? "💲 Cobros" : "📊 Administración"}</div>
         <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
 
@@ -5916,7 +5926,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs — ocultar si cobro-only (un solo tab) */}
+      {!cobroOnly && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 20 }}>
         {TABS.map(t => (
           <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); setSelProv(null); setSelServ(null); setSelIgnacio(null); }}
@@ -5926,6 +5937,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
           </div>
         ))}
       </div>
+      )}
 
       {/* ══════ RESUMEN ══════ */}
       {tab === "resumen" && (<div>
@@ -13899,6 +13911,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     buscarDominio: "🔍 Ver Buscar Dominio",
     workshop: "🔧 Ver En Taller",
     quickSale: "⚡ Ver Venta Rápida",
+    cobro: "💲 Cobrar órdenes",
     crearOrden: "📝 Crear/editar órdenes",
     facturar: "🧾 Emitir Facturas",
     precios: "💰 Ver precios y montos",
@@ -15059,6 +15072,8 @@ export default function App() {
           }
         } catch(e) { /* silencioso */ }
       };
+      // Exponer para forzar sync manual desde el botón de la barra
+      window._cbForceSync = retryPending;
       retryPending();
       const iv = setInterval(retryPending, 30000);
       return () => {
@@ -15197,7 +15212,7 @@ export default function App() {
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return getPerm(user, "admin") ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} /> : null;
+      case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
       default: return null;
@@ -15279,7 +15294,16 @@ export default function App() {
               };
               const s = states[syncState] || states.ok;
               return (
-                <div title={s.title} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none' }}>
+                <div title={s.title + " — Click para forzar sincronización"}
+                  onClick={() => {
+                    if (window._cbForceSync) {
+                      window._cbForceSync();
+                      // Feedback visual: flash rápido del ícono
+                      setSyncState('syncing');
+                      setTimeout(() => { if (syncActive === 0) setSyncState('ok'); }, 1500);
+                    }
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none', cursor: 'pointer' }}>
                   <span style={{ display: 'inline-block', animation: syncState === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>{s.icon}</span> {s.label}
                 </div>
               );
