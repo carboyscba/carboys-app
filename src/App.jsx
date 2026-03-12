@@ -6098,9 +6098,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, onNavigat
       {tab === "ctacte" && (<div>
         <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
           <input inputMode="text" value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
-          <div style={{ ...card, padding: "12px 20px", borderColor: T.orange }}>
+          <div style={{ ...card, padding: "10px 16px", borderColor: T.orange, minWidth: 170, flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: T.gray }}>Total pendiente</div>
-            <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(ctaTotal)}</div>
+            <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: T.orange, whiteSpace: "nowrap" }}>{fmt(ctaTotal)}</div>
           </div>
         </div>
         {ctaFiltered.map(o => {
