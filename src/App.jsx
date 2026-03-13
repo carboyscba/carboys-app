@@ -5360,9 +5360,27 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
               }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
                 🖨️ Imprimir
               </button>
-              <button onClick={() => {
+              <button onClick={async () => {
                 const phone = client?.phone;
-                if (phone) sendWA(phone, `Hola ${client?.name || ""}! Te enviamos el comprobante de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). ¡Gracias por confiar en CarBoys! 🔧`, config?.wahaUrl, config?.wahaApiKey);
+                if (!phone) return;
+                try {
+                  if (!window.html2canvas) {
+                    await new Promise((resolve, reject) => {
+                      var s = document.createElement("script");
+                      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+                      s.onload = resolve; s.onerror = reject;
+                      document.head.appendChild(s);
+                    });
+                  }
+                  var el = document.getElementById("ticket-print");
+                  if (!el) throw new Error("No ticket element");
+                  var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+                  var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+                  var caption = "Comprobante " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
+                  var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+                  if (sent) { alert("✅ Comprobante enviado por WhatsApp!"); }
+                  else { sendWA(phone, "Hola " + (client?.name || "") + "! Te enviamos el comprobante de tu " + (vehicle?.brand || "") + " " + (vehicle?.model || "") + " (" + order.domain + "). Gracias por confiar en CarBoys!", config?.wahaUrl, config?.wahaApiKey); }
+                } catch(e) { console.warn("Error enviando comprobante:", e); sendWA(phone, "Comprobante " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -5550,9 +5568,27 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
               }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
                 🖨️ Imprimir
               </button>
-              <button onClick={() => {
+              <button onClick={async () => {
                 const phone = client?.phone;
-                if (phone) sendWA(phone, `Hola ${client?.name || ""}! Te enviamos la factura de tu ${vehicle?.brand || ""} ${vehicle?.model || ""} (${order.domain}). Gracias por confiar en CarBoys! 🔧`, config?.wahaUrl, config?.wahaApiKey);
+                if (!phone) return;
+                try {
+                  if (!window.html2canvas) {
+                    await new Promise((resolve, reject) => {
+                      var s = document.createElement("script");
+                      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+                      s.onload = resolve; s.onerror = reject;
+                      document.head.appendChild(s);
+                    });
+                  }
+                  var el = document.getElementById("factura-print");
+                  if (!el) throw new Error("No factura element");
+                  var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+                  var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+                  var caption = "Factura " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
+                  var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+                  if (sent) { alert("✅ Factura enviada por WhatsApp!"); }
+                  else { sendWA(phone, "Hola " + (client?.name || "") + "! Te enviamos la factura de tu " + (vehicle?.brand || "") + " " + (vehicle?.model || "") + " (" + order.domain + "). Gracias por confiar en CarBoys!", config?.wahaUrl, config?.wahaApiKey); }
+                } catch(e) { console.warn("Error enviando factura:", e); sendWA(phone, "Factura " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -13414,10 +13450,33 @@ const InterventionDiagram = ({ order, sheet }) => {
   );
 };
 
-const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
+const FojaClientScreen = ({ order, clients, notifications, config, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const fojaType = order._fojaType || null;
+
+  const sendFojaWA = async (fojaLabel) => {
+    const phone = client?.phone;
+    if (!phone) { alert("El cliente no tiene telefono"); return; }
+    try {
+      if (!window.html2canvas) {
+        await new Promise((resolve, reject) => {
+          var s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      var el = document.getElementById("foja-print");
+      if (!el) throw new Error("No foja element");
+      var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      var caption = fojaLabel + " — " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nCarBoys — Servicio Integral del Automotor";
+      var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+      if (sent) { alert("✅ " + fojaLabel + " enviada por WhatsApp!"); }
+      else { sendWA(phone, caption, config?.wahaUrl, config?.wahaApiKey); }
+    } catch(e) { console.warn("Error enviando foja:", e); sendWA(phone, fojaLabel + " " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
+  };
 
   const isBatteryOrder = fojaType === "battery" || (!fojaType && order.works.some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base"));
   if (isBatteryOrder) {
@@ -13434,7 +13493,8 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
         <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Foja</button>
+          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+          <button onClick={() => sendFojaWA("Foja de Bateria")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
         <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
@@ -13570,7 +13630,8 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
         <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Foja</button>
+          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+          <button onClick={() => sendFojaWA("Foja de Escape")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
         <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
@@ -13809,6 +13870,7 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
         <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
           <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Informe</button>
+          <button onClick={() => sendFojaWA("Informe de Intervencion")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
         <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
@@ -14153,7 +14215,8 @@ const FojaClientScreen = ({ order, clients, notifications, onNavigate }) => {
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
       <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
         <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-        <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Foja</button>
+        <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+          <button onClick={() => sendFojaWA(isPF ? "Informe de Intervencion" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
       </div>
       <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
         <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -15941,7 +16004,7 @@ export default function App() {
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
       case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} setConfig={setConfig} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} /> : null;
-      case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} onNavigate={nav} /> : null;
+      case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} config={config} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
       default: return null;
     }
