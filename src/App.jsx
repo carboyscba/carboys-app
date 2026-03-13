@@ -6962,60 +6962,88 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         )}
 
         {/* ── MOVIMIENTOS DEL PERÍODO ── */}
-        <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>📋 Movimientos del período</div>
-          
-          {/* Cobros efectivo */}
-          {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Efectivo")).map(o => {
-            const efAmt = (o.payments || []).filter(p => p.method === "Efectivo").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+        {(() => {
+          // Helper: render movimientos de un rango de fechas
+          const renderMovs = function(filtOrders, filtEgrEf, filtEgrVirt, filtIngExtra, label) {
+            var items = [];
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo"; }); }).forEach(function(o) {
+              var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green });
+            });
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta" || p.method === "Transferencia"; }); }).forEach(function(o) {
+              var virtAmt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta" || p.method === "Transferencia"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              var mets = Array.from(new Set((o.payments || []).filter(function(p) { return p.method === "Tarjeta" || p.method === "Transferencia"; }).map(function(p) { return p.method; }))).join("/");
+              items.push({ key: "virt-" + o.id, type: "virtual", label: "VIRTUAL - " + mets, desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: virtAmt, color: T.accent });
+            });
+            filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red }); });
+            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "VIRTUAL - " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B" }); });
+            filtIngExtra.forEach(function(e) { items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.green }); });
+            items.sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
+            if (items.length === 0) return <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos</div>;
+            return items.map(function(item) {
+              var isEgr = item.type === "egreso" || item.type === "egreso_virt";
+              var isVirt = item.type === "virtual" || item.type === "egreso_virt";
+              return (
+                <div key={item.key} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt ? 0.75 : 1 }}>
+                  <div><span style={{ color: item.color, fontWeight: 700 }}>{isEgr ? "↓" : "↑"}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
+                  <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(item.date)}</span><span style={{ fontWeight: 700, color: item.color }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span></div>
+                </div>
+              );
+            });
+          };
+
+          if (period === "mes") {
+            // Agrupar por semanas del mes actual
+            var yr = new Date().getFullYear();
+            var mo = new Date().getMonth();
+            var firstDay = new Date(yr, mo, 1);
+            var lastDay = new Date(yr, mo + 1, 0);
+            var weeks = [];
+            var wStart = new Date(firstDay);
+            // Ajustar al lunes de la semana del 1ro
+            var dow1 = wStart.getDay();
+            if (dow1 !== 1) wStart.setDate(wStart.getDate() - (dow1 === 0 ? 6 : dow1 - 1));
+            var weekNum = 1;
+            while (wStart <= lastDay) {
+              var wEnd = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
+              var effStart = wStart < firstDay ? firstDay : wStart;
+              var effEnd = wEnd > lastDay ? lastDay : wEnd;
+              var sStr = effStart.toISOString().split("T")[0];
+              var eStr = effEnd.toISOString().split("T")[0];
+              weeks.push({ num: weekNum, start: sStr, end: eStr, startDate: new Date(effStart), endDate: new Date(effEnd) });
+              weekNum++;
+              wStart.setDate(wStart.getDate() + 7);
+            }
+            return weeks.map(function(w) {
+              var wOrders = completed.filter(function(o) { var d = normDate(o.date); return d >= w.start && d <= w.end; });
+              var wEgrEf = egresosEfectivo.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
+              var wEgrV = egresosVirtuales.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
+              var wIng = ingresosExtra.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
+              var wCierre = cierres.find(function(c) { return c.fecha >= w.start && c.fecha <= w.end; });
+              return (
+                <div key={"w" + w.num} style={{ ...card, padding: 16, marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>📋 Semana {w.num}</div>
+                      <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(w.start)} — {fmtDate(w.end)}</div>
+                    </div>
+                    {wCierre && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: T.green + "15", color: T.green }}>✅ Cierre realizado</span>}
+                    {!wCierre && w.end < today && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: T.red + "15", color: T.red }}>⚠️ Sin cierre</span>}
+                  </div>
+                  {renderMovs(wOrders, wEgrEf, wEgrV, wIng, "Semana " + w.num)}
+                </div>
+              );
+            });
+          } else {
+            // Hoy o Semana actual: movimientos planos
             return (
-              <div key={"ef-" + o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-                <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> <span style={{ color: T.green, fontSize: 11, fontWeight: 700, marginRight: 4 }}>EFECTIVO</span> {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
-                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(o.date)}</span><span style={{ fontWeight: 700, color: T.green }}>{fmt(efAmt)}</span></div>
+              <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>📋 Movimientos del periodo</div>
+                {renderMovs(periodOrders, egresosEfectivo, egresosVirtuales, ingresosExtra, "periodo")}
               </div>
             );
-          })}
-          
-          {/* Cobros tarjeta/transferencia — VIRTUALES */}
-          {periodOrders.filter(o => (o.payments || []).some(p => p.method === "Tarjeta" || p.method === "Transferencia")).map(o => {
-            const virtAmt = (o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-            const mets = [...new Set((o.payments || []).filter(p => p.method === "Tarjeta" || p.method === "Transferencia").map(p => p.method))].join("/");
-            return (
-              <div key={"virt-" + o.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13, opacity: 0.75 }}>
-                <div><span style={{ color: T.accent, fontWeight: 700 }}>↑</span> <span style={{ color: T.accent, fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid ${T.accent}40` }}>VIRTUAL · {mets}</span> {fmtD(o.domain)} — {clients.find(c => c.id === o.clientId)?.name || ""}</div>
-                <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(o.date)}</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(virtAmt)}</span></div>
-              </div>
-            );
-          })}
-
-          {/* Egresos efectivo */}
-          {egresosEfectivo.map(e => (
-            <div key={"egef-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-              <div><span style={{ color: T.red, fontWeight: 700 }}>↓</span> <span style={{ color: T.red, fontSize: 11, fontWeight: 700, marginRight: 4 }}>EGRESO</span> {e.categoriaLabel || e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
-              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.red }}>-{fmt(parseFloat(e.monto)||0)}</span></div>
-            </div>
-          ))}
-
-          {/* Egresos virtuales */}
-          {egresosVirtuales.map(e => (
-            <div key={"egvirt-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13, opacity: 0.75 }}>
-              <div><span style={{ color: "#FF6B6B", fontWeight: 700 }}>↓</span> <span style={{ color: "#FF6B6B", fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid #FF6B6B40` }}>VIRTUAL · {e.metodoPago}</span> {e.categoriaLabel || e.categoria}{e.detalle ? " — " + e.detalle : ""}{e.desc ? " — " + e.desc : ""}</div>
-              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: "#FF6B6B" }}>-{fmt(parseFloat(e.monto)||0)}</span></div>
-            </div>
-          ))}
-
-          {/* Ingresos extra (cobro CTA CTE, saldo inicial, ingreso otro) */}
-          {ingresosExtra.map(e => (
-            <div key={"ingex-" + e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-              <div><span style={{ color: T.green, fontWeight: 700 }}>↑</span> <span style={{ color: T.green, fontSize: 11, fontWeight: 700, marginRight: 4, padding: "1px 5px", borderRadius: 4, border: `1px solid ${T.green}40` }}>{e.metodoPago || "Efectivo"}</span> {e.categoriaLabel || e.desc || e.categoria}</div>
-              <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{e.fecha}</span><span style={{ fontWeight: 700, color: T.green }}>+{fmt(parseFloat(e.monto)||0)}</span></div>
-            </div>
-          ))}
-
-          {periodOrders.length === 0 && egresosEfectivo.length === 0 && egresosVirtuales.length === 0 && ingresosExtra.length === 0 && (
-            <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos en este período</div>
-          )}
-        </div>
+          }
+        })()}
 
         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
           <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, flex: 1 }}>📋 Cierre de Caja</button>
@@ -14208,6 +14236,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     { key: "users", icon: "👥", label: "Gestión de Usuarios", desc: "Crear, editar y administrar usuarios", only: "dueño,gerente_sucursal" },
     { key: "facturacion", icon: "🧾", label: "Facturación", desc: "Razón social, CUIT, punto de venta", only: "dueño,gerente_sucursal" },
     { key: "surcharges", icon: "💳", label: "Recargos Tarjeta", desc: "Cuotas e IVA" },
+    { key: "caja_config", icon: "📒", label: "Caja", desc: "Cierre semanal y opciones", only: "dueño,gerente_sucursal" },
     { key: "whatsapp", icon: "📱", label: "WhatsApp Business", desc: "Mensajes y conexión" },
     { key: "hours", icon: "🕐", label: "Horarios de Atención", desc: "Días y horarios" },
     { key: "notifs", icon: "🔔", label: "Notificaciones", desc: "Alertas y recordatorios" },
@@ -14514,6 +14543,27 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
         <div style={{ display: "flex", gap: 10 }}>
           <input inputMode="text" id="newCatInput" style={{ ...inputStyle, flex: 1 }} placeholder="Nombre de la nueva categoría..." />
           <button onClick={() => { const inp = document.getElementById("newCatInput"); if (inp.value.trim()) { const existing = config.workCategories || ["Service Full","Service Base","Tren Delantero","Tren Trasero","Pastillas de Freno","Escape","Baterías","Escobillas","Lámpara","Mecánica","Repro","Aditivo"]; setConfig(prev => ({ ...prev, workCategories: [...existing, inp.value.trim()] })); inp.value = ""; showSaved("Categoría agregada ✓"); }}} style={{ ...btnPrimary(T.green), fontSize: 13 }}>Agregar</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (section === "caja_config") return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>📒 Configuracion de Caja</div>
+      </div>
+      <div style={{ ...card, padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Cierre de caja obligatorio</div>
+            <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Si esta activado, los lunes no se podra usar la app sin realizar el cierre de la semana anterior</div>
+          </div>
+          <div onClick={() => setConfig(prev => ({ ...prev, cierreObligatorio: !prev.cierreObligatorio }))}
+            style={{ width: 52, height: 28, borderRadius: 14, background: config.cierreObligatorio ? T.green : T.bg3, border: "1px solid " + (config.cierreObligatorio ? T.green : T.border), cursor: "pointer", position: "relative", transition: "all .2s" }}>
+            <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: config.cierreObligatorio ? 27 : 2, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
+          </div>
         </div>
       </div>
     </div>
@@ -14892,6 +14942,7 @@ export default function App() {
   const [selOrder, setSelOrder] = useState(null);
   const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
+  const [cierreDismissed, setCierreDismissed] = useState(false);
   const [adminInitialOrder, setAdminInitialOrder] = useState(null);
   const [dbLoading,   setDbLoading]   = useState(true);
   // ── Sync state: reactive, driven by fsSave activity tracker ──
@@ -15585,7 +15636,41 @@ export default function App() {
             </div>
           </div>
         </div>
-        <div style={{ flex: 1, overflow: "auto" }}>{renderScreen()}</div>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {/* Cierre semanal bloqueante — lunes sin cierre */}
+          {(() => {
+            if (cierreDismissed) return null;
+            const _td = new Date();
+            const _dow = _td.getDay();
+            if (_dow !== 1) return null;
+            const _lastCierre = cierres.length > 0 ? cierres[cierres.length - 1].fecha : null;
+            const _lun = new Date(_td); _lun.setDate(_td.getDate() - (_dow === 0 ? 6 : _dow - 1));
+            const _sab = new Date(_lun); _sab.setDate(_lun.getDate() - 2);
+            const _sabStr = _sab.toISOString().split("T")[0];
+            if (_lastCierre && _lastCierre >= _sabStr) return null;
+            const obligatorio = config.cierreObligatorio === true;
+            return (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                <div style={{ background: T.bg2, border: "2px solid " + T.orange, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange, marginBottom: 10 }}>Cierre de Caja Pendiente</div>
+                  <div style={{ fontSize: 14, color: T.grayLight, lineHeight: 1.7, marginBottom: 24 }}>
+                    No se realizo el cierre de caja semanal.{obligatorio ? <span><br/>Debes completarlo antes de continuar.</span> : ""}
+                  </div>
+                  <button onClick={function() { setAdminInitialTab("caja"); setScreen("admin"); setCierreDismissed(true); }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 15, padding: "14px 0" }}>
+                    📋 Ir a Caja
+                  </button>
+                  {!obligatorio && (
+                    <button onClick={function() { setCierreDismissed(true); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, width: "100%", fontSize: 13, padding: "12px 0", marginTop: 10, color: T.gray }}>
+                      Continuar sin cerrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+          {renderScreen()}
+        </div>
       </div>
     </NumPadProvider>
   );
