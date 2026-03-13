@@ -14465,6 +14465,42 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
           <button onClick={() => { showSaved("Configuración WAHA guardada ✓"); checkStatus(); }}
             style={{ ...btnPrimary(T.green), fontSize: 13, width: "100%", color: "#fff" }}>💾 Guardar y verificar</button>
         </div>
+
+        {wahaStatus === "connected" && (
+          <div style={{ marginTop: 12 }}>
+            <button onClick={async () => {
+              var testPhone = (config.whatsappNum || "").replace(/\D/g, "");
+              if (!testPhone) { setErrMsg("Configura primero el numero del taller abajo"); return; }
+              setErrMsg("");
+              try {
+                var res = await fetch(wahaUrl + "/api/sendText", {
+                  method: "POST", headers: getHeaders(),
+                  body: JSON.stringify({ chatId: testPhone + "@c.us", text: "✅ *CarBoys* — Mensaje de prueba\n\nSi estas leyendo esto, WAHA esta funcionando correctamente.\n\n" + new Date().toLocaleString("es-AR"), session: wahaSession }),
+                });
+                if (res.ok) { showSaved("✅ Mensaje de prueba enviado!"); }
+                else { setErrMsg("Error: " + res.status + " — " + (await res.text())); }
+              } catch (e) { setErrMsg("Error de conexion: " + e.message); }
+            }} style={{ ...btnPrimary("#25D366"), fontSize: 13, width: "100%", color: "#fff" }}>
+              📩 Enviar mensaje de prueba (a este numero)
+            </button>
+            <div style={{ fontSize: 11, color: T.gray, marginTop: 6, textAlign: "center" }}>Se enviara un mensaje al numero del taller configurado abajo</div>
+          </div>
+        )}
+
+        {!wahaUrl && (
+          <div style={{ marginTop: 14, ...card, padding: 16, borderLeft: "3px solid " + T.accent }}>
+            <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Como configurar WAHA</div>
+            <div style={{ fontSize: 12, color: T.gray, lineHeight: 1.8 }}>
+              1. Ir a <strong style={{ color: T.accent }}>railway.app</strong> y crear cuenta<br/>
+              2. New Project → Deploy from Docker image<br/>
+              3. Imagen: <strong style={{ color: T.accent }}>devlikeapro/waha</strong><br/>
+              4. En Variables agregar: <strong>WHATSAPP_DEFAULT_ENGINE=WEBJS</strong><br/>
+              5. Deploy → copiar la URL publica (ej: https://waha-xxx.up.railway.app)<br/>
+              6. Pegar la URL arriba y tocar "Iniciar sesion"<br/>
+              7. Escanear QR con WhatsApp del taller
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Datos del taller ── */}
