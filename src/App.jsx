@@ -9146,7 +9146,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
-                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Ultimo service</div><div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div></div>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Ultimo service</div><div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div><div style={{ color: T.gray, fontSize: 10 }}>{fmtDate(a.lastDate)}</div></div>
                         <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Estimado</div><div style={{ fontWeight: 700, color: T.accent }}>~{a.estimatedKm.toLocaleString("es-AR")} km</div></div>
                         <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Prox. service</div><div style={{ fontWeight: 700, color: urgColor }}>{a.nextServiceKm.toLocaleString("es-AR")} km</div></div>
                       </div>
