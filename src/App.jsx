@@ -657,14 +657,14 @@ const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, sess
     var headers = { "Content-Type": "application/json" };
     if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
     var chatId = normalPhone + "@c.us";
-    // Intentar primero con file.data (base64)
+    console.log("[WAHA] sendImage to:", chatId, "size:", Math.round(base64Data.length * 3 / 4 / 1024) + "KB");
     var res = await fetch(base + "/api/sendImage", {
       method: "POST", headers: headers,
-      body: JSON.stringify({ chatId: chatId, file: { mimetype: "image/png", filename: "presupuesto.png", data: "data:image/png;base64," + base64Data }, caption: caption || "", session: session || "default" }),
+      body: JSON.stringify({ chatId: chatId, file: { mimetype: "image/jpeg", filename: "presupuesto.jpg", data: base64Data }, caption: caption || "", session: session || "default" }),
     });
-    if (res.ok) return true;
-    console.warn("[WAHA] sendImage failed:", res.status, await res.text().catch(function() { return ""; }));
-    // Fallback: enviar como texto
+    if (res.ok) { console.log("[WAHA] sendImage OK"); return true; }
+    var errText = await res.text().catch(function() { return ""; });
+    console.warn("[WAHA] sendImage failed:", res.status, errText);
     return false;
   } catch (e) { console.warn("[WAHA] sendImage error:", e); return false; }
 };
@@ -10431,7 +10431,7 @@ const BudgetPricingScreen = (props) => {
   };
 
   var sendWABudget = async function() {
-    var phone = (client && client.phone || "").replace(/\D/g, "");
+    var phone = (client && client.phone || "");
     if (!phone) { alert("El cliente no tiene telefono"); return; }
     setSendingWA(true);
     try {
@@ -10441,26 +10441,31 @@ const BudgetPricingScreen = (props) => {
           var script = document.createElement("script");
           script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
           script.onload = resolve;
-          script.onerror = reject;
+          script.onerror = function() { reject(new Error("No se pudo cargar html2canvas")); };
           document.head.appendChild(script);
         });
       }
       var el = document.getElementById("budget-pdf-content");
-      if (!el || !window.html2canvas) throw new Error("No se pudo capturar");
+      if (!el || !window.html2canvas) throw new Error("No se pudo capturar el presupuesto");
       var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-      var base64 = canvas.toDataURL("image/png").split(",")[1];
+      var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      var sizeKB = Math.round(base64.length * 3 / 4 / 1024);
+      console.log("[WAHA] Imagen capturada: " + sizeKB + "KB");
       var caption = "Presupuesto " + fmtD(order.domain) + " — " + (client ? client.name + " " + client.lastName : "") + "\nTotal: " + fmt(grandTotalIva) + " (IVA inc.)\n\nPresupuesto valido por 15 dias.\nCarBoys — Servicio Integral del Automotor";
       var sent = await sendWAImage(phone, base64, caption, config.wahaUrl || "", config.wahaApiKey || "", config.wahaSession || "default");
-      if (!sent) {
+      if (sent) {
+        alert("✅ Presupuesto enviado por WhatsApp!");
+      } else {
         // Fallback: abrir wa.me con texto
-        var msg = "Hola " + (client ? client.name : "") + "! Le enviamos el presupuesto para su " + (vehicle ? vehicle.brand + " " + vehicle.model : "") + " (" + fmtD(order.domain) + ").\n\n";
-        msg += "*TOTAL: " + fmt(grandTotalIva) + " (IVA inc.)*\n\n_Presupuesto valido por 15 dias._\n\n*CarBoys* — Servicio Integral del Automotor";
-        window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+        var nPhone = normalizePhone(phone);
+        var msg = "Hola " + (client ? client.name : "") + "! Le enviamos el presupuesto para su " + (vehicle ? vehicle.brand + " " + vehicle.model : "") + " (" + fmtD(order.domain) + ").\n\n*TOTAL: " + fmt(grandTotalIva) + " (IVA inc.)*\n\n_Presupuesto valido por 15 dias._\n\n*CarBoys* — Servicio Integral del Automotor";
+        window.open("https://wa.me/" + nPhone + "?text=" + encodeURIComponent(msg), "_blank");
       }
     } catch (e) {
       console.warn("Error enviando imagen:", e);
+      var nPhone2 = normalizePhone(phone);
       var msgFb = "Presupuesto " + fmtD(order.domain) + " — Total: " + fmt(grandTotalIva) + " (IVA inc.)";
-      window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msgFb), "_blank");
+      window.open("https://wa.me/" + nPhone2 + "?text=" + encodeURIComponent(msgFb), "_blank");
     }
     setSendingWA(false);
   };
