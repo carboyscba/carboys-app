@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from "react";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -5755,24 +5755,23 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     return "";
   };
 
-  const completed = orders.filter(o => o.status === "done" || o.status === "delivered");
-  const periodOrders = completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today);
-  const totalVentas = periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
-  const totalIngresos = periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-  const periodEgresos = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
+  const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
+  const periodOrders = useMemo(() => completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today), [completed, startDate, today]);
+  const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0), [periodOrders]);
+  const totalIngresos = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const periodEgresos = useMemo(() => egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today), [egresos, startDate, today]);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
-  // esIngreso: true = son ingresos reales (cobro CTA CTE, saldo_inicial) → suman al saldo, no restan
-  const egresosEfectivo = periodEgresos.filter(e => (!e.metodoPago || e.metodoPago === "Efectivo") && !e.esIngreso);
-  const egresosVirtuales = periodEgresos.filter(e => e.metodoPago && e.metodoPago !== "Efectivo" && !e.esIngreso);
-  const ingresosExtra = periodEgresos.filter(e => e.esIngreso);
-  const totalEgr = egresosEfectivo.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-  const totalEgrVirtual = egresosVirtuales.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-  const totalIngresosExtra = ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+  const egresosEfectivo = useMemo(() => periodEgresos.filter(e => (!e.metodoPago || e.metodoPago === "Efectivo") && !e.esIngreso), [periodEgresos]);
+  const egresosVirtuales = useMemo(() => periodEgresos.filter(e => e.metodoPago && e.metodoPago !== "Efectivo" && !e.esIngreso), [periodEgresos]);
+  const ingresosExtra = useMemo(() => periodEgresos.filter(e => e.esIngreso), [periodEgresos]);
+  const totalEgr = useMemo(() => egresosEfectivo.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [egresosEfectivo]);
+  const totalEgrVirtual = useMemo(() => egresosVirtuales.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [egresosVirtuales]);
+  const totalIngresosExtra = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
   // Cobros por método
-  const efIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-  const tarjIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-  const transfIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-  const ctaCteIngresado = periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+  const efIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const ctaCteIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const saldoCajaCalculado = efIngresado + totalIngresosExtra - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
@@ -5788,43 +5787,48 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const sabadoPasadoStr = sabadoPasado.toISOString().split("T")[0];
   const faltaCierre = (esSabado || esLunes) && (!lastCierreDate || lastCierreDate < sabadoPasadoStr);
 
-  const payTotals = {};
-  periodOrders.forEach(o => (o.payments || []).forEach(p => { payTotals[p.method || "Sin definir"] = (payTotals[p.method || "Sin definir"] || 0) + (parseFloat(p.amount) || 0); }));
-  const payEntries = Object.entries(payTotals).sort((a, b) => b[1] - a[1]);
+  const { payTotals, payEntries } = useMemo(() => {
+    const pt = {};
+    periodOrders.forEach(o => (o.payments || []).forEach(p => { pt[p.method || "Sin definir"] = (pt[p.method || "Sin definir"] || 0) + (parseFloat(p.amount) || 0); }));
+    return { payTotals: pt, payEntries: Object.entries(pt).sort((a, b) => b[1] - a[1]) };
+  }, [periodOrders]);
   const payColors = { "Efectivo": "#43a047", "Transferencia": "#1E88E5", "Tarjeta": "#9C27B0", "Cuenta Corriente": "#FF9800" };
 
-  const ctaCte = orders.filter(o => {
+  const ctaCte = useMemo(() => orders.filter(o => {
     if (o.ctaCobrada) return false;
     const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
     return (monto - pagadoParcial) > 0;
-  });
-  const ctaFiltered = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
-  const ctaTotal = ctaCte.reduce((s, o) => {
+  }), [orders]);
+  const ctaFiltered = useMemo(() => ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte, [ctaCte, clients, ctaFilter]);
+  const ctaTotal = useMemo(() => ctaCte.reduce((s, o) => {
     const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
     const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
     return s + Math.max(0, monto - pagadoParcial);
-  }, 0);
+  }, 0), [ctaCte]);
 
-  const conFactura = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T"));
-  const conTicket = periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T"));
-  const sinFactura = periodOrders.filter(o => !(o.payments || []).some(p => p.invoiceType && p.invoiceType !== ""));
-  const factA = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "A"));
-  const factB = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B"));
-  const factC = conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "C"));
+  const conFactura = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T")), [periodOrders]);
+  const conTicket = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T")), [periodOrders]);
+  const sinFactura = useMemo(() => periodOrders.filter(o => !(o.payments || []).some(p => p.invoiceType && p.invoiceType !== "")), [periodOrders]);
+  const factA = useMemo(() => conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "A")), [conFactura]);
+  const factB = useMemo(() => conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B")), [conFactura]);
+  const factC = useMemo(() => conFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "C")), [conFactura]);
 
   const factPendiente = (f) => Math.max(0, (f.monto || 0) - (f.pagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)) > 0;
-  const provVencidas = factProv.filter(f => factPendiente(f) && f.fechaVenc && f.fechaVenc < today);
-  const provPorVencer = factProv.filter(f => factPendiente(f) && f.fechaVenc && f.fechaVenc >= today && f.fechaVenc <= new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]);
+  const provVencidas = useMemo(() => factProv.filter(f => factPendiente(f) && f.fechaVenc && f.fechaVenc < today), [factProv, today]);
+  const provPorVencer = useMemo(() => factProv.filter(f => factPendiente(f) && f.fechaVenc && f.fechaVenc >= today && f.fechaVenc <= new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]), [factProv, today]);
 
-  const workStats = {};
-  completed.forEach(o => (o.works||[]).forEach(w => { workStats[w.type] = (workStats[w.type] || 0) + 1; }));
-  const topWorks = Object.entries(workStats).sort((a, b) => b[1] - a[1]);
-  const clientStats = {};
-  completed.forEach(o => { clientStats[o.clientId] = (clientStats[o.clientId] || 0) + 1; });
-  const topClients = Object.entries(clientStats).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => x.id === parseInt(id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
+  const { workStats, topWorks, clientStats, topClients } = useMemo(() => {
+    const ws = {};
+    completed.forEach(o => (o.works||[]).forEach(w => { ws[w.type] = (ws[w.type] || 0) + 1; }));
+    const tw = Object.entries(ws).sort((a, b) => b[1] - a[1]);
+    const cs = {};
+    completed.forEach(o => { cs[o.clientId] = (cs[o.clientId] || 0) + 1; });
+    const tc = Object.entries(cs).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => x.id === parseInt(id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
+    return { workStats: ws, topWorks: tw, clientStats: cs, topClients: tc };
+  }, [completed, clients]);
 
-  const PB = (k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>;
+  const PB = useCallback((k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>, [period]);
 
   const _ALL_TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
