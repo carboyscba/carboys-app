@@ -4168,7 +4168,6 @@ const VehicleDetailScreen = (props) => {
   const [showNotifyPopup, setShowNotifyPopup] = useState(false);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [cancelStep, setCancelStep] = useState(1);
-  const [showBudgetPreview, setShowBudgetPreview] = useState(false);
   const [showEditOrder, setShowEditOrder] = useState(false);
   const [showCobrarPopup, setShowCobrarPopup] = useState(false);
   const [editClient, setEditClient] = useState(null);
@@ -4453,7 +4452,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
           ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#FF6F00", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
           ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "📋", label: "Ver Presupuesto", show: true, color: "#9C27B0", action: () => setShowBudgetPreview(true), bg: "rgba(156,39,176,.08)" }] : []),
+          ...(order.status === "budget_sent" ? [{ icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" }] : []),
           ...(order.status === "budget_sent" ? [{ icon: "▶️", label: "Comenzar Reparación", show: canSeePrices, color: T.green, action: () => {
             setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() } : o));
           }, bg: "rgba(67,160,71,.08)" }] : []),
@@ -5015,72 +5014,6 @@ const VehicleDetailScreen = (props) => {
         </div>
       )}
 
-      {/* Budget preview modal */}
-      {showBudgetPreview && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={function() { setShowBudgetPreview(false); }}>
-          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 500, width: "100%", maxHeight: "90vh", overflowY: "auto", color: "#0d1526" }} onClick={function(e) { e.stopPropagation(); }}>
-            <div style={{ padding: "24px 28px", borderBottom: "1px solid #e2e8f0" }}>
-              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: "#0d1526" }}>PRESUPUESTO</div>
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Fecha: {order.date ? new Date(order.date).toLocaleDateString("es-AR") : new Date().toLocaleDateString("es-AR")}</div>
-            </div>
-            <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>CLIENTE</div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{client?.name} {client?.lastName}</div>
-              {client?.phone && <div style={{ fontSize: 12, color: "#64748b" }}>{client.phone}</div>}
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>VEHICULO</div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {fmtD(order.domain)}</div>
-            </div>
-            {(order.works || []).filter(function(w) { return (parseFloat(w.price) || 0) > 0; }).map(function(w, wi) {
-              var wItems = (w.trenItems || []).filter(function(x) { return x.isCustom ? (x.label && x.price) : x.selected; });
-              return (
-                <div key={wi} style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
-                  <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: "#9C27B0", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{w.type}</div>
-                  {wItems.length > 0 ? wItems.map(function(item, idx) {
-                    return (
-                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
-                        <span>{item.isCustom ? item.label : (item.otroDesc ? item.label + " (" + item.otroDesc + ")" : item.label)}</span>
-                        <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmt(parseFloat(item.price) || 0)}</span>
-                      </div>
-                    );
-                  }) : (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
-                      <span>{w.desc || w.type}</span>
-                      <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmt(parseFloat(w.price) || 0)}</span>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", marginTop: 4, borderTop: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13 }}>
-                    <span>SUBTOTAL</span>
-                    <span style={{ fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
-                  </div>
-                </div>
-              );
-            })}
-            {(function() {
-              var gt = (order.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0);
-              var iva = config.ivaRate || 21;
-              return (
-                <div style={{ padding: "16px 28px", background: "#f8fafc" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
-                    <span>TOTAL SIN IVA</span><span>{fmt(gt)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#64748b" }}>
-                    <span>IVA ({iva}%)</span><span>{fmt(gt * iva / 100)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 900, marginTop: 6, color: "#9C27B0" }}>
-                    <span>TOTAL CON IVA</span><span>{fmt(gt * (1 + iva / 100))}</span>
-                  </div>
-                </div>
-              );
-            })()}
-            <div style={{ padding: "12px 28px", textAlign: "center", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-              PRESUPUESTO VALIDO POR 15 DIAS
-            </div>
-            <div style={{ padding: "16px 28px", display: "flex", gap: 10 }}>
-              <button onClick={function() { setShowBudgetPreview(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid #e2e8f0", flex: 1, fontSize: 13, color: "#0d1526" }}>← Cerrar</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Foja menu popup */}
       {showCancelPopup && (
@@ -10383,7 +10316,7 @@ const BudgetPricingScreen = (props) => {
   var client = clients.find(function(c) { return c.id === order.clientId; });
   var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
   var inspData = order.inspectionData || {};
-  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterias": "🔋", "Arreglo": "🪛" };
+  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterias": "🔋", "Arreglo": "🪛" };
 
   var initPricing = function() {
     if (order.pricingData) return order.pricingData;
@@ -10398,6 +10331,7 @@ const BudgetPricingScreen = (props) => {
   };
 
   var [pricing, setPricing] = useState(initPricing);
+  var [showPDF, setShowPDF] = useState(order.status === "budget_sent");
 
   var setPrice = function(catKey, idx, val) {
     setPricing(function(prev) {
@@ -10428,7 +10362,7 @@ const BudgetPricingScreen = (props) => {
   var ivaRate = config.ivaRate || 21;
   var grandTotalIva = grandTotal * (1 + ivaRate / 100);
 
-  var saveBudget = function(send) {
+  var finalizeBudget = function() {
     var works = Object.keys(pricing).map(function(catKey) {
       var d = pricing[catKey];
       var desc = "";
@@ -10441,84 +10375,255 @@ const BudgetPricingScreen = (props) => {
     }).filter(function(w) { return w.price > 0; });
     setOrders(function(prev) { return prev.map(function(o) {
       if (o.id !== order.id) return o;
-      return Object.assign({}, o, { status: send ? "budget_sent" : "inspection_done", pricingData: pricing, works: works });
+      return Object.assign({}, o, { status: "budget_sent", pricingData: pricing, works: works, budgetDate: new Date().toISOString() });
+    }); });
+    setShowPDF(true);
+  };
+
+  var saveDraft = function() {
+    var works = Object.keys(pricing).map(function(catKey) {
+      var d = pricing[catKey];
+      var desc = d.noItems ? (d.desc || catKey) : (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) { return it.desc ? it.label + " (" + it.desc + ")" : it.label; }).join(", ");
+      return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: d.noItems ? [] : (d.items || []).map(function(it) { return Object.assign({}, it, { selected: true }); }) };
+    }).filter(function(w) { return w.price > 0; });
+    setOrders(function(prev) { return prev.map(function(o) {
+      if (o.id !== order.id) return o;
+      return Object.assign({}, o, { pricingData: pricing, works: works });
     }); });
     onNavigate("vehicleDetail", order);
   };
 
+  var sendWABudget = function() {
+    var phone = (client && client.phone || "").replace(/\D/g, "");
+    if (!phone) { alert("El cliente no tiene telefono"); return; }
+    var msg = "Hola " + (client ? client.name : "") + "! Le enviamos el presupuesto para su " + (vehicle ? vehicle.brand + " " + vehicle.model : "") + " (" + fmtD(order.domain) + "):\n\n";
+    Object.keys(pricing).forEach(function(catKey) {
+      if (catSubtotal(catKey) <= 0) return;
+      msg += "*" + catKey + "*\n";
+      var d = pricing[catKey];
+      if (d.noItems) {
+        msg += "Total: " + fmt(catSubtotal(catKey)) + "\n";
+      } else {
+        (d.items || []).forEach(function(it) {
+          if (parseFloat(it.price) > 0) msg += "- " + it.label + ": " + fmt(parseFloat(it.price)) + "\n";
+        });
+        msg += "Subtotal: " + fmt(catSubtotal(catKey)) + "\n";
+      }
+      msg += "\n";
+    });
+    msg += "*TOTAL SIN IVA: " + fmt(grandTotal) + "*\n";
+    msg += "*TOTAL CON IVA (" + ivaRate + "%): " + fmt(grandTotalIva) + "*\n\n";
+    msg += "_Presupuesto valido por 15 dias._\n\n*CarBoys* — Servicio Integral del Automotor";
+    sendWA(phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+  };
+
+  var printBudget = function() {
+    var el = document.getElementById("budget-pdf-content");
+    if (!el) return;
+    var w = window.open("", "_blank");
+    w.document.write("<html><head><title>Presupuesto</title><style>body{margin:0;font-family:sans-serif;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>" + el.outerHTML + "</body></html>");
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
+  var fmtP = function(n) { return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n); };
+  var fechaHoy = new Date().toLocaleDateString("es-AR");
+  var nroPresup = "P-" + String(order.id).padStart(4, "0");
+
+  var activeCats = Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; });
+
   return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
-      <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0, fontFamily: font }}>← Volver</button>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-        <span style={{ fontSize: 36 }}>💰</span>
+      {!showPDF && (
         <div>
-          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Presupuestar</div>
-          <div style={{ fontSize: 13, color: T.gray }}>{vehicle ? vehicle.brand + " " + vehicle.model + " " + vehicle.year : ""} — {fmtD(order.domain)}</div>
-        </div>
-      </div>
-
-      {order.inspectedBy && <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Inspeccionado por: <strong>{order.inspectedBy}</strong> — {order.inspectedAt ? fmtDate(order.inspectedAt.split("T")[0]) : ""}</div>}
-
-      {order.budgetNote && (
-        <div style={{ ...card, padding: 12, marginBottom: 16, borderLeft: "3px solid #9C27B0", background: "rgba(156,39,176,0.04)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#9C27B0", marginBottom: 4 }}>OBSERVACIONES</div>
-          <div style={{ fontSize: 13, color: T.text }}>{order.budgetNote}</div>
-        </div>
-      )}
-
-      {Object.keys(pricing).map(function(catKey) {
-        var d = pricing[catKey];
-        var sub = catSubtotal(catKey);
-        return (
-          <div key={catKey} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "3px solid #9C27B0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: d.noItems && !d.items.length ? 8 : 10 }}>
-              <span style={{ fontSize: 20 }}>{catIcons[catKey] || "📝"}</span>
-              <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, flex: 1 }}>{catKey}</span>
-              {sub > 0 && <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(sub)}</span>}
+          <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0, fontFamily: font }}>← Volver</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <span style={{ fontSize: 36 }}>💰</span>
+            <div>
+              <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Presupuestar</div>
+              <div style={{ fontSize: 13, color: T.gray }}>{vehicle ? vehicle.brand + " " + vehicle.model + " " + vehicle.year : ""} — {fmtD(order.domain)}</div>
             </div>
-            {d.desc && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8 }}>{d.desc}</div>}
-            {d.noItems ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, flex: 1, color: T.gray }}>Precio total:</span>
-                <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                <input inputMode="numeric" type="text" value={d.totalPrice ? Number(d.totalPrice).toLocaleString("es-AR") : ""} onChange={function(e) { setCatPrice(catKey, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
-              </div>
-            ) : (
-              d.items.map(function(item, idx) {
-                return (
-                  <div key={item.key || idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + T.border }}>
-                    <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
-                    <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                    <input inputMode="numeric" type="text" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={function(e) { setPrice(catKey, idx, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
-                  </div>
-                );
-              })
-            )}
           </div>
-        );
-      })}
 
-      {grandTotal > 0 && (
-        <div style={{ ...card, padding: 14, marginBottom: 16, fontSize: 12 }}>
-          {Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; }).map(function(k) {
-            return <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{k}</span><span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(catSubtotal(k))}</span></div>;
+          {order.inspectedBy && <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Inspeccionado por: <strong>{order.inspectedBy}</strong> — {order.inspectedAt ? fmtDate(order.inspectedAt.split("T")[0]) : ""}</div>}
+
+          {order.budgetNote && (
+            <div style={{ ...card, padding: 12, marginBottom: 16, borderLeft: "3px solid #9C27B0", background: "rgba(156,39,176,0.04)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#9C27B0", marginBottom: 4 }}>OBSERVACIONES</div>
+              <div style={{ fontSize: 13, color: T.text }}>{order.budgetNote}</div>
+            </div>
+          )}
+
+          {Object.keys(pricing).map(function(catKey) {
+            var d = pricing[catKey];
+            var sub = catSubtotal(catKey);
+            return (
+              <div key={catKey} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "3px solid #9C27B0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: d.noItems && !d.items.length ? 8 : 10 }}>
+                  <span style={{ fontSize: 20 }}>{catIcons[catKey] || "📝"}</span>
+                  <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, flex: 1 }}>{catKey}</span>
+                  {sub > 0 && <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(sub)}</span>}
+                </div>
+                {d.desc && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8 }}>{d.desc}</div>}
+                {d.noItems ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, flex: 1, color: T.gray }}>Precio total:</span>
+                    <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                    <input inputMode="numeric" type="text" value={d.totalPrice ? Number(d.totalPrice).toLocaleString("es-AR") : ""} onChange={function(e) { setCatPrice(catKey, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                  </div>
+                ) : (
+                  d.items.map(function(item, idx) {
+                    return (
+                      <div key={item.key || idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + T.border }}>
+                        <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
+                        <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                        <input inputMode="numeric" type="text" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={function(e) { setPrice(catKey, idx, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
           })}
-          <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
-            <span>TOTAL SIN IVA</span><span style={{ color: "#9C27B0" }}>{fmt(grandTotal)}</span>
+
+          {grandTotal > 0 && (
+            <div style={{ ...card, padding: 14, marginBottom: 16, fontSize: 12 }}>
+              {Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; }).map(function(k) {
+                return <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{k}</span><span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(catSubtotal(k))}</span></div>;
+              })}
+              <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
+                <span>TOTAL SIN IVA</span><span style={{ color: "#9C27B0" }}>{fmt(grandTotal)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                <span style={{ color: T.gray }}>TOTAL CON IVA ({ivaRate}%)</span>
+                <span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(grandTotalIva)}</span>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: T.orange, fontWeight: 600 }}>Presupuesto valido por 15 dias</div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={saveDraft} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>💾 Guardar</button>
+            <button onClick={finalizeBudget} disabled={grandTotal === 0} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, opacity: grandTotal > 0 ? 1 : 0.4 }}>📋 Finalizar Presupuesto</button>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            <span style={{ color: T.gray }}>TOTAL CON IVA ({ivaRate}%)</span>
-            <span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(grandTotalIva)}</span>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: T.orange, fontWeight: 600 }}>Presupuesto valido por 15 dias</div>
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={function() { saveBudget(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>💾 Guardar</button>
-        <button onClick={function() { saveBudget(true); }} disabled={grandTotal === 0} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, opacity: grandTotal > 0 ? 1 : 0.4 }}>📩 Enviar Presupuesto</button>
-      </div>
+      {/* ── PDF PRESUPUESTO ── */}
+      {showPDF && (
+        <div>
+          {/* Tab bar */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <button onClick={sendWABudget} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 14, padding: "12px 0" }}>📱 Enviar Presupuesto</button>
+            <button onClick={printBudget} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 14, padding: "12px 0" }}>🖨️ Imprimir</button>
+            <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, padding: "12px 16px" }}>✕</button>
+          </div>
+
+          {/* PDF Content */}
+          <div id="budget-pdf-content" style={{ background: "#fff", borderRadius: 12, overflow: "hidden", color: "#0d1526", boxShadow: "0 4px 24px rgba(0,0,0,.3)" }}>
+            {/* Header */}
+            <div style={{ background: "#0d1526", padding: "28px 28px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}>
+                  <span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span>
+                </div>
+                <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ padding: "10px 20px", borderRadius: 10, border: "3px solid #9C27B0", background: "rgba(156,39,176,.1)", textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 18, fontWeight: 800, color: "#9C27B0", letterSpacing: 2 }}>PRESUPUESTO</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div style={{ background: "#f8fafc", padding: "16px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, borderBottom: "2px solid #e2e8f0" }}>
+              <div>
+                <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Nro. Presupuesto</div>
+                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 20, fontWeight: 700, color: "#0d1526" }}>{nroPresup}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Fecha</div>
+                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 20, fontWeight: 700, color: "#0d1526" }}>{fechaHoy}</div>
+              </div>
+            </div>
+
+            {/* Cliente */}
+            <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Cliente</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{client ? client.name + " " + client.lastName : "—"}</div>
+                  {client && client.phone && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Tel: {client.phone}</div>}
+                  {client && client.dni && <div style={{ fontSize: 12, color: "#64748b" }}>DNI: {client.dni}</div>}
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>Dominio</div>
+                  <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, fontWeight: 800, color: "#0d1526", letterSpacing: 1 }}>{fmtD(order.domain)}</div>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>{vehicle ? vehicle.brand + " " + vehicle.model + " " + vehicle.year : ""}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Servicios agrupados */}
+            {activeCats.map(function(catKey) {
+              var d = pricing[catKey];
+              var sub = catSubtotal(catKey);
+              var pricedItems = d.noItems ? [] : (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; });
+              return (
+                <div key={catKey} style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 16 }}>{catIcons[catKey] || "📝"}</span>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#9C27B0", textTransform: "uppercase", letterSpacing: 1 }}>{catKey}</div>
+                  </div>
+                  {d.noItems ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, fontWeight: 600 }}>
+                      <span>{d.desc || catKey}</span>
+                      <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{fmtP(sub)}</span>
+                    </div>
+                  ) : pricedItems.map(function(item, idx) {
+                    return (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+                        <span style={{ color: "#334155" }}>{item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
+                        <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, color: "#0d1526" }}>{fmtP(parseFloat(item.price) || 0)}</span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 0", marginTop: 8, borderTop: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13, color: "#0d1526" }}>
+                    <span>SUBTOTAL</span>
+                    <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15 }}>{fmtP(sub)}</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Totales */}
+            <div style={{ padding: "20px 28px", background: "#f8fafc" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, color: "#64748b" }}>
+                <span>Subtotal sin IVA</span>
+                <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{fmtP(grandTotal)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, color: "#64748b" }}>
+                <span>IVA ({ivaRate}%)</span>
+                <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{fmtP(grandTotal * ivaRate / 100)}</span>
+              </div>
+              <div style={{ height: 2, background: "#9C27B0", margin: "8px 0", borderRadius: 1 }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'Rajdhani', sans-serif", fontSize: 22, fontWeight: 900, color: "#9C27B0" }}>
+                <span>TOTAL</span>
+                <span>{fmtP(grandTotalIva)}</span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
+              <div style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700, letterSpacing: 1 }}>PRESUPUESTO VALIDO POR 15 DIAS</div>
+              <div style={{ fontSize: 11, color: "#7b8fad", marginTop: 4 }}>CarBoys — Servicio Integral del Automotor</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
