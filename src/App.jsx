@@ -2248,9 +2248,8 @@ const NewOrderScreen = (props) => {
                                   <span style={{ fontSize: 22 }}>{f.icon}</span> {f.label}
                                 </button>
                                 <button onClick={() => {
-                                  const phone = hc?.phone || "";
-                                  const msg = `Hola ${hc?.name || ""}! Te enviamos la ${f.label.toLowerCase()} de tu ${hv?.brand || ""} ${hv?.model || ""} (${fmtD(o.domain)}).\n\n¡Gracias por confiar en *CarBoys*! 🔧`;
-                                  sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
+                                  setHistoryOrderDetail(null); setHistoryVehicle(null);
+                                  onNavigate("fojaClient", { ...o, _fojaType: f.key, _autoSendWA: true });
                                 }} style={{ ...btnPrimary(T.green), padding: "14px 16px", fontSize: 18 }}>📱</button>
                               </div>
                             ))}
@@ -5134,9 +5133,7 @@ const VehicleDetailScreen = (props) => {
                   </button>
                   <button onClick={() => {
                     setShowFojaMenu(false);
-                    const phone = cl?.phone || "";
-                    const msg = `Hola ${cl?.name || ""}! Te enviamos la ${f.label.toLowerCase()} de tu ${v?.brand || ""} ${v?.model || ""} (${fmtD(order.domain)}).\n\n¡Gracias por confiar en *CarBoys*! 🔧`;
-                    sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
+                    onNavigate("fojaClient", { ...order, _fojaType: f.key, _autoSendWA: true });
                   }} style={{ ...btnPrimary(T.green), padding: "12px 14px", fontSize: 16 }}>📱</button>
                 </div>
               ))}
@@ -13454,6 +13451,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const fojaType = order._fojaType || null;
+  const autoSendWA = order._autoSendWA || false;
 
   const sendFojaWA = async (fojaLabel) => {
     const phone = client?.phone;
@@ -13477,6 +13475,24 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       else { sendWA(phone, caption, config?.wahaUrl, config?.wahaApiKey); }
     } catch(e) { console.warn("Error enviando foja:", e); sendWA(phone, fojaLabel + " " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
   };
+
+  const getFojaLabel = () => {
+    if (fojaType === "battery") return "Foja de Bateria";
+    if (fojaType === "escape") return "Foja de Escape";
+    if (fojaType === "intervention") return "Informe de Intervencion";
+    if (fojaType === "service") {
+      var isBase = order.works.some(w => w.type === "Service Base");
+      return isBase ? "Foja de Service Base" : "Foja de Service Full";
+    }
+    return "Foja";
+  };
+
+  React.useEffect(() => {
+    if (autoSendWA) {
+      var timer = setTimeout(() => { sendFojaWA(getFojaLabel()); }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const isBatteryOrder = fojaType === "battery" || (!fojaType && order.works.some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base"));
   if (isBatteryOrder) {
