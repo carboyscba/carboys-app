@@ -5741,9 +5741,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [cmVentaMetodo, setCmVentaMetodo] = useState(null); // método filtrado en ventas
 
   const today = new Date().toISOString().split("T")[0];
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
-  const startDate = period === "dia" ? today : period === "semana" ? weekAgo : monthAgo;
+  const _now = new Date();
+  const _dayOfWeek = _now.getDay(); // 0=dom, 1=lun, ..., 6=sab
+  const _mondayOffset = _dayOfWeek === 0 ? 6 : _dayOfWeek - 1; // días desde el lunes
+  const weekStart = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - _mondayOffset).toISOString().split("T")[0];
+  const monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().split("T")[0];
+  const startDate = period === "dia" ? today : period === "semana" ? weekStart : monthStart;
   // Normaliza cualquier formato de fecha a "YYYY-MM-DD"
   const normDate = (d) => {
     if (!d) return "";
