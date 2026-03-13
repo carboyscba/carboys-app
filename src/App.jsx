@@ -1612,7 +1612,7 @@ const NewOrderScreen = (props) => {
   const [step, setStep] = useState(1); // 1=domain, 2=client, 3=works, 4=payment, 5=confirm
   const [budgetMode, setBudgetMode] = useState(false);
   const [showAccessoryPopup, setShowAccessoryPopup] = useState(false);
-  const [budgetCategory, setBudgetCategory] = useState("");
+  const [budgetCategories, setBudgetCategories] = useState([]);
   const [budgetNote, setBudgetNote] = useState("");
   const [searchMode, setSearchMode] = useState("domain"); // "domain" or "dni"
   const [domainSearch, setDomainSearch] = useState("");
@@ -2037,6 +2037,31 @@ const NewOrderScreen = (props) => {
                       </div>
                       {/* Botón Nueva Visita — exclusivo de este flujo */}
                       <div style={{ marginTop: 16 }}>
+                        {/* Presupuesto pendiente guardado */}
+                        {(() => {
+                          var savedBudget = orders.filter(function(o) { return o.domain === hv.domain && (o.status === "budget_closed" || o.status === "budget_sent") && (o.works || []).length > 0; }).sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); })[0];
+                          if (!savedBudget) return null;
+                          var budgetTotal = (savedBudget.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0);
+                          return (
+                            <div style={{ marginBottom: 12, padding: "14px 16px", borderRadius: 10, background: "rgba(156,39,176,0.06)", border: "1px solid rgba(156,39,176,0.25)" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                <span style={{ fontSize: 16 }}>📋</span>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "#9C27B0" }}>Presupuesto pendiente</div>
+                                <span style={{ marginLeft: "auto", fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(budgetTotal)}</span>
+                              </div>
+                              <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>
+                                {(savedBudget.works || []).map(function(w) { return w.type; }).join(", ")} — {fmtDate(savedBudget.date)}
+                              </div>
+                              <button onClick={function() {
+                                setOrders(function(prev) { return prev.map(function(o) { return o.id === savedBudget.id ? Object.assign({}, o, { status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() }) : o; }); });
+                                setHistoryVehicle(null);
+                                onNavigate("vehicleDetail", savedBudget);
+                              }} style={{ ...btnPrimary("#9C27B0"), width: "100%", fontSize: 13, padding: "10px 0", marginTop: 8 }}>
+                                ▶️ Iniciar Reparacion desde Presupuesto
+                              </button>
+                            </div>
+                          );
+                        })()}
                         {activeOrder && (
                           <div style={{ fontSize: 12, color: T.orange, fontWeight: 600, padding: "10px 14px", background: `${T.orange}10`, borderRadius: 8, marginBottom: 10 }}>
                             ⚠️ Este vehículo ya tiene una orden activa en taller
@@ -2489,7 +2514,7 @@ const NewOrderScreen = (props) => {
         <div style={{ animation: "fadeUp .3s ease" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700 }}>{budgetMode ? "🔍 Presupuesto" : "🔧 Agregar Trabajos"}</div>
-            <div onClick={() => { setBudgetMode(!budgetMode); if (!budgetMode) { setWorks([]); } else { setBudgetCategory(""); setBudgetNote(""); } }}
+            <div onClick={() => { setBudgetMode(!budgetMode); if (!budgetMode) { setWorks([]); } else { setBudgetCategories([]); setBudgetNote(""); } }}
               style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: budgetMode ? T.orange : "#9C27B0", borderColor: budgetMode ? T.orange : "#9C27B0", background: budgetMode ? "rgba(255,152,0,0.08)" : "rgba(156,39,176,0.08)" }}>
               {budgetMode ? "🔧 Cambiar a Trabajo" : "🔍 Presupuesto"}
             </div>
@@ -2499,7 +2524,7 @@ const NewOrderScreen = (props) => {
           {budgetMode ? (
             <div>
               <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: "3px solid #9C27B0" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#9C27B0", marginBottom: 8 }}>El vehículo entra a inspección. Seleccioná el motivo:</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#9C27B0", marginBottom: 8 }}>Selecciona los servicios a presupuestar (uno o mas):</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
                   {[
                     { name: "Tren Delantero", icon: "⚙️" },
@@ -2508,14 +2533,16 @@ const NewOrderScreen = (props) => {
                     { name: "Escape", icon: "💨" },
                     { name: "Arreglo", icon: "🪛" },
                     { name: "Otros", icon: "📝" },
-                  ].map(cat => (
-                    <div key={cat.name} onClick={() => setBudgetCategory(budgetCategory === cat.name ? "" : cat.name)}
-                      style={{ ...card, padding: "14px 8px", cursor: "pointer", textAlign: "center", borderColor: budgetCategory === cat.name ? "#9C27B0" : T.border, background: budgetCategory === cat.name ? "rgba(156,39,176,0.1)" : T.bg2, transition: "all .2s" }}>
+                  ].map(cat => {
+                    const sel = budgetCategories.indexOf(cat.name) >= 0;
+                    return (
+                    <div key={cat.name} onClick={() => setBudgetCategories(prev => sel ? prev.filter(c => c !== cat.name) : [...prev, cat.name])}
+                      style={{ ...card, padding: "14px 8px", cursor: "pointer", textAlign: "center", borderColor: sel ? "#9C27B0" : T.border, background: sel ? "rgba(156,39,176,0.1)" : T.bg2, transition: "all .2s" }}>
                       <div style={{ fontSize: 28, marginBottom: 4 }}>{cat.icon}</div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: budgetCategory === cat.name ? "#9C27B0" : T.text }}>{cat.name}</div>
-                      {budgetCategory === cat.name && <div style={{ fontSize: 9, color: "#9C27B0", marginTop: 3, fontWeight: 700 }}>✓ SELECCIONADO</div>}
+                      <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "#9C27B0" : T.text }}>{cat.name}</div>
+                      {sel && <div style={{ fontSize: 9, color: "#9C27B0", marginTop: 3, fontWeight: 700 }}>✓ SELECCIONADO</div>}
                     </div>
-                  ))}
+                  ); })}
                 </div>
                 <label style={labelStyle}>Nota / Queja del cliente (opcional)</label>
                 <textarea value={budgetNote} onChange={e => setBudgetNote(e.target.value)}
@@ -2532,7 +2559,7 @@ const NewOrderScreen = (props) => {
                     clientId: foundClient?.id ?? null,
                     domain: form.domain,
                     status: "inspection",
-                    budgetCategory,
+                    budgetCategories,
                     budgetNote,
                     works: [],
                     payments: [],
@@ -2543,11 +2570,11 @@ const NewOrderScreen = (props) => {
                   };
                   setOrders(prev => [...prev, newOrder]);
                   setBudgetMode(false);
-                  setBudgetCategory("");
+                  setBudgetCategories([]);
                   setBudgetNote("");
                   setStep(5);
-                }} disabled={!budgetCategory}
-                  style={{ ...btnPrimary("#9C27B0"), opacity: budgetCategory ? 1 : 0.4, fontSize: 14 }}>
+                }} disabled={budgetCategories.length === 0}
+                  style={{ ...btnPrimary("#9C27B0"), opacity: budgetCategories.length > 0 ? 1 : 0.4, fontSize: 14 }}>
                   🔍 Crear Orden de Inspección
                 </button>
               </div>
@@ -4141,6 +4168,7 @@ const VehicleDetailScreen = (props) => {
   const [showNotifyPopup, setShowNotifyPopup] = useState(false);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [cancelStep, setCancelStep] = useState(1);
+  const [showBudgetPreview, setShowBudgetPreview] = useState(false);
   const [showEditOrder, setShowEditOrder] = useState(false);
   const [showCobrarPopup, setShowCobrarPopup] = useState(false);
   const [editClient, setEditClient] = useState(null);
@@ -4153,8 +4181,8 @@ const VehicleDetailScreen = (props) => {
   const [brakeEjes2, setBrakeEjes2] = useState({ del: false, tra: false, delPrice: "", traPrice: "" });
   const [showEscapePopup2, setShowEscapePopup2] = useState(false);
   const [showPriceError, setShowPriceError] = useState(false);
-  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : T.red;
-  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : "🔴 ESPERANDO INICIO";
+  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#78909C" : T.red;
+  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUP. CERRADO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
     setOrders(prev => prev.map(o => o.id === order.id ? {
@@ -4238,7 +4266,7 @@ const VehicleDetailScreen = (props) => {
           <div style={{ fontSize: 28 }}>🔍</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: "#9C27B0" }}>En inspección — Presupuesto pendiente</div>
-            <div style={{ fontSize: 12, color: T.gray }}>Motivo: <strong>{order.budgetCategory}</strong></div>
+            <div style={{ fontSize: 12, color: T.gray }}>Motivo: <strong>{(order.budgetCategories || [order.budgetCategory]).filter(Boolean).join(", ") || "Inspección"}</strong></div>
             {order.budgetNote && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>"{order.budgetNote}"</div>}
           </div>
         </div>
@@ -4250,20 +4278,28 @@ const VehicleDetailScreen = (props) => {
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
             <div style={{ fontSize: 28 }}>📩</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: "#1E88E5" }}>Presupuesto enviado — Esperando aprobación</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#1E88E5" }}>Presupuesto enviado — Esperando aprobacion</div>
               <div style={{ fontSize: 12, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt(order.works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</strong></div>
             </div>
           </div>
-          {order.works[0]?.trenItems && (
-            <div style={{ padding: "8px 12px", background: T.bg, borderRadius: 8, fontSize: 12 }}>
-              {order.works[0].trenItems.filter(x => x.isCustom ? x.label : x.selected).map((ti, k) => (
-                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-                  <span style={{ color: T.text }}>{ti.isCustom ? ti.label : (ti.otroDesc ? ti.label + " (" + ti.otroDesc + ")" : ti.label)}</span>
-                  <span style={{ fontWeight: 700, color: "#9C27B0" }}>{fmt(parseFloat(ti.price) || 0)}</span>
+          {(order.works || []).map(function(w, wi) {
+            var wItems = (w.trenItems || []).filter(function(x) { return x.isCustom ? x.label : x.selected; });
+            if (wItems.length === 0) return null;
+            return (
+              <div key={wi} style={{ padding: "8px 12px", background: T.bg, borderRadius: 8, fontSize: 12, marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, color: "#9C27B0", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>{w.type}</div>
+                {wItems.map(function(ti, k) { return (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+                    <span style={{ color: T.text }}>{ti.isCustom ? ti.label : (ti.otroDesc ? ti.label + " (" + ti.otroDesc + ")" : ti.label)}</span>
+                    <span style={{ fontWeight: 700, color: "#9C27B0" }}>{fmt(parseFloat(ti.price) || 0)}</span>
+                  </div>
+                ); })}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", marginTop: 4, borderTop: "1px solid " + T.border, fontWeight: 700, fontSize: 11 }}>
+                  <span>Subtotal</span><span>{fmt(parseFloat(w.price) || 0)}</span>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -4415,20 +4451,22 @@ const VehicleDetailScreen = (props) => {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
           ...(order.status === "inspection" && canStartWork ? [{ icon: "🔍", label: "Realizar Inspección", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "✅", label: "Aprobar Presupuesto", show: canSeePrices, color: T.green, action: () => {
-            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
+          ...(order.status === "budget_sent" ? [{ icon: "📋", label: "Ver Presupuesto", show: true, color: "#9C27B0", action: () => setShowBudgetPreview(true), bg: "rgba(156,39,176,.08)" }] : []),
+          ...(order.status === "budget_sent" ? [{ icon: "▶️", label: "Comenzar Reparación", show: canSeePrices, color: T.green, action: () => {
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() } : o));
           }, bg: "rgba(67,160,71,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "❌", label: "Rechazar Presupuesto", show: canSeePrices, color: T.red, action: () => {
-            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "rejected" } : o));
-          }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(order.status === "budget_sent" ? [{ icon: "🔚", label: "Finalizar Presupuesto", show: canSeePrices, color: T.orange, action: () => {
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "budget_closed", closedAt: new Date().toISOString() } : o));
+            onNavigate("dashboard");
+          }, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "working" && canStartWork ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
-          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
+          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && order.status !== "budget_closed" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
             setEditWorks((order.works || []).map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
             setShowEditOrder(true);
           }, bg: "rgba(30,136,229,.08)" },
-          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
+          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && order.status !== "budget_closed" && order.status !== "budget_sent" && canSeePrices, color: T.accent, action: () => {
             setNewWorks([]);
             setShowAddWork(true);
           }, bg: "rgba(30,136,229,.08)" },
@@ -4439,7 +4477,7 @@ const VehicleDetailScreen = (props) => {
           }, bg: "rgba(30,136,229,.08)" },
 
           ...((order.status === "done" || order.status === "delivered") && hasFojaWork ? [{ icon: "📑", label: "Fojas", show: true, color: T.accent, action: () => setShowFojaMenu(true), bg: "rgba(30,136,229,.08)" }] : []),
-          ...(user.canAuthorize && (notifications || []).some(n => n.orderId === order.id && n.status === "pending") ? [{ icon: "🔐", label: "Gestionar Auth", show: true, color: T.red, action: () => onNavigate("authManage", order), bg: `rgba(229,57,53,.10)` }] : []),
+          ...(user.canAuthorize && (notifications || []).some(n => n.orderId === order.id && n.status === "pending") ? [{ icon: "🔐", label: "Gestionar Auth", show: true, color: T.red, action: () => onNavigate("authManage", order), bg: "rgba(229,57,53,.10)" }] : []),
           ...(canNotify && order.status === "done" && !order.clientNotified ? [{ icon: "📱", label: "Avisar al Cliente", show: true, color: T.green, action: () => {
             setShowNotifyPopup(true);
           }, bg: "rgba(67,160,71,.08)" }] : []),
@@ -4447,7 +4485,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(getPerm(user, "cancelar") && (order.status === "pending" || order.status === "working") ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && ["pending","working","inspection","budget_sent"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -4970,6 +5008,73 @@ const VehicleDetailScreen = (props) => {
                 style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 0" }}>
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget preview modal */}
+      {showBudgetPreview && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={function() { setShowBudgetPreview(false); }}>
+          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 500, width: "100%", maxHeight: "90vh", overflowY: "auto", color: "#0d1526" }} onClick={function(e) { e.stopPropagation(); }}>
+            <div style={{ padding: "24px 28px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: "#0d1526" }}>PRESUPUESTO</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Fecha: {order.date ? new Date(order.date).toLocaleDateString("es-AR") : new Date().toLocaleDateString("es-AR")}</div>
+            </div>
+            <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 12, color: "#64748b" }}>CLIENTE</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{client?.name} {client?.lastName}</div>
+              {client?.phone && <div style={{ fontSize: 12, color: "#64748b" }}>{client.phone}</div>}
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>VEHICULO</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {fmtD(order.domain)}</div>
+            </div>
+            {(order.works || []).filter(function(w) { return (parseFloat(w.price) || 0) > 0; }).map(function(w, wi) {
+              var wItems = (w.trenItems || []).filter(function(x) { return x.isCustom ? (x.label && x.price) : x.selected; });
+              return (
+                <div key={wi} style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
+                  <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: "#9C27B0", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{w.type}</div>
+                  {wItems.length > 0 ? wItems.map(function(item, idx) {
+                    return (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+                        <span>{item.isCustom ? item.label : (item.otroDesc ? item.label + " (" + item.otroDesc + ")" : item.label)}</span>
+                        <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmt(parseFloat(item.price) || 0)}</span>
+                      </div>
+                    );
+                  }) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+                      <span>{w.desc || w.type}</span>
+                      <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmt(parseFloat(w.price) || 0)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", marginTop: 4, borderTop: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13 }}>
+                    <span>SUBTOTAL</span>
+                    <span style={{ fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {(function() {
+              var gt = (order.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0);
+              var iva = config.ivaRate || 21;
+              return (
+                <div style={{ padding: "16px 28px", background: "#f8fafc" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
+                    <span>TOTAL SIN IVA</span><span>{fmt(gt)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#64748b" }}>
+                    <span>IVA ({iva}%)</span><span>{fmt(gt * iva / 100)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 900, marginTop: 6, color: "#9C27B0" }}>
+                    <span>TOTAL CON IVA</span><span>{fmt(gt * (1 + iva / 100))}</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div style={{ padding: "12px 28px", textAlign: "center", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
+              PRESUPUESTO VALIDO POR 15 DIAS
+            </div>
+            <div style={{ padding: "16px 28px", display: "flex", gap: 10 }}>
+              <button onClick={function() { setShowBudgetPreview(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid #e2e8f0", flex: 1, fontSize: 13, color: "#0d1526" }}>← Cerrar</button>
             </div>
           </div>
         </div>
@@ -10127,57 +10232,75 @@ const InspectionScreen = (props) => {
   const { order, clients, user, orders, setOrders, config, onNavigate } = props;
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
-  const cat = order.budgetCategory || "Otros";
-  const catIcon = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Mecánica": "🔩", "Escape": "💨", "Arreglo": "🪛", "Otros": "📝" }[cat] || "🔍";
+  // Compat: old orders have budgetCategory (string), new have budgetCategories (array)
+  const cats = order.budgetCategories || (order.budgetCategory ? [order.budgetCategory] : ["Otros"]);
+  const catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Arreglo": "🪛", "Otros": "📝" };
+  const [activeCat, setActiveCat] = useState(cats[0]);
+  const [showPreview, setShowPreview] = useState(false);
 
-  const initialItems = () => {
-    const fixed = (BUDGET_CATEGORIES[cat] || []).map(t => ({ ...t, selected: false, price: "" }));
+  // Items per category
+  const buildItems = function(cat) {
+    var fixed = (BUDGET_CATEGORIES[cat] || []).map(function(t) { return Object.assign({}, t, { selected: false, price: "" }); });
     if (FREE_CATEGORIES.includes(cat) || fixed.length === 0) return [{ key: "libre_1", label: "", selected: false, price: "", isCustom: true }];
-    return [...fixed, { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }];
+    return fixed.concat([{ key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }]);
   };
 
-  const [items, setItems] = useState(order.budgetItems || initialItems());
+  const initAllItems = function() {
+    if (order.budgetAllItems) return order.budgetAllItems;
+    var result = {};
+    cats.forEach(function(cat) { result[cat] = buildItems(cat); });
+    return result;
+  };
+
+  const [allItems, setAllItems] = useState(initAllItems);
   const [note, setNote] = useState(order.budgetNote || "");
-  const [escapeType, setEscapeType] = useState(order.escapeType || "");
+  const [escapeTypes, setEscapeTypes] = useState(order.escapeTypes || {});
 
-  const total = items.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
-  const totalIva = total * (1 + config.ivaRate / 100);
-  const total3 = total * (1 + config.surcharge3 / 100);
-  const total6 = total * (1 + config.surcharge6 / 100);
-
-  const activeItems = cat === "Escape" && !escapeType ? [] : items;
-  const showItems = cat === "Escape" ? escapeType : true;
-
-  const handleEscapeType = (type) => {
-    setEscapeType(type);
-    const src = type === "deportivo" ? "Escape Deportivo" : "Escape";
-    const fixed = (BUDGET_CATEGORIES[src] || []).map(t => ({ ...t, selected: false, price: "" }));
-    setItems([...fixed, { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }]);
+  var items = allItems[activeCat] || [];
+  var setItems = function(newItems) {
+    setAllItems(function(prev) { var copy = Object.assign({}, prev); copy[activeCat] = typeof newItems === "function" ? newItems(prev[activeCat] || []) : newItems; return copy; });
   };
 
-  const saveBudget = (sendToClient) => {
-    const desc = items.filter(x => x.isCustom ? x.label : x.selected).map(x => x.isCustom ? x.label : (x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label)).join(", ");
-    setOrders(prev => prev.map(o => o.id === order.id ? {
-      ...o,
-      status: sendToClient ? "budget_sent" : "inspection",
-      budgetItems: items,
-      budgetNote: note,
-      escapeType,
-      works: [{ type: cat, price: total, desc: desc + (escapeType ? ` (${escapeType === "deportivo" ? "Deportivo" : "Original"})` : ""), trenItems: items }],
-    } : o));
-    if (sendToClient) onNavigate("vehicleDetail", order);
-    else onNavigate("vehicleDetail", order);
+  var isEscape = activeCat === "Escape";
+  var escapeType = escapeTypes[activeCat] || "";
+  var handleEscapeType = function(type) {
+    setEscapeTypes(function(prev) { var c = Object.assign({}, prev); c[activeCat] = type; return c; });
+    var src = type === "deportivo" ? "Escape Deportivo" : "Escape";
+    var fixed = (BUDGET_CATEGORIES[src] || []).map(function(t) { return Object.assign({}, t, { selected: false, price: "" }); });
+    setItems(fixed.concat([{ key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }]));
+  };
+  var showItemsList = isEscape ? escapeType : true;
+
+  // Per-category subtotals
+  var catSubtotal = function(cat) {
+    return (allItems[cat] || []).filter(function(x) { return x.isCustom ? (x.price && x.label) : x.selected; }).reduce(function(s, x) { return s + (parseFloat(x.price) || 0); }, 0);
+  };
+  var grandTotal = cats.reduce(function(s, cat) { return s + catSubtotal(cat); }, 0);
+  var grandTotalIva = grandTotal * (1 + (config.ivaRate || 21) / 100);
+  var currentTotal = catSubtotal(activeCat);
+
+  var saveBudget = function(sendToClient) {
+    var works = cats.map(function(cat) {
+      var catItems = (allItems[cat] || []).filter(function(x) { return x.isCustom ? (x.price && x.label) : x.selected; });
+      var desc = catItems.map(function(x) { return x.isCustom ? x.label : (x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label); }).join(", ");
+      var et = escapeTypes[cat] || "";
+      return { type: cat, price: catSubtotal(cat), desc: desc + (et ? " (" + (et === "deportivo" ? "Deportivo" : "Original") + ")" : ""), trenItems: allItems[cat] };
+    }).filter(function(w) { return w.price > 0; });
+    setOrders(function(prev) { return prev.map(function(o) {
+      return o.id === order.id ? Object.assign({}, o, { status: sendToClient ? "budget_sent" : "inspection", budgetAllItems: allItems, budgetNote: note, escapeTypes: escapeTypes, works: works }) : o;
+    }); });
+    onNavigate("vehicleDetail", order);
   };
 
   return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
-      <button onClick={() => onNavigate("vehicleDetail", order)} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0, fontFamily: font }}>← Volver</button>
+      <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0, fontFamily: font }}>← Volver</button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
         <span style={{ fontSize: 36 }}>🔍</span>
         <div>
-          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Inspección</div>
-          <div style={{ fontSize: 13, color: T.gray }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {order.domain}</div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Presupuesto</div>
+          <div style={{ fontSize: 13, color: T.gray }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {fmtD(order.domain)}</div>
         </div>
       </div>
 
@@ -10188,92 +10311,76 @@ const InspectionScreen = (props) => {
         </div>
       )}
 
-      <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: `3px solid #9C27B0` }}>
+      {/* Category tabs */}
+      {cats.length > 1 && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+          {cats.map(function(cat) {
+            var active = activeCat === cat;
+            var sub = catSubtotal(cat);
+            return (
+              <div key={cat} onClick={function() { setActiveCat(cat); }} style={{ padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: active ? "#9C27B0" : T.bg2, color: active ? "#fff" : T.gray, border: "1px solid " + (active ? "#9C27B0" : T.border), transition: "all .15s" }}>
+                {(catIcons[cat] || "📝") + " " + cat}
+                {sub > 0 && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.8 }}>{fmt(sub)}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Items for active category */}
+      <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: "3px solid #9C27B0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 24 }}>{catIcon}</span>
-          <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{cat}</span>
+          <span style={{ fontSize: 24 }}>{catIcons[activeCat] || "🔍"}</span>
+          <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{activeCat}</span>
+          {currentTotal > 0 && <span style={{ marginLeft: "auto", fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#9C27B0" }}>{fmt(currentTotal)}</span>}
         </div>
 
-        {/* Escape type selector */}
-        {cat === "Escape" && !escapeType && (
+        {isEscape && !escapeType && (
           <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <div onClick={() => handleEscapeType("original")} style={{ flex: 1, ...card, padding: "16px 12px", cursor: "pointer", textAlign: "center", transition: "all .2s" }}>
+            <div onClick={function() { handleEscapeType("original"); }} style={{ flex: 1, ...card, padding: "16px 12px", cursor: "pointer", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 4 }}>🔧</div>
               <div style={{ fontWeight: 700, fontSize: 12 }}>Sistema Original</div>
             </div>
-            <div onClick={() => handleEscapeType("deportivo")} style={{ flex: 1, ...card, padding: "16px 12px", cursor: "pointer", textAlign: "center", transition: "all .2s" }}>
+            <div onClick={function() { handleEscapeType("deportivo"); }} style={{ flex: 1, ...card, padding: "16px 12px", cursor: "pointer", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 4 }}>🏎️</div>
               <div style={{ fontWeight: 700, fontSize: 12 }}>Escape Deportivo</div>
             </div>
           </div>
         )}
-        {cat === "Escape" && escapeType && (
+        {isEscape && escapeType && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>{escapeType === "deportivo" ? "🏎️ Deportivo" : "🔧 Original"}</span>
-            <span onClick={() => { setEscapeType(""); setItems(initialItems()); }} style={{ fontSize: 11, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Cambiar</span>
+            <span onClick={function() { setEscapeTypes(function(p) { var c = Object.assign({}, p); delete c[activeCat]; return c; }); setItems(buildItems(activeCat)); }} style={{ fontSize: 11, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Cambiar</span>
           </div>
         )}
 
-        {/* Items list */}
-        {showItems && items.map((ti, j) => (
-          <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 4, background: ti.isCustom ? (ti.label ? "rgba(156,39,176,0.06)" : T.bg) : (ti.selected ? "rgba(156,39,176,0.06)" : T.bg), borderRadius: 8, border: `1px solid ${(ti.isCustom ? (ti.label || ti.price) : ti.selected) ? "#9C27B0" : T.border}`, transition: "all .2s" }}>
-            {!ti.isCustom && (
-              <div onClick={() => {
-                const newItems = [...items];
-                newItems[j] = { ...newItems[j], selected: !newItems[j].selected };
-                setItems(newItems);
-              }} style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${ti.selected ? "#9C27B0" : T.border}`, background: ti.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all .2s" }}>
-                {ti.selected && <span style={{ color: "#FFF", fontSize: 14, fontWeight: 800 }}>✓</span>}
-              </div>
-            )}
-            {ti.isCustom ? (
-              <input inputMode="text" value={ti.label || ""} onChange={e => {
-                const newItems = [...items];
-                newItems[j] = { ...newItems[j], label: e.target.value };
-                setItems(newItems);
-              }} placeholder="Describir item..." style={{ ...inputStyle, flex: 1, fontSize: 13, fontWeight: 600, padding: "4px 8px" }} />
-            ) : (
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: ti.selected ? "#9C27B0" : T.text }}>{ti.label}</span>
-            )}
-            {ti.selected && !ti.isCustom && ti.key !== "otro" && ti.key !== "alineado" && ti.key !== "balanceado" && ti.key !== "rotacion" && (cat === "Tren Delantero" || cat === "Tren Trasero") && (
-              <div style={{ display: "flex", gap: 2 }}>
-                {[{ k: "izq", l: "Izquierdo" }, { k: "der", l: "Derecho" }, { k: "ambos", l: "Ambos" }].map(s => (
-                  <div key={s.k} onClick={() => {
-                    const newItems = [...items];
-                    newItems[j] = { ...newItems[j], side: s.k };
-                    setItems(newItems);
-                  }} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer", border: `1px solid ${(ti.side || "ambos") === s.k ? "#9C27B0" : T.border}`, background: (ti.side || "ambos") === s.k ? "rgba(156,39,176,0.15)" : "transparent", color: (ti.side || "ambos") === s.k ? "#9C27B0" : T.gray, transition: "all .15s" }}>
-                    {s.l}
-                  </div>
-                ))}
-              </div>
-            )}
-            {ti.selected && !ti.isCustom && (
-              <input inputMode="text" value={ti.otroDesc || ""} onChange={e => {
-                const newItems = [...items];
-                newItems[j] = { ...newItems[j], otroDesc: e.target.value };
-                setItems(newItems);
-              }} placeholder={ti.key === "otro" ? "Especificar..." : "Descripción..."} style={{ ...inputStyle, width: 100, fontSize: 11, padding: "4px 8px" }} />
-            )}
-            {(ti.isCustom || ti.selected) && (
-              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                <input inputMode="numeric" type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={e => {
-                  const raw = e.target.value.replace(/[^0-9]/g, "");
-                  const newItems = [...items];
-                  newItems[j] = { ...newItems[j], price: raw };
-                  setItems(newItems);
-                }} placeholder="0" style={{ ...inputStyle, width: 85, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
-              </div>
-            )}
-            {ti.isCustom && items.filter(x => x.isCustom).length > 1 && (
-              <span onClick={() => setItems(items.filter((_, k) => k !== j))} style={{ color: T.red, cursor: "pointer", fontSize: 14, fontWeight: 700, padding: "0 4px" }}>✕</span>
-            )}
-          </div>
-        ))}
-        {showItems && (
-          <div onClick={() => setItems([...items, { key: `libre_${Date.now()}`, label: "", selected: false, price: "", isCustom: true }])}
-            style={{ padding: "8px 10px", marginBottom: 4, borderRadius: 8, border: `1px dashed ${T.border}`, textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.03)" }}>
+        {showItemsList && items.map(function(ti, j) {
+          return (
+            <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 4, background: ti.isCustom ? (ti.label ? "rgba(156,39,176,0.06)" : T.bg) : (ti.selected ? "rgba(156,39,176,0.06)" : T.bg), borderRadius: 8, border: "1px solid " + ((ti.isCustom ? (ti.label || ti.price) : ti.selected) ? "#9C27B0" : T.border), transition: "all .2s" }}>
+              {!ti.isCustom && (
+                <div onClick={function() { var n = items.slice(); n[j] = Object.assign({}, n[j], { selected: !n[j].selected }); setItems(n); }} style={{ width: 26, height: 26, borderRadius: 6, border: "2px solid " + (ti.selected ? "#9C27B0" : T.border), background: ti.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                  {ti.selected && <span style={{ color: "#FFF", fontSize: 14, fontWeight: 800 }}>✓</span>}
+                </div>
+              )}
+              {ti.isCustom ? (
+                <input inputMode="text" value={ti.label || ""} onChange={function(e) { var n = items.slice(); n[j] = Object.assign({}, n[j], { label: e.target.value }); setItems(n); }} placeholder="Describir item..." style={{ ...inputStyle, flex: 1, fontSize: 13, fontWeight: 600, padding: "4px 8px" }} />
+              ) : (
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: ti.selected ? "#9C27B0" : T.text }}>{ti.label}</span>
+              )}
+              {(ti.isCustom || ti.selected) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                  <input inputMode="numeric" type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={function(e) { var raw = e.target.value.replace(/[^0-9]/g, ""); var n = items.slice(); n[j] = Object.assign({}, n[j], { price: raw }); setItems(n); }} placeholder="0" style={{ ...inputStyle, width: 85, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                </div>
+              )}
+              {ti.isCustom && items.filter(function(x) { return x.isCustom; }).length > 1 && (
+                <span onClick={function() { setItems(items.filter(function(_, k) { return k !== j; })); }} style={{ color: T.red, cursor: "pointer", fontSize: 14, fontWeight: 700, padding: "0 4px" }}>✕</span>
+              )}
+            </div>
+          );
+        })}
+        {showItemsList && (
+          <div onClick={function() { setItems(items.concat([{ key: "libre_" + Date.now(), label: "", selected: false, price: "", isCustom: true }])); }} style={{ padding: "8px 10px", marginBottom: 4, borderRadius: 8, border: "1px dashed " + T.border, textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#9C27B0" }}>
             + Agregar item
           </div>
         )}
@@ -10281,40 +10388,84 @@ const InspectionScreen = (props) => {
 
       {/* Note */}
       <div style={{ ...card, padding: 14, marginBottom: 16 }}>
-        <label style={labelStyle}>Observaciones de la inspección</label>
-        <textarea value={note} onChange={e => setNote(e.target.value)}
-          placeholder="Describir hallazgos, estado general..." rows={3}
-          style={{ ...inputStyle, resize: "vertical", fontFamily: font }} />
+        <label style={labelStyle}>Observaciones</label>
+        <textarea value={note} onChange={function(e) { setNote(e.target.value); }} placeholder="Describir hallazgos..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: font }} />
       </div>
 
-      {/* Total + IVA + cuotas */}
-      {total > 0 && (
+      {/* Grand total */}
+      {grandTotal > 0 && (
         <div style={{ ...card, padding: 14, marginBottom: 16, fontSize: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
-            <span>TOTAL PRESUPUESTO</span><span style={{ color: "#9C27B0" }}>{fmt(total)}</span>
+          {cats.filter(function(c) { return catSubtotal(c) > 0; }).map(function(cat) {
+            return (
+              <div key={cat} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontWeight: 600 }}>{cat}</span>
+                <span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(catSubtotal(cat))}</span>
+              </div>
+            );
+          })}
+          <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
+            <span>TOTAL SIN IVA</span><span style={{ color: "#9C27B0" }}>{fmt(grandTotal)}</span>
           </div>
-          <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
-            <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(total * config.ivaRate / 100)}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+            <span style={{ color: T.gray }}>TOTAL CON IVA ({config.ivaRate || 21}%)</span>
+            <span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(grandTotalIva)}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: T.gray }}>Total con IVA</span>
-            <span style={{ fontWeight: 700, color: "#9C27B0" }}>{fmt(totalIva)}</span>
-          </div>
-          <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3}%)</span>
-            <div style={{ textAlign: "right" }}>
-              <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total3 / 3)} c/u</span>
-              <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total3)}</span>
+          <div style={{ marginTop: 8, fontSize: 11, color: T.orange, fontWeight: 600 }}>Presupuesto valido por 15 dias</div>
+        </div>
+      )}
+
+      {/* Preview modal */}
+      {showPreview && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={function() { setShowPreview(false); }}>
+          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 500, width: "100%", maxHeight: "90vh", overflowY: "auto", color: "#0d1526" }} onClick={function(e) { e.stopPropagation(); }}>
+            <div style={{ padding: "24px 28px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: "#0d1526" }}>PRESUPUESTO</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Fecha: {new Date().toLocaleDateString("es-AR")}</div>
             </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6}%)</span>
-            <div style={{ textAlign: "right" }}>
-              <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total6 / 6)} c/u</span>
-              <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total6)}</span>
+            <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 12, color: "#64748b" }}>CLIENTE</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{client?.name} {client?.lastName}</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>VEHICULO</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {fmtD(order.domain)}</div>
+            </div>
+            {cats.filter(function(c) { return catSubtotal(c) > 0; }).map(function(cat) {
+              var catItems = (allItems[cat] || []).filter(function(x) { return x.isCustom ? (x.price && x.label) : x.selected; });
+              return (
+                <div key={cat} style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
+                  <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: "#9C27B0", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat}</div>
+                  {catItems.map(function(item, idx) {
+                    return (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+                        <span>{item.isCustom ? item.label : (item.otroDesc ? item.label + " (" + item.otroDesc + ")" : item.label)}</span>
+                        <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmt(parseFloat(item.price) || 0)}</span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", marginTop: 4, borderTop: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13 }}>
+                    <span>SUBTOTAL</span>
+                    <span style={{ fontFamily: fontD }}>{fmt(catSubtotal(cat))}</span>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ padding: "16px 28px", background: "#f8fafc" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
+                <span>TOTAL SIN IVA</span><span>{fmt(grandTotal)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#64748b" }}>
+                <span>IVA ({config.ivaRate || 21}%)</span><span>{fmt(grandTotal * (config.ivaRate || 21) / 100)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 900, marginTop: 6, color: "#9C27B0" }}>
+                <span>TOTAL CON IVA</span><span>{fmt(grandTotalIva)}</span>
+              </div>
+            </div>
+            <div style={{ padding: "12px 28px", textAlign: "center", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
+              PRESUPUESTO VALIDO POR 15 DIAS
+            </div>
+            <div style={{ padding: "16px 28px", display: "flex", gap: 10 }}>
+              <button onClick={function() { setShowPreview(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13, color: "#0d1526" }}>← Volver</button>
+              <button onClick={function() { saveBudget(true); }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14 }}>📩 Enviar al Cliente</button>
             </div>
           </div>
         </div>
@@ -10322,8 +10473,8 @@ const InspectionScreen = (props) => {
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => saveBudget(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>💾 Guardar borrador</button>
-        <button onClick={() => saveBudget(true)} disabled={total === 0} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, opacity: total > 0 ? 1 : 0.4 }}>📩 Enviar Presupuesto al Cliente</button>
+        <button onClick={function() { saveBudget(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>💾 Guardar borrador</button>
+        <button onClick={function() { setShowPreview(true); }} disabled={grandTotal === 0} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, opacity: grandTotal > 0 ? 1 : 0.4 }}>📋 Finalizar Presupuesto</button>
       </div>
     </div>
   );
