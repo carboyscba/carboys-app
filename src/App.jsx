@@ -607,45 +607,65 @@ const fsHeaders = async () => {
 };
 
 // ── WAHA WhatsApp API helper ──────────────────────────────────
+// Normaliza teléfono argentino: siempre devuelve 549XXXXXXXXXX
+const normalizePhone = (phone) => {
+  var clean = String(phone).replace(/\D/g, "");
+  if (!clean) return "";
+  // Si ya empieza con 549 y tiene largo correcto (13 dígitos), devolver tal cual
+  if (clean.startsWith("549") && clean.length >= 12) return clean;
+  // Si empieza con 54 pero no 549, insertar el 9
+  if (clean.startsWith("54") && !clean.startsWith("549")) return "549" + clean.slice(2);
+  // Si empieza con 0 (ej: 03547426967), quitar el 0 y agregar 549
+  if (clean.startsWith("0")) return "549" + clean.slice(1);
+  // Si empieza con 15 (ej: 155123456), quitar 15 y agregar 549+cod_area (no podemos saber cod_area, dejamos así)
+  if (clean.startsWith("15") && clean.length <= 10) return "549" + clean.slice(2);
+  // Si es un número local sin prefijo (ej: 3547426967), agregar 549
+  if (clean.length >= 10 && clean.length <= 11 && !clean.startsWith("549")) return "549" + clean;
+  return clean;
+};
+
+const cleanWahaUrl = (url) => (url || "").replace(/\/$/, "").replace(/\/api\/.*$/, "");
+
 // Si wahaUrl está configurado, envía via API. Si no, abre wa.me como fallback.
 const sendWA = async (phone, message, wahaUrl = "", wahaApiKey = "", session = "default") => {
-  const cleanPhone = String(phone).replace(/\D/g, "");
-  if (!cleanPhone) return;
+  var normalPhone = normalizePhone(phone);
+  if (!normalPhone) return;
   if (wahaUrl) {
     try {
-      const headers = { "Content-Type": "application/json" };
+      var base = cleanWahaUrl(wahaUrl);
+      var headers = { "Content-Type": "application/json" };
       if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
-      const chatId = `549${cleanPhone}@c.us`;
-      const res = await fetch(`${wahaUrl.replace(/\/$/, "").replace(/\/api\/.*$/, "")}/api/sendText`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ chatId, text: message, session }),
+      var chatId = normalPhone + "@c.us";
+      var res = await fetch(base + "/api/sendText", {
+        method: "POST", headers: headers,
+        body: JSON.stringify({ chatId: chatId, text: message, session: session || "default" }),
       });
-      if (!res.ok) {
-        console.warn("[WAHA] sendText failed:", res.status, await res.text());
-        window.open("https://wa.me/549" + cleanPhone + "?text=" + encodeURIComponent(message), "_blank");
-      }
-      return;
+      if (res.ok) return;
+      console.warn("[WAHA] sendText failed:", res.status, await res.text().catch(function() { return ""; }));
     } catch (e) {
       console.warn("[WAHA] fetch error, fallback to wa.me:", e);
     }
   }
-  window.open("https://wa.me/549" + cleanPhone + "?text=" + encodeURIComponent(message), "_blank");
+  window.open("https://wa.me/" + normalPhone + "?text=" + encodeURIComponent(message), "_blank");
 };
 
 const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, session) => {
-  var cleanPhone = String(phone).replace(/\D/g, "");
-  if (!cleanPhone || !wahaUrl) return false;
+  var normalPhone = normalizePhone(phone);
+  if (!normalPhone || !wahaUrl) return false;
   try {
+    var base = cleanWahaUrl(wahaUrl);
     var headers = { "Content-Type": "application/json" };
     if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
-    var chatId = "549" + cleanPhone + "@c.us";
-    var res = await fetch(wahaUrl.replace(/\/$/, "").replace(/\/api\/.*$/, "") + "/api/sendImage", {
+    var chatId = normalPhone + "@c.us";
+    // Intentar primero con file.data (base64)
+    var res = await fetch(base + "/api/sendImage", {
       method: "POST", headers: headers,
-      body: JSON.stringify({ chatId: chatId, file: { mimetype: "image/png", data: base64Data }, caption: caption || "", session: session || "default" }),
+      body: JSON.stringify({ chatId: chatId, file: { mimetype: "image/png", filename: "presupuesto.png", data: "data:image/png;base64," + base64Data }, caption: caption || "", session: session || "default" }),
     });
-    if (!res.ok) { console.warn("[WAHA] sendImage failed:", res.status); return false; }
-    return true;
+    if (res.ok) return true;
+    console.warn("[WAHA] sendImage failed:", res.status, await res.text().catch(function() { return ""; }));
+    // Fallback: enviar como texto
+    return false;
   } catch (e) { console.warn("[WAHA] sendImage error:", e); return false; }
 };
 
@@ -14469,21 +14489,25 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
         {wahaStatus === "connected" && (
           <div style={{ marginTop: 12 }}>
             <button onClick={async () => {
-              var testPhone = (config.whatsappNum || "").replace(/\D/g, "");
+              var testPhone = normalizePhone(config.whatsappNum || "");
               if (!testPhone) { setErrMsg("Configura primero el numero del taller abajo"); return; }
               setErrMsg("");
               try {
+                var chatId = testPhone + "@c.us";
                 var res = await fetch(wahaUrl + "/api/sendText", {
                   method: "POST", headers: getHeaders(),
-                  body: JSON.stringify({ chatId: testPhone + "@c.us", text: "✅ *CarBoys* — Mensaje de prueba\n\nSi estas leyendo esto, WAHA esta funcionando correctamente.\n\n" + new Date().toLocaleString("es-AR"), session: wahaSession }),
+                  body: JSON.stringify({ chatId: chatId, text: "✅ *CarBoys* — Mensaje de prueba\n\nSi estas leyendo esto, WAHA esta funcionando correctamente.\n\nEnviado a: " + chatId + "\n" + new Date().toLocaleString("es-AR"), session: wahaSession }),
                 });
-                if (res.ok) { showSaved("✅ Mensaje de prueba enviado!"); }
-                else { setErrMsg("Error: " + res.status + " — " + (await res.text())); }
+                if (res.ok) { showSaved("✅ Mensaje enviado a " + chatId); }
+                else {
+                  var errBody = await res.text().catch(function() { return ""; });
+                  setErrMsg("Error " + res.status + ": " + errBody);
+                }
               } catch (e) { setErrMsg("Error de conexion: " + e.message); }
             }} style={{ ...btnPrimary("#25D366"), fontSize: 13, width: "100%", color: "#fff" }}>
               📩 Enviar mensaje de prueba (a este numero)
             </button>
-            <div style={{ fontSize: 11, color: T.gray, marginTop: 6, textAlign: "center" }}>Se enviara un mensaje al numero del taller configurado abajo</div>
+            <div style={{ fontSize: 11, color: T.gray, marginTop: 6, textAlign: "center" }}>Se enviara al numero del taller: {normalizePhone(config.whatsappNum || "") || "sin configurar"}</div>
           </div>
         )}
 
