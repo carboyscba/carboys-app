@@ -616,7 +616,7 @@ const sendWA = async (phone, message, wahaUrl = "", wahaApiKey = "", session = "
       const headers = { "Content-Type": "application/json" };
       if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
       const chatId = `549${cleanPhone}@c.us`;
-      const res = await fetch(`${wahaUrl.replace(/\/$/, "")}/api/sendText`, {
+      const res = await fetch(`${wahaUrl.replace(/\/$/, "").replace(/\/api\/.*$/, "")}/api/sendText`, {
         method: "POST",
         headers,
         body: JSON.stringify({ chatId, text: message, session }),
@@ -640,7 +640,7 @@ const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, sess
     var headers = { "Content-Type": "application/json" };
     if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
     var chatId = "549" + cleanPhone + "@c.us";
-    var res = await fetch(wahaUrl.replace(/\/$/, "") + "/api/sendImage", {
+    var res = await fetch(wahaUrl.replace(/\/$/, "").replace(/\/api\/.*$/, "") + "/api/sendImage", {
       method: "POST", headers: headers,
       body: JSON.stringify({ chatId: chatId, file: { mimetype: "image/png", data: base64Data }, caption: caption || "", session: session || "default" }),
     });
@@ -653,7 +653,7 @@ const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, sess
 const wahaStartSession = async (wahaUrl, wahaApiKey = "", session = "default") => {
   const headers = { "Content-Type": "application/json" };
   if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
-  const r = await fetch(`${wahaUrl.replace(/\/$/, "")}/api/sessions/start`, {
+  const r = await fetch(`${wahaUrl.replace(/\/$/, "").replace(/\/api\/.*$/, "")}/api/sessions/start`, {
     method: "POST", headers,
     body: JSON.stringify({ name: session }),
   });
@@ -665,7 +665,7 @@ const wahaGetSession = async (wahaUrl, wahaApiKey = "", session = "default") => 
   try {
     const headers = {};
     if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
-    const r = await fetch(`${wahaUrl.replace(/\/$/, "")}/api/sessions/${session}`, { headers });
+    const r = await fetch(`${wahaUrl.replace(/\/$/, "").replace(/\/api\/.*$/, "")}/api/sessions/${session}`, { headers });
     if (!r.ok) return null;
     return r.json();
   } catch { return null; }
@@ -14304,7 +14304,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
   const [starting, setStarting] = React.useState(false);
   const [errMsg, setErrMsg] = React.useState("");
 
-  const wahaUrl = (config.wahaUrl || "").replace(/\/$/, "");
+  const wahaUrl = (config.wahaUrl || "").replace(/\/$/, "").replace(/\/api\/.*$/, "");
   const wahaKey = config.wahaApiKey || "";
   const wahaSession = config.wahaSession || "default";
 
@@ -14406,7 +14406,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
         <div style={{ marginBottom: 10 }}>
           <label style={labelStyle}>URL del servidor WAHA (Railway)</label>
           <input inputMode="text" value={config.wahaUrl || ""} onChange={e => setConfig(prev => ({ ...prev, wahaUrl: e.target.value }))}
-            style={inputStyle} placeholder="https://waha-production-106b.up.railway.app" />
+            style={inputStyle} placeholder="https://waha-production-189e.up.railway.app (solo el dominio, sin /api)" />
         </div>
         <div style={{ marginBottom: 10 }}>
           <label style={labelStyle}>API Key (opcional, si está protegido)</label>
