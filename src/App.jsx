@@ -633,6 +633,22 @@ const sendWA = async (phone, message, wahaUrl = "", wahaApiKey = "", session = "
   window.open("https://wa.me/549" + cleanPhone + "?text=" + encodeURIComponent(message), "_blank");
 };
 
+const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, session) => {
+  var cleanPhone = String(phone).replace(/\D/g, "");
+  if (!cleanPhone || !wahaUrl) return false;
+  try {
+    var headers = { "Content-Type": "application/json" };
+    if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
+    var chatId = "549" + cleanPhone + "@c.us";
+    var res = await fetch(wahaUrl.replace(/\/$/, "") + "/api/sendImage", {
+      method: "POST", headers: headers,
+      body: JSON.stringify({ chatId: chatId, file: { mimetype: "image/png", data: base64Data }, caption: caption || "", session: session || "default" }),
+    });
+    if (!res.ok) { console.warn("[WAHA] sendImage failed:", res.status); return false; }
+    return true;
+  } catch (e) { console.warn("[WAHA] sendImage error:", e); return false; }
+};
+
 // Inicia sesión WAHA
 const wahaStartSession = async (wahaUrl, wahaApiKey = "", session = "default") => {
   const headers = { "Content-Type": "application/json" };
@@ -10332,6 +10348,7 @@ const BudgetPricingScreen = (props) => {
 
   var [pricing, setPricing] = useState(initPricing);
   var [showPDF, setShowPDF] = useState(order.status === "budget_sent");
+  var [sendingWA, setSendingWA] = useState(false);
 
   var setPrice = function(catKey, idx, val) {
     setPricing(function(prev) {
@@ -10393,28 +10410,39 @@ const BudgetPricingScreen = (props) => {
     onNavigate("vehicleDetail", order);
   };
 
-  var sendWABudget = function() {
+  var sendWABudget = async function() {
     var phone = (client && client.phone || "").replace(/\D/g, "");
     if (!phone) { alert("El cliente no tiene telefono"); return; }
-    var msg = "Hola " + (client ? client.name : "") + "! Le enviamos el presupuesto para su " + (vehicle ? vehicle.brand + " " + vehicle.model : "") + " (" + fmtD(order.domain) + "):\n\n";
-    Object.keys(pricing).forEach(function(catKey) {
-      if (catSubtotal(catKey) <= 0) return;
-      msg += "*" + catKey + "*\n";
-      var d = pricing[catKey];
-      if (d.noItems) {
-        msg += "Total: " + fmt(catSubtotal(catKey)) + "\n";
-      } else {
-        (d.items || []).forEach(function(it) {
-          if (parseFloat(it.price) > 0) msg += "- " + it.label + ": " + fmt(parseFloat(it.price)) + "\n";
+    setSendingWA(true);
+    try {
+      // Load html2canvas dynamically
+      if (!window.html2canvas) {
+        await new Promise(function(resolve, reject) {
+          var script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
-        msg += "Subtotal: " + fmt(catSubtotal(catKey)) + "\n";
       }
-      msg += "\n";
-    });
-    msg += "*TOTAL SIN IVA: " + fmt(grandTotal) + "*\n";
-    msg += "*TOTAL CON IVA (" + ivaRate + "%): " + fmt(grandTotalIva) + "*\n\n";
-    msg += "_Presupuesto valido por 15 dias._\n\n*CarBoys* — Servicio Integral del Automotor";
-    sendWA(phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+      var el = document.getElementById("budget-pdf-content");
+      if (!el || !window.html2canvas) throw new Error("No se pudo capturar");
+      var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      var base64 = canvas.toDataURL("image/png").split(",")[1];
+      var caption = "Presupuesto " + fmtD(order.domain) + " — " + (client ? client.name + " " + client.lastName : "") + "\nTotal: " + fmt(grandTotalIva) + " (IVA inc.)\n\nPresupuesto valido por 15 dias.\nCarBoys — Servicio Integral del Automotor";
+      var sent = await sendWAImage(phone, base64, caption, config.wahaUrl || "", config.wahaApiKey || "", config.wahaSession || "default");
+      if (!sent) {
+        // Fallback: abrir wa.me con texto
+        var msg = "Hola " + (client ? client.name : "") + "! Le enviamos el presupuesto para su " + (vehicle ? vehicle.brand + " " + vehicle.model : "") + " (" + fmtD(order.domain) + ").\n\n";
+        msg += "*TOTAL: " + fmt(grandTotalIva) + " (IVA inc.)*\n\n_Presupuesto valido por 15 dias._\n\n*CarBoys* — Servicio Integral del Automotor";
+        window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+      }
+    } catch (e) {
+      console.warn("Error enviando imagen:", e);
+      var msgFb = "Presupuesto " + fmtD(order.domain) + " — Total: " + fmt(grandTotalIva) + " (IVA inc.)";
+      window.open("https://wa.me/549" + phone + "?text=" + encodeURIComponent(msgFb), "_blank");
+    }
+    setSendingWA(false);
   };
 
   var printBudget = function() {
@@ -10516,7 +10544,7 @@ const BudgetPricingScreen = (props) => {
         <div>
           {/* Tab bar */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            <button onClick={sendWABudget} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 14, padding: "12px 0" }}>📱 Enviar Presupuesto</button>
+            <button onClick={sendWABudget} disabled={sendingWA} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 14, padding: "12px 0", opacity: sendingWA ? 0.6 : 1 }}>{sendingWA ? "⏳ Enviando..." : "📱 Enviar Presupuesto"}</button>
             <button onClick={printBudget} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 14, padding: "12px 0" }}>🖨️ Imprimir</button>
             <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, padding: "12px 16px" }}>✕</button>
           </div>
@@ -10594,6 +10622,10 @@ const BudgetPricingScreen = (props) => {
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 0", marginTop: 8, borderTop: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13, color: "#0d1526" }}>
                     <span>SUBTOTAL</span>
                     <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15 }}>{fmtP(sub)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                    <span>IVA {ivaRate}%</span>
+                    <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600 }}>{fmtP(sub * ivaRate / 100)}</span>
                   </div>
                 </div>
               );
