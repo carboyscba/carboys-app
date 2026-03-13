@@ -2010,7 +2010,7 @@ const NewOrderScreen = (props) => {
               {/* ── HISTORIAL DE VISITAS ── */}
               {historyVehicle && !historyOrderDetail && (() => {
                 const { client: hc, vehicle: hv, orders: hOrders } = historyVehicle;
-                const activeOrder = hOrders.find(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+                const activeOrder = hOrders.find(o => ["pending","working","done","inspection","inspection_done","budget_sent","budget_approved"].includes(o.status));
                 return (
                   <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
                     {/* Vehicle header — mismo formato que SearchScreen */}
@@ -2269,7 +2269,7 @@ const NewOrderScreen = (props) => {
                           </div>
                         </div>
                         {(c.vehicles || []).map((v, i) => {
-                          const activeOrder = orders.find(o => o.domain === v.domain && ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+                          const activeOrder = orders.find(o => o.domain === v.domain && ["pending","working","done","inspection","inspection_done","budget_sent","budget_approved"].includes(o.status));
                           const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                           return (
                             <div key={i} onClick={() => {
@@ -3604,7 +3604,7 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
   // KPIs globales
   const allOrders = Object.values(data).flatMap(d => d.orders || []);
   const todayOrders = allOrders.filter(o => o.date === today);
-  const activeOrders = allOrders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+  const activeOrders = allOrders.filter(o => ["pending","working","done","inspection","inspection_done","budget_sent","budget_approved"].includes(o.status));
   const totalClients = Object.values(data).reduce((s, d) => s + (d.clients || []).length, 0);
   const todayRevenue = todayOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
 
@@ -3641,7 +3641,7 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
       <div style={{ display: "grid", gridTemplateColumns: activeSucs.length > 2 ? "1fr 1fr" : `repeat(${activeSucs.length}, 1fr)`, gap: 14 }}>
         {activeSucs.map(suc => {
           const d = data[suc.id] || { orders: [], clients: [], loading: true };
-          const sucActive = d.orders.filter(o => ["pending","working","done","inspection","budget_sent","budget_approved"].includes(o.status));
+          const sucActive = d.orders.filter(o => ["pending","working","done","inspection","inspection_done","budget_sent","budget_approved"].includes(o.status));
           const sucToday = d.orders.filter(o => o.date === today);
           const sucRevenue = sucToday.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
           const sucPending = sucActive.filter(o => o.status === "pending").length;
@@ -3697,7 +3697,7 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
 
 const DashboardScreen = (props) => {
   const { user, orders, clients, notifications, setNotifications, onNavigate } = props;
-  const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "budget_sent" || o.status === "budget_approved");
+  const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved");
   const pending = active.filter(o => o.status === "pending").length;
   const working = active.filter(o => o.status === "working").length;
   const done = active.filter(o => o.status === "done").length;
@@ -3712,8 +3712,8 @@ const DashboardScreen = (props) => {
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
-  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
-  const getStatusLabel = (s) => s === "done" ? "LISTO" : s === "working" ? "EN CURSO" : s === "inspection" ? "EN INSPECCIÓN" : s === "budget_sent" ? "PRESUP. ENVIADO" : s === "budget_approved" ? "APROBADO" : "ESPERANDO";
+  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
+  const getStatusLabel = (s) => s === "done" ? "LISTO" : s === "working" ? "EN CURSO" : s === "inspection" ? "EN INSPECCIÓN" : s === "inspection_done" ? "INSP. FINALIZADA" : s === "budget_sent" ? "PRESUP. ENVIADO" : s === "budget_approved" ? "APROBADO" : "ESPERANDO";
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .4s ease" }}>
@@ -4071,8 +4071,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
 
 const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
   const [filter, setFilter] = useState("all");
-  const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "budget_sent" || o.status === "budget_approved");
-  const statusPriority = { inspection: 0, budget_sent: 1, budget_approved: 2, pending: 3, working: 4, done: 5, delivered: 6 };
+  const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved");
+  const statusPriority = { inspection: 0, inspection_done: 0, budget_sent: 1, budget_approved: 2, pending: 3, working: 4, done: 5, delivered: 6 };
   const filtered = (filter === "all" ? active : active.filter(o => o.status === filter)).sort((a, b) => (statusPriority[a.status] ?? 9) - (statusPriority[b.status] ?? 9));
 
   const getVehicleInfo = (order) => {
@@ -4081,7 +4081,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
-  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
+  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
   const getStatusLabel = (s) => s === "done" ? "FINALIZADO" : s === "working" ? "EN CURSO" : "ESPERANDO";
 
   return (
@@ -4181,8 +4181,8 @@ const VehicleDetailScreen = (props) => {
   const [brakeEjes2, setBrakeEjes2] = useState({ del: false, tra: false, delPrice: "", traPrice: "" });
   const [showEscapePopup2, setShowEscapePopup2] = useState(false);
   const [showPriceError, setShowPriceError] = useState(false);
-  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#78909C" : T.red;
-  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUP. CERRADO" : "🔴 ESPERANDO INICIO";
+  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#78909C" : T.red;
+  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUP. CERRADO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
     setOrders(prev => prev.map(o => o.id === order.id ? {
@@ -4450,7 +4450,9 @@ const VehicleDetailScreen = (props) => {
       {/* Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
-          ...(order.status === "inspection" && canStartWork ? [{ icon: "🔍", label: "Realizar Inspección", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
+          ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
+          ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#FF6F00", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
+          ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
           ...(order.status === "budget_sent" ? [{ icon: "📋", label: "Ver Presupuesto", show: true, color: "#9C27B0", action: () => setShowBudgetPreview(true), bg: "rgba(156,39,176,.08)" }] : []),
           ...(order.status === "budget_sent" ? [{ icon: "▶️", label: "Comenzar Reparación", show: canSeePrices, color: T.green, action: () => {
             setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() } : o));
@@ -4485,7 +4487,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(getPerm(user, "cancelar") && ["pending","working","inspection","budget_sent"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && ["pending","working","inspection","inspection_done","budget_sent"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -5114,6 +5116,12 @@ const VehicleDetailScreen = (props) => {
                   <button onClick={() => setShowCancelPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>No, conservar</button>
                   <button onClick={() => {
                     setShowCancelPopup(false);
+                    // Revert KM to previous visit
+                    var prevOrders = orders.filter(o => o.id !== order.id && o.domain === order.domain && o.status !== "cancelled" && o.km).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+                    var prevKm = prevOrders.length > 0 ? prevOrders[0].km : null;
+                    if (prevKm && client) {
+                      setClients(prev => prev.map(c => c.id !== client.id ? c : { ...c, vehicles: (c.vehicles || []).map(v => v.domain !== order.domain ? v : { ...v, km: prevKm }) }));
+                    }
                     setOrders(prev => prev.filter(o => o.id !== order.id));
                     onNavigate("workshop");
                   }} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 13 }}>🗑️ Eliminar definitivamente</button>
@@ -10229,65 +10237,72 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
 
 const InspectionScreen = (props) => {
-  const { order, clients, user, orders, setOrders, config, onNavigate } = props;
-  const client = clients.find(c => c.id === order.clientId);
-  const vehicle = client?.vehicles.find(v => v.domain === order.domain);
-  // Compat: old orders have budgetCategory (string), new have budgetCategories (array)
-  const cats = order.budgetCategories || (order.budgetCategory ? [order.budgetCategory] : ["Otros"]);
-  const catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Arreglo": "🪛", "Otros": "📝" };
-  const [activeCat, setActiveCat] = useState(cats[0]);
-  const [showPreview, setShowPreview] = useState(false);
+  var order = props.order, clients = props.clients, user = props.user, setOrders = props.setOrders, config = props.config, onNavigate = props.onNavigate;
+  var client = clients.find(function(c) { return c.id === order.clientId; });
+  var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
 
-  // Items per category
-  const buildItems = function(cat) {
-    var fixed = (BUDGET_CATEGORIES[cat] || []).map(function(t) { return Object.assign({}, t, { selected: false, price: "" }); });
-    if (FREE_CATEGORIES.includes(cat) || fixed.length === 0) return [{ key: "libre_1", label: "", selected: false, price: "", isCustom: true }];
-    return fixed.concat([{ key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }]);
+  var INSP_CATS = [
+    { key: "Tren Delantero", icon: "⚙️", hasItems: true },
+    { key: "Tren Trasero", icon: "⚙️", hasItems: true },
+    { key: "Service Full", icon: "🔧", hasItems: false },
+    { key: "Service Base", icon: "🔧", hasItems: false },
+    { key: "Mecanica", icon: "🔩", hasItems: true },
+    { key: "Escape", icon: "💨", hasItems: true },
+    { key: "Pastillas de Freno", icon: "🛞", hasItems: true },
+    { key: "Baterias", icon: "🔋", hasItems: false },
+    { key: "Arreglo", icon: "🪛", hasItems: false, hasDesc: true },
+  ];
+
+  var PASTILLAS_ITEMS = [{ key: "past_del", label: "Eje Delantero" }, { key: "past_tra", label: "Eje Trasero" }];
+
+  var initData = function() {
+    if (order.inspectionData) return order.inspectionData;
+    var d = {};
+    var preCats = order.budgetCategories || (order.budgetCategory ? [order.budgetCategory] : []);
+    INSP_CATS.forEach(function(cat) {
+      var items = [];
+      if (cat.hasItems) {
+        if (cat.key === "Pastillas de Freno") {
+          items = PASTILLAS_ITEMS.map(function(t) { return { key: t.key, label: t.label, checked: false }; });
+          items.push({ key: "otro_past", label: "Otro", checked: false, desc: "", isCustom: true });
+        } else if (cat.key === "Mecanica") {
+          items = (BUDGET_CATEGORIES["Mecánica"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
+          items.push({ key: "otro_mec", label: "Otro", checked: false, desc: "", isCustom: true });
+        } else if (cat.key === "Escape") {
+          items = (BUDGET_CATEGORIES["Escape"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
+          items.push({ key: "otro_esc", label: "Otro", checked: false, desc: "", isCustom: true });
+        } else {
+          items = (BUDGET_CATEGORIES[cat.key] || []).map(function(t) { return { key: t.key, label: t.label, checked: false, hasSide: t.hasSide }; });
+          items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
+        }
+      }
+      d[cat.key] = { selected: preCats.indexOf(cat.key) >= 0, items: items, desc: "" };
+    });
+    return d;
   };
 
-  const initAllItems = function() {
-    if (order.budgetAllItems) return order.budgetAllItems;
-    var result = {};
-    cats.forEach(function(cat) { result[cat] = buildItems(cat); });
-    return result;
+  var [data, setData] = useState(initData);
+  var [note, setNote] = useState(order.budgetNote || "");
+
+  var toggleCat = function(key) {
+    setData(function(prev) { var c = Object.assign({}, prev); c[key] = Object.assign({}, c[key], { selected: !c[key].selected }); return c; });
+  };
+  var toggleItem = function(catKey, idx) {
+    setData(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.slice(); items[idx] = Object.assign({}, items[idx], { checked: !items[idx].checked }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; });
+  };
+  var setItemDesc = function(catKey, idx, val) {
+    setData(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.slice(); items[idx] = Object.assign({}, items[idx], { desc: val }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; });
+  };
+  var setCatDesc = function(catKey, val) {
+    setData(function(prev) { var c = Object.assign({}, prev); c[catKey] = Object.assign({}, c[catKey], { desc: val }); return c; });
   };
 
-  const [allItems, setAllItems] = useState(initAllItems);
-  const [note, setNote] = useState(order.budgetNote || "");
-  const [escapeTypes, setEscapeTypes] = useState(order.escapeTypes || {});
+  var selectedCats = INSP_CATS.filter(function(c) { return data[c.key] && data[c.key].selected; });
 
-  var items = allItems[activeCat] || [];
-  var setItems = function(newItems) {
-    setAllItems(function(prev) { var copy = Object.assign({}, prev); copy[activeCat] = typeof newItems === "function" ? newItems(prev[activeCat] || []) : newItems; return copy; });
-  };
-
-  var isEscape = activeCat === "Escape";
-  var escapeType = escapeTypes[activeCat] || "";
-  var handleEscapeType = function(type) {
-    setEscapeTypes(function(prev) { var c = Object.assign({}, prev); c[activeCat] = type; return c; });
-    var src = type === "deportivo" ? "Escape Deportivo" : "Escape";
-    var fixed = (BUDGET_CATEGORIES[src] || []).map(function(t) { return Object.assign({}, t, { selected: false, price: "" }); });
-    setItems(fixed.concat([{ key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }]));
-  };
-  var showItemsList = isEscape ? escapeType : true;
-
-  // Per-category subtotals
-  var catSubtotal = function(cat) {
-    return (allItems[cat] || []).filter(function(x) { return x.isCustom ? (x.price && x.label) : x.selected; }).reduce(function(s, x) { return s + (parseFloat(x.price) || 0); }, 0);
-  };
-  var grandTotal = cats.reduce(function(s, cat) { return s + catSubtotal(cat); }, 0);
-  var grandTotalIva = grandTotal * (1 + (config.ivaRate || 21) / 100);
-  var currentTotal = catSubtotal(activeCat);
-
-  var saveBudget = function(sendToClient) {
-    var works = cats.map(function(cat) {
-      var catItems = (allItems[cat] || []).filter(function(x) { return x.isCustom ? (x.price && x.label) : x.selected; });
-      var desc = catItems.map(function(x) { return x.isCustom ? x.label : (x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label); }).join(", ");
-      var et = escapeTypes[cat] || "";
-      return { type: cat, price: catSubtotal(cat), desc: desc + (et ? " (" + (et === "deportivo" ? "Deportivo" : "Original") + ")" : ""), trenItems: allItems[cat] };
-    }).filter(function(w) { return w.price > 0; });
+  var saveInspection = function() {
     setOrders(function(prev) { return prev.map(function(o) {
-      return o.id === order.id ? Object.assign({}, o, { status: sendToClient ? "budget_sent" : "inspection", budgetAllItems: allItems, budgetNote: note, escapeTypes: escapeTypes, works: works }) : o;
+      if (o.id !== order.id) return o;
+      return Object.assign({}, o, { status: "inspection_done", inspectionData: data, budgetNote: note, inspectedBy: user.name, inspectedAt: new Date().toISOString() });
     }); });
     onNavigate("vehicleDetail", order);
   };
@@ -10295,12 +10310,11 @@ const InspectionScreen = (props) => {
   return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
       <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0, fontFamily: font }}>← Volver</button>
-
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
         <span style={{ fontSize: 36 }}>🔍</span>
         <div>
-          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Presupuesto</div>
-          <div style={{ fontSize: 13, color: T.gray }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {fmtD(order.domain)}</div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Inspeccion</div>
+          <div style={{ fontSize: 13, color: T.gray }}>{vehicle ? vehicle.brand + " " + vehicle.model + " " + vehicle.year : ""} — {fmtD(order.domain)}</div>
         </div>
       </div>
 
@@ -10311,170 +10325,199 @@ const InspectionScreen = (props) => {
         </div>
       )}
 
-      {/* Category tabs */}
-      {cats.length > 1 && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-          {cats.map(function(cat) {
-            var active = activeCat === cat;
-            var sub = catSubtotal(cat);
-            return (
-              <div key={cat} onClick={function() { setActiveCat(cat); }} style={{ padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: active ? "#9C27B0" : T.bg2, color: active ? "#fff" : T.gray, border: "1px solid " + (active ? "#9C27B0" : T.border), transition: "all .15s" }}>
-                {(catIcons[cat] || "📝") + " " + cat}
-                {sub > 0 && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.8 }}>{fmt(sub)}</span>}
+      <div style={{ fontSize: 13, fontWeight: 700, color: T.grayLight, marginBottom: 10 }}>SELECCIONA LO QUE NECESITA EL VEHICULO</div>
+
+      {INSP_CATS.map(function(cat) {
+        var d = data[cat.key] || { selected: false, items: [] };
+        return (
+          <div key={cat.key} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: d.selected ? "4px solid #9C27B0" : "4px solid " + T.border, overflow: "hidden" }}>
+            <div onClick={function() { toggleCat(cat.key); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer", background: d.selected ? "rgba(156,39,176,0.04)" : "transparent" }}>
+              <div style={{ width: 26, height: 26, borderRadius: 6, border: "2px solid " + (d.selected ? "#9C27B0" : T.border), background: d.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {d.selected && <span style={{ color: "#FFF", fontSize: 14, fontWeight: 800 }}>✓</span>}
               </div>
-            );
-          })}
+              <span style={{ fontSize: 20 }}>{cat.icon}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: d.selected ? "#9C27B0" : T.text }}>{cat.key}</span>
+            </div>
+
+            {d.selected && cat.hasItems && d.items.length > 0 && (
+              <div style={{ padding: "0 14px 12px 14px" }}>
+                {d.items.map(function(item, idx) {
+                  return (
+                    <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + T.border }}>
+                      <div onClick={function() { toggleItem(cat.key, idx); }} style={{ width: 22, height: 22, borderRadius: 4, border: "2px solid " + (item.checked ? "#9C27B0" : T.border), background: item.checked ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                        {item.checked && <span style={{ color: "#FFF", fontSize: 12, fontWeight: 800 }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: item.checked ? 700 : 400, color: item.checked ? "#9C27B0" : T.text, flex: 1 }}>{item.label}</span>
+                      {item.isCustom && item.checked && (
+                        <input inputMode="text" value={item.desc || ""} onChange={function(e) { setItemDesc(cat.key, idx, e.target.value); }} placeholder="Especificar..." style={{ ...inputStyle, width: 140, fontSize: 11, padding: "4px 8px" }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {d.selected && cat.hasDesc && (
+              <div style={{ padding: "0 14px 12px 14px" }}>
+                <input inputMode="text" value={d.desc || ""} onChange={function(e) { setCatDesc(cat.key, e.target.value); }} placeholder="Describir el arreglo..." style={{ ...inputStyle, width: "100%", fontSize: 13, padding: "8px 10px" }} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ ...card, padding: 14, marginBottom: 16 }}>
+        <label style={labelStyle}>Observaciones de la inspeccion</label>
+        <textarea value={note} onChange={function(e) { setNote(e.target.value); }} placeholder="Hallazgos, estado general del vehiculo..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: font }} />
+      </div>
+
+      <button onClick={saveInspection} disabled={selectedCats.length === 0} style={{ ...btnPrimary("#9C27B0"), width: "100%", fontSize: 15, padding: "14px 0", opacity: selectedCats.length > 0 ? 1 : 0.4 }}>
+        📋 Finalizar Inspeccion
+      </button>
+    </div>
+  );
+};
+
+const BudgetPricingScreen = (props) => {
+  var order = props.order, clients = props.clients, user = props.user, setOrders = props.setOrders, config = props.config, onNavigate = props.onNavigate;
+  var client = clients.find(function(c) { return c.id === order.clientId; });
+  var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
+  var inspData = order.inspectionData || {};
+  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterias": "🔋", "Arreglo": "🪛" };
+
+  var initPricing = function() {
+    if (order.pricingData) return order.pricingData;
+    var d = {};
+    Object.keys(inspData).forEach(function(catKey) {
+      var cat = inspData[catKey];
+      if (!cat.selected) return;
+      var items = (cat.items || []).filter(function(it) { return it.checked; }).map(function(it) { return Object.assign({}, it, { price: "" }); });
+      d[catKey] = { items: items, desc: cat.desc || "", noItems: items.length === 0 };
+    });
+    return d;
+  };
+
+  var [pricing, setPricing] = useState(initPricing);
+
+  var setPrice = function(catKey, idx, val) {
+    setPricing(function(prev) {
+      var c = Object.assign({}, prev);
+      var items = c[catKey].items.slice();
+      items[idx] = Object.assign({}, items[idx], { price: val });
+      c[catKey] = Object.assign({}, c[catKey], { items: items });
+      return c;
+    });
+  };
+
+  var setCatPrice = function(catKey, val) {
+    setPricing(function(prev) {
+      var c = Object.assign({}, prev);
+      c[catKey] = Object.assign({}, c[catKey], { totalPrice: val });
+      return c;
+    });
+  };
+
+  var catSubtotal = function(catKey) {
+    var d = pricing[catKey];
+    if (!d) return 0;
+    if (d.noItems) return parseFloat(d.totalPrice) || 0;
+    return (d.items || []).reduce(function(s, it) { return s + (parseFloat(it.price) || 0); }, 0);
+  };
+
+  var grandTotal = Object.keys(pricing).reduce(function(s, k) { return s + catSubtotal(k); }, 0);
+  var ivaRate = config.ivaRate || 21;
+  var grandTotalIva = grandTotal * (1 + ivaRate / 100);
+
+  var saveBudget = function(send) {
+    var works = Object.keys(pricing).map(function(catKey) {
+      var d = pricing[catKey];
+      var desc = "";
+      if (d.noItems) {
+        desc = d.desc || catKey;
+      } else {
+        desc = (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) { return it.desc ? it.label + " (" + it.desc + ")" : it.label; }).join(", ");
+      }
+      return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: d.noItems ? [] : (d.items || []).map(function(it) { return Object.assign({}, it, { selected: true }); }) };
+    }).filter(function(w) { return w.price > 0; });
+    setOrders(function(prev) { return prev.map(function(o) {
+      if (o.id !== order.id) return o;
+      return Object.assign({}, o, { status: send ? "budget_sent" : "inspection_done", pricingData: pricing, works: works });
+    }); });
+    onNavigate("vehicleDetail", order);
+  };
+
+  return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0, fontFamily: font }}>← Volver</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+        <span style={{ fontSize: 36 }}>💰</span>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>Presupuestar</div>
+          <div style={{ fontSize: 13, color: T.gray }}>{vehicle ? vehicle.brand + " " + vehicle.model + " " + vehicle.year : ""} — {fmtD(order.domain)}</div>
+        </div>
+      </div>
+
+      {order.inspectedBy && <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Inspeccionado por: <strong>{order.inspectedBy}</strong> — {order.inspectedAt ? fmtDate(order.inspectedAt.split("T")[0]) : ""}</div>}
+
+      {order.budgetNote && (
+        <div style={{ ...card, padding: 12, marginBottom: 16, borderLeft: "3px solid #9C27B0", background: "rgba(156,39,176,0.04)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#9C27B0", marginBottom: 4 }}>OBSERVACIONES</div>
+          <div style={{ fontSize: 13, color: T.text }}>{order.budgetNote}</div>
         </div>
       )}
 
-      {/* Items for active category */}
-      <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: "3px solid #9C27B0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 24 }}>{catIcons[activeCat] || "🔍"}</span>
-          <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{activeCat}</span>
-          {currentTotal > 0 && <span style={{ marginLeft: "auto", fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#9C27B0" }}>{fmt(currentTotal)}</span>}
-        </div>
-
-        {isEscape && !escapeType && (
-          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <div onClick={function() { handleEscapeType("original"); }} style={{ flex: 1, ...card, padding: "16px 12px", cursor: "pointer", textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 4 }}>🔧</div>
-              <div style={{ fontWeight: 700, fontSize: 12 }}>Sistema Original</div>
+      {Object.keys(pricing).map(function(catKey) {
+        var d = pricing[catKey];
+        var sub = catSubtotal(catKey);
+        return (
+          <div key={catKey} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "3px solid #9C27B0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: d.noItems && !d.items.length ? 8 : 10 }}>
+              <span style={{ fontSize: 20 }}>{catIcons[catKey] || "📝"}</span>
+              <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, flex: 1 }}>{catKey}</span>
+              {sub > 0 && <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(sub)}</span>}
             </div>
-            <div onClick={function() { handleEscapeType("deportivo"); }} style={{ flex: 1, ...card, padding: "16px 12px", cursor: "pointer", textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 4 }}>🏎️</div>
-              <div style={{ fontWeight: 700, fontSize: 12 }}>Escape Deportivo</div>
-            </div>
+            {d.desc && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8 }}>{d.desc}</div>}
+            {d.noItems ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, flex: 1, color: T.gray }}>Precio total:</span>
+                <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                <input inputMode="numeric" type="text" value={d.totalPrice ? Number(d.totalPrice).toLocaleString("es-AR") : ""} onChange={function(e) { setCatPrice(catKey, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+              </div>
+            ) : (
+              d.items.map(function(item, idx) {
+                return (
+                  <div key={item.key || idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + T.border }}>
+                    <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
+                    <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                    <input inputMode="numeric" type="text" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={function(e) { setPrice(catKey, idx, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
-        {isEscape && escapeType && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>{escapeType === "deportivo" ? "🏎️ Deportivo" : "🔧 Original"}</span>
-            <span onClick={function() { setEscapeTypes(function(p) { var c = Object.assign({}, p); delete c[activeCat]; return c; }); setItems(buildItems(activeCat)); }} style={{ fontSize: 11, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Cambiar</span>
-          </div>
-        )}
+        );
+      })}
 
-        {showItemsList && items.map(function(ti, j) {
-          return (
-            <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 4, background: ti.isCustom ? (ti.label ? "rgba(156,39,176,0.06)" : T.bg) : (ti.selected ? "rgba(156,39,176,0.06)" : T.bg), borderRadius: 8, border: "1px solid " + ((ti.isCustom ? (ti.label || ti.price) : ti.selected) ? "#9C27B0" : T.border), transition: "all .2s" }}>
-              {!ti.isCustom && (
-                <div onClick={function() { var n = items.slice(); n[j] = Object.assign({}, n[j], { selected: !n[j].selected }); setItems(n); }} style={{ width: 26, height: 26, borderRadius: 6, border: "2px solid " + (ti.selected ? "#9C27B0" : T.border), background: ti.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-                  {ti.selected && <span style={{ color: "#FFF", fontSize: 14, fontWeight: 800 }}>✓</span>}
-                </div>
-              )}
-              {ti.isCustom ? (
-                <input inputMode="text" value={ti.label || ""} onChange={function(e) { var n = items.slice(); n[j] = Object.assign({}, n[j], { label: e.target.value }); setItems(n); }} placeholder="Describir item..." style={{ ...inputStyle, flex: 1, fontSize: 13, fontWeight: 600, padding: "4px 8px" }} />
-              ) : (
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: ti.selected ? "#9C27B0" : T.text }}>{ti.label}</span>
-              )}
-              {(ti.isCustom || ti.selected) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                  <input inputMode="numeric" type="text" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onChange={function(e) { var raw = e.target.value.replace(/[^0-9]/g, ""); var n = items.slice(); n[j] = Object.assign({}, n[j], { price: raw }); setItems(n); }} placeholder="0" style={{ ...inputStyle, width: 85, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
-                </div>
-              )}
-              {ti.isCustom && items.filter(function(x) { return x.isCustom; }).length > 1 && (
-                <span onClick={function() { setItems(items.filter(function(_, k) { return k !== j; })); }} style={{ color: T.red, cursor: "pointer", fontSize: 14, fontWeight: 700, padding: "0 4px" }}>✕</span>
-              )}
-            </div>
-          );
-        })}
-        {showItemsList && (
-          <div onClick={function() { setItems(items.concat([{ key: "libre_" + Date.now(), label: "", selected: false, price: "", isCustom: true }])); }} style={{ padding: "8px 10px", marginBottom: 4, borderRadius: 8, border: "1px dashed " + T.border, textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#9C27B0" }}>
-            + Agregar item
-          </div>
-        )}
-      </div>
-
-      {/* Note */}
-      <div style={{ ...card, padding: 14, marginBottom: 16 }}>
-        <label style={labelStyle}>Observaciones</label>
-        <textarea value={note} onChange={function(e) { setNote(e.target.value); }} placeholder="Describir hallazgos..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: font }} />
-      </div>
-
-      {/* Grand total */}
       {grandTotal > 0 && (
         <div style={{ ...card, padding: 14, marginBottom: 16, fontSize: 12 }}>
-          {cats.filter(function(c) { return catSubtotal(c) > 0; }).map(function(cat) {
-            return (
-              <div key={cat} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontWeight: 600 }}>{cat}</span>
-                <span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(catSubtotal(cat))}</span>
-              </div>
-            );
+          {Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; }).map(function(k) {
+            return <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{k}</span><span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(catSubtotal(k))}</span></div>;
           })}
           <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
           <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
             <span>TOTAL SIN IVA</span><span style={{ color: "#9C27B0" }}>{fmt(grandTotal)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            <span style={{ color: T.gray }}>TOTAL CON IVA ({config.ivaRate || 21}%)</span>
+            <span style={{ color: T.gray }}>TOTAL CON IVA ({ivaRate}%)</span>
             <span style={{ fontFamily: fontD, fontWeight: 700, color: "#9C27B0" }}>{fmt(grandTotalIva)}</span>
           </div>
           <div style={{ marginTop: 8, fontSize: 11, color: T.orange, fontWeight: 600 }}>Presupuesto valido por 15 dias</div>
         </div>
       )}
 
-      {/* Preview modal */}
-      {showPreview && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={function() { setShowPreview(false); }}>
-          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 500, width: "100%", maxHeight: "90vh", overflowY: "auto", color: "#0d1526" }} onClick={function(e) { e.stopPropagation(); }}>
-            <div style={{ padding: "24px 28px", borderBottom: "1px solid #e2e8f0" }}>
-              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: "#0d1526" }}>PRESUPUESTO</div>
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Fecha: {new Date().toLocaleDateString("es-AR")}</div>
-            </div>
-            <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: 12, color: "#64748b" }}>CLIENTE</div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{client?.name} {client?.lastName}</div>
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>VEHICULO</div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year} — {fmtD(order.domain)}</div>
-            </div>
-            {cats.filter(function(c) { return catSubtotal(c) > 0; }).map(function(cat) {
-              var catItems = (allItems[cat] || []).filter(function(x) { return x.isCustom ? (x.price && x.label) : x.selected; });
-              return (
-                <div key={cat} style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
-                  <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: "#9C27B0", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat}</div>
-                  {catItems.map(function(item, idx) {
-                    return (
-                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
-                        <span>{item.isCustom ? item.label : (item.otroDesc ? item.label + " (" + item.otroDesc + ")" : item.label)}</span>
-                        <span style={{ fontFamily: fontD, fontWeight: 700 }}>{fmt(parseFloat(item.price) || 0)}</span>
-                      </div>
-                    );
-                  })}
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", marginTop: 4, borderTop: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13 }}>
-                    <span>SUBTOTAL</span>
-                    <span style={{ fontFamily: fontD }}>{fmt(catSubtotal(cat))}</span>
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ padding: "16px 28px", background: "#f8fafc" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 4 }}>
-                <span>TOTAL SIN IVA</span><span>{fmt(grandTotal)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#64748b" }}>
-                <span>IVA ({config.ivaRate || 21}%)</span><span>{fmt(grandTotal * (config.ivaRate || 21) / 100)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 900, marginTop: 6, color: "#9C27B0" }}>
-                <span>TOTAL CON IVA</span><span>{fmt(grandTotalIva)}</span>
-              </div>
-            </div>
-            <div style={{ padding: "12px 28px", textAlign: "center", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-              PRESUPUESTO VALIDO POR 15 DIAS
-            </div>
-            <div style={{ padding: "16px 28px", display: "flex", gap: 10 }}>
-              <button onClick={function() { setShowPreview(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13, color: "#0d1526" }}>← Volver</button>
-              <button onClick={function() { saveBudget(true); }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14 }}>📩 Enviar al Cliente</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={function() { saveBudget(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>💾 Guardar borrador</button>
-        <button onClick={function() { setShowPreview(true); }} disabled={grandTotal === 0} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, opacity: grandTotal > 0 ? 1 : 0.4 }}>📋 Finalizar Presupuesto</button>
+        <button onClick={function() { saveBudget(false); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>💾 Guardar</button>
+        <button onClick={function() { saveBudget(true); }} disabled={grandTotal === 0} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, opacity: grandTotal > 0 ? 1 : 0.4 }}>📩 Enviar Presupuesto</button>
       </div>
     </div>
   );
@@ -15692,6 +15735,7 @@ export default function App() {
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
+      case "budgetPricing": return currentOrder ? <BudgetPricingScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
       case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} setConfig={setConfig} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} /> : null;
