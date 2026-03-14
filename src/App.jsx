@@ -5505,7 +5505,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
 
           {/* Footer */}
           <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
-            <div style={{ fontSize: 11, color: "#7b8fad" }}>CarBoys — Servicio Integral del Automotor • Gracias por su confianza</div>
+            <div style={{ fontSize: 11, color: "#7b8fad" }}>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor • Gracias por su confianza"}</div>
           </div>
         </div>
       </div>
@@ -5734,7 +5734,7 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
 
           {/* ── FOOTER ── */}
           <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
-            <div style={{ fontSize: 11, color: "#7b8fad" }}>CarBoys — Servicio Integral del Automotor • Este comprobante es válido como factura</div>
+            <div style={{ fontSize: 11, color: "#7b8fad" }}>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor • Este comprobante es válido como factura"}</div>
           </div>
         </div>
       </div>
@@ -10716,7 +10716,7 @@ const BudgetPricingScreen = (props) => {
             {/* Footer */}
             <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
               <div style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700, letterSpacing: 1 }}>PRESUPUESTO VALIDO POR 15 DIAS</div>
-              <div style={{ fontSize: 11, color: "#7b8fad", marginTop: 4 }}>CarBoys — Servicio Integral del Automotor</div>
+              <div style={{ fontSize: 11, color: "#7b8fad", marginTop: 4 }}>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</div>
             </div>
           </div>
         </div>
@@ -13527,9 +13527,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
             </div>
             <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
-              <div>Av. Recta Martinoli 8590, Córdoba</div>
-              <div>Tel: 03547-426967 · Cel: 3515095504</div>
-              <div>@carboys.cba</div>
+              <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
+              <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
+              <div>{config.tallerIG || ""}</div>
             </div>
           </div>
 
@@ -13664,9 +13664,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
             </div>
             <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
-              <div>Av. Recta Martinoli 8590, Córdoba</div>
-              <div>Tel: 03547-426967 · Cel: 3515095504</div>
-              <div>@carboys.cba</div>
+              <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
+              <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
+              <div>{config.tallerIG || ""}</div>
             </div>
           </div>
 
@@ -13903,9 +13903,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
             </div>
             <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
-              <div>Av. Recta Martinoli 8590, Córdoba</div>
-              <div>Tel: 03547-426967 · Cel: 3515095504</div>
-              <div>@carboys.cba</div>
+              <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
+              <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
+              <div>{config.tallerIG || ""}</div>
             </div>
           </div>
           {/* Title */}
@@ -14247,10 +14247,10 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
             <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 8, color: "#90CAF9", lineHeight: 1.7 }}>
-            <div>Av. Recta Martinolli 8590, Córdoba</div>
-            <div>Tel: 03547-426967 · Cel: 3515995504</div>
-            <div style={{ color: "#64B5F6" }}>@carboys.cba</div>
+          <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
+            <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
+            <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
+            <div>{config.tallerIG || ""}</div>
           </div>
         </div>
         <div style={{ background: "#F7F9FC", padding: "6px 22px", borderBottom: "1px solid #E8ECF2", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -14390,8 +14390,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           </div>}
         </div>
         <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 7, color: "#A0AEC0" }}>
-          <span>CarBoys - Servicio Integral del Automotor</span>
-          <span>Av. Recta Martinolli 8590 · 03547-426967 · @carboys.cba</span>
+          <span>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</span>
+          <span>{(config.tallerDir || "") + (config.tallerCiudad ? ", " + config.tallerCiudad : "") + (config.tallerTel ? " · " + config.tallerTel : "") + (config.tallerIG ? " · " + config.tallerIG : "")}</span>
         </div>
       </div>
       <style>{`@media print { @page { size: A4; margin: 10mm; } .no-print { display: none !important; } body { margin:0!important; background:#fff!important; } #foja-print { box-shadow:none!important; border-radius:0!important; max-width:none!important; width:100%!important; } * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; } }`}</style>
@@ -14967,7 +14967,11 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Dirección</label><input inputMode="text" value={config.tallerDir || ""} onChange={e => setConfig(prev => ({ ...prev, tallerDir: e.target.value }))} style={inputStyle} placeholder="Ej: Av. Recta Martinoli 8590" /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           <div><label style={labelStyle}>Ciudad</label><input inputMode="text" value={config.tallerCiudad || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCiudad: e.target.value }))} style={inputStyle} placeholder="Córdoba" /></div>
-          <div><label style={labelStyle}>Teléfono</label><input inputMode="text" value={config.tallerTel || ""} onChange={e => setConfig(prev => ({ ...prev, tallerTel: e.target.value }))} style={inputStyle} placeholder="351-1234567" /></div>
+          <div><label style={labelStyle}>Teléfono fijo</label><input inputMode="text" value={config.tallerTel || ""} onChange={e => setConfig(prev => ({ ...prev, tallerTel: e.target.value }))} style={inputStyle} placeholder="03547-426967" /></div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <div><label style={labelStyle}>Celular</label><input inputMode="text" value={config.tallerCel || ""} onChange={e => setConfig(prev => ({ ...prev, tallerCel: e.target.value }))} style={inputStyle} placeholder="3515995504" /></div>
+          <div><label style={labelStyle}>Instagram</label><input inputMode="text" value={config.tallerIG || ""} onChange={e => setConfig(prev => ({ ...prev, tallerIG: e.target.value }))} style={inputStyle} placeholder="@carboys.cba" /></div>
         </div>
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Email</label><input inputMode="text" value={config.tallerEmail || ""} onChange={e => setConfig(prev => ({ ...prev, tallerEmail: e.target.value }))} style={inputStyle} placeholder="info@carboys.com" /></div>
         <div style={{ marginBottom: 12 }}><label style={labelStyle}>Condición IVA</label>
