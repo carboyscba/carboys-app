@@ -1421,20 +1421,25 @@ const FontLoader = () => (
       .tablet-grid { gap: 16px !important; }
     }
     
-    /* Print styles */
+    /* Print styles — A4 for all PDFs */
     @media print {
-      body { background: white !important; }
+      @page { size: A4; margin: 10mm; }
+      body { background: white !important; margin: 0 !important; }
       .no-print { display: none !important; }
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      /* Cuando se imprime desde FacturaModal o TicketModal: ocultar todo excepto el documento */
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      /* Remove shadows and rounded corners, expand to full width */
+      #factura-print, #ticket-print, #foja-print, #budget-pdf-content {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+        margin: 0 !important;
+      }
+      /* Hide app chrome */
       body.printing-factura > *:not(#factura-print-root),
       body.printing-ticket > *:not(#ticket-print-root) {
         display: none !important;
       }
-      /* Aislar contenido del modal para impresión */
-      #factura-print { box-shadow: none !important; border-radius: 0 !important; max-width: none !important; }
-      #ticket-print { box-shadow: none !important; border-radius: 0 !important; max-width: none !important; }
-      /* Si hay un modal abierto: mostrar solo su contenido */
       .modal-print-content { display: block !important; }
       .app-print-hide { display: none !important; }
     }
@@ -13509,19 +13514,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
     return (
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
-        <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
+        <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
           <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
           <button onClick={() => sendFojaWA("Foja de Bateria")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
-        <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+        <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: 4, lineHeight: 1 }}>CARBOYS</div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "#64B5F6", marginTop: 2 }}>SERVICIO INTEGRAL DEL AUTOMOTOR</div>
+              <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 6.5, color: "#90CAF9", lineHeight: 1.6 }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
               <div>Av. Recta Martinoli 8590, Córdoba</div>
               <div>Tel: 03547-426967 · Cel: 3515095504</div>
               <div>@carboys.cba</div>
@@ -13613,9 +13618,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           </div>
 
           {/* Footer */}
-          <div style={{ background: "linear-gradient(90deg, #1E88E5, #1565C0)", padding: "12px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
-            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#FFF", letterSpacing: 3 }}>CARBOYS</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
         </div>
       </div>
@@ -13646,19 +13651,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
     return (
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
-        <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
+        <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
           <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
           <button onClick={() => sendFojaWA("Foja de Escape")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
-        <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+        <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: 4, lineHeight: 1 }}>CARBOYS</div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "#64B5F6", marginTop: 2 }}>SERVICIO INTEGRAL DEL AUTOMOTOR</div>
+              <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 6.5, color: "#90CAF9", lineHeight: 1.6 }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
               <div>Av. Recta Martinoli 8590, Córdoba</div>
               <div>Tel: 03547-426967 · Cel: 3515095504</div>
               <div>@carboys.cba</div>
@@ -13866,9 +13871,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           </div>
 
           {/* Footer */}
-          <div style={{ background: "linear-gradient(90deg, #1E88E5, #1565C0)", padding: "12px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
-            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#FFF", letterSpacing: 3 }}>CARBOYS</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
         </div>
       </div>
@@ -13885,19 +13890,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
     const trenWorks = order.works.filter(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
     return (
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
-        <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
+        <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
           <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Informe</button>
           <button onClick={() => sendFojaWA("Informe de Intervencion")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
-        <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+        <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: 4, lineHeight: 1 }}>CARBOYS</div>
-              <div style={{ fontSize: 7, letterSpacing: 3, color: "#64B5F6", marginTop: 2 }}>SERVICIO INTEGRAL DEL AUTOMOTOR</div>
+              <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 6.5, color: "#90CAF9", lineHeight: 1.6 }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
               <div>Av. Recta Martinoli 8590, Córdoba</div>
               <div>Tel: 03547-426967 · Cel: 3515095504</div>
               <div>@carboys.cba</div>
@@ -13998,9 +14003,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             </div>
           </div>
           {/* Footer */}
-          <div style={{ background: "linear-gradient(90deg, #1E88E5, #1565C0)", padding: "12px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
-            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#FFF", letterSpacing: 3 }}>CARBOYS</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
         </div>
       </div>
@@ -14231,16 +14236,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
   return (
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
-      <div className="no-print" style={{ maxWidth: 620, margin: "0 auto 12px", display: "flex", gap: 10 }}>
+      <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
         <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
         <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
           <button onClick={() => sendFojaWA(isPF ? "Informe de Intervencion" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
       </div>
-      <div id="foja-print" style={{ maxWidth: 620, margin: "0 auto", background: "#FFF", borderRadius: 4, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
-        <div style={{ background: "linear-gradient(135deg, #0D1B2A 0%, #1B2D45 60%, #1E88E5 100%)", padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+        <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 800, color: "#FFF", letterSpacing: 4, lineHeight: 1 }}>CARBOYS</div>
-            <div style={{ fontSize: 7, letterSpacing: 3, color: "#64B5F6", marginTop: 2 }}>SERVICIO INTEGRAL DEL AUTOMOTOR</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+            <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
           </div>
           <div style={{ textAlign: "right", fontSize: 8, color: "#90CAF9", lineHeight: 1.7 }}>
             <div>Av. Recta Martinolli 8590, Córdoba</div>
@@ -14380,7 +14385,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 8, color: "#90CAF9" }}>Gracias por confiar en</div>
-              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#FFF", letterSpacing: 2 }}>CARBOYS</div>
+              <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
             </div>
           </div>}
         </div>
@@ -14389,7 +14394,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <span>Av. Recta Martinolli 8590 · 03547-426967 · @carboys.cba</span>
         </div>
       </div>
-      <style>{`@media print { .no-print { display: none !important; } body { margin:0!important; background:#fff!important; } #foja-print { box-shadow:none!important; border-radius:0!important; max-width:none!important; } }`}</style>
+      <style>{`@media print { @page { size: A4; margin: 10mm; } .no-print { display: none !important; } body { margin:0!important; background:#fff!important; } #foja-print { box-shadow:none!important; border-radius:0!important; max-width:none!important; width:100%!important; } * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; } }`}</style>
     </div>
   );
 };
