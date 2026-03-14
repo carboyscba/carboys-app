@@ -1847,7 +1847,8 @@ const NewOrderScreen = (props) => {
 
   const confirmOrder = () => {
     if (!foundClient) { console.error('[confirmOrder] No foundClient — abortando'); return; }
-    const newId = Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1;
+    const maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
+    const newId = "ord_" + String(maxNum + 1).padStart(3, "0");
     const p0pref = payments[0] || {};
     const newOrder = {
       id: newId,
@@ -2589,8 +2590,9 @@ const NewOrderScreen = (props) => {
                 <button onClick={() => { setStep(2); setBudgetMode(false); }}
                   style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
                 <button onClick={() => {
+                  const _maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
                   const newOrder = {
-                    id: Math.max(0, ...orders.map(o => typeof o.id === "number" ? o.id : 0)) + 1,
+                    id: "ord_" + String(_maxNum + 1).padStart(3, "0"),
                     clientId: foundClient?.id ?? null,
                     domain: form.domain,
                     status: "inspection",
@@ -10515,7 +10517,7 @@ const BudgetPricingScreen = (props) => {
 
   var fmtP = function(n) { return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n); };
   var fechaHoy = new Date().toLocaleDateString("es-AR");
-  var nroPresup = "P-" + String(order.id).padStart(4, "0");
+  var nroPresup = "P-" + (String(order.id).match(/(\d+)$/) || ["","0"])[1].padStart(4, "0");
 
   var activeCats = Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; });
 
