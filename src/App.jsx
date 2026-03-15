@@ -4069,7 +4069,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
           ) : (
             (c.vehicles || []).filter(v => v.domain.replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(cleanQ)).map(v => {
               const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
-              const activeOrder = orders.find(o => o.domain === v.domain && !["delivered", "cancelled"].includes(o.status));
+              const activeOrder = orders.find(o => o.domain === v.domain && !["delivered", "cancelled", "budget_closed"].includes(o.status));
               return (
                 <div key={v.domain} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
                   {/* Fila cliente + botones */}
@@ -4527,7 +4527,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "budget_closed" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
             { icon: "▶️", label: "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
-              setBudgetSelWorks((order.works || []).map(w => ({ ...w, selected: true, price: String(w.price || 0) })));
+              setBudgetSelWorks((order.works || []).map(w => ({ ...w, selected: true, expanded: true, price: String(w.price || 0), trenItems: (w.trenItems || []).map(ti => ({ ...ti, selected: ti.selected !== false, price: String(ti.price || 0) })) })));
               setShowBudgetStartPopup(true);
             }, bg: "rgba(67,160,71,.08)" },
             { icon: "✏️", label: "Editar Presupuesto", show: canSeePrices, color: T.accent, action: () => {
@@ -5093,36 +5093,74 @@ const VehicleDetailScreen = (props) => {
       {showBudgetStartPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}
           onClick={() => setShowBudgetStartPopup(false)}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 480, width: "92%", border: `1px solid #9C27B040`, maxHeight: "85vh", overflowY: "auto" }}
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 520, width: "94%", border: `1px solid #9C27B040`, maxHeight: "88vh", overflowY: "auto" }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 8 }}>▶️</div>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 6 }}>▶️</div>
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 4 }}>Iniciar Trabajo</div>
-            <div style={{ fontSize: 12, color: T.gray, textAlign: "center", marginBottom: 16 }}>Seleccioná los trabajos a realizar desde el presupuesto</div>
+            <div style={{ fontSize: 12, color: T.gray, textAlign: "center", marginBottom: 16 }}>Seleccioná trabajos e items a realizar</div>
 
             {budgetSelWorks.map((w, i) => {
-              var wTotal = parseFloat(w.price) || 0;
+              var hasSubs = (w.trenItems || []).length > 0;
+              var subTotal = hasSubs ? (w.trenItems || []).filter(ti => ti.selected).reduce((s, ti) => s + (parseFloat(ti.price) || 0), 0) : (parseFloat(w.price) || 0);
               return (
-                <div key={i} onClick={() => setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))}
-                  style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, borderColor: w.selected ? "#9C27B0" : T.border, background: w.selected ? "rgba(156,39,176,0.06)" : T.bg2 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, border: "2px solid " + (w.selected ? "#9C27B0" : T.border), background: w.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    {w.selected && <span style={{ color: "#FFF", fontSize: 14, fontWeight: 800 }}>✓</span>}
+                <div key={i} style={{ ...card, marginBottom: 10, borderColor: w.selected ? "#9C27B0" : T.border, background: w.selected ? "rgba(156,39,176,0.04)" : T.bg2, overflow: "hidden" }}>
+                  {/* Main work header */}
+                  <div onClick={() => setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected, expanded: !x.selected ? true : x.expanded } : x))}
+                    style={{ padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 8, border: "2px solid " + (w.selected ? "#9C27B0" : T.border), background: w.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {w.selected && <span style={{ color: "#FFF", fontSize: 13, fontWeight: 800 }}>✓</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: w.selected ? "#9C27B0" : T.text }}>{w.type}</div>
+                      {w.desc && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
+                    </div>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: w.selected ? "#9C27B0" : T.gray }}>{fmt(subTotal)}</div>
+                    {hasSubs && w.selected && (
+                      <div onClick={e => { e.stopPropagation(); setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, expanded: !x.expanded } : x)); }}
+                        style={{ fontSize: 12, color: T.gray, padding: "4px 8px", cursor: "pointer" }}>{w.expanded ? "▲" : "▼"}</div>
+                    )}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: w.selected ? "#9C27B0" : T.text }}>{w.type}</div>
-                    {w.desc && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onClick={e => e.stopPropagation()}
-                      onChange={e => { var val = e.target.value.replace(/[^0-9]/g, ""); setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, price: val } : x)); }}
-                      style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
-                  </div>
+
+                  {/* Sub-items expanded */}
+                  {w.selected && hasSubs && w.expanded && (
+                    <div style={{ padding: "0 14px 12px", borderTop: "1px solid " + T.border }}>
+                      {(w.trenItems || []).map((ti, j) => (
+                        <div key={j} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: j < (w.trenItems.length - 1) ? "1px solid " + T.border + "40" : "none" }}>
+                          <div onClick={() => setBudgetSelWorks(prev => prev.map((x, wi) => wi === i ? { ...x, trenItems: (x.trenItems || []).map((t, tj) => tj === j ? { ...t, selected: !t.selected } : t) } : x))}
+                            style={{ width: 22, height: 22, borderRadius: 6, border: "2px solid " + (ti.selected ? T.green : T.border), background: ti.selected ? T.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                            {ti.selected && <span style={{ color: "#FFF", fontSize: 11, fontWeight: 800 }}>✓</span>}
+                          </div>
+                          <div style={{ flex: 1, fontSize: 13, color: ti.selected ? T.text : T.gray }}>
+                            {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}
+                          </div>
+                          <input inputMode="numeric" value={ti.price ? Number(ti.price).toLocaleString("es-AR") : ""} onClick={e => e.stopPropagation()}
+                            onChange={e => { var val = e.target.value.replace(/[^0-9]/g, ""); setBudgetSelWorks(prev => prev.map((x, wi) => wi === i ? { ...x, trenItems: (x.trenItems || []).map((t, tj) => tj === j ? { ...t, price: val } : t) } : x)); }}
+                            style={{ ...inputStyle, width: 80, fontSize: 13, fontWeight: 700, fontFamily: fontD, padding: "3px 6px", textAlign: "right" }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* No sub-items: show price field */}
+                  {w.selected && !hasSubs && (
+                    <div style={{ padding: "0 14px 12px", display: "flex", alignItems: "center", gap: 8, borderTop: "1px solid " + T.border }}>
+                      <span style={{ fontSize: 12, color: T.gray, flex: 1, paddingTop: 8 }}>Precio:</span>
+                      <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onClick={e => e.stopPropagation()}
+                        onChange={e => { var val = e.target.value.replace(/[^0-9]/g, ""); setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, price: val } : x)); }}
+                        style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right", marginTop: 8 }} />
+                    </div>
+                  )}
                 </div>
               );
             })}
 
             {(() => {
               var selWorks = budgetSelWorks.filter(w => w.selected);
-              var selTotal = selWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+              var selTotal = selWorks.reduce((s, w) => {
+                var hasSubs = (w.trenItems || []).length > 0;
+                if (hasSubs) return s + (w.trenItems || []).filter(ti => ti.selected).reduce((s2, ti) => s2 + (parseFloat(ti.price) || 0), 0);
+                return s + (parseFloat(w.price) || 0);
+              }, 0);
               return (
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", fontFamily: fontD, fontSize: 18, fontWeight: 800, borderTop: "1px solid " + T.border, marginTop: 8 }}>
@@ -5132,7 +5170,12 @@ const VehicleDetailScreen = (props) => {
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => setShowBudgetStartPopup(false)} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>Cancelar</button>
                     <button disabled={selWorks.length === 0} onClick={() => {
-                      var newWorks = selWorks.map(w => ({ type: w.type, price: parseFloat(w.price) || 0, desc: w.desc || "", trenItems: w.trenItems || [] }));
+                      var newWorks = selWorks.map(w => {
+                        var hasSubs = (w.trenItems || []).length > 0;
+                        var selSubs = hasSubs ? (w.trenItems || []).filter(ti => ti.selected) : [];
+                        var workPrice = hasSubs ? selSubs.reduce((s, ti) => s + (parseFloat(ti.price) || 0), 0) : (parseFloat(w.price) || 0);
+                        return { type: w.type, price: workPrice, desc: w.desc || "", trenItems: selSubs };
+                      });
                       var maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
                       var newId = "ord_" + String(maxNum + 1).padStart(3, "0");
                       var newOrder = {
