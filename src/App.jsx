@@ -2238,6 +2238,51 @@ const NewOrderScreen = (props) => {
                         </div>
                       );
                     })()}
+
+                    {/* Acciones para presupuestos */}
+                    {(o.status === "budget_closed" || o.status === "budget_sent") && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
+                        <div onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("budgetPricing", o); }}
+                          style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: "rgba(156,39,176,.06)" }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = "#9C27B0"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                          <div style={{ fontSize: 24, marginBottom: 4 }}>📄</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: "#9C27B0" }}>PDF Presupuesto</div>
+                        </div>
+                        <div onClick={() => {
+                          var selWorks = (o.works || []).map(w => ({ type: w.type, price: parseFloat(w.price) || 0, desc: w.desc || "", trenItems: w.trenItems || [] }));
+                          var maxNum = Math.max(0, ...orders.map(ox => { var s = String(ox.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
+                          var newId = "ord_" + String(maxNum + 1).padStart(3, "0");
+                          var newOrder = { id: newId, clientId: o.clientId, domain: o.domain, status: "pending", works: selWorks, payments: [], assignedTo: "", date: new Date().toISOString().split("T")[0], km: o.km || "", budgetApproved: true, approvedAt: new Date().toISOString(), fromBudgetId: o.id, startedBy: "", startedAt: "", waRecepcion: false, paymentPref: o.paymentPref || {} };
+                          setOrders(prev => [...prev, newOrder]);
+                          setHistoryOrderDetail(null); setHistoryVehicle(null);
+                          onNavigate("vehicleDetail", newOrder);
+                        }}
+                          style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: "rgba(67,160,71,.06)" }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = T.green; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                          <div style={{ fontSize: 24, marginBottom: 4 }}>▶️</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: T.green }}>Iniciar Trabajo</div>
+                        </div>
+                        <div onClick={() => {
+                          setOrders(prev => prev.map(ox => ox.id === o.id ? { ...ox, status: "inspection_done" } : ox));
+                          setHistoryOrderDetail(null); setHistoryVehicle(null);
+                          onNavigate("budgetPricing", o);
+                        }}
+                          style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: "rgba(30,136,229,.06)" }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                          <div style={{ fontSize: 24, marginBottom: 4 }}>✏️</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: T.accent }}>Editar Presupuesto</div>
+                        </div>
+                        <div onClick={() => {
+                          var phone = (hc?.phone || "").replace(/\D/g, "");
+                          if (phone) window.open("https://wa.me/" + normalizePhone(phone), "_blank");
+                        }}
+                          style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: "rgba(30,136,229,.06)" }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                          <div style={{ fontSize: 24, marginBottom: 4 }}>💬</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: T.accent }}>Contactar Cliente</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
