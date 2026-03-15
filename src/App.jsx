@@ -1930,7 +1930,7 @@ const NewOrderScreen = (props) => {
                     if (!v.domain) continue;
                     if (v.domain.replace(/\s/g,"").toUpperCase().startsWith(dsNorm)) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
-                      const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled"].includes(o.status));
+                      const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled","budget_closed"].includes(o.status));
                       matches.push({ c, v, vCount, activeOrder });
                     }
                   }
@@ -2079,31 +2079,6 @@ const NewOrderScreen = (props) => {
                       </div>
                       {/* Botón Nueva Visita — exclusivo de este flujo */}
                       <div style={{ marginTop: 16 }}>
-                        {/* Presupuesto pendiente guardado */}
-                        {(() => {
-                          var savedBudget = orders.filter(function(o) { return o.domain === hv.domain && (o.status === "budget_closed" || o.status === "budget_sent") && (o.works || []).length > 0; }).sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); })[0];
-                          if (!savedBudget) return null;
-                          var budgetTotal = (savedBudget.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0);
-                          return (
-                            <div style={{ marginBottom: 12, padding: "14px 16px", borderRadius: 10, background: "rgba(156,39,176,0.06)", border: "1px solid rgba(156,39,176,0.25)" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                                <span style={{ fontSize: 16 }}>📋</span>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: "#9C27B0" }}>Presupuesto pendiente</div>
-                                <span style={{ marginLeft: "auto", fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(budgetTotal)}</span>
-                              </div>
-                              <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>
-                                {(savedBudget.works || []).map(function(w) { return w.type; }).join(", ")} — {fmtDate(savedBudget.date)}
-                              </div>
-                              <button onClick={function() {
-                                setOrders(function(prev) { return prev.map(function(o) { return o.id === savedBudget.id ? Object.assign({}, o, { status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() }) : o; }); });
-                                setHistoryVehicle(null);
-                                onNavigate("vehicleDetail", savedBudget);
-                              }} style={{ ...btnPrimary("#9C27B0"), width: "100%", fontSize: 13, padding: "10px 0", marginTop: 8 }}>
-                                ▶️ Iniciar Reparacion desde Presupuesto
-                              </button>
-                            </div>
-                          );
-                        })()}
                         {activeOrder && (
                           <div style={{ fontSize: 12, color: T.orange, fontWeight: 600, padding: "10px 14px", background: `${T.orange}10`, borderRadius: 8, marginBottom: 10 }}>
                             ⚠️ Este vehículo ya tiene una orden activa en taller
@@ -2120,8 +2095,8 @@ const NewOrderScreen = (props) => {
 
                     {hOrders.map(o => {
                       const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
-                      const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
+                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : o.status === "inspection" ? "#9C27B0" : o.status === "inspection_done" ? "#FF6F00" : T.red;
+                      const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "INSP. FINALIZADA" : "PENDIENTE";
                       return (
                         <div key={o.id} onClick={() => setHistoryOrderDetail(o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
                           {/* KM en blanco, centrado, arriba */}
@@ -2167,7 +2142,7 @@ const NewOrderScreen = (props) => {
                 const hv = historyVehicle?.vehicle;
                 const hc = historyVehicle?.client;
                 const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+                const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : T.red;
                 return (
                   <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
                     <button onClick={() => setHistoryOrderDetail(null)}
@@ -2184,7 +2159,7 @@ const NewOrderScreen = (props) => {
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginTop: 3 }}>
-                            {o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE"}
+                            {o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : "PENDIENTE"}
                           </div>
                           <div style={{ fontSize: 12, color: T.gray, marginTop: 3 }}>{fmtDate(o.date)}</div>
                           {o.km && <div style={{ fontSize: 15, fontWeight: 800, color: "#FFFFFF", marginTop: 6, fontFamily: fontD }}>{Number(o.km).toLocaleString("es-AR")} km</div>}
@@ -3941,8 +3916,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
         {vOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
         {vOrders.map(o => {
           const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-          const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
-          const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "PENDIENTE";
+          const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : T.red;
+          const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : "PENDIENTE";
           return (
             <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
               {/* KM en blanco, centrado, arriba */}
@@ -4222,8 +4197,10 @@ const VehicleDetailScreen = (props) => {
   const [brakeEjes2, setBrakeEjes2] = useState({ del: false, tra: false, delPrice: "", traPrice: "" });
   const [showEscapePopup2, setShowEscapePopup2] = useState(false);
   const [showPriceError, setShowPriceError] = useState(false);
-  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#78909C" : T.red;
-  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUP. CERRADO" : "🔴 ESPERANDO INICIO";
+  const [showBudgetStartPopup, setShowBudgetStartPopup] = useState(false);
+  const [budgetSelWorks, setBudgetSelWorks] = useState([]);
+  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#9C27B0" : T.red;
+  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
     setOrders(prev => prev.map(o => o.id === order.id ? {
@@ -4498,10 +4475,21 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "budget_sent" ? [{ icon: "▶️", label: "Comenzar Reparación", show: canSeePrices, color: T.green, action: () => {
             setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() } : o));
           }, bg: "rgba(67,160,71,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "🔚", label: "Finalizar Presupuesto", show: canSeePrices, color: T.orange, action: () => {
+          ...(order.status === "budget_sent" ? [{ icon: "🔚", label: "Cerrar Presupuesto", show: canSeePrices, color: T.orange, action: () => {
             setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "budget_closed", closedAt: new Date().toISOString() } : o));
             onNavigate("dashboard");
           }, bg: "rgba(255,152,0,.08)" }] : []),
+          ...(order.status === "budget_closed" ? [
+            { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
+            { icon: "▶️", label: "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
+              setBudgetSelWorks((order.works || []).map(w => ({ ...w, selected: true, price: String(w.price || 0) })));
+              setShowBudgetStartPopup(true);
+            }, bg: "rgba(67,160,71,.08)" },
+            { icon: "✏️", label: "Editar Presupuesto", show: canSeePrices, color: T.accent, action: () => {
+              setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "inspection_done" } : o));
+              onNavigate("budgetPricing", order);
+            }, bg: "rgba(30,136,229,.08)" },
+          ] : []),
           ...(order.status === "working" && canStartWork ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && order.status !== "budget_closed" && canSeePrices, color: T.accent, action: () => {
@@ -5052,6 +5040,74 @@ const VehicleDetailScreen = (props) => {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ POPUP INICIAR TRABAJO DESDE PRESUPUESTO ══ */}
+      {showBudgetStartPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}
+          onClick={() => setShowBudgetStartPopup(false)}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 480, width: "92%", border: `1px solid #9C27B040`, maxHeight: "85vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 8 }}>▶️</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 4 }}>Iniciar Trabajo</div>
+            <div style={{ fontSize: 12, color: T.gray, textAlign: "center", marginBottom: 16 }}>Seleccioná los trabajos a realizar desde el presupuesto</div>
+
+            {budgetSelWorks.map((w, i) => {
+              var wTotal = parseFloat(w.price) || 0;
+              return (
+                <div key={i} onClick={() => setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))}
+                  style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, borderColor: w.selected ? "#9C27B0" : T.border, background: w.selected ? "rgba(156,39,176,0.06)" : T.bg2 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, border: "2px solid " + (w.selected ? "#9C27B0" : T.border), background: w.selected ? "#9C27B0" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {w.selected && <span style={{ color: "#FFF", fontSize: 14, fontWeight: 800 }}>✓</span>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: w.selected ? "#9C27B0" : T.text }}>{w.type}</div>
+                    {w.desc && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onClick={e => e.stopPropagation()}
+                      onChange={e => { var val = e.target.value.replace(/[^0-9]/g, ""); setBudgetSelWorks(prev => prev.map((x, j) => j === i ? { ...x, price: val } : x)); }}
+                      style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                  </div>
+                </div>
+              );
+            })}
+
+            {(() => {
+              var selWorks = budgetSelWorks.filter(w => w.selected);
+              var selTotal = selWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+              return (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", fontFamily: fontD, fontSize: 18, fontWeight: 800, borderTop: "1px solid " + T.border, marginTop: 8 }}>
+                    <span>TOTAL ({selWorks.length} trabajos)</span>
+                    <span style={{ color: "#9C27B0" }}>{fmt(selTotal)}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button onClick={() => setShowBudgetStartPopup(false)} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>Cancelar</button>
+                    <button disabled={selWorks.length === 0} onClick={() => {
+                      var newWorks = selWorks.map(w => ({ type: w.type, price: parseFloat(w.price) || 0, desc: w.desc || "", trenItems: w.trenItems || [] }));
+                      var maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
+                      var newId = "ord_" + String(maxNum + 1).padStart(3, "0");
+                      var newOrder = {
+                        id: newId, clientId: order.clientId, domain: order.domain,
+                        status: "pending", works: newWorks, payments: [],
+                        assignedTo: "", date: new Date().toISOString().split("T")[0],
+                        km: order.km || "", budgetApproved: true, approvedAt: new Date().toISOString(),
+                        fromBudgetId: order.id, startedBy: "", startedAt: "", waRecepcion: false,
+                        paymentPref: order.paymentPref || {}
+                      };
+                      setOrders(prev => [...prev, newOrder]);
+                      setShowBudgetStartPopup(false);
+                      onNavigate("vehicleDetail", newOrder);
+                    }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, fontWeight: 800, opacity: selWorks.length > 0 ? 1 : 0.4 }}>
+                      ▶️ Crear Orden de Trabajo
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
