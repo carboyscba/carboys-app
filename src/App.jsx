@@ -6037,7 +6037,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const efIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
-  const ctaCteIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const ctaCteIngresado = useMemo(() => periodOrders.filter(o => !o.ctaCobrada).reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const saldoCajaCalculado = efIngresado + totalIngresosExtra - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
@@ -7120,7 +7120,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     // Registrar ingreso en caja con el método REAL usado para saldar
                     const egresoEntry = { id: Date.now(), desc: `Cobro Cta. Cte. — ${fmtD(ctaPagoOrder.domain)}`, monto, fecha: ctaPagoForm.fecha, categoria: "cobro_cta_cte", metodoPago: ctaPagoForm.metodo, esIngreso: true };
                     setEgresos(prev => [...prev, egresoEntry]);
-                    setEgresos(prev => [...prev, egresoEntry]);
                     setShowCtaPago(false);
                     setCtaPagoOrder(null);
                   }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 15 }}>✓ Confirmar Pago</button>
@@ -7240,33 +7239,33 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             // Efectivo
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo"; }); }).forEach(function(o) {
               var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green });
+              items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Tarjeta
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta"; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: "#9C27B0" });
+              items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: "#9C27B0", _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Transferencia
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Transferencia"; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Transferencia"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.accent });
+              items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.accent, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
-            // Cuenta Corriente
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
+            // Cuenta Corriente (solo NO saldadas — las saldadas se ven como ingresosExtra con el método real)
+            filtOrders.filter(function(o) { return !o.ctaCobrada && (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "cta-" + o.id, type: "virtual", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange });
+              items.push({ key: "cta-" + o.id, type: "virtual", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Egresos efectivo
-            filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red }); });
+            filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0 }); });
             // Egresos virtuales
-            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B" }); });
+            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B", _ts: typeof e.id === "number" ? e.id : 0 }); });
             // Ingresos extra (cobros CTA CTE, saldo inicial, etc)
             filtIngExtra.forEach(function(e) {
               var metColor = e.metodoPago === "Efectivo" ? T.green : e.metodoPago === "Tarjeta" ? "#9C27B0" : e.metodoPago === "Transferencia" ? T.accent : T.green;
-              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: metColor });
+              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: metColor, _ts: typeof e.id === "number" ? e.id : 0 });
             });
-            items.sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
+            items.sort(function(a, b) { var dc = (b.date || "").localeCompare(a.date || ""); return dc !== 0 ? dc : (b._ts || 0) - (a._ts || 0); });
             if (items.length === 0) return <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos</div>;
             return items.map(function(item) {
               var isEgr = item.type === "egreso" || item.type === "egreso_virt";
