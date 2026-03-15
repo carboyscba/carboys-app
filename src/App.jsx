@@ -6033,15 +6033,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const totalEgr = useMemo(() => egresosEfectivo.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [egresosEfectivo]);
   const totalEgrVirtual = useMemo(() => egresosVirtuales.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [egresosVirtuales]);
   const totalIngresosExtra = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
-  // Cobros por método
-  const efIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
-  const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
-  const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  // Cobros por método — incluye pagos directos de órdenes + cobros CTA CTE (ingresosExtra) del mismo método
+  const ingExEf = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const ingExTarj = useMemo(() => ingresosExtra.filter(e => e.metodoPago === "Tarjeta").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const ingExTransf = useMemo(() => ingresosExtra.filter(e => e.metodoPago === "Transferencia").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const efIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExEf, [periodOrders, ingExEf]);
+  const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTarj, [periodOrders, ingExTarj]);
+  const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTransf, [periodOrders, ingExTransf]);
   const ctaCteIngresado = useMemo(() => periodOrders.filter(o => !o.ctaCobrada).reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
-  const saldoCajaCalculado = efIngresado + totalIngresosExtra - totalEgr;
+  const saldoCajaCalculado = efIngresado - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
-  const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado + totalIngresosExtra - totalEgr) : saldoCajaCalculado;
+  const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado - totalEgr) : saldoCajaCalculado;
   // Cierre semanal: detectar si se debe pedir cierre
   const todayDate = new Date(); 
   const diaSemana = todayDate.getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
@@ -7236,23 +7239,23 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // Helper: render movimientos de un rango de fechas
           const renderMovs = function(filtOrders, filtEgrEf, filtEgrVirt, filtIngExtra, label) {
             var items = [];
-            // Efectivo
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo"; }); }).forEach(function(o) {
-              var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+            // Efectivo (excluir pagos que fueron CTA CTE saldada — tanto datos viejos como nuevos)
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }); }).forEach(function(o) {
+              var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Tarjeta
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta"; }); }).forEach(function(o) {
-              var amt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: "#9C27B0", _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }); }).forEach(function(o) {
+              var amt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (amt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: "#9C27B0", _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Transferencia
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Transferencia"; }); }).forEach(function(o) {
-              var amt = (o.payments || []).filter(function(p) { return p.method === "Transferencia"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.accent, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }); }).forEach(function(o) {
+              var amt = (o.payments || []).filter(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (amt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.accent, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
-            // Cuenta Corriente (solo NO saldadas — las saldadas se ven como ingresosExtra con el método real)
-            filtOrders.filter(function(o) { return !o.ctaCobrada && (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
+            // Cuenta Corriente — siempre se muestra como info (● naranja)
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
               items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
