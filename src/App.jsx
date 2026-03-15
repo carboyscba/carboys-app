@@ -6968,13 +6968,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   <button onClick={() => {
                     if (!ctaPagoForm.monto || !ctaPagoForm.metodo || !ctaPagoForm.fecha) return;
                     const monto = parseFloat(ctaPagoForm.monto) || 0;
-                    // Marcar ctaCobrada y agregar pago real
+                    // NO cambiar el método original. Guardar el pago real en ctaPagos
                     setOrders(prev => prev.map(o => o.id === ctaPagoOrder.id ? {
-                      ...o, ctaCobrada: true, cobrado: true,
-                      payments: (o.payments || []).map(p => p.method === "Cuenta Corriente" ? { ...p, method: ctaPagoForm.metodo, amount: monto, ctaFechaPago: ctaPagoForm.fecha } : p)
+                      ...o, ctaCobrada: true,
+                      ctaPagos: [...(o.ctaPagos || []), { monto, metodo: ctaPagoForm.metodo, fecha: ctaPagoForm.fecha, id: Date.now() }]
                     } : o));
-                    // Registrar ingreso en caja
+                    // Registrar ingreso en caja con el método REAL usado para saldar
                     const egresoEntry = { id: Date.now(), desc: `Cobro Cta. Cte. — ${fmtD(ctaPagoOrder.domain)}`, monto, fecha: ctaPagoForm.fecha, categoria: "cobro_cta_cte", metodoPago: ctaPagoForm.metodo, esIngreso: true };
+                    setEgresos(prev => [...prev, egresoEntry]);
                     setEgresos(prev => [...prev, egresoEntry]);
                     setShowCtaPago(false);
                     setCtaPagoOrder(null);
@@ -7092,18 +7093,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // Helper: render movimientos de un rango de fechas
           const renderMovs = function(filtOrders, filtEgrEf, filtEgrVirt, filtIngExtra, label) {
             var items = [];
+            // Efectivo
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo"; }); }).forEach(function(o) {
               var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
               items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green });
             });
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta" || p.method === "Transferencia"; }); }).forEach(function(o) {
-              var virtAmt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta" || p.method === "Transferencia"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              var mets = Array.from(new Set((o.payments || []).filter(function(p) { return p.method === "Tarjeta" || p.method === "Transferencia"; }).map(function(p) { return p.method; }))).join("/");
-              items.push({ key: "virt-" + o.id, type: "virtual", label: "VIRTUAL - " + mets, desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: virtAmt, color: T.accent });
+            // Tarjeta
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta"; }); }).forEach(function(o) {
+              var amt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: "#9C27B0" });
             });
+            // Transferencia
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Transferencia"; }); }).forEach(function(o) {
+              var amt = (o.payments || []).filter(function(p) { return p.method === "Transferencia"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.accent });
+            });
+            // Cuenta Corriente
+            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
+              var amt = (o.payments || []).filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              items.push({ key: "cta-" + o.id, type: "virtual", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange });
+            });
+            // Egresos efectivo
             filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red }); });
-            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "VIRTUAL - " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B" }); });
-            filtIngExtra.forEach(function(e) { items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.green }); });
+            // Egresos virtuales
+            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B" }); });
+            // Ingresos extra (cobros CTA CTE, saldo inicial, etc)
+            filtIngExtra.forEach(function(e) {
+              var metColor = e.metodoPago === "Efectivo" ? T.green : e.metodoPago === "Tarjeta" ? "#9C27B0" : e.metodoPago === "Transferencia" ? T.accent : T.green;
+              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: metColor });
+            });
             items.sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
             if (items.length === 0) return <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos</div>;
             return items.map(function(item) {
