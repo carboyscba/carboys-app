@@ -1799,7 +1799,7 @@ const NewOrderScreen = (props) => {
   const worksValid = works.length > 0 && works.every(w => {
     if (w.trenItems) {
       // Baterías: price stored at w.price directly, just check amperaje selected + price
-      if (w.type === "Baterías") {
+      if (w.type === "Baterías" || w.type === "Baterias") {
         return w.trenItems.some(ti => ti.selected) && parseFloat(w.price) > 0;
       }
       const hasSelected = w.trenItems.some(ti => ti.isCustom ? ti.label : ti.selected);
@@ -2215,7 +2215,7 @@ const NewOrderScreen = (props) => {
                       if (o.works.some(w => w.type === "Service Full")) fojas.push({ icon: "🛠️", label: "Foja de Service Full", key: "service" });
                       if (o.works.some(w => w.type === "Service Base")) fojas.push({ icon: "🛠️", label: "Foja de Service Base", key: "service" });
                       if (o.works.some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno")) fojas.push({ icon: "⚙️", label: "Informe de Intervención", key: "intervention" });
-                      if (o.works.some(w => w.type === "Baterías")) fojas.push({ icon: "🔋", label: "Foja de Batería", key: "battery" });
+                      if (o.works.some(w => (w.type === "Baterías" || w.type === "Baterias"))) fojas.push({ icon: "🔋", label: "Foja de Batería", key: "battery" });
                       if (o.works.some(w => w.type === "Escape")) fojas.push({ icon: "💨", label: "Foja de Escape", key: "escape" });
                       if (!fojas.length) return null;
                       return (
@@ -2759,7 +2759,7 @@ const NewOrderScreen = (props) => {
                 </div>
 
                 {/* Sub-items for category-based works */}
-                {w.trenItems && w.type === "Baterías" ? (
+                {w.trenItems && (w.type === "Baterías" || w.type === "Baterias") ? (
                   <div style={{ marginBottom: 10 }}>
                     <label style={labelStyle}>Seleccionar amperaje</label>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
@@ -4214,7 +4214,7 @@ const VehicleDetailScreen = (props) => {
   const canNotify = ["dueño", "encargado", "admin"].includes(user.role);
   const canSeePrices = user.role !== "mecánico";
   const isPureIntervention = !(order.works || []).some(w => w.type === "Service Full" || w.type === "Service Base") && order.works.some(w => w.type === "Pastillas de Freno" || w.type === "Tren Delantero" || w.type === "Tren Trasero");
-  const isBatteryOrder = (order.works || []).some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
+  const isBatteryOrder = (order.works || []).some(w => w.type === "Baterías" || w.type === "Baterias") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
   const isEscapeOrder = (order.works || []).some(w => w.type === "Escape") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base");
   // Foja: solo aparece si hay trabajos con foja correspondiente
   const FOJA_TYPES = ["Service Full", "Service Base", "Baterías", "Escape", "Pastillas de Freno", "Tren Delantero", "Tren Trasero"];
@@ -5256,7 +5256,7 @@ const VehicleDetailScreen = (props) => {
         const hasServiceFull = (order.works || []).some(w => w.type === "Service Full");
         const hasServiceBase = (order.works || []).some(w => w.type === "Service Base");
         const hasTren = (order.works || []).some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno");
-        const hasBattery = (order.works || []).some(w => w.type === "Baterías");
+        const hasBattery = (order.works || []).some(w => w.type === "Baterías" || w.type === "Baterias");
         const hasEscape = (order.works || []).some(w => w.type === "Escape");
 
         if (hasServiceFull || hasServiceBase) fojas.push({ icon: "🛠️", label: hasServiceFull ? "Foja de Service Full" : "Foja de Service Base", key: "service" });
@@ -10420,7 +10420,7 @@ const InspectionScreen = (props) => {
     { key: "Mecanica", icon: "🔩", hasItems: true },
     { key: "Escape", icon: "💨", hasItems: true },
     { key: "Pastillas de Freno", icon: "🛞", hasItems: true },
-    { key: "Baterias", icon: "🔋", hasItems: false },
+    { key: "Baterías", icon: "🔋", hasItems: false },
     { key: "Arreglo", icon: "🪛", hasItems: false, hasDesc: true },
   ];
 
@@ -10554,7 +10554,7 @@ const BudgetPricingScreen = (props) => {
   var client = clients.find(function(c) { return c.id === order.clientId; });
   var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
   var inspData = order.inspectionData || {};
-  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterias": "🔋", "Arreglo": "🪛" };
+  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛" };
 
   var initPricing = function() {
     if (order.pricingData) return order.pricingData;
@@ -10773,6 +10773,7 @@ const BudgetPricingScreen = (props) => {
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             <button onClick={sendWABudget} disabled={sendingWA} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 14, padding: "12px 0", opacity: sendingWA ? 0.6 : 1 }}>{sendingWA ? "⏳ Enviando..." : "📱 Enviar Presupuesto"}</button>
             <button onClick={printBudget} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 14, padding: "12px 0" }}>🖨️ Imprimir</button>
+            <button onClick={function() { setShowPDF(false); }} style={{ ...btnPrimary("#9C27B0"), fontSize: 13, padding: "12px 16px" }}>✏️ Editar</button>
             <button onClick={function() { onNavigate("vehicleDetail", order); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, padding: "12px 16px" }}>✕</button>
           </div>
 
@@ -11233,7 +11234,7 @@ const ServiceSheetScreen = (props) => {
   const forcedChangeItems = new Set();
   order.works.forEach(w => {
     if (w.type === "Escobillas") forcedChangeItems.add("escobillas_estado");
-    if (w.type === "Baterías") forcedChangeItems.add("bateria_control");
+    if (w.type === "Baterías" || w.type === "Baterias") forcedChangeItems.add("bateria_control");
     if (w.type === "Lámpara") ["luz_baja", "luz_alta", "luz_pos_del", "luz_pos_tra", "luz_stop", "guinos"].forEach(k => forcedChangeItems.add(k));
     if (w.type === "Pastillas de Freno") {
       const desc = (w.desc || "").toLowerCase();
@@ -11342,7 +11343,7 @@ const ServiceSheetScreen = (props) => {
         if (items.length === 0) {
           items.push({ label: w.type, desc: "", done: false, note: "" });
         }
-        if (w.type === "Baterías") {
+        if (w.type === "Baterías" || w.type === "Baterias") {
           items.push({ label: "Datos de batería instalada", desc: "Completar serie, amperaje y garantía", done: false, note: "", isBatteryData: true, batCode: "", batAmp: "", batWarranty: "12" });
           items.push({ label: "Control carga alternador", desc: "Medir voltaje del alternador", done: false, note: "", isVoltage: true, voltage: "" });
         }
@@ -11549,7 +11550,7 @@ const ServiceSheetScreen = (props) => {
           const isMarked = sheetItem.fluidOk === "cambiado" || sheetItem.status === "cambiado";
           const belongsTo = (() => {
             if (w.type === "Escobillas" && key === "escobillas_estado") return true;
-            if (w.type === "Baterías" && key === "bateria_control") return true;
+            if ((w.type === "Baterías" || w.type === "Baterias") && key === "bateria_control") return true;
             if (w.type === "Pastillas de Freno" && (key === "td_pastillas" || key === "tt_freno")) return true;
             if (w.type === "Tren Delantero" && key.startsWith("td_")) return true;
             if (w.type === "Tren Trasero" && key.startsWith("tt_")) return true;
@@ -13663,9 +13664,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
     }
   }, []);
 
-  const isBatteryOrder = fojaType === "battery" || (!fojaType && order.works.some(w => w.type === "Baterías") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base"));
+  const isBatteryOrder = fojaType === "battery" || (!fojaType && order.works.some(w => w.type === "Baterías" || w.type === "Baterias") && !order.works.some(w => w.type === "Service Full" || w.type === "Service Base"));
   if (isBatteryOrder) {
-    const batWork = order.works.find(w => w.type === "Baterías");
+    const batWork = order.works.find(w => w.type === "Baterías" || w.type === "Baterias");
     const cl = order.workChecklist || {};
     const wKey = Object.keys(cl).find(k => k.startsWith("Baterías_")) || "";
     const items = cl[wKey] || [];
@@ -14334,7 +14335,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   const fojaPDFForcedKeys = new Set();
   (order.works || []).forEach(w => {
     if (w.type === "Escobillas") fojaPDFForcedKeys.add("escobillas_estado");
-    if (w.type === "Baterías") fojaPDFForcedKeys.add("bateria_control");
+    if (w.type === "Baterías" || w.type === "Baterias") fojaPDFForcedKeys.add("bateria_control");
     if (w.type === "Pastillas de Freno") { fojaPDFForcedKeys.add("td_pastillas"); fojaPDFForcedKeys.add("tt_freno"); }
     if (w.type === "Tren Delantero" && w.trenItems) w.trenItems.filter(ti => ti.selected).forEach(ti => {
       const m = { amortiguadores:"td_amortiguadores", extremos:"td_extremos", rotulas:"td_rotulas", bieletas:"td_bieletas", bujes:"td_bujes", parrilla:"td_parrilla", axiales:"td_axiales", rulemanes:"td_rulemanes", discos:"td_discos", pastillas:"td_pastillas" };
