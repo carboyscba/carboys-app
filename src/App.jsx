@@ -7254,7 +7254,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             // Cuenta Corriente (solo NO saldadas — las saldadas se ven como ingresosExtra con el método real)
             filtOrders.filter(function(o) { return !o.ctaCobrada && (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "cta-" + o.id, type: "virtual", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+              items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Egresos efectivo
             filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0 }); });
@@ -7270,9 +7270,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             return items.map(function(item) {
               var isEgr = item.type === "egreso" || item.type === "egreso_virt";
               var isVirt = item.type === "virtual" || item.type === "egreso_virt";
+              var isCta = item.type === "info_cta";
+              var symbol = isCta ? "●" : isEgr ? "−" : "+";
               return (
-                <div key={item.key} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt ? 0.75 : 1 }}>
-                  <div><span style={{ color: item.color, fontWeight: 700 }}>{isEgr ? "↓" : "↑"}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
+                <div key={item.key} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1 }}>
+                  <div><span style={{ color: item.color, fontWeight: 800, fontSize: 14, marginRight: 4 }}>{symbol}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
                   <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(item.date)}</span><span style={{ fontWeight: 700, color: item.color }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span></div>
                 </div>
               );
