@@ -3491,8 +3491,12 @@ const NewOrderScreen = (props) => {
             const nombre = `${form.name} ${form.lastName}`.trim();
             const vehiculo = `${form.brand} ${form.model} ${form.year}`.trim();
             const dominio = fmtD(form.domain);
-            const template = config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\n¡Gracias por confiar en nosotros!";
-            const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio);
+            const ordId = lastCreatedOrderId || "";
+            const fecha = new Date().toLocaleDateString("es-AR");
+            const trabajosList = works.map(w => "• " + w.type + (w.desc ? " — " + w.desc : "") + " — " + fmt(parseFloat(w.price) || 0)).join("\n");
+            const total = works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const template = config.welcomeMessage || "¡Bienvenido/a *{nombre}* a *CarBoys*! 🔧\n\nTu *{vehiculo}* ({dominio}) ya está en proceso.\n\n📋 *Orden:* #{orden}\n📅 *Fecha:* {fecha}\n\n🔧 *Trabajos:*\n{trabajos}\n\n💰 *Total: {total}*\n\nTe mantendremos informado/a por este medio sobre el estado de tu vehículo.\n\n_Gracias por confiar en nosotros!_\n*CarBoys* — Servicio Integral del Automotor";
+            const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio).replace(/{orden}/g, ordId).replace(/{fecha}/g, fecha).replace(/{trabajos}/g, trabajosList).replace(/{total}/g, fmt(total));
             return phone ? (
               <button onClick={() => {
                 sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
@@ -6108,7 +6112,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const esLunes = diaSemana === 1;
   const lastCierreDate = cierres.length > 0 ? cierres[cierres.length - 1].fecha : null;
   const lunes = new Date(todayDate); lunes.setDate(todayDate.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
-  const sabadoPasado = new Date(lunes); sabadoPasado.setDate(lunes.getDate() - 2);
+  const sabadoPasado = new Date(lunes); sabadoPasado.setDate(lunes.getDate() + 5);
   const sabadoPasadoStr = sabadoPasado.toISOString().split("T")[0];
   const faltaCierre = (esSabado || esLunes) && (!lastCierreDate || lastCierreDate < sabadoPasadoStr);
 
@@ -7192,7 +7196,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {/* ══════ CAJA ══════ */}
       {tab === "caja" && (<div>
         {/* Alerta cierre semanal — lunes sin cierre */}
-        {faltaCierre && esLunes && !showCierre && (
+        {faltaCierre && esLunes && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: T.bg2, border: `2px solid ${T.orange}`, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
@@ -7802,7 +7806,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         {/* ══ POPUP CIERRE DE CAJA ══ */}
         {showCierre && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 16 }} onClick={() => setShowCierre(false)}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📋 Cierre de Caja</div>
               <div style={{ ...card, padding: 14, marginBottom: 14 }}>
@@ -14868,9 +14872,9 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
 
       <div style={{ ...card, padding: 20, marginBottom: 16 }}>
         <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#9C27B0" }}>📋 Mensaje de Recepción</div>
-        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"}</div>
-        <textarea value={config.welcomeMessage || "¡Bienvenido/a {nombre} a *CarBoys*! 🔧\n\nTu {vehiculo} ({dominio}) ya está registrado en nuestro sistema.\n\nTe mantendremos informado/a sobre el estado de tu vehículo.\n\nGracias por confiar en nosotros!"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
-          style={{ ...inputStyle, minHeight: 150, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+        <div style={{ fontSize: 11, color: T.gray, marginBottom: 10 }}>Variables: {"{nombre}"} {"{dominio}"} {"{vehiculo}"} {"{orden}"} {"{fecha}"} {"{trabajos}"} {"{total}"}</div>
+        <textarea value={config.welcomeMessage || "¡Bienvenido/a *{nombre}* a *CarBoys*! 🔧\n\nTu *{vehiculo}* ({dominio}) ya está en proceso.\n\n📋 *Orden:* #{orden}\n📅 *Fecha:* {fecha}\n\n🔧 *Trabajos:*\n{trabajos}\n\n💰 *Total: {total}*\n\nTe mantendremos informado/a por este medio sobre el estado de tu vehículo.\n\n_Gracias por confiar en nosotros!_\n*CarBoys* — Servicio Integral del Automotor"} onChange={e => setConfig(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+          style={{ ...inputStyle, minHeight: 200, fontFamily: font, fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
       </div>
 
 
