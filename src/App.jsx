@@ -5707,8 +5707,8 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
                   var caption = "Comprobante " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
                   var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
                   if (sent) { alert("✅ Comprobante enviado por WhatsApp!"); }
-                  else { sendWA(phone, "Hola " + (client?.name || "") + "! Te enviamos el comprobante de tu " + (vehicle?.brand || "") + " " + (vehicle?.model || "") + " (" + order.domain + "). Gracias por confiar en CarBoys!", config?.wahaUrl, config?.wahaApiKey); }
-                } catch(e) { console.warn("Error enviando comprobante:", e); sendWA(phone, "Comprobante " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
+                  else { alert("❌ No se pudo enviar el comprobante. Verificá la conexión con WAHA."); }
+                } catch(e) { console.warn("Error enviando comprobante:", e); alert("❌ Error al enviar comprobante: " + e.message); }
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -5923,8 +5923,8 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
                   var caption = "Factura " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
                   var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
                   if (sent) { alert("✅ Factura enviada por WhatsApp!"); }
-                  else { sendWA(phone, "Hola " + (client?.name || "") + "! Te enviamos la factura de tu " + (vehicle?.brand || "") + " " + (vehicle?.model || "") + " (" + order.domain + "). Gracias por confiar en CarBoys!", config?.wahaUrl, config?.wahaApiKey); }
-                } catch(e) { console.warn("Error enviando factura:", e); sendWA(phone, "Factura " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
+                  else { alert("❌ No se pudo enviar la factura. Verificá la conexión con WAHA."); }
+                } catch(e) { console.warn("Error enviando factura:", e); alert("❌ Error al enviar factura: " + e.message); }
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -13899,8 +13899,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       var caption = fojaLabel + " — " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nCarBoys — Servicio Integral del Automotor";
       var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
       if (sent) { alert("✅ " + fojaLabel + " enviada por WhatsApp!"); }
-      else { sendWA(phone, caption, config?.wahaUrl, config?.wahaApiKey); }
-    } catch(e) { console.warn("Error enviando foja:", e); sendWA(phone, fojaLabel + " " + order.domain, config?.wahaUrl, config?.wahaApiKey); }
+      else { alert("❌ No se pudo enviar " + fojaLabel + ". Verificá la conexión con WAHA."); }
+    } catch(e) { console.warn("Error enviando foja:", e); alert("❌ Error al enviar " + fojaLabel + ": " + e.message); }
   };
 
   const getFojaLabel = () => {
