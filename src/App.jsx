@@ -3998,6 +3998,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
   });
   const [selClient, setSelClient] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [searchTab, setSearchTab] = useState("buscar"); // "buscar" | "historial"
+  const [histDetail, setHistDetail] = useState(null); // order detail view
 
   // Search history (stored in localStorage)
   const SEARCH_HIST_KEY = "carboys_search_history";
@@ -4139,7 +4141,20 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
-      <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700, marginBottom: 20 }}>🔍 Buscar Dominio / Cliente</div>
+      <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>🔍 Buscar Dominio / Cliente</div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderRadius: 10, overflow: "hidden", border: `1px solid ${T.border}` }}>
+        {[{ key: "buscar", label: "🔍 Buscar" }, { key: "historial", label: "📋 Historial" }].map(t => (
+          <div key={t.key} onClick={() => { setSearchTab(t.key); setHistDetail(null); }}
+            style={{ flex: 1, padding: "12px 0", textAlign: "center", fontSize: 14, fontWeight: 700, cursor: "pointer",
+              background: searchTab === t.key ? T.accent : T.bg2, color: searchTab === t.key ? "#fff" : T.gray,
+              transition: "all .15s" }}>{t.label}</div>
+        ))}
+      </div>
+
+      {/* ── TAB BUSCAR ── */}
+      {searchTab === "buscar" && (<>
       <input inputMode="text" ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Dominio, nombre, DNI o CUIT..."
         style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", marginBottom: 20, borderColor: q ? T.accent : T.border }} autoFocus />
 
@@ -4229,6 +4244,98 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
           )}
         </div>
       ))}
+      </>)}
+
+      {/* ── TAB HISTORIAL ── */}
+      {searchTab === "historial" && (() => {
+        // Detail view
+        if (histDetail) {
+          const hCl = clients.find(c => c.id === histDetail.clientId);
+          const hVh = hCl?.vehicles?.find(v => v.domain === histDetail.domain);
+          const isBudget = histDetail.status === "budget_closed" || histDetail.status === "budget_sent";
+          const borderColor = isBudget ? "#9C27B0" : T.accent;
+          return (
+            <div>
+              <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver al historial</button>
+              <div style={{ ...card, padding: 20, borderLeft: `4px solid ${borderColor}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, letterSpacing: 1 }}>{fmtD(histDetail.domain)}</div>
+                    {hVh && <div style={{ fontSize: 14, color: T.grayLight }}>{hVh.brand} {hVh.model} {hVh.year}</div>}
+                    {hCl && <div style={{ fontSize: 13, marginTop: 4 }}>👤 {hCl.name} {hCl.lastName}</div>}
+                  </div>
+                  <div style={{ padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: isBudget ? "#9C27B020" : `${T.accent}20`, color: isBudget ? "#9C27B0" : T.accent }}>
+                    {isBudget ? "PRESUPUESTO" : histDetail.status === "delivered" ? "ENTREGADO" : histDetail.status === "done" ? "FINALIZADO" : histDetail.status?.toUpperCase() || "—"}
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div><div style={{ fontSize: 10, color: T.gray, fontWeight: 700 }}>FECHA</div><div style={{ fontSize: 14, fontWeight: 700 }}>{histDetail.date || "—"}</div></div>
+                  <div><div style={{ fontSize: 10, color: T.gray, fontWeight: 700 }}>ORDEN</div><div style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{histDetail.id}</div></div>
+                  {histDetail.km && <div><div style={{ fontSize: 10, color: T.gray, fontWeight: 700 }}>KILÓMETROS</div><div style={{ fontSize: 14, fontWeight: 700 }}>{Number(histDetail.km).toLocaleString("es-AR")} km</div></div>}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 8 }}>TRABAJOS</div>
+                {(histDetail.works || []).map((w, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < (histDetail.works || []).length - 1 ? `1px solid ${T.border}` : "none" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{w.type}</div>
+                      {w.desc && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
+                    </div>
+                    <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(parseFloat(w.price) || 0)}</div>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", marginTop: 8, borderTop: `2px solid ${T.border}`, fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
+                  <span>TOTAL</span>
+                  <span style={{ color: isBudget ? "#9C27B0" : T.accent }}>{fmt((histDetail.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</span>
+                </div>
+                {histDetail.factura && (
+                  <div style={{ marginTop: 12, padding: 10, background: `${T.green}08`, borderRadius: 8, border: `1px solid ${T.green}30` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: T.green }}>🧾 Factura {histDetail.factura.tipo} — {histDetail.factura.numero}</div>
+                    {histDetail.factura.cae && <div style={{ fontSize: 11, color: T.gray }}>CAE: {histDetail.factura.cae}</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // List view - all orders sorted by date desc
+        const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        return (
+          <div>
+            <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>{allOrders.length} ingresos totales</div>
+            {allOrders.map(o => {
+              const cl = clients.find(c => c.id === o.clientId);
+              const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+              const isBudget = o.status === "budget_closed" || o.status === "budget_sent";
+              const borderColor = isBudget ? "#9C27B0" : T.accent;
+              const total = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+              const trabajos = (o.works || []).map(w => w.type).join(", ");
+              return (
+                <div key={o.id} onClick={() => setHistDetail(o)}
+                  style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `4px solid ${borderColor}`, cursor: "pointer", transition: "all .15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }} onMouseLeave={e => { e.currentTarget.style.background = T.bg2; }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, letterSpacing: 1 }}>{fmtD(o.domain)}</span>
+                        {isBudget && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#9C27B020", color: "#9C27B0" }}>PRESUPUESTO</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: T.grayLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
+                      </div>
+                      <div style={{ fontSize: 11, color: T.gray, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trabajos || "Sin trabajos"}</div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
+                      <div style={{ fontSize: 11, color: T.gray }}>{o.date || "—"}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Modal eliminar cliente */}
       {deleteConfirm && (
