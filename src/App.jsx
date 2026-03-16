@@ -6108,7 +6108,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const esLunes = diaSemana === 1;
   const lastCierreDate = cierres.length > 0 ? cierres[cierres.length - 1].fecha : null;
   const lunes = new Date(todayDate); lunes.setDate(todayDate.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
-  const sabadoPasado = new Date(lunes); sabadoPasado.setDate(lunes.getDate() + 5);
+  const sabadoPasado = new Date(lunes); sabadoPasado.setDate(lunes.getDate() - 2);
   const sabadoPasadoStr = sabadoPasado.toISOString().split("T")[0];
   const faltaCierre = (esSabado || esLunes) && (!lastCierreDate || lastCierreDate < sabadoPasadoStr);
 
