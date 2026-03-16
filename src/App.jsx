@@ -6201,7 +6201,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const tipoFC = mainPay.invoiceType || "B";
     const entityId = tipoFC === "C" ? "2" : "1";
     const puntoVenta = 3; // PV RECE
-    const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+    const totalBase = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+    // El monto real cobrado es la suma de los pagos (ya incluye IVA si +IVA)
+    const totalCobrado = (payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     
     // Determinar docTipo y docNro
     let docTipo = 99; // Consumidor Final
@@ -6211,17 +6213,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     else if (tipoFC === "B" && client?.dni) { docTipo = 96; docNro = parseInt((client.dni || "").replace(/[^0-9]/g, "")) || 0; }
     else if (tipoFC === "C" && client?.dni) { docTipo = 96; docNro = parseInt((client.dni || "").replace(/[^0-9]/g, "")) || 0; }
     
-    // Calcular importes según tipo
-    let importeTotal = total;
-    let importeNeto = 0;
-    let importeIva = 0;
+    // Calcular importes para ARCA según tipo de FC
+    let importeTotal, importeNeto, importeIva;
     if (tipoFC === "A") {
-      // FC A: discrimina IVA — neto + IVA = total
-      importeNeto = total;
-      importeIva = Math.round(total * (config.ivaRate || 21) / 100 * 100) / 100;
+      // FC A: precio base va como neto, ARCA suma IVA. Total cobrado = base + 21%
+      importeNeto = totalBase;
+      importeIva = Math.round(totalBase * (config.ivaRate || 21) / 100 * 100) / 100;
       importeTotal = importeNeto + importeIva;
+    } else {
+      // FC B: cliente pagó base+IVA ($121k), FC C: cliente pagó base ($100k)
+      // En ambos casos, el total a ARCA es lo que el cliente pagó
+      importeTotal = totalCobrado;
+      importeNeto = 0;
+      importeIva = 0;
     }
-    // FC B y C: neto=0, total va como no gravado (el server lo maneja)
     
     setFacturando(true);
     let factura;
@@ -6723,11 +6728,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     };
                     const confirmarCobro = () => {
                       if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
-                      // Calcular monto real del primer pago en caso multi-pago
+                      // Calcular monto real — si es +IVA, el total cobrado incluye IVA
+                      const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                      const firstPay = cobroPay[0] || {};
+                      const totalCobrado = firstPay.withIva ? Math.round(totalBase * (1 + (config.ivaRate || 21) / 100)) : totalBase;
                       const otrosTotalFinal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                       const finalPays = cobroPay.map((pp, idx) => {
                         let amt = parseFloat(pp.amount) || 0;
-                        if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, total - otrosTotalFinal);
+                        if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, totalCobrado - otrosTotalFinal);
                         return { ...pp, amount: amt };
                       });
                       setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays } : o2));
