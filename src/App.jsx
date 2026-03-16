@@ -3540,32 +3540,40 @@ const NewOrderScreen = (props) => {
 const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user, onNavigate }) => {
   const [items, setItems] = useState([{ name: "", price: "" }]);
   const [method, setMethod] = useState("");
+  const [withIva, setWithIva] = useState(null); // null = not chosen, true/false
   const [clientInfo, setClientInfo] = useState({ name: "", lastName: "", dni: "", phone: "" });
   const [account, setAccount] = useState("");
-  const [installments, setInstallments] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
 
   const addItem = () => setItems(i => [...i, { name: "", price: "" }]);
   const updateItem = (i, f, v) => setItems(it => it.map((x, j) => j === i ? { ...x, [f]: v } : x));
   const removeItem = (i) => setItems(it => it.filter((_, j) => j !== i));
   const total = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-  const needsClientInfo = method === "Tarjeta" || method === "Transferencia" || method === "Cuenta Corriente";
+  const totalConIva = total * (1 + (config.ivaRate || 21) / 100);
+  const finalTotal = withIva ? totalConIva : total;
+
+  // IVA applies to Efectivo, Tarjeta, Transferencia
+  const showIvaToggle = method === "Efectivo" || method === "Tarjeta" || method === "Transferencia";
+  // Client info required when Con IVA (for facturación) or Cuenta Corriente
+  const needsClientInfo = (showIvaToggle && withIva === true) || method === "Cuenta Corriente";
   const itemsValid = items.every(i => i.name && i.price && parseFloat(i.price) > 0);
+  const ivaChosen = showIvaToggle ? withIva !== null : true;
   const clientValid = !needsClientInfo || (
     clientInfo.name && clientInfo.lastName && clientInfo.phone &&
     (method === "Cuenta Corriente" || clientInfo.dni)
   );
-  const allValid = itemsValid && method && clientValid;
+  const accountValid = method === "Transferencia" ? !!account : true;
+  const allValid = itemsValid && method && ivaChosen && clientValid && accountValid;
 
   if (confirmed) {
     return (
       <div style={{ padding: 24, animation: "scaleIn .4s ease", textAlign: "center", paddingTop: 60, maxWidth: 500, margin: "0 auto" }}>
         <div style={{ fontSize: 72, marginBottom: 16 }}>🛒</div>
         <div style={{ fontFamily: fontD, fontSize: 30, fontWeight: 700, marginBottom: 8 }}>Venta Registrada</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: T.accent, fontFamily: fontD, marginBottom: 24 }}>{fmt(total)}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: T.accent, fontFamily: fontD, marginBottom: 24 }}>{fmt(finalTotal)}</div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button onClick={() => onNavigate("dashboard")} style={btnPrimary()}>Ir al Dashboard</button>
-          <button onClick={() => { setConfirmed(false); setItems([{ name: "", price: "" }]); setMethod(""); setClientInfo({ name: "", lastName: "", dni: "", phone: "" }); }}
+          <button onClick={() => { setConfirmed(false); setItems([{ name: "", price: "" }]); setMethod(""); setWithIva(null); setAccount(""); setClientInfo({ name: "", lastName: "", dni: "", phone: "" }); }}
             style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>+ Nueva Venta</button>
         </div>
       </div>
@@ -3580,7 +3588,7 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
       {items.map((item, i) => (
         <div key={i} style={{ ...card, padding: 14, marginBottom: 10, display: "flex", gap: 10, alignItems: "center" }}>
           <input inputMode="text" value={item.name} onChange={e => updateItem(i, "name", e.target.value)}
-            placeholder="Producto (ej: Lámpara H7)" style={{ ...inputStyle, flex: 2 }} />
+            placeholder="Descripción (ej: Chequeo)" style={{ ...inputStyle, flex: 2 }} />
           <input inputMode="numeric" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={e => updateItem(i, "price", e.target.value.replace(/[^0-9]/g, ""))}
             placeholder="0" style={{ ...inputStyle, flex: 1 }} />
           {items.length > 1 && <span onClick={() => removeItem(i)} style={{ color: T.red, cursor: "pointer", fontWeight: 700, fontSize: 16, padding: "0 6px" }}>✕</span>}
@@ -3597,27 +3605,12 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
           </div>
           <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
-            <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(total * config.ivaRate / 100)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: T.gray }}>Total con IVA</span>
-            <span style={{ fontWeight: 700, color: T.accent }}>{fmt(total * (1 + config.ivaRate / 100))}</span>
-          </div>
-          <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3}%)</span>
-            <div style={{ textAlign: "right" }}>
-              <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge3 / 100) / 3)} c/u</span>
-              <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge3 / 100))}</span>
-            </div>
+            <span style={{ color: T.gray }}>+ IVA {config.ivaRate || 21}%</span>
+            <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(total * (config.ivaRate || 21) / 100)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6}%)</span>
-            <div style={{ textAlign: "right" }}>
-              <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge6 / 100) / 6)} c/u</span>
-              <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge6 / 100))}</span>
-            </div>
+            <span style={{ color: T.gray }}>Total con IVA</span>
+            <span style={{ fontWeight: 700, color: T.accent }}>{fmt(totalConIva)}</span>
           </div>
         </div>
       )}
@@ -3626,45 +3619,51 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
       <label style={labelStyle}>Método de pago *</label>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
         {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
-          <div key={m} onClick={() => setMethod(m)}
+          <div key={m} onClick={() => { setMethod(m); setWithIva(null); setAccount(""); }}
             style={{ ...card, padding: "12px 8px", cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, borderColor: method === m ? T.accent : T.border, background: method === m ? "rgba(30,136,229,0.1)" : T.bg2, fontFamily: font, color: method === m ? T.accent : T.grayLight }}>
             {m}
           </div>
         ))}
       </div>
 
-      {method === "Tarjeta" && (
+      {/* IVA toggle — Efectivo, Tarjeta, Transferencia */}
+      {showIvaToggle && (
         <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Cuotas</label>
+          <label style={labelStyle}>¿Con IVA?</label>
           <div style={{ display: "flex", gap: 8 }}>
-            {[1, 3, 6].map(q => (
-              <div key={q} onClick={() => setInstallments(q)}
-                style={{ ...card, padding: "10px 14px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: installments === q ? T.accent : T.border, background: installments === q ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontSize: 13, fontFamily: font }}>
-                {q} {q === 1 ? "pago" : "cuotas"}
+            {[{ v: false, l: "Sin IVA", sub: fmt(total) }, { v: true, l: "Con IVA", sub: fmt(totalConIva) }].map(opt => (
+              <div key={String(opt.v)} onClick={() => setWithIva(opt.v)}
+                style={{ ...card, padding: "12px 14px", cursor: "pointer", textAlign: "center", flex: 1,
+                  borderColor: withIva === opt.v ? (opt.v ? T.orange : T.green) : T.border,
+                  background: withIva === opt.v ? (opt.v ? `${T.orange}12` : `${T.green}12`) : T.bg2,
+                  transition: "all .15s" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: withIva === opt.v ? (opt.v ? T.orange : T.green) : T.grayLight }}>{opt.l}</div>
+                {total > 0 && <div style={{ fontSize: 12, color: T.gray, marginTop: 4, fontFamily: fontD, fontWeight: 700 }}>{opt.sub}</div>}
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Transferencia: account selector */}
       {method === "Transferencia" && (
         <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Cuenta</label>
+          <label style={labelStyle}>Cuenta *</label>
           <div style={{ display: "flex", gap: 8 }}>
-            {["1", "2"].map(acc => (
-              <div key={acc} onClick={() => setAccount(acc)}
-                style={{ ...card, padding: "10px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: account === acc ? T.accent : T.border, background: account === acc ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontFamily: font }}>
-                Cuenta {acc}
+            {[{ acc: "1", name: "CARBOYS" }, { acc: "2", name: "Ignacio Karqui" }].map(opt => (
+              <div key={opt.acc} onClick={() => setAccount(opt.acc)}
+                style={{ ...card, padding: "10px 16px", cursor: "pointer", textAlign: "center", flex: 1, borderColor: account === opt.acc ? T.accent : T.border, background: account === opt.acc ? "rgba(30,136,229,0.1)" : T.bg2, fontWeight: 700, fontFamily: font }}>
+                {opt.name}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Client info for card/transfer */}
+      {/* Client / facturación info — when Con IVA or Cuenta Corriente */}
       {needsClientInfo && (
         <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: T.orange, marginBottom: 12 }}>👤 Datos del cliente</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.orange, marginBottom: 12 }}>{withIva ? "🧾 Datos de facturación" : "👤 Datos del cliente"}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Nombre *</label>
@@ -3697,10 +3696,8 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
           // ── Find or create client ──
           let clientId = "quick_sale_generic";
           if (clientInfo.name && clientInfo.lastName) {
-            // Try to find existing client by DNI
             let existing = clientInfo.dni ? clients.find(c => c.dni === clientInfo.dni) : null;
             if (!existing) {
-              // Create new client
               clientId = "cli_qs_" + Date.now();
               const newClient = {
                 id: clientId,
@@ -3718,25 +3715,26 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
           }
 
           // ── Build works from items ──
+          const descList = items.filter(i => i.name && parseFloat(i.price) > 0).map(i => i.name).join(", ");
           const worksArr = items.filter(i => i.name && parseFloat(i.price) > 0).map(i => ({
-            type: "Venta Rápida",
+            type: "Venta Rápida — " + i.name,
             desc: i.name,
             price: parseFloat(i.price) || 0,
           }));
 
-          // ── Build payment ──
-          const finalAmount = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+          // ── Build payment with final amount (with or without IVA) ──
           const paymentObj = {
             id: Date.now() + Math.random(),
             method: method,
-            amount: finalAmount,
+            amount: finalTotal,
             account: method === "Transferencia" ? (account || "1") : "1",
-            installments: method === "Tarjeta" ? installments : 1,
-            invoiceType: "",
+            installments: 1,
+            invoiceType: withIva ? (clientInfo.dni && clientInfo.dni.length > 8 ? "A" : "B") : "",
+            withIva: !!withIva,
             date: todayStr,
           };
 
-          // ── Create order as delivered (venta ya cobrada) ──
+          // ── Create order as delivered ──
           const newOrder = {
             id: newId,
             clientId: clientId,
@@ -3748,7 +3746,7 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
             date: todayStr,
             deliveredAt: new Date().toLocaleString("es-AR"),
             isQuickSale: true,
-            quickSaleItems: items.filter(i => i.name && parseFloat(i.price) > 0),
+            quickSaleDesc: descList,
           };
 
           setOrders(prev => [...prev, newOrder]);
@@ -7748,25 +7746,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // Helper: render movimientos de un rango de fechas
           const renderMovs = function(filtOrders, filtEgrEf, filtEgrVirt, filtIngExtra, label) {
             var items = [];
+            // Helper: build desc for caja movements — handles quick sales
+            var movDesc = function(o) {
+              if (o.isQuickSale || o.domain === "VENTA-RAPIDA") {
+                var qsDesc = o.quickSaleDesc || (o.works || []).map(function(w) { return w.desc || w.type; }).join(", ");
+                var cl = clients.find(function(c) { return c.id === o.clientId; });
+                return "🛒 Venta Rápida — " + qsDesc + (cl ? " (" + cl.name + ")" : "");
+              }
+              var cName = (clients.find(function(c) { return c.id === o.clientId; }) || {}).name || "";
+              return fmtD(o.domain) + (cName ? " — " + cName : "");
+            };
             // Efectivo (excluir pagos que fueron CTA CTE saldada — tanto datos viejos como nuevos)
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }); }).forEach(function(o) {
               var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: efAmt, color: T.green, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: movDesc(o), date: o.date, amount: efAmt, color: T.green, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Tarjeta
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (amt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: "#9C27B0", _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+              if (amt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: movDesc(o), date: o.date, amount: amt, color: "#9C27B0", _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Transferencia
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (amt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.accent, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+              if (amt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: movDesc(o), date: o.date, amount: amt, color: T.accent, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Cuenta Corriente — siempre se muestra como info (● naranja)
             filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
               var amt = (o.payments || []).filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: fmtD(o.domain) + " — " + (clients.find(function(c) { return c.id === o.clientId; }) || {}).name, date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+              items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: movDesc(o), date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
             });
             // Egresos efectivo
             filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0 }); });
