@@ -16018,7 +16018,7 @@ export default function App() {
   const [selOrder, setSelOrder] = useState(null);
   const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
-  const [cierreDismissed, setCierreDismissed] = useState(false);
+  const [cierreDismissed, setCierreDismissed] = useState(() => sessionStorage.getItem("cierreDismissed") === "1");
   const [adminInitialOrder, setAdminInitialOrder] = useState(null);
   const [dbLoading,   setDbLoading]   = useState(true);
   // ── Sync state: reactive, driven by fsSave activity tracker ──
@@ -16718,6 +16718,7 @@ export default function App() {
           {/* Cierre semanal bloqueante — lunes sin cierre */}
           {(() => {
             if (cierreDismissed) return null;
+            if (config.cierreObligatorio === false) return null;
             const _td = new Date();
             const _dow = _td.getDay();
             if (_dow !== 1) return null;
@@ -16726,23 +16727,21 @@ export default function App() {
             const _sab = new Date(_lun); _sab.setDate(_lun.getDate() - 2);
             const _sabStr = _sab.toISOString().split("T")[0];
             if (_lastCierre && _lastCierre >= _sabStr) return null;
-            const obligatorio = config.cierreObligatorio === true;
+            const dismissCierre = () => { setCierreDismissed(true); sessionStorage.setItem("cierreDismissed", "1"); };
             return (
               <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
                 <div style={{ background: T.bg2, border: "2px solid " + T.orange, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
                   <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange, marginBottom: 10 }}>Cierre de Caja Pendiente</div>
                   <div style={{ fontSize: 14, color: T.grayLight, lineHeight: 1.7, marginBottom: 24 }}>
-                    No se realizo el cierre de caja semanal.{obligatorio ? <span><br/>Debes completarlo antes de continuar.</span> : ""}
+                    No se realizo el cierre de caja semanal.
                   </div>
-                  <button onClick={function() { setAdminInitialTab("caja"); setScreen("admin"); setCierreDismissed(true); }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 15, padding: "14px 0" }}>
+                  <button onClick={function() { setAdminInitialTab("caja"); setScreen("admin"); dismissCierre(); }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 15, padding: "14px 0" }}>
                     📋 Ir a Caja
                   </button>
-                  {!obligatorio && (
-                    <button onClick={function() { setCierreDismissed(true); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, width: "100%", fontSize: 13, padding: "12px 0", marginTop: 10, color: T.gray }}>
-                      Continuar sin cerrar
-                    </button>
-                  )}
+                  <button onClick={dismissCierre} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, width: "100%", fontSize: 13, padding: "12px 0", marginTop: 10, color: T.gray }}>
+                    Continuar sin cerrar
+                  </button>
                 </div>
               </div>
             );
