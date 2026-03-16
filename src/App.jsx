@@ -2868,7 +2868,7 @@ const NewOrderScreen = (props) => {
                           <input inputMode="text" value={ti.label || ""} onChange={e => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], label: e.target.value };
-                            const desc = newItems.filter(x => x.isCustom ? (x.label) : x.selected).map(x => x.isCustom ? x.label : x.label).join(", ");
+                            const desc = newItems.filter(x => x.isCustom ? (x.label) : x.selected).map(x => x.isCustom ? x.label : (x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label)).join(", ");
                             const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
                             updateWork(i, "trenItems", newItems);
                             updateWork(i, "desc", desc);
@@ -14056,6 +14056,13 @@ const InterventionDiagram = ({ order, sheet }) => {
     observations.push({ label: "Nota", text: n });
   });
 
+  // Push otroDesc annotations from all work items into observations
+  (order.works || []).forEach(w => {
+    (w.trenItems || []).filter(ti => (ti.isCustom ? ti.label : ti.selected) && ti.otroDesc && ti.otroDesc.trim()).forEach(ti => {
+      observations.push({ label: ti.label || w.type, text: ti.otroDesc });
+    });
+  });
+
   const renderItem = (item, i) => (
     <div key={i} style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 2 }}>
       <span style={{ width: 9, height: 9, borderRadius: 2, background: statusColor(item.status), display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 5.5, fontWeight: 800, flexShrink: 0 }}>{item.status === "good" || item.status === "changed" ? "✓" : item.status === "regular" ? "!" : "✕"}</span>
@@ -14562,6 +14569,31 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             </div>
           </div>
 
+          {/* Observaciones — otroDesc from escape items + techNotes */}
+          {(() => {
+            const escObs = [];
+            order.works.filter(w => w.type === "Escape").forEach(w => {
+              (w.trenItems || []).filter(ti => (ti.isCustom ? ti.label : ti.selected) && ti.otroDesc && ti.otroDesc.trim()).forEach(ti => {
+                escObs.push({ label: ti.label, text: ti.otroDesc });
+              });
+            });
+            (order.techNotes || []).filter(n => n && n.trim()).forEach(n => { escObs.push({ label: "Nota", text: n }); });
+            if (escObs.length === 0) return null;
+            return (
+              <div style={{ padding: "4px 22px 12px" }}>
+                <div style={{ padding: "8px 14px", background: "#FFF8E1", borderRadius: 6, border: "1px solid #FFE082" }}>
+                  <div style={{ fontSize: 7, fontWeight: 800, color: "#E65100", letterSpacing: 1.5, marginBottom: 4 }}>📝 OBSERVACIONES</div>
+                  {escObs.map((obs, i) => (
+                    <div key={i} style={{ display: "flex", gap: 4, marginBottom: 2, paddingLeft: 6, borderLeft: "2px solid #E65100" }}>
+                      <span style={{ fontSize: 8, fontWeight: 700, color: "#E65100", flexShrink: 0 }}>{obs.label}:</span>
+                      <span style={{ fontSize: 8, color: "#4A5568" }}>{obs.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Footer */}
           <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
@@ -15027,16 +15059,25 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 <FojaTireDiagram tires={tires} size={85} />
               </div>
             )}
-            {techNotes.length > 0 ? (
+            {(() => {
+              const allObs = [...techNotes];
+              // Add otroDesc annotations from all work items
+              (order.works || []).forEach(w => {
+                (w.trenItems || []).filter(ti => (ti.isCustom ? ti.label : ti.selected) && ti.otroDesc && ti.otroDesc.trim()).forEach(ti => {
+                  allObs.push((ti.label || w.type) + ": " + ti.otroDesc);
+                });
+              });
+              return allObs.length > 0 ? (
               <div style={{ flex: 1, background: "#FAFBFD", borderRadius: 6, padding: "6px 10px", border: "1px solid #EDF0F5" }}>
                 <div style={{ fontSize: 8, fontWeight: 700, color: "#E65100", marginBottom: 4, letterSpacing: .3 }}>📝 OBSERVACIONES</div>
-                {techNotes.map((o, i) => (
+                {allObs.map((o, i) => (
                   <div key={i} style={{ fontSize: 8, color: "#4A5568", marginBottom: 4, paddingLeft: 6, borderLeft: "2px solid #E65100", lineHeight: 1.3 }}>{o}</div>
                 ))}
               </div>
             ) : (
               <div style={{ flex: 1, background: "#FAFBFD", borderRadius: 6, padding: "10px", border: "1px solid #EDF0F5", textAlign: "center", color: "#A0AEC0", fontSize: 9 }}>Sin observaciones adicionales</div>
-            )}
+            );
+            })()}
           </div>
           </>)}
                     {/* TRABAJOS Y TOTAL */}
