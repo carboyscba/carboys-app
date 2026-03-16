@@ -16718,7 +16718,7 @@ export default function App() {
           {/* Cierre semanal bloqueante — lunes sin cierre */}
           {(() => {
             if (cierreDismissed) return null;
-            if (config.cierreObligatorio === false) return null;
+            if (config.cierreObligatorio !== true) return null;
             const _td = new Date();
             const _dow = _td.getDay();
             if (_dow !== 1) return null;
