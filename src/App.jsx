@@ -4298,41 +4298,98 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
           );
         }
 
-        // List view - all orders sorted by date desc
-        const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        // List view - last 20 orders, grouped chronologically
+        const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 20);
+
+        // Group by temporal buckets
+        const today = new Date(); today.setHours(0,0,0,0);
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+        const weekStart = new Date(today); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const groups = [];
+        const buckets = { hoy: [], ayer: [], semana: [], anteriores: [] };
+        allOrders.forEach(o => {
+          if (!o.date) { buckets.anteriores.push(o); return; }
+          const [y, m, d] = o.date.split("-").map(Number);
+          const oDate = new Date(y, m - 1, d); oDate.setHours(0,0,0,0);
+          if (oDate.getTime() === today.getTime()) buckets.hoy.push(o);
+          else if (oDate.getTime() === yesterday.getTime()) buckets.ayer.push(o);
+          else if (oDate >= weekStart) buckets.semana.push(o);
+          else buckets.anteriores.push(o);
+        });
+        if (buckets.hoy.length) groups.push({ label: "HOY", icon: "🟢", items: buckets.hoy });
+        if (buckets.ayer.length) groups.push({ label: "AYER", icon: "🔵", items: buckets.ayer });
+        if (buckets.semana.length) groups.push({ label: "ESTA SEMANA", icon: "📅", items: buckets.semana });
+        if (buckets.anteriores.length) groups.push({ label: "ANTERIORES", icon: "📋", items: buckets.anteriores });
+
+        const getStatusBadge = (s) => {
+          if (s === "delivered") return { label: "ENTREGADO", color: "#00C853", bg: "#00C85318" };
+          if (s === "done") return { label: "FINALIZADO", color: T.green, bg: `${T.green}18` };
+          if (s === "working") return { label: "EN CURSO", color: T.orange, bg: `${T.orange}18` };
+          if (s === "pending") return { label: "ESPERANDO", color: T.red, bg: `${T.red}18` };
+          if (s === "budget_closed" || s === "budget_sent") return { label: "PRESUPUESTO", color: "#9C27B0", bg: "#9C27B018" };
+          if (s === "inspection" || s === "inspection_done") return { label: "INSPECCIÓN", color: "#9C27B0", bg: "#9C27B018" };
+          return { label: s?.toUpperCase() || "—", color: T.gray, bg: `${T.gray}18` };
+        };
+
         return (
           <div>
-            <div style={{ fontSize: 12, color: T.gray, marginBottom: 12 }}>{allOrders.length} ingresos totales</div>
-            {allOrders.map(o => {
-              const cl = clients.find(c => c.id === o.clientId);
-              const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-              const isBudget = o.status === "budget_closed" || o.status === "budget_sent";
-              const borderColor = isBudget ? "#9C27B0" : T.accent;
-              const total = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-              const trabajos = (o.works || []).map(w => w.type).join(", ");
-              return (
-                <div key={o.id} onClick={() => setHistDetail(o)}
-                  style={{ ...card, padding: 14, marginBottom: 8, borderLeft: `4px solid ${borderColor}`, cursor: "pointer", transition: "all .15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }} onMouseLeave={e => { e.currentTarget.style.background = T.bg2; }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, letterSpacing: 1 }}>{fmtD(o.domain)}</span>
-                        {isBudget && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#9C27B020", color: "#9C27B0" }}>PRESUPUESTO</span>}
-                      </div>
-                      <div style={{ fontSize: 12, color: T.grayLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
-                      </div>
-                      <div style={{ fontSize: 11, color: T.gray, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trabajos || "Sin trabajos"}</div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
-                      <div style={{ fontSize: 11, color: T.gray }}>{o.date || "—"}</div>
-                    </div>
-                  </div>
+            <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Últimos {allOrders.length} ingresos</div>
+            {groups.map((g, gi) => (
+              <div key={g.label} style={{ marginBottom: gi < groups.length - 1 ? 20 : 0 }}>
+                {/* Group header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `2px solid ${T.accent}30` }}>
+                  <span style={{ fontSize: 14 }}>{g.icon}</span>
+                  <span style={{ fontFamily: fontD, fontSize: 13, fontWeight: 800, letterSpacing: 2, color: T.accent }}>{g.label}</span>
+                  <span style={{ fontSize: 11, color: T.gray, fontWeight: 600 }}>({g.items.length})</span>
                 </div>
-              );
-            })}
+                {g.items.map(o => {
+                  const cl = clients.find(c => c.id === o.clientId);
+                  const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                  const badge = getStatusBadge(o.status);
+                  const total = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                  const trabajos = (o.works || []).map(w => w.type).join(", ");
+                  return (
+                    <div key={o.id} style={{ ...card, padding: 0, marginBottom: 8, overflow: "hidden", transition: "all .15s" }}>
+                      <div onClick={() => setHistDetail(o)}
+                        style={{ padding: 14, cursor: "pointer" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, letterSpacing: 1 }}>{fmtD(o.domain)}</span>
+                              <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: badge.bg, color: badge.color, border: `1px solid ${badge.color}30`, letterSpacing: .5 }}>{badge.label}</span>
+                            </div>
+                            <div style={{ fontSize: 12, color: T.grayLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
+                            </div>
+                            <div style={{ fontSize: 11, color: T.gray, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trabajos || "Sin trabajos"}</div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                            <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: badge.color }}>{fmt(total)}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>{o.date || "—"}</div>
+                            <span style={{ fontSize: 10, color: T.gray, fontFamily: fontD }}>#{o.id}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Quick Nueva Visita button */}
+                      <div onClick={e => { e.stopPropagation(); onNavigate("newOrder", { domain: o.domain }); }}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderTop: `1px solid ${T.border}`, cursor: "pointer", background: `${T.green}06`, transition: "background .15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = `${T.green}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.green}06`; }}>
+                        <span style={{ fontSize: 12 }}>🔧</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.green }}>NUEVA VISITA</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            {allOrders.length === 0 && (
+              <div style={{ ...card, padding: 30, textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 10 }}>📋</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Sin historial</div>
+                <div style={{ fontSize: 13, color: T.gray }}>Aún no hay ingresos registrados</div>
+              </div>
+            )}
           </div>
         );
       })()}
