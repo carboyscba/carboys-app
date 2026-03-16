@@ -3537,7 +3537,7 @@ const NewOrderScreen = (props) => {
   );
 };
 
-const QuickSaleScreen = ({ config, onNavigate }) => {
+const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user, onNavigate }) => {
   const [items, setItems] = useState([{ name: "", price: "" }]);
   const [method, setMethod] = useState("");
   const [clientInfo, setClientInfo] = useState({ name: "", lastName: "", dni: "", phone: "" });
@@ -3549,11 +3549,11 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
   const updateItem = (i, f, v) => setItems(it => it.map((x, j) => j === i ? { ...x, [f]: v } : x));
   const removeItem = (i) => setItems(it => it.filter((_, j) => j !== i));
   const total = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-  const needsClientInfo = method === "Tarjeta" || method === "Transferencia" || method === "Cta. Corriente";
+  const needsClientInfo = method === "Tarjeta" || method === "Transferencia" || method === "Cuenta Corriente";
   const itemsValid = items.every(i => i.name && i.price && parseFloat(i.price) > 0);
   const clientValid = !needsClientInfo || (
     clientInfo.name && clientInfo.lastName && clientInfo.phone &&
-    (method === "Cta. Corriente" || clientInfo.dni)
+    (method === "Cuenta Corriente" || clientInfo.dni)
   );
   const allValid = itemsValid && method && clientValid;
 
@@ -3625,7 +3625,7 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
       {/* Payment method */}
       <label style={labelStyle}>Método de pago *</label>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
-        {["Efectivo", "Tarjeta", "Transferencia", "Cta. Corriente"].map(m => (
+        {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
           <div key={m} onClick={() => setMethod(m)}
             style={{ ...card, padding: "12px 8px", cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, borderColor: method === m ? T.accent : T.border, background: method === m ? "rgba(30,136,229,0.1)" : T.bg2, fontFamily: font, color: method === m ? T.accent : T.grayLight }}>
             {m}
@@ -3676,7 +3676,7 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
             </div>
           </div>
           <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>DNI / CUIT {method !== "Cta. Corriente" ? "*" : "(opcional)"}</label>
+            <label style={labelStyle}>DNI / CUIT {method !== "Cuenta Corriente" ? "*" : "(opcional)"}</label>
             <input inputMode="numeric" value={clientInfo.dni} onChange={e => setClientInfo(c => ({ ...c, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
           </div>
           <div style={{ marginTop: 12 }}>
@@ -3688,7 +3688,72 @@ const QuickSaleScreen = ({ config, onNavigate }) => {
 
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
-        <button onClick={() => setConfirmed(true)} disabled={!allValid}
+        <button onClick={() => {
+          // ── Generate order ID ──
+          const maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
+          const newId = "ord_" + String(maxNum + 1).padStart(3, "0");
+          const todayStr = new Date().toISOString().split("T")[0];
+
+          // ── Find or create client ──
+          let clientId = "quick_sale_generic";
+          if (clientInfo.name && clientInfo.lastName) {
+            // Try to find existing client by DNI
+            let existing = clientInfo.dni ? clients.find(c => c.dni === clientInfo.dni) : null;
+            if (!existing) {
+              // Create new client
+              clientId = "cli_qs_" + Date.now();
+              const newClient = {
+                id: clientId,
+                name: clientInfo.name,
+                lastName: clientInfo.lastName,
+                dni: clientInfo.dni || "",
+                cuit: "",
+                phone: clientInfo.phone || "",
+                vehicles: [],
+              };
+              setClients(prev => [...prev, newClient]);
+            } else {
+              clientId = existing.id;
+            }
+          }
+
+          // ── Build works from items ──
+          const worksArr = items.filter(i => i.name && parseFloat(i.price) > 0).map(i => ({
+            type: "Venta Rápida",
+            desc: i.name,
+            price: parseFloat(i.price) || 0,
+          }));
+
+          // ── Build payment ──
+          const finalAmount = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+          const paymentObj = {
+            id: Date.now() + Math.random(),
+            method: method,
+            amount: finalAmount,
+            account: method === "Transferencia" ? (account || "1") : "1",
+            installments: method === "Tarjeta" ? installments : 1,
+            invoiceType: "",
+            date: todayStr,
+          };
+
+          // ── Create order as delivered (venta ya cobrada) ──
+          const newOrder = {
+            id: newId,
+            clientId: clientId,
+            domain: "VENTA-RAPIDA",
+            status: "delivered",
+            works: worksArr,
+            payments: [paymentObj],
+            assignedTo: user?.name || "",
+            date: todayStr,
+            deliveredAt: new Date().toLocaleString("es-AR"),
+            isQuickSale: true,
+            quickSaleItems: items.filter(i => i.name && parseFloat(i.price) > 0),
+          };
+
+          setOrders(prev => [...prev, newOrder]);
+          setConfirmed(true);
+        }} disabled={!allValid}
           style={{ ...btnPrimary(T.green), opacity: allValid ? 1 : 0.4 }}>✅ Confirmar Venta</button>
       </div>
     </div>
@@ -16670,7 +16735,7 @@ export default function App() {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
       case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} /> : null;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
-      case "quickSale": return <QuickSaleScreen config={config} onNavigate={nav} />;
+      case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
