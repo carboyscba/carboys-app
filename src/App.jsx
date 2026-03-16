@@ -5717,7 +5717,7 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
   );
 };
 
-const FacturaModal = ({ data, onClose, onEmit, config }) => {
+const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   const { order, payments, client, vehicle, readonly } = data;
   if (!order) return null;
   const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
@@ -5735,6 +5735,14 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
   const ivaAmt = withIva ? Math.round(total * iva / 100) : 0;
   const totalFact = withIva ? total + ivaAmt : total;
 
+  // Entity info based on invoice type
+  const isEntity2 = invoiceType === "C";
+  const entityName = isEntity2 ? (config?.cta2Nombre || "KARQUI VICTOR LISANDRO IGNACIO") : (config?.razonSocial || "CARBOYS S.A.S.");
+  const entityCuit = isEntity2 ? (config?.cta2Cuit || "20-34441217-1") : (config?.cuit || "30-71745468-1");
+  const entityCondIva = isEntity2 ? (config?.cta2CondIva || "Monotributo") : (config?.condIva || "Responsable Inscripto");
+  const entityDom = isEntity2 ? (config?.cta2DomFiscal || "") : (config?.domFiscal || "");
+  const entityPV = order.factura?.puntoVenta || 3;
+
   const now = new Date();
   const fechaEmision = order.factura?.fecha || now.toLocaleDateString("es-AR");
   const nroFactura = order.factura?.numero || `${puntoVenta}-00000001`;
@@ -5750,8 +5758,8 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           {!readonly && (
-            <button onClick={onEmit} style={{ ...btnPrimary(T.accent), padding: "8px 20px", fontSize: 13 }}>
-              ✅ Confirmar y emitir
+            <button onClick={onEmit} disabled={facturando} style={{ ...btnPrimary(T.accent), padding: "8px 20px", fontSize: 13, opacity: facturando ? 0.6 : 1 }}>
+              {facturando ? "⏳ Facturando en ARCA..." : "✅ Confirmar y emitir"}
             </button>
           )}
           {readonly && (
@@ -5818,10 +5826,11 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
               </div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
               <div style={{ marginTop: 12, fontSize: 12, color: "#9badc4", lineHeight: 1.6 }}>
-                <div>{cuenta}</div>
-                <div>CUIT: {cuitEmisor}</div>
-                <div>Punto de Venta: {puntoVenta}</div>
-                <div style={{ fontSize: 11, color: "#7b8fad" }}>Responsable Inscripto</div>
+                <div>{entityName}</div>
+                <div>CUIT: {entityCuit}</div>
+                <div>PV: {String(entityPV).padStart(5, "0")}</div>
+                {entityDom && <div style={{ fontSize: 10 }}>{entityDom}</div>}
+                <div style={{ fontSize: 11, color: "#7b8fad" }}>{entityCondIva}</div>
               </div>
             </div>
             {/* Recuadro tipo de factura */}
@@ -5921,19 +5930,26 @@ const FacturaModal = ({ data, onClose, onEmit, config }) => {
             </div>
           </div>
 
-          {/* ── CAE / ARCA (placeholder) ── */}
+          {/* ── CAE / ARCA ── */}
           <div style={{ padding: "16px 28px", background: "#f8fafc", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>CAE / ARCA</div>
-              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 16, fontWeight: 700, color: order.factura?.cae ? "#0d1526" : "#94a3b8", letterSpacing: 1 }}>
-                {order.factura?.cae || "Pendiente de conexión ARCA"}
+              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>CAE</div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 18, fontWeight: 700, color: order.factura?.cae ? "#0d1526" : "#94a3b8", letterSpacing: 2 }}>
+                {order.factura?.cae || "Pendiente"}
               </div>
-              {order.factura?.caeVto && <div style={{ fontSize: 11, color: "#64748b" }}>Vto: {order.factura.caeVto}</div>}
+              {order.factura?.caeVto && <div style={{ fontSize: 11, color: "#64748b" }}>Vencimiento CAE: {order.factura.caeVto}</div>}
             </div>
-            {/* QR placeholder */}
-            <div style={{ width: 64, height: 64, border: "2px dashed #cbd5e1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#94a3b8", textAlign: "center" }}>
-              QR<br/>AFIP
-            </div>
+            {order.factura?.cae && (
+              <div style={{ textAlign: "center" }}>
+                <img src={`https://chart.googleapis.com/chart?cht=qr&chs=80x80&chl=https://www.afip.gob.ar/fe/qr/?p=${btoa(JSON.stringify({ver:1,fecha:order.factura.fecha?.split("/").reverse().join("-"),cuit:entityCuit.replace(/[^0-9]/g,""),ptoVta:entityPV,tipoCmp:invoiceType==="A"?1:invoiceType==="B"?6:11,nroCmp:order.factura.cbteNro||1,importe:order.factura.importeTotal||totalFact,moneda:"PES",ctz:1,tipoDocRec:99,nroDocRec:0,tipoCodAut:"E",codAut:parseInt(order.factura.cae)}))}`} alt="QR AFIP" style={{ width: 80, height: 80, borderRadius: 4 }} />
+                <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 2 }}>Verificar en AFIP</div>
+              </div>
+            )}
+            {!order.factura?.cae && (
+              <div style={{ width: 64, height: 64, border: "2px dashed #cbd5e1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#94a3b8", textAlign: "center" }}>
+                QR<br/>AFIP
+              </div>
+            )}
           </div>
 
           {/* ── FOOTER ── */}
@@ -6175,21 +6191,74 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   ];
   const TABS = cobroOnly ? _ALL_TABS.filter(t => t.key === "cobros") : _ALL_TABS;
 
-  // ── Handler emitir factura ──
-  const handleEmitirFactura = () => {
-    if (!facturaModal) return;
+  // ── Handler emitir factura (con ARCA) ──
+  const [facturando, setFacturando] = useState(false);
+  const handleEmitirFactura = async () => {
+    if (!facturaModal || facturando) return;
     const { order, payments, client } = facturaModal;
     const now = new Date();
     const mainPay = (payments || [])[0] || {};
-    const puntoVenta = getCuentaPV(config, mainPay.account);
-    const factura = {
-      numero: `${puntoVenta}-${String(Date.now()).slice(-8)}`,
-      fecha: now.toLocaleDateString("es-AR"),
-      tipo: mainPay.invoiceType || "B",
-      cae: null,       // Se completará cuando ARCA esté conectado
-      caeVto: null,
-      emitidaEn: now.toISOString(),
-    };
+    const tipoFC = mainPay.invoiceType || "B";
+    const entityId = tipoFC === "C" ? "2" : "1";
+    const puntoVenta = 3; // PV RECE
+    const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+    
+    // Determinar docTipo y docNro
+    let docTipo = 99; // Consumidor Final
+    let docNro = 0;
+    if (tipoFC === "A" && client?.cuit) { docTipo = 80; docNro = parseInt((client.cuit || "").replace(/[^0-9]/g, "")) || 0; }
+    else if (tipoFC === "B" && client?.cuit) { docTipo = 80; docNro = parseInt((client.cuit || "").replace(/[^0-9]/g, "")) || 0; }
+    else if (tipoFC === "B" && client?.dni) { docTipo = 96; docNro = parseInt((client.dni || "").replace(/[^0-9]/g, "")) || 0; }
+    else if (tipoFC === "C" && client?.dni) { docTipo = 96; docNro = parseInt((client.dni || "").replace(/[^0-9]/g, "")) || 0; }
+    
+    // Calcular importes según tipo
+    let importeTotal = total;
+    let importeNeto = 0;
+    let importeIva = 0;
+    if (tipoFC === "A") {
+      // FC A: discrimina IVA
+      importeNeto = total;
+      importeIva = Math.round(total * (config.ivaRate || 21) / 100 * 100) / 100;
+      importeTotal = importeNeto + importeIva;
+    }
+    // FC B y C: no discriminan IVA, todo va como total
+    
+    setFacturando(true);
+    let factura;
+    try {
+      const arcaUrl = config.arcaUrl || "https://carboys-arca-production.up.railway.app";
+      const arcaKey = config.arcaApiKey || "carboys-arca-2026";
+      const resp = await fetch(`${arcaUrl}/api/facturar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": arcaKey },
+        body: JSON.stringify({ entityId, puntoVenta, tipoFactura: tipoFC, docTipo, docNro, importeTotal, importeNeto, importeIva, concepto: 1 })
+      });
+      const result = await resp.json();
+      if (result.success) {
+        factura = {
+          numero: String(puntoVenta).padStart(5, "0") + "-" + String(result.cbteNro).padStart(8, "0"),
+          fecha: now.toLocaleDateString("es-AR"),
+          tipo: tipoFC,
+          cae: result.cae,
+          caeVto: result.caeVto ? result.caeVto.replace(/(\d{4})(\d{2})(\d{2})/, "$3/$2/$1") : "",
+          emitidaEn: now.toISOString(),
+          entityId,
+          puntoVenta,
+          cbteNro: result.cbteNro,
+          importeTotal,
+        };
+      } else {
+        alert("Error ARCA: " + (result.error || "Error desconocido"));
+        setFacturando(false);
+        return;
+      }
+    } catch (e) {
+      alert("Error conectando con ARCA: " + e.message);
+      setFacturando(false);
+      return;
+    }
+    setFacturando(false);
+    
     // Guardar datos de cliente actualizados
     if (client) {
       setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
@@ -6227,6 +6296,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         config={config}
         onClose={() => setFacturaModal(null)}
         onEmit={handleEmitirFactura}
+        facturando={facturando}
       />
     )}
     {ticketModal && (
