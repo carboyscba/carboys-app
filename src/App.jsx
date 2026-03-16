@@ -1737,7 +1737,9 @@ const NewOrderScreen = (props) => {
     setStep(2);
   };
 
-  const clientFormValid = form.name && form.lastName && (form.dni || form.cuit) && form.phone && form.brand && form.model && form.year && (form.km || form.currentKm) && form.domain;
+  const yearNum = parseInt(form.year);
+  const yearValid = yearNum >= 1960 && yearNum <= new Date().getFullYear() + 1;
+  const clientFormValid = form.name && form.lastName && (form.dni || form.cuit) && form.phone && form.brand && form.model && form.year && yearValid && (form.km || form.currentKm) && form.domain;
 
   const [kmError, setKmError] = useState("");
 
@@ -2530,11 +2532,12 @@ const NewOrderScreen = (props) => {
             </div>
             <div>
               <label style={labelStyle}>Año *</label>
-              <div style={{ borderRadius: 8, border: `1px solid ${!form.year ? T.orange : T.border}` }}>
-                <SearchSelect options={YEARS.map(String)} value={form.year}
-                  onChange={v => setForm(f => ({ ...f, year: v }))}
-                  placeholder="Año" />
-              </div>
+              <input inputMode="numeric" pattern="[0-9]*" value={form.year} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 4); setForm(f => ({ ...f, year: v })); }}
+                onKeyDown={focusNext(refKm)} placeholder="Ej: 2020"
+                style={{ ...inputStyle, fontFamily: fontD, fontWeight: 700, borderColor: !form.year ? T.orange : (parseInt(form.year) >= 1960 && parseInt(form.year) <= new Date().getFullYear() + 1) ? T.border : T.red }} />
+              {form.year && (parseInt(form.year) < 1960 || parseInt(form.year) > new Date().getFullYear() + 1) && (
+                <div style={{ fontSize: 11, color: T.red, marginTop: 4 }}>Año entre 1960 y {new Date().getFullYear() + 1}</div>
+              )}
             </div>
             {foundVehicle && !isNew ? (
               <div>
