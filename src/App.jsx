@@ -7192,7 +7192,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {/* ══════ CAJA ══════ */}
       {tab === "caja" && (<div>
         {/* Alerta cierre semanal — lunes sin cierre */}
-        {faltaCierre && esLunes && (
+        {faltaCierre && esLunes && !showCierre && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: T.bg2, border: `2px solid ${T.orange}`, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
@@ -7802,7 +7802,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         {/* ══ POPUP CIERRE DE CAJA ══ */}
         {showCierre && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 16 }} onClick={() => setShowCierre(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📋 Cierre de Caja</div>
               <div style={{ ...card, padding: 14, marginBottom: 14 }}>
