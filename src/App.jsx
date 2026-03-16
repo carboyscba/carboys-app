@@ -5880,16 +5880,29 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
               <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>IMPORTE</span>
             </div>
-            {(order.works || []).map((w, i) => (
-              <div key={i} style={{ marginBottom: 8, display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{w.desc ? ` — ${w.desc}` : ""}</div>
+            {(order.works || []).map((w, i) => {
+              const isBat = w.type === "Baterías" || w.type === "Baterias";
+              const selTren = (w.trenItems || []).filter(ti => ti.selected);
+              const showDesc = isBat ? (w.desc || selTren[0]?.label || "") : (w.desc || "");
+              const showSubs = !isBat && selTren.length > 0;
+              return (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{showDesc ? ` — ${showDesc}` : ""}</div>
+                  </div>
+                  <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right" }}>
+                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(w.price) || 0)}
+                  </div>
                 </div>
-                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right" }}>
-                  {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(w.price) || 0)}
-                </div>
+                {showSubs && selTren.map((ti, j) => (
+                  <div key={j} style={{ fontSize: 11, color: "#64748b", paddingLeft: 12, marginTop: 2 }}>
+                    • {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.price ? ` — ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(ti.price) || 0)}` : ""}
+                  </div>
+                ))}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Totales */}
@@ -6105,13 +6118,18 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
               <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>IMPORTE</span>
             </div>
-            {(order.works || []).map((w, i) => (
+            {(order.works || []).map((w, i) => {
+              const isBat = w.type === "Baterías" || w.type === "Baterias";
+              const selTren = (w.trenItems || []).filter(ti => ti.selected);
+              const showDesc = isBat ? (w.desc || selTren[0]?.label || "") : (w.desc || "");
+              const showSubs = !isBat && selTren.length > 0;
+              return (
               <div key={i} style={{ marginBottom: 8 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{w.desc ? ` — ${w.desc}` : ""}</div>
-                    {w.trenItems && w.trenItems.filter(ti => ti.selected || ti.label).map((ti, j) => (
-                      <div key={j} style={{ fontSize: 11, color: "#64748b", paddingLeft: 10 }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side})` : ""}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{showDesc ? ` — ${showDesc}` : ""}</div>
+                    {showSubs && selTren.map((ti, j) => (
+                      <div key={j} style={{ fontSize: 11, color: "#64748b", paddingLeft: 10 }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.price ? ` — ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(ti.price) || 0)}` : ""}</div>
                     ))}
                   </div>
                   <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right", whiteSpace: "nowrap" }}>
@@ -6119,7 +6137,8 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* ── TOTALES ── */}
