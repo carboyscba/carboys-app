@@ -629,7 +629,7 @@ const cleanWahaUrl = (url) => (url || "").replace(/\/$/, "").replace(/\/api\/.*$
 // Si wahaUrl está configurado, envía via API. Si no, abre wa.me como fallback.
 const sendWA = async (phone, message, wahaUrl = "", wahaApiKey = "", session = "default") => {
   var normalPhone = normalizePhone(phone);
-  if (!normalPhone) return;
+  if (!normalPhone) return false;
   if (wahaUrl) {
     try {
       var base = cleanWahaUrl(wahaUrl);
@@ -640,13 +640,17 @@ const sendWA = async (phone, message, wahaUrl = "", wahaApiKey = "", session = "
         method: "POST", headers: headers,
         body: JSON.stringify({ chatId: chatId, text: message, session: session || "default" }),
       });
-      if (res.ok) return;
+      if (res.ok) { console.log("[WAHA] sendText OK to", chatId); return true; }
       console.warn("[WAHA] sendText failed:", res.status, await res.text().catch(function() { return ""; }));
+      return false;
     } catch (e) {
-      console.warn("[WAHA] fetch error, fallback to wa.me:", e);
+      console.warn("[WAHA] sendText error:", e);
+      return false;
     }
   }
+  // Sin WAHA configurado, abrir wa.me como último recurso
   window.open("https://wa.me/" + normalPhone + "?text=" + encodeURIComponent(message), "_blank");
+  return true;
 };
 
 const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, session) => {
@@ -4350,6 +4354,7 @@ const VehicleDetailScreen = (props) => {
   const [showDeliverPopup, setShowDeliverPopup] = useState(false);
   const [showNotifyPopup, setShowNotifyPopup] = useState(false);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
+  const [showRevertBudgetPopup, setShowRevertBudgetPopup] = useState(false);
   const [cancelStep, setCancelStep] = useState(1);
   const [showEditOrder, setShowEditOrder] = useState(false);
   const [showCobrarPopup, setShowCobrarPopup] = useState(false);
@@ -4364,6 +4369,7 @@ const VehicleDetailScreen = (props) => {
   const [showEscapePopup2, setShowEscapePopup2] = useState(false);
   const [showPriceError, setShowPriceError] = useState(false);
   const [showBudgetStartPopup, setShowBudgetStartPopup] = useState(false);
+  const [budgetPayPref, setBudgetPayPref] = useState({ method: "", withIva: null });
   const [budgetSelWorks, setBudgetSelWorks] = useState([]);
   const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#9C27B0" : T.red;
   const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
@@ -4682,7 +4688,8 @@ const VehicleDetailScreen = (props) => {
           ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(getPerm(user, "cancelar") && ["pending","working","inspection","inspection_done","budget_sent"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(order.fromBudgetId && order.status === "pending" ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && ["pending","working","inspection","inspection_done"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -5288,9 +5295,36 @@ const VehicleDetailScreen = (props) => {
                     <span>TOTAL ({selWorks.length} trabajos)</span>
                     <span style={{ color: "#9C27B0" }}>{fmt(selTotal)}</span>
                   </div>
+
+                  {/* Preferencia de pago */}
+                  <div style={{ padding: "12px 0", borderTop: "1px solid " + T.border }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 10 }}>💳 PREFERENCIA DE PAGO</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                      {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
+                        <div key={m} onClick={() => setBudgetPayPref(prev => ({ ...prev, method: prev.method === m ? "" : m }))}
+                          style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                            border: "2px solid " + (budgetPayPref.method === m ? "#9C27B0" : T.border),
+                            background: budgetPayPref.method === m ? "rgba(156,39,176,0.06)" : T.bg,
+                            color: budgetPayPref.method === m ? "#9C27B0" : T.gray }}>{m}</div>
+                      ))}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div onClick={() => setBudgetPayPref(prev => ({ ...prev, withIva: true }))}
+                        style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                          border: "2px solid " + (budgetPayPref.withIva === true ? T.accent : T.border),
+                          background: budgetPayPref.withIva === true ? T.accent + "10" : T.bg,
+                          color: budgetPayPref.withIva === true ? T.accent : T.gray }}>Con IVA (+21%)</div>
+                      <div onClick={() => setBudgetPayPref(prev => ({ ...prev, withIva: false }))}
+                        style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                          border: "2px solid " + (budgetPayPref.withIva === false ? T.gray : T.border),
+                          background: budgetPayPref.withIva === false ? T.bg3 : T.bg,
+                          color: budgetPayPref.withIva === false ? T.grayLight : T.gray }}>Sin IVA</div>
+                    </div>
+                  </div>
+
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => setShowBudgetStartPopup(false)} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 13 }}>Cancelar</button>
-                    <button disabled={selWorks.length === 0} onClick={() => {
+                    <button disabled={selWorks.length === 0 || !budgetPayPref.method || budgetPayPref.withIva === null} onClick={() => {
                       var newWorks = selWorks.map(w => {
                         var hasSubs = (w.trenItems || []).length > 0;
                         var selSubs = hasSubs ? (w.trenItems || []).filter(ti => ti.selected) : [];
@@ -5305,12 +5339,12 @@ const VehicleDetailScreen = (props) => {
                         assignedTo: "", date: new Date().toISOString().split("T")[0],
                         km: order.km || "", budgetApproved: true, approvedAt: new Date().toISOString(),
                         fromBudgetId: order.id, startedBy: "", startedAt: "", waRecepcion: false,
-                        paymentPref: order.paymentPref || {}
+                        paymentPref: { method: budgetPayPref.method, withIva: budgetPayPref.withIva }
                       };
                       setOrders(prev => [...prev, newOrder]);
                       setShowBudgetStartPopup(false);
                       onNavigate("vehicleDetail", newOrder);
-                    }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, fontWeight: 800, opacity: selWorks.length > 0 ? 1 : 0.4 }}>
+                    }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, fontWeight: 800, opacity: (selWorks.length > 0 && budgetPayPref.method && budgetPayPref.withIva !== null) ? 1 : 0.4 }}>
                       ▶️ Crear Orden de Trabajo
                     </button>
                   </div>
@@ -5323,6 +5357,31 @@ const VehicleDetailScreen = (props) => {
 
 
       {/* Foja menu popup */}
+      {/* ══ POPUP VOLVER A PRESUPUESTO ══ */}
+      {showRevertBudgetPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}
+          onClick={() => setShowRevertBudgetPopup(false)}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 400, width: "90%", border: `1px solid ${T.border}`, textAlign: "center" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>↩️</div>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Volver a Presupuesto</div>
+            <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 20, lineHeight: 1.5 }}>
+              Se eliminará esta orden de trabajo y el presupuesto original quedará vigente para el vehículo <strong>{fmtD(order.domain)}</strong>.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowRevertBudgetPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
+              <button onClick={() => {
+                setOrders(prev => prev.filter(o => o.id !== order.id));
+                setShowRevertBudgetPopup(false);
+                const budgetOrder = orders.find(o => o.id === order.fromBudgetId);
+                if (budgetOrder) onNavigate("vehicleDetail", budgetOrder);
+                else onNavigate("dashboard");
+              }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13, fontWeight: 700 }}>↩️ Sí, volver</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCancelPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}
           onClick={() => setShowCancelPopup(false)}>
@@ -10861,16 +10920,11 @@ const BudgetPricingScreen = (props) => {
       if (sent) {
         alert("✅ Presupuesto enviado por WhatsApp!");
       } else {
-        // Fallback: abrir wa.me con texto
-        var nPhone = normalizePhone(phone);
-        var msg = "Hola " + (client ? client.name : "") + "! Le enviamos el presupuesto para su " + (vehicle ? vehicle.brand + " " + vehicle.model : "") + " (" + fmtD(order.domain) + ").\n\n*TOTAL: " + fmt(grandTotalIva) + " (IVA inc.)*\n\n_Presupuesto valido por 15 dias._\n\n*CarBoys* — Servicio Integral del Automotor";
-        window.open("https://wa.me/" + nPhone + "?text=" + encodeURIComponent(msg), "_blank");
+        alert("❌ No se pudo enviar el presupuesto. Verificá la conexión con WAHA.");
       }
     } catch (e) {
       console.warn("Error enviando imagen:", e);
-      var nPhone2 = normalizePhone(phone);
-      var msgFb = "Presupuesto " + fmtD(order.domain) + " — Total: " + fmt(grandTotalIva) + " (IVA inc.)";
-      window.open("https://wa.me/" + nPhone2 + "?text=" + encodeURIComponent(msgFb), "_blank");
+      alert("❌ Error al capturar o enviar el presupuesto: " + e.message);
     }
     setSendingWA(false);
   };
