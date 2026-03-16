@@ -7520,7 +7520,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {/* ══════ CAJA ══════ */}
       {tab === "caja" && (<div>
         {/* Alerta cierre semanal — lunes sin cierre */}
-        {faltaCierre && esLunes && (
+        {faltaCierre && esLunes && !showCierre && config.cierreObligatorio === true && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: T.bg2, border: `2px solid ${T.orange}`, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
@@ -7531,6 +7531,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               </div>
               <button onClick={() => { setShowCierre(true); }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 15, padding: "14px 0" }}>
                 📋 Realizar Cierre de Caja
+              </button>
+              <button onClick={() => setTab("resumen")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, width: "100%", fontSize: 13, padding: "12px 0", marginTop: 10, color: T.gray }}>
+                Volver
               </button>
             </div>
           </div>
