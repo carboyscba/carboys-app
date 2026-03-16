@@ -1069,8 +1069,9 @@ const WORK_TYPES = [
   { name: "Escape", icon: "💨" },
   { name: "Repro", icon: "⚡" },
   { name: "Arreglo", icon: "🪛" },
+  { name: "Baterías", icon: "🔋" },
+  { name: "Chequeo Pre-Post", icon: "🔍" },
   { name: "Accesorios", icon: "🧰", isGroup: true, subItems: [
-    { name: "Baterías", icon: "🔋" },
     { name: "Escobillas", icon: "🧹" },
     { name: "Aditivo", icon: "🧪" },
     { name: "Lámpara", icon: "💡" },
@@ -11088,7 +11089,7 @@ const BudgetPricingScreen = (props) => {
   var client = clients.find(function(c) { return c.id === order.clientId; });
   var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
   var inspData = order.inspectionData || {};
-  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛" };
+  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛", "Chequeo Pre-Post": "🔍" };
 
   var initPricing = function() {
     if (order.pricingData) return order.pricingData;
