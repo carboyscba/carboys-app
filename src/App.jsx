@@ -1872,6 +1872,7 @@ const NewOrderScreen = (props) => {
       payments: payments.map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })),
       assignedTo: "",
       date: new Date().toISOString().split("T")[0],
+      _createdAt: new Date().toISOString(),
       invoiceType: getInvoiceType(payments[0]),
       startedBy: "",
       startedAt: "",
@@ -3745,6 +3746,7 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
             assignedTo: user?.name || "",
             date: todayStr,
             deliveredAt: new Date().toLocaleString("es-AR"),
+            _createdAt: new Date().toISOString(),
             isQuickSale: true,
             quickSaleDesc: descList,
           };
@@ -5431,7 +5433,7 @@ const VehicleDetailScreen = (props) => {
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>Confirmar Entrega</div>
             <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 20 }}>El vehículo será marcado como entregado y ya no aparecerá en el taller.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => { setShowDeliverPopup(false); setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "delivered", deliveredAt: new Date().toLocaleString("es-AR") } : o)); onNavigate("workshop"); }}
+              <button onClick={() => { setShowDeliverPopup(false); setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "delivered", deliveredAt: new Date().toLocaleString("es-AR"), _createdAt: o._createdAt || new Date().toISOString() } : o)); onNavigate("workshop"); }}
                 style={{ ...btnPrimary("#00C853"), fontSize: 15, padding: "14px 0" }}>
                 Confirmar Entrega
               </button>
@@ -7756,25 +7758,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var cName = (clients.find(function(c) { return c.id === o.clientId; }) || {}).name || "";
               return fmtD(o.domain) + (cName ? " — " + cName : "");
             };
-            // Efectivo (excluir pagos que fueron CTA CTE saldada — tanto datos viejos como nuevos)
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }); }).forEach(function(o) {
-              var efAmt = (o.payments || []).filter(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: movDesc(o), date: o.date, amount: efAmt, color: T.green, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
-            });
-            // Tarjeta
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }); }).forEach(function(o) {
-              var amt = (o.payments || []).filter(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (amt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: movDesc(o), date: o.date, amount: amt, color: "#9C27B0", _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
-            });
-            // Transferencia
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }); }).forEach(function(o) {
-              var amt = (o.payments || []).filter(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (amt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: movDesc(o), date: o.date, amount: amt, color: T.accent, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
-            });
-            // Cuenta Corriente — siempre se muestra como info (● naranja)
-            filtOrders.filter(function(o) { return (o.payments || []).some(function(p) { return p.method === "Cuenta Corriente"; }); }).forEach(function(o) {
-              var amt = (o.payments || []).filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: movDesc(o), date: o.date, amount: amt, color: T.orange, _ts: new Date(o.deliveredAt || o.startedAt || o.date || 0).getTime() || 0 });
+            // Helper: robust timestamp from order — tries _createdAt (ISO), deliveredAt, startedAt, then falls back to order ID sequence
+            var orderTs = function(o) {
+              var raw = o._createdAt || o.deliveredAt || o.startedAt || "";
+              var t = new Date(raw).getTime();
+              if (t && !isNaN(t) && t > 0) return t;
+              // Fall back to order ID sequence (ord_001 → 1)
+              var m = String(o.id || "").match(/(\d+)$/);
+              return m ? parseInt(m[1], 10) : 0;
+            };
+            // ── Single pass: iterate orders once, emit one item per payment method per order ──
+            filtOrders.forEach(function(o) {
+              var ts = orderTs(o);
+              var desc = movDesc(o);
+              var pays = o.payments || [];
+              // Efectivo
+              var efAmt = pays.filter(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: desc, date: o.date, amount: efAmt, color: T.green, _ts: ts });
+              // Tarjeta
+              var tarjAmt = pays.filter(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (tarjAmt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: desc, date: o.date, amount: tarjAmt, color: "#9C27B0", _ts: ts });
+              // Transferencia
+              var transfAmt = pays.filter(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (transfAmt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: desc, date: o.date, amount: transfAmt, color: T.accent, _ts: ts });
+              // Cuenta Corriente
+              var ctaAmt = pays.filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+              if (ctaAmt > 0) items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: desc, date: o.date, amount: ctaAmt, color: T.orange, _ts: ts });
             });
             // Egresos efectivo
             filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0 }); });
@@ -7785,6 +7794,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var metColor = e.metodoPago === "Efectivo" ? T.green : e.metodoPago === "Tarjeta" ? "#9C27B0" : e.metodoPago === "Transferencia" ? T.accent : T.green;
               items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: metColor, _ts: typeof e.id === "number" ? e.id : 0 });
             });
+            // ── Sort: chronological, newest first (date desc → timestamp desc) ──
             items.sort(function(a, b) { var dc = (b.date || "").localeCompare(a.date || ""); return dc !== 0 ? dc : (b._ts || 0) - (a._ts || 0); });
             if (items.length === 0) return <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin movimientos</div>;
             return items.map(function(item) {
