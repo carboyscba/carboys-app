@@ -6216,12 +6216,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     let importeNeto = 0;
     let importeIva = 0;
     if (tipoFC === "A") {
-      // FC A: discrimina IVA
+      // FC A: discrimina IVA — neto + IVA = total
       importeNeto = total;
       importeIva = Math.round(total * (config.ivaRate || 21) / 100 * 100) / 100;
       importeTotal = importeNeto + importeIva;
     }
-    // FC B y C: no discriminan IVA, todo va como total
+    // FC B y C: neto=0, total va como no gravado (el server lo maneja)
     
     setFacturando(true);
     let factura;
