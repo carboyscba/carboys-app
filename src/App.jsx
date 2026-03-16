@@ -1926,7 +1926,7 @@ const NewOrderScreen = (props) => {
                 placeholder="Ej: AC 123 BD" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
               {/* Predictivo por dominio */}
-              {domainSearch.replace(/\s/g,"").length >= 3 && !historyVehicle && (() => {
+              {domainSearch.replace(/\s/g,"").length >= 1 && !historyVehicle && (() => {
                 const matches = [];
                 const dsNorm = domainSearch.replace(/\s/g,"").toUpperCase();
                 for (const c of clients) {
@@ -3995,6 +3995,15 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
   const [selClient, setSelClient] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  // Search history (stored in localStorage)
+  const SEARCH_HIST_KEY = "carboys_search_history";
+  const getSearchHistory = () => { try { return JSON.parse(localStorage.getItem(SEARCH_HIST_KEY) || "[]"); } catch { return []; } };
+  const addSearchHistory = (domain) => {
+    const hist = getSearchHistory().filter(d => d !== domain);
+    hist.unshift(domain);
+    localStorage.setItem(SEARCH_HIST_KEY, JSON.stringify(hist.slice(0, 10)));
+  };
+
   const cleanQ = q.replace(/[^a-z0-9]/gi, "").toLowerCase();
   const isDniSearch = q.length > 1 && /^[0-9\-]+$/.test(q.trim());
   // Si el input tiene letras Y números => es una patente => solo buscar por dominio
@@ -4017,6 +4026,18 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
     return (
       <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
         <button onClick={() => { setSelVehicle(null); setSelClient(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
+
+        {/* Nueva Visita button */}
+        <div onClick={() => onNavigate("newOrder", { domain: selVehicle.domain })}
+          style={{ ...card, padding: 16, marginBottom: 16, cursor: "pointer", background: `${T.green}08`, borderColor: T.green, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+          onMouseEnter={e => { e.currentTarget.style.background = `${T.green}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.green}08`; }}>
+          <span style={{ fontSize: 22 }}>🔧</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: T.green }}>NUEVA VISITA</div>
+            <div style={{ fontSize: 11, color: T.gray }}>Registrar nuevo ingreso para este vehículo</div>
+          </div>
+        </div>
+
         <div style={{ ...card, padding: 20, marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
@@ -4118,7 +4139,34 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
       <input inputMode="text" ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Dominio, nombre, DNI o CUIT..."
         style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", marginBottom: 20, borderColor: q ? T.accent : T.border }} autoFocus />
 
-      {q.length > 1 && results.length === 0 && (
+      {/* Últimas búsquedas (cuando el campo está vacío) */}
+      {q.length === 0 && (() => {
+        const hist = getSearchHistory();
+        if (hist.length === 0) return null;
+        return (
+          <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 10 }}>🕐 Últimas búsquedas</div>
+            {hist.map((domain, i) => {
+              const cl = clients.find(c => (c.vehicles || []).some(v => v.domain === domain));
+              const vh = cl?.vehicles?.find(v => v.domain === domain);
+              return (
+                <div key={domain + i} onClick={() => { setQ(domain); if (vh) { addSearchHistory(domain); setSelVehicle(vh); } }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < hist.length - 1 ? `1px solid ${T.border}` : "none", cursor: "pointer" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.bg3} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <div>
+                    <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginRight: 10 }}>{fmtD(domain)}</span>
+                    {cl && <span style={{ fontSize: 12, color: T.gray }}>{cl.name} {cl.lastName}</span>}
+                    {vh && <span style={{ fontSize: 12, color: T.grayLight }}> — {vh.brand} {vh.model}</span>}
+                  </div>
+                  <span style={{ fontSize: 14, color: T.gray }}>→</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {q.length > 0 && results.length === 0 && (
         <div style={{ ...card, padding: 20, textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 10 }}>🔍</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Sin resultados</div>
@@ -4156,7 +4204,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                     </>}
                   </div>
                   {/* Card vehículo clickeable */}
-                  <div onClick={() => setSelVehicle(v)} style={{ ...card, padding: 14, cursor: "pointer", borderColor: activeOrder ? T.orange : T.border }}
+                  <div onClick={() => { addSearchHistory(v.domain); setSelVehicle(v); }} style={{ ...card, padding: 14, cursor: "pointer", borderColor: activeOrder ? T.orange : T.border }}
                     onMouseEnter={e => e.currentTarget.style.background = T.bg3}
                     onMouseLeave={e => e.currentTarget.style.background = T.bg2}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -16183,6 +16231,7 @@ export default function App() {
 
   const nav = useCallback((target, data = null) => {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
+    if (target === "search" && !data) setSelOrder(null);
     if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
     if (target === "admin" && data?.initialOrder) setAdminInitialOrder(data.initialOrder);
     else if (target !== "admin") { setAdminInitialTab(null); setAdminInitialOrder(null); }
