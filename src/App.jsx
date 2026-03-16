@@ -1674,6 +1674,10 @@ const NewOrderScreen = (props) => {
   const [form, setForm] = useState({ name: "", lastName: "", dni: "", cuit: "", phone: "", brand: "", model: "", year: "", km: "", currentKm: "", lastKm: "", domain: "" });
   const [manualModel, setManualModel] = useState(false);
   const [manualBrand, setManualBrand] = useState(false);
+  // Refs for Enter→next field navigation
+  const refName = useRef(null), refLast = useRef(null), refDni = useRef(null), refCuit = useRef(null), refPhone = useRef(null), refBrand = useRef(null), refModel = useRef(null), refKm = useRef(null), refCurrentKm = useRef(null);
+  const focusNext = (nextRef) => (e) => { if (e.key === "Enter") { e.preventDefault(); nextRef?.current?.focus(); } };
+  const focusBlur = (e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } };
 
   const [works, setWorks] = useState([]);
 
@@ -2428,24 +2432,28 @@ const NewOrderScreen = (props) => {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={labelStyle}>Nombre *</label>
-              <input inputMode="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              <input ref={refName} inputMode="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onKeyDown={focusNext(refLast)}
                 autoFocus={!!(isNew || editMode)}
                 disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.name ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>Apellido *</label>
-              <input inputMode="text" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+              <input ref={refLast} inputMode="text" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+                onKeyDown={focusNext(refDni)}
                 disabled={foundClient && !editMode && !isNew} style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.lastName ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>DNI {!form.cuit ? "*" : ""}</label>
-              <input inputMode="numeric" value={form.dni} onChange={e => setForm(f => ({ ...f, dni: e.target.value.replace(/[^0-9]/g, "") }))}
+              <input ref={refDni} inputMode="numeric" value={form.dni} onChange={e => setForm(f => ({ ...f, dni: e.target.value.replace(/[^0-9]/g, "") }))}
+                onKeyDown={focusNext(refCuit)}
                 disabled={foundClient && !editMode && !isNew} placeholder="Sin puntos"
                 style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: !form.dni && !form.cuit ? T.orange : T.border }} />
             </div>
             <div>
               <label style={labelStyle}>CUIT {!form.dni ? "*" : ""}</label>
-              <input inputMode="numeric" value={form.cuit} onChange={e => setForm(f => ({ ...f, cuit: e.target.value.replace(/[^0-9]/g, "") }))}
+              <input ref={refCuit} inputMode="numeric" value={form.cuit} onChange={e => setForm(f => ({ ...f, cuit: e.target.value.replace(/[^0-9]/g, "") }))}
+                onKeyDown={focusNext(refPhone)}
                 disabled={foundClient && !editMode && !isNew} placeholder="Sin guiones"
                 style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: !form.dni && !form.cuit ? T.orange : T.border }} />
               {!form.dni && !form.cuit && (
@@ -2454,7 +2462,8 @@ const NewOrderScreen = (props) => {
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={labelStyle}>Celular *</label>
-              <input inputMode="numeric" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9]/g, "") }))}
+              <input ref={refPhone} inputMode="numeric" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9]/g, "") }))}
+                onKeyDown={manualBrand ? focusNext(refBrand) : focusBlur}
                 disabled={foundClient && !editMode && !isNew} placeholder="Ej: 3515201053"
                 style={{ ...inputStyle, opacity: foundClient && !editMode && !isNew ? 0.6 : 1, borderColor: (isNew||editMode) && !form.phone ? T.orange : T.border }} />
             </div>
@@ -2483,7 +2492,8 @@ const NewOrderScreen = (props) => {
                 </div>
               ) : (
                 <div>
-                  <input inputMode="text" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
+                  <input ref={refBrand} inputMode="text" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
+                    onKeyDown={focusNext(refModel)}
                     placeholder="Escribir marca" style={{ ...inputStyle, borderColor: !form.brand ? T.orange : T.border }} />
                   <div onClick={() => { setManualBrand(false); setForm(f => ({ ...f, brand: "", model: "" })); setManualModel(false); }} style={{ fontSize: 11, color: T.accent, cursor: "pointer", marginTop: 4, fontWeight: 600 }}>
                     ← Volver al selector
@@ -2504,7 +2514,8 @@ const NewOrderScreen = (props) => {
                 </div>
               ) : (
                 <div>
-                  <input inputMode="text" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+                  <input ref={refModel} inputMode="text" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+                    onKeyDown={focusNext(refKm)}
                     placeholder="Escribir modelo" style={{ ...inputStyle, borderColor: !form.model ? T.orange : T.border }} />
                   <div onClick={() => setManualModel(false)} style={{ fontSize: 11, color: T.accent, cursor: "pointer", marginTop: 4, fontWeight: 600 }}>
                     ← Volver al selector
@@ -2529,7 +2540,8 @@ const NewOrderScreen = (props) => {
             ) : (
               <div>
                 <label style={labelStyle}>Kilómetros *</label>
-                <input inputMode="numeric" value={form.km} onChange={e => setForm(f => ({ ...f, km: e.target.value.replace(/[^0-9]/g, "") }))}
+                <input ref={refKm} inputMode="numeric" value={form.km} onChange={e => setForm(f => ({ ...f, km: e.target.value.replace(/[^0-9]/g, "") }))}
+                  onKeyDown={focusBlur}
                   placeholder="Ej: 45000" style={{ ...inputStyle, borderColor: !form.km ? T.orange : T.border }} />
               </div>
             )}
@@ -2541,7 +2553,7 @@ const NewOrderScreen = (props) => {
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: kmError ? T.red : (form.currentKm && !kmError) ? T.green : T.orange, letterSpacing: .5 }}>KILÓMETROS ACTUALES *</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input inputMode="numeric" value={form.currentKm ? Number(form.currentKm).toLocaleString("es-AR") : ""} onChange={e => {
+                  <input ref={refCurrentKm} inputMode="numeric" value={form.currentKm ? Number(form.currentKm).toLocaleString("es-AR") : ""} onChange={e => {
                     const val = e.target.value.replace(/[^0-9]/g, "");
                     setForm(f => ({ ...f, currentKm: val }));
                     if (val && parseInt(val) < (parseInt(form.lastKm) || 0)) {
@@ -2550,6 +2562,7 @@ const NewOrderScreen = (props) => {
                       setKmError("");
                     }
                   }}
+                    onKeyDown={focusBlur}
                     placeholder="—"
                     style={{ ...inputStyle, fontSize: 22, fontWeight: 700, fontFamily: fontD, borderColor: "transparent", background: "transparent", padding: "4px 0", flex: 1 }} />
                   <span style={{ fontSize: 13, color: T.gray, fontWeight: 600 }}>km</span>
