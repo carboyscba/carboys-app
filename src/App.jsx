@@ -11017,62 +11017,78 @@ const InspectionScreen = (props) => {
 
   var PASTILLAS_ITEMS = [{ key: "past_del", label: "Eje Delantero" }, { key: "past_tra", label: "Eje Trasero" }];
 
+  // Helper: get the correct source items for a category
+  var getSourceItems = function(catKey) {
+    if (catKey === "Pastillas de Freno") return PASTILLAS_ITEMS;
+    if (catKey === "Mecánica") return BUDGET_CATEGORIES["Mecánica"] || [];
+    return BUDGET_CATEGORIES[catKey] || [];
+  };
+
+  // Helper: build a fresh category with all items unchecked
+  var buildFreshCategory = function(cat, preSelected) {
+    var items = [];
+    if (cat.hasItems) {
+      items = getSourceItems(cat.key).map(function(t) {
+        return { key: t.key, label: t.label, checked: false, hasSide: t.hasSide };
+      });
+      items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
+    }
+    return { selected: !!preSelected, items: items, desc: "" };
+  };
+
   var initData = function() {
-    if (order.inspectionData) {
-      // Merge missing items from BUDGET_CATEGORIES into saved data
-      var saved = JSON.parse(JSON.stringify(order.inspectionData));
+    var preCats = order.budgetCategories || (order.budgetCategory ? [order.budgetCategory] : []);
+
+    // Fresh init — no saved data
+    if (!order.inspectionData) {
+      var d = {};
       INSP_CATS.forEach(function(cat) {
-        if (!cat.hasItems) return;
-        if (!saved[cat.key]) return; // category not in saved data, skip
+        var isPre = preCats.indexOf(cat.key) >= 0 || (preCats.indexOf("Mecanica") >= 0 && cat.key === "Mecánica");
+        d[cat.key] = buildFreshCategory(cat, isPre);
+      });
+      return d;
+    }
+
+    // Load saved data and merge missing items
+    var saved = JSON.parse(JSON.stringify(order.inspectionData));
+
+    INSP_CATS.forEach(function(cat) {
+      // Category missing entirely → add fresh
+      if (!saved[cat.key]) {
+        saved[cat.key] = buildFreshCategory(cat, false);
+        return;
+      }
+
+      // Category exists but has items → merge missing ones
+      if (cat.hasItems) {
         var existingKeys = new Set((saved[cat.key].items || []).map(function(i) { return i.key; }));
-        var sourceItems = cat.key === "Pastillas de Freno" ? PASTILLAS_ITEMS : (BUDGET_CATEGORIES[cat.key] || BUDGET_CATEGORIES["Mecánica"] && cat.key === "Mecánica" ? BUDGET_CATEGORIES["Mecánica"] : BUDGET_CATEGORIES[cat.key] || []);
-        sourceItems.forEach(function(t) {
+        var source = getSourceItems(cat.key);
+
+        // Find the position of the first "Otro" to insert before it
+        var items = saved[cat.key].items || [];
+        var otroIdx = items.findIndex(function(i) { return i.isCustom; });
+        var insertPos = otroIdx >= 0 ? otroIdx : items.length;
+
+        // Add missing source items before "Otro"
+        var toInsert = [];
+        source.forEach(function(t) {
           if (!existingKeys.has(t.key)) {
-            saved[cat.key].items.push({ key: t.key, label: t.label, checked: false, hasSide: t.hasSide });
+            toInsert.push({ key: t.key, label: t.label, checked: false, hasSide: t.hasSide });
           }
         });
-        // Ensure at least one "Otro" exists at the end
-        var hasOtro = saved[cat.key].items.some(function(i) { return i.isCustom; });
-        if (!hasOtro) {
-          saved[cat.key].items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
+        if (toInsert.length > 0) {
+          items.splice.apply(items, [insertPos, 0].concat(toInsert));
+          saved[cat.key].items = items;
         }
-      });
-      // Add missing categories
-      INSP_CATS.forEach(function(cat) {
-        if (saved[cat.key]) return;
-        var items = [];
-        if (cat.hasItems) {
-          if (cat.key === "Pastillas de Freno") {
-            items = PASTILLAS_ITEMS.map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-          } else if (cat.key === "Mecánica") {
-            items = (BUDGET_CATEGORIES["Mecánica"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-          } else {
-            items = (BUDGET_CATEGORIES[cat.key] || []).map(function(t) { return { key: t.key, label: t.label, checked: false, hasSide: t.hasSide }; });
-          }
+
+        // Ensure at least one "Otro" at the end
+        if (!items.some(function(i) { return i.isCustom; })) {
           items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
         }
-        saved[cat.key] = { selected: false, items: items, desc: "", customOtros: [] };
-      });
-      return saved;
-    }
-    var d = {};
-    var preCats = order.budgetCategories || (order.budgetCategory ? [order.budgetCategory] : []);
-    INSP_CATS.forEach(function(cat) {
-      var items = [];
-      if (cat.hasItems) {
-        if (cat.key === "Pastillas de Freno") {
-          items = PASTILLAS_ITEMS.map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-        } else if (cat.key === "Mecánica") {
-          items = (BUDGET_CATEGORIES["Mecánica"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-        } else {
-          items = (BUDGET_CATEGORIES[cat.key] || []).map(function(t) { return { key: t.key, label: t.label, checked: false, hasSide: t.hasSide }; });
-        }
-        // Add "Otro" at end for all categories with items
-        items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
       }
-      d[cat.key] = { selected: preCats.indexOf(cat.key) >= 0 || preCats.indexOf("Mecanica") >= 0 && cat.key === "Mecánica", items: items, desc: "", customOtros: [] };
     });
-    return d;
+
+    return saved;
   };
 
   var [data, setData] = useState(initData);
