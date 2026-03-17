@@ -6514,7 +6514,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   };
 
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
-  const periodOrders = useMemo(() => completed.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [completed, startDate, today]);
+  const cobradas = useMemo(() => completed.filter(o => o.cobrado || o.isQuickSale), [completed]);
+  const periodOrders = useMemo(() => cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
   const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0), [periodOrders]);
   const totalIngresos = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const periodEgresos = useMemo(() => egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today), [egresos, startDate, today]);
@@ -7953,7 +7954,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               wStart.setDate(wStart.getDate() + 7);
             }
             return weeks.map(function(w) {
-              var wOrders = completed.filter(function(o) { var d = normDate(o.cajaDate || o.date); return d >= w.start && d <= w.end; });
+              var wOrders = cobradas.filter(function(o) { var d = normDate(o.cajaDate || o.date); return d >= w.start && d <= w.end; });
               var wEgrEf = egresosEfectivo.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wEgrV = egresosVirtuales.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wIng = ingresosExtra.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
