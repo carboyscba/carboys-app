@@ -6779,15 +6779,28 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           {periodOrders.slice(-8).reverse().map(o => {
             const c = clients.find(x => x.id === o.clientId);
             const v = c?.vehicles?.find(x => x.domain === o.domain);
-            const tot = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) || (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const totalPaid = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+            const mainMethod = (o.payments||[]).find(p => p.method)?.method || o.paymentPref?.method || "";
+            const hasFc = !!o.factura;
+            const hasTicket = !!o.ticket;
+            const fcLabel = hasFc ? `FC ${o.factura.tipo}` : hasTicket ? "Ticket" : null;
+            const isPaid = totalPaid > 0;
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{fmtD(o.domain)}</div>
-                  <div style={{ fontSize: 12, color: T.gray }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{fmtD(o.domain)}</span>
+                    {isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: `${T.green}15`, padding: "2px 6px", borderRadius: 4 }}>PAGADO</span>}
+                    {!isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PENDIENTE</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}</div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    {mainMethod && <span style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, background: T.bg3, padding: "2px 8px", borderRadius: 4 }}>{mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}</span>}
+                    {fcLabel && <span style={{ fontSize: 10, fontWeight: 700, color: hasFc ? T.green : T.grayLight, background: hasFc ? `${T.green}15` : T.bg3, padding: "2px 8px", borderRadius: 4 }}>🧾 {fcLabel}</span>}
+                  </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{fmt(tot)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: isPaid ? T.green : T.orange, fontFamily: fontD }}>{fmt(totalPaid || (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</div>
                   <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                 </div>
               </div>
@@ -6875,6 +6888,48 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     </div>
                   )}
                 </div>
+
+                {/* ── RESUMEN DE COBRO (cuando ya tiene pagos) ── */}
+                {(o.payments||[]).length > 0 && (() => {
+                  const totalAbonado = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                  const mainMethod = (o.payments||[]).find(p => p.method)?.method || "";
+                  const withIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
+                  const hasFc = !!o.factura;
+                  const hasTicket = !!o.ticket;
+                  return (
+                    <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.green, background: `${T.green}06` }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.green, marginBottom: 12 }}>✅ Cobro Realizado</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <span style={{ fontSize: 13, color: T.gray }}>Total abonado</span>
+                        <span style={{ fontFamily: fontD, fontSize: 24, fontWeight: 900, color: T.green }}>{fmt(totalAbonado)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, color: T.gray }}>Método</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
+                          {mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}
+                        </span>
+                      </div>
+                      {withIva && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, color: T.gray }}>IVA</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: T.orange }}>Con IVA ({iva}%)</span>
+                        </div>
+                      )}
+                      {hasFc && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                          <span style={{ fontSize: 13, color: T.gray }}>Factura emitida</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: T.green }}>🧾 FC {o.factura.tipo} — #{o.factura.numero}</span>
+                        </div>
+                      )}
+                      {hasTicket && !hasFc && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                          <span style={{ fontSize: 13, color: T.gray }}>Comprobante</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: T.grayLight }}>🧾 Ticket — #{o.ticket.numero}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* ── 3. MÉTODO DE PAGO ── */}
                 <div style={{ ...card, padding: 20, marginBottom: 16, opacity: (o.factura||o.ticket) ? 0.7 : 1, pointerEvents: (o.factura||o.ticket) ? "none" : "auto" }}>
@@ -8470,6 +8525,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         <div style={{ fontSize: 12, color: T.gray }}>
                           {c ? `${c.name} ${c.lastName}` : "—"} · {fmtDate(o.date)}
                         </div>
+                        {(() => {
+                          const mainM = (o.payments||[]).find(p => p.method)?.method || "";
+                          return mainM ? <div style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, marginTop: 3 }}>{mainM === "Efectivo" ? "💵" : mainM === "Transferencia" ? "🔁" : mainM === "Tarjeta" ? "💳" : "📒"} {mainM}</div> : null;
+                        })()}
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.green }}>{fmt(monto)}</div>
