@@ -11239,11 +11239,11 @@ const BudgetPricingScreen = (props) => {
   var printBudget = function() {
     var el = document.getElementById("budget-pdf-content");
     if (!el) return;
-    var w = window.open("", "_blank");
-    w.document.write("<html><head><title>Presupuesto</title><style>body{margin:0;font-family:sans-serif;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>" + el.outerHTML + "</body></html>");
+    var w = window.open("", "_blank", "width=800,height=1100");
+    w.document.write('<!DOCTYPE html><html><head><title>Presupuesto</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Outfit,sans-serif;background:#fff}@page{size:A4;margin:0}#budget-pdf-content{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;min-height:100vh;display:flex;flex-direction:column}#budget-pdf-content>div:last-child{margin-top:auto}</style></head><body>' + el.outerHTML + '</body></html>');
     w.document.close();
-    w.focus();
-    w.print();
+    w.onload = function() { w.focus(); w.print(); w.close(); };
+    setTimeout(function() { try { w.focus(); w.print(); } catch(e) {} }, 800);
   };
 
   var fmtP = function(n) { return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n); };
@@ -14250,7 +14250,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
         <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+          <button onClick={() => { const el = document.getElementById("foja-print"); if (!el) return; const pw = window.open("","_blank","width=800,height=1100"); pw.document.write('<!DOCTYPE html><html><head><title>Foja de Batería</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Outfit,sans-serif;background:#fff}@page{size:A4;margin:0}#foja-print{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;min-height:100vh;display:flex;flex-direction:column}#foja-print>div:last-child{margin-top:auto}</style></head><body>'+el.outerHTML+'</body></html>'); pw.document.close(); pw.onload=function(){pw.focus();pw.print();pw.close()}; setTimeout(()=>{try{pw.focus();pw.print()}catch(e){}},800); }} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
           <button onClick={() => sendFojaWA("Foja de Bateria")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
         <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
@@ -14387,7 +14387,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
         <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+          <button onClick={() => { const el = document.getElementById("foja-print"); if (!el) return; const pw = window.open("","_blank","width=800,height=1100"); pw.document.write('<!DOCTYPE html><html><head><title>Foja de Escape</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Outfit,sans-serif;background:#fff}@page{size:A4;margin:0}#foja-print{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;min-height:100vh;display:flex;flex-direction:column}#foja-print>div:last-child{margin-top:auto}</style></head><body>'+el.outerHTML+'</body></html>'); pw.document.close(); pw.onload=function(){pw.focus();pw.print();pw.close()}; setTimeout(()=>{try{pw.focus();pw.print()}catch(e){}},800); }} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
           <button onClick={() => sendFojaWA("Foja de Escape")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
         <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
@@ -14651,7 +14651,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
         <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
           <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-          <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Informe</button>
+          <button onClick={() => { const el = document.getElementById("foja-print"); if (!el) return; const pw = window.open("","_blank","width=800,height=1100"); pw.document.write('<!DOCTYPE html><html><head><title>Informe de Intervención</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Outfit,sans-serif;background:#fff}@page{size:A4;margin:0}#foja-print{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;min-height:100vh;display:flex;flex-direction:column}#foja-print>div:last-child{margin-top:auto}</style></head><body>'+el.outerHTML+'</body></html>'); pw.document.close(); pw.onload=function(){pw.focus();pw.print();pw.close()}; setTimeout(()=>{try{pw.focus();pw.print()}catch(e){}},800); }} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir Informe</button>
           <button onClick={() => sendFojaWA("Informe de Intervencion")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
         </div>
         <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
@@ -14997,7 +14997,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
       <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
         <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-        <button onClick={() => window.print()} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+        <button onClick={() => { const el = document.getElementById("foja-print"); if (!el) return; const pw = window.open("","_blank","width=800,height=1100"); pw.document.write('<!DOCTYPE html><html><head><title>Foja de Service</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Outfit,sans-serif;background:#fff}@page{size:A4;margin:0}#foja-print{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;min-height:100vh;display:flex;flex-direction:column}#foja-print>div:last-child{margin-top:auto}</style></head><body>'+el.outerHTML+'</body></html>'); pw.document.close(); pw.onload=function(){pw.focus();pw.print();pw.close()}; setTimeout(()=>{try{pw.focus();pw.print()}catch(e){}},800); }} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
           <button onClick={() => sendFojaWA(isPF ? "Informe de Intervencion" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
       </div>
       <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
@@ -15162,7 +15162,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <span>{(config.tallerDir || "") + (config.tallerCiudad ? ", " + config.tallerCiudad : "") + (config.tallerTel ? " · " + config.tallerTel : "") + (config.tallerIG ? " · " + config.tallerIG : "")}</span>
         </div>
       </div>
-      <style>{`@media print { @page { size: A4; margin: 10mm; } .no-print { display: none !important; } body { margin:0!important; background:#fff!important; } #foja-print { box-shadow:none!important; border-radius:0!important; max-width:none!important; width:100%!important; } * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; } }`}</style>
+      <style>{`@media print { @page { size: A4; margin: 0; } .no-print { display: none !important; } body { margin:0!important; padding:0!important; background:#fff!important; } #foja-print, #factura-print, #ticket-print, #budget-pdf-content { box-shadow:none!important; border-radius:0!important; max-width:none!important; width:100%!important; margin:0!important; min-height:100vh; display:flex; flex-direction:column; } #foja-print>div:last-child, #factura-print>div:last-child, #ticket-print>div:last-child, #budget-pdf-content>div:last-child { margin-top:auto; } * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; } }`}</style>
     </div>
   );
 };
