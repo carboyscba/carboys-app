@@ -6486,6 +6486,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [selGastoIg, setSelGastoIg] = useState(null);
   const [pagoIgForm, setPagoIgForm] = useState({ fecha: new Date().toISOString().split("T")[0], metodo: "" });
   const [igFiltro, setIgFiltro] = useState("pendiente");
+  const [showExtraccion, setShowExtraccion] = useState(false);
+  const [extraccionForm, setExtraccionForm] = useState({ monto: "", nota: "", fecha: new Date().toISOString().split("T")[0] });
   const [cmYear, setCmYear] = useState(new Date().getFullYear());
   const [cmMonth, setCmMonth] = useState(new Date().getMonth());
   const [cmSub, setCmSub] = useState("resumen");
@@ -10231,82 +10233,72 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
       {/* ══════ IGNACIO ══════ */}
       {tab === "ignacio" && (<div>
+        {/* ══ HEADER ══ */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>👑 Gastos de Ignacio</div>
-          <button onClick={() => setShowIgGasto(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Gasto</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {selIgnacio && (
+              <span onClick={() => setSelIgnacio(null)}
+                style={{ cursor: "pointer", fontSize: 20, color: T.gray, padding: "0 4px" }}>←</span>
+            )}
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>
+              {selIgnacio ? (selIgnacio === "__extracciones__" ? "💰 Extracciones" : `📁 ${selIgnacio}`) : "👑 Gastos de Ignacio"}
+            </div>
+          </div>
+          {!selIgnacio && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setExtraccionForm({ monto: "", nota: "", fecha: today }); setShowExtraccion(true); }}
+                style={{ ...btnPrimary(T.orange), fontSize: 12 }}>💰 Extraer Dinero</button>
+              <button onClick={() => setShowIgGasto(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Gasto</button>
+            </div>
+          )}
         </div>
 
-        {(() => {
-          const pendientes = igGastos.filter(g => g.estado !== "pagado");
-          const vencidos = pendientes.filter(g => g.fechaVenc && g.fechaVenc < today);
-          const totalPendiente = pendientes.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-          const totalPagado = igGastos.filter(g => g.estado === "pagado").reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-          const shown = igFiltro === "pendiente" ? igGastos.filter(g => g.estado !== "pagado")
-            : igFiltro === "pagado" ? igGastos.filter(g => g.estado === "pagado")
-            : igGastos;
-          const sorted = [...shown].sort((a, b) => {
-            if (igFiltro === "pendiente") {
-              if (a.fechaVenc && b.fechaVenc) return a.fechaVenc.localeCompare(b.fechaVenc);
-              if (a.fechaVenc) return -1; if (b.fechaVenc) return 1;
-            }
-            return (b.fecha || "").localeCompare(a.fecha || "");
-          });
+        {/* ══ NIVEL 2: Dentro de una carpeta ══ */}
+        {selIgnacio && (() => {
+          const isExtracciones = selIgnacio === "__extracciones__";
+          const folderItems = isExtracciones
+            ? igGastos.filter(g => g.categoria === "extraccion")
+            : igGastos.filter(g => (g.catName || g.categoria) === selIgnacio);
+          const sorted = [...folderItems].sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+          const totalFolder = sorted.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+          const pendFolder = sorted.filter(g => g.estado !== "pagado").reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
 
           return (
             <div>
-              {/* Resumen */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}`, cursor: "pointer" }} onClick={() => setIgFiltro("pendiente")}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pendiente</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(totalPendiente)}</div>
-                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{pendientes.length} gasto{pendientes.length !== 1 ? "s" : ""}{vencidos.length > 0 ? ` • ⚠️ ${vencidos.length} vencido${vencidos.length !== 1 ? "s" : ""}` : ""}</div>
+              {/* Summary card */}
+              <div style={{ ...card, padding: 16, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 11, color: T.gray }}>Total en carpeta</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(totalFolder)}</div>
                 </div>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}`, cursor: "pointer" }} onClick={() => setIgFiltro("pagado")}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pagado</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
-                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{igGastos.filter(g => g.estado === "pagado").length} gasto{igGastos.filter(g => g.estado === "pagado").length !== 1 ? "s" : ""}</div>
-                </div>
-              </div>
-
-              {/* Filtros */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                {[{ k: "pendiente", l: "⏳ Pendientes" }, { k: "pagado", l: "✅ Pagados" }, { k: "todos", l: "📋 Todos" }].map(f => (
-                  <div key={f.k} onClick={() => setIgFiltro(f.k)}
-                    style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
-                      background: igFiltro === f.k ? T.accent : T.bg2, color: igFiltro === f.k ? "#fff" : T.gray,
-                      border: `1px solid ${igFiltro === f.k ? T.accent : T.border}` }}>
-                    {f.l}
+                {!isExtracciones && pendFolder > 0 && (
+                  <div style={{ padding: "8px 16px", borderRadius: 8, background: `${T.orange}10`, border: `1px solid ${T.orange}30`, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: T.gray }}>Pendiente</div>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.orange }}>{fmt(pendFolder)}</div>
                   </div>
-                ))}
+                )}
               </div>
 
-              {sorted.length === 0 && (
-                <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>
-                  {igFiltro === "pendiente" ? "✅ No hay gastos pendientes" : igFiltro === "pagado" ? "Sin gastos pagados" : "Sin gastos cargados"}
-                </div>
-              )}
+              {!isExtracciones && <button onClick={() => setShowIgGasto(true)} style={{ ...btnPrimary(T.accent), fontSize: 12, width: "100%", marginBottom: 16 }}>+ Nuevo Gasto en {selIgnacio}</button>}
+
+              {sorted.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin registros en esta carpeta</div>}
 
               {sorted.map(g => {
                 const isVencido = g.estado !== "pagado" && g.fechaVenc && g.fechaVenc < today;
-                const porVencer = g.estado !== "pagado" && g.fechaVenc && g.fechaVenc >= today && g.fechaVenc <= new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
-                const borderColor = g.estado === "pagado" ? T.green : isVencido ? T.red : porVencer ? T.orange : T.border;
+                const borderColor = isExtracciones ? T.orange : g.estado === "pagado" ? T.green : isVencido ? T.red : T.border;
                 return (
                   <div key={g.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `3px solid ${borderColor}`, overflow: "hidden" }}>
                     <div style={{ padding: "14px 16px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <div style={{ fontSize: 15, fontWeight: 700 }}>{g.desc || g.catName || g.categoria}</div>
-                            {isVencido && <span style={{ fontSize: 10, fontWeight: 700, color: T.red, background: `${T.red}15`, padding: "2px 7px", borderRadius: 4 }}>⚠️ VENCIDO</span>}
-                            {porVencer && <span style={{ fontSize: 10, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 7px", borderRadius: 4 }}>⚡ POR VENCER</span>}
-                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 700 }}>{g.desc || g.catName || g.categoria}</div>
                           <div style={{ fontSize: 12, color: T.gray, marginTop: 3 }}>
-                            {g.catName || g.categoria}
-                            {g.fecha ? ` • Cargado: ${fmtDate(g.fecha)}` : ""}
+                            {g.fecha ? fmtDate(g.fecha) : ""}
+                            {g.nota ? ` · ${g.nota}` : ""}
                           </div>
-                          {g.fechaVenc && (
-                            <div style={{ fontSize: 12, marginTop: 2, fontWeight: g.estado !== "pagado" ? 700 : 400, color: isVencido ? T.red : g.estado === "pagado" ? T.gray : T.orange }}>
-                              {g.estado === "pagado" ? `Vencía: ${fmtDate(g.fechaVenc)}` : `Vence: ${fmtDate(g.fechaVenc)}`}
+                          {g.fechaVenc && g.estado !== "pagado" && (
+                            <div style={{ fontSize: 12, marginTop: 2, fontWeight: 700, color: isVencido ? T.red : T.orange }}>
+                              {isVencido ? "⚠️ Vencido" : "Vence"}: {fmtDate(g.fechaVenc)}
                             </div>
                           )}
                           {g.estado === "pagado" && g.fechaPago && (
@@ -10316,33 +10308,123 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           )}
                         </div>
                         <div style={{ textAlign: "right", marginLeft: 12 }}>
-                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: g.estado === "pagado" ? T.green : T.red }}>{fmt(parseFloat(g.monto) || 0)}</div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: g.estado === "pagado" ? T.green : T.orange, marginTop: 2 }}>
-                            {g.estado === "pagado" ? "PAGADO" : "PENDIENTE"}
-                          </div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isExtracciones ? T.orange : g.estado === "pagado" ? T.green : T.red }}>{fmt(parseFloat(g.monto) || 0)}</div>
+                          {!isExtracciones && <div style={{ fontSize: 11, fontWeight: 700, color: g.estado === "pagado" ? T.green : T.orange, marginTop: 2 }}>{g.estado === "pagado" ? "PAGADO" : "PENDIENTE"}</div>}
                         </div>
                       </div>
-
-                      {/* Botones */}
                       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        {g.estado !== "pagado" && (
+                        {!isExtracciones && g.estado !== "pagado" && (
                           <button onClick={() => { setSelGastoIg(g); setPagoIgForm({ fecha: today, metodo: "" }); setShowPagoIg(true); }}
-                            style={{ ...btnPrimary(T.green), fontSize: 12, flex: 1, padding: "9px 0", fontWeight: 700 }}>
-                            ✅ Registrar Pago
-                          </button>
+                            style={{ ...btnPrimary(T.green), fontSize: 12, flex: 1, padding: "9px 0", fontWeight: 700 }}>✅ Registrar Pago</button>
                         )}
-                        {g.estado === "pagado" && (
+                        {!isExtracciones && g.estado === "pagado" && (
                           <button onClick={() => {
                             if (g.egresoId) setEgresos(p => p.filter(e => e.id !== g.egresoId));
                             setIgGastos(prev => prev.map(x => x.id === g.id ? { ...x, estado: "pendiente", fechaPago: null, pagoMetodo: null, egresoId: null } : x));
-                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>
-                            ↩ Marcar pendiente
-                          </button>
+                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>↩ Marcar pendiente</button>
                         )}
-                        <button onClick={() => setIgGastos(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}30`, fontSize: 12, padding: "9px 14px", color: T.red }}>
-                          ✕
-                        </button>
+                        <button onClick={() => {
+                          if (g.egresoId) setEgresos(p => p.filter(e => e.id !== g.egresoId));
+                          setIgGastos(prev => prev.filter(x => x.id !== g.id));
+                        }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}30`, fontSize: 12, padding: "9px 14px", color: T.red }}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ══ NIVEL 1: Lista de carpetas ══ */}
+        {!selIgnacio && (() => {
+          // Build folders from categories
+          const catMap = {};
+          igGastos.filter(g => g.categoria !== "extraccion").forEach(g => {
+            const cat = g.catName || g.categoria || "Sin categoría";
+            if (!catMap[cat]) catMap[cat] = { gastos: [], pend: 0, pagado: 0, vencidos: 0 };
+            catMap[cat].gastos.push(g);
+            if (g.estado === "pagado") { catMap[cat].pagado += (parseFloat(g.monto) || 0); }
+            else {
+              catMap[cat].pend += (parseFloat(g.monto) || 0);
+              if (g.fechaVenc && g.fechaVenc < today) catMap[cat].vencidos++;
+            }
+          });
+          const folders = Object.keys(catMap).sort();
+          const extracciones = igGastos.filter(g => g.categoria === "extraccion");
+          const totalExtraido = extracciones.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+          const totalPendiente = Object.values(catMap).reduce((s, c) => s + c.pend, 0);
+          const totalPagado = Object.values(catMap).reduce((s, c) => s + c.pagado, 0);
+
+          const catIcons = { "Alquiler": "🏠", "Expensas": "🏢", "Impuestos": "📄", "Personal": "👤", "Servicios": "⚡", "Otro": "📝" };
+
+          return (
+            <div>
+              {/* Resumen general */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pendiente</div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(totalPendiente)}</div>
+                </div>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pagado</div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
+                </div>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.red}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Extraído</div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.red }}>{fmt(totalExtraido)}</div>
+                </div>
+              </div>
+
+              {folders.length === 0 && extracciones.length === 0 && (
+                <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin gastos cargados. Tocá "Nuevo Gasto" para agregar.</div>
+              )}
+
+              {/* Extracciones folder — always on top if has items */}
+              {extracciones.length > 0 && (
+                <div onClick={() => setSelIgnacio("__extracciones__")}
+                  style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${T.orange}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontSize: 28 }}>💰</div>
+                      <div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>Extracciones</div>
+                        <div style={{ fontSize: 12, color: T.gray }}>{extracciones.length} extracción{extracciones.length !== 1 ? "es" : ""}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(totalExtraido)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Category folders */}
+              {folders.map(cat => {
+                const data = catMap[cat];
+                const ic = catIcons[cat] || "📁";
+                const borderColor = data.vencidos > 0 ? T.red : data.pend > 0 ? T.orange : T.green;
+                return (
+                  <div key={cat} onClick={() => setSelIgnacio(cat)}
+                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${borderColor}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 28 }}>{ic}</div>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{cat}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>
+                            {data.gastos.length} gasto{data.gastos.length !== 1 ? "s" : ""}
+                            {data.vencidos > 0 ? ` · ⚠️ ${data.vencidos} vencido${data.vencidos !== 1 ? "s" : ""}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        {data.pend > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(data.pend)}</div>}
+                        {data.pend > 0 && <div style={{ fontSize: 10, color: T.gray }}>pendiente</div>}
+                        {data.pend <= 0 && (
+                          <div style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, background: `${T.green}12`,
+                            fontSize: 11, fontWeight: 700, color: T.green, border: `1px solid ${T.green}40` }}>✅ Al día</div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -10357,24 +10439,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowIgGasto(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>👑 Nuevo Gasto</div>
-
               <div style={{ marginBottom: 10 }}>
                 <label style={labelStyle}>Descripción *</label>
                 <input inputMode="text" value={igForm.desc} onChange={e => setIgForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Expensas, Alquiler..." autoFocus />
               </div>
-
               <div style={{ marginBottom: 10 }}>
                 <label style={labelStyle}>Categoría *</label>
                 <select value={igForm.categoria} onChange={e => setIgForm(f => ({ ...f, categoria: e.target.value }))} style={inputStyle}>
-                  <option value="">Seleccionar</option>
-                  {[...new Set([...igGastos.map(g => g.catName || g.categoria), "Servicios", "Alquiler", "Expensas", "Impuestos", "Personal", "Otro"])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">{selIgnacio && selIgnacio !== "__extracciones__" ? selIgnacio : "Seleccionar"}</option>
+                  {[...new Set([...igGastos.filter(g => g.categoria !== "extraccion").map(g => g.catName || g.categoria), "Servicios", "Alquiler", "Expensas", "Impuestos", "Personal", "Otro"])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
                   <option value="__nueva__">+ Nueva categoría</option>
                 </select>
                 {igForm.categoria === "__nueva__" && (
                   <input inputMode="text" value={igForm.newCat || ""} onChange={e => setIgForm(f => ({ ...f, newCat: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre de categoría..." />
                 )}
               </div>
-
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 <div>
                   <label style={labelStyle}>Monto *</label>
@@ -10388,21 +10467,87 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   <input type="date" value={igForm.fecha} onChange={e => setIgForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
                 </div>
               </div>
-
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>Fecha de vencimiento</label>
                 <input type="date" value={igForm.fechaVenc || ""} onChange={e => setIgForm(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} />
               </div>
-
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowIgGasto(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
-                  const cat = igForm.categoria === "__nueva__" ? (igForm.newCat || "") : igForm.categoria;
+                  const cat = igForm.categoria === "__nueva__" ? (igForm.newCat || "") : (igForm.categoria || (selIgnacio && selIgnacio !== "__extracciones__" ? selIgnacio : ""));
                   if (!igForm.desc || !igForm.monto || !cat) return;
                   setIgGastos(p => [...p, { id: Date.now(), catName: cat, categoria: cat, desc: igForm.desc, monto: parseFloat(igForm.monto) || 0, fecha: igForm.fecha, fechaVenc: igForm.fechaVenc || null, estado: "pendiente", fechaPago: null }]);
                   setIgForm({ categoria: "", desc: "", monto: "", fecha: today, fechaVenc: "", newCat: "" });
                   setShowIgGasto(false);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL EXTRACCIÓN DE DINERO ── */}
+        {showExtraccion && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)" }} onClick={() => setShowExtraccion(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💰 Extraer Dinero</div>
+              <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Se restará del saldo en caja como egreso efectivo</div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Monto *</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: T.orange }}>$</span>
+                  <input inputMode="numeric" value={extraccionForm.monto ? Number(extraccionForm.monto).toLocaleString("es-AR") : ""}
+                    onChange={e => setExtraccionForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                    placeholder="0" style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD, padding: "10px 12px", flex: 1, textAlign: "right" }} autoFocus />
+                </div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Nota (opcional)</label>
+                <input inputMode="text" value={extraccionForm.nota} onChange={e => setExtraccionForm(f => ({ ...f, nota: e.target.value }))} placeholder="Ej: Combustible, gastos personales..." style={inputStyle} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Fecha</label>
+                <input type="date" value={extraccionForm.fecha} onChange={e => setExtraccionForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+              </div>
+              <div style={{ padding: "8px 12px", borderRadius: 8, background: `${T.orange}10`, border: `1px solid ${T.orange}30`, fontSize: 11, color: T.orange, fontWeight: 600, marginBottom: 16 }}>
+                💵 Se registrará como <strong>egreso efectivo</strong> en Caja (resta saldo físico)
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowExtraccion(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button disabled={!(parseFloat(extraccionForm.monto) > 0)}
+                  onClick={() => {
+                    const monto = parseFloat(extraccionForm.monto) || 0;
+                    if (monto <= 0) return;
+                    const egresoId = Date.now();
+                    // Register in Caja as cash withdrawal
+                    setEgresos(p => [...p, {
+                      id: egresoId,
+                      desc: "Extracción Ignacio" + (extraccionForm.nota ? " — " + extraccionForm.nota : ""),
+                      monto: monto,
+                      fecha: extraccionForm.fecha,
+                      categoria: "extraccion_ignacio",
+                      categoriaLabel: "Extracción",
+                      metodoPago: "Efectivo",
+                    }]);
+                    // Register in igGastos as extraction
+                    setIgGastos(p => [...p, {
+                      id: egresoId,
+                      catName: "Extracciones",
+                      categoria: "extraccion",
+                      desc: "Extracción" + (extraccionForm.nota ? " — " + extraccionForm.nota : ""),
+                      nota: extraccionForm.nota || "",
+                      monto: monto,
+                      fecha: extraccionForm.fecha,
+                      estado: "pagado",
+                      fechaPago: extraccionForm.fecha,
+                      pagoMetodo: "Efectivo",
+                      egresoId: egresoId,
+                    }]);
+                    setExtraccionForm({ monto: "", nota: "", fecha: today });
+                    setShowExtraccion(false);
+                  }}
+                  style={{ ...btnPrimary(T.orange), flex: 2, fontWeight: 800, fontSize: 14, opacity: parseFloat(extraccionForm.monto) > 0 ? 1 : 0.4 }}>
+                  💰 Confirmar Extracción
+                </button>
               </div>
             </div>
           </div>
@@ -10419,8 +10564,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 onClick={e => e.stopPropagation()}>
                 <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>✅ Registrar Pago</div>
                 <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>{selGastoIg.desc || selGastoIg.catName}</div>
-
-                {/* Resumen del gasto */}
                 <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
                     <span style={{ color: T.gray }}>Monto</span>
@@ -10433,8 +10576,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     </div>
                   )}
                 </div>
-
-                {/* Método de pago */}
                 <div style={{ marginBottom: 14 }}>
                   <label style={labelStyle}>Método de pago *</label>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -10449,56 +10590,24 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       </div>
                     ))}
                   </div>
-                  {esEfectivo && (
-                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>
-                      💵 Se registrará como <strong>egreso efectivo</strong> en Caja
-                    </div>
-                  )}
-                  {esVirtual && (
-                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>
-                      🏦 Se registrará como <strong>egreso virtual</strong> en Caja (banco)
-                    </div>
-                  )}
+                  {esEfectivo && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>💵 Se registrará como <strong>egreso efectivo</strong> en Caja</div>}
+                  {esVirtual && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>🏦 Se registrará como <strong>egreso virtual</strong> en Caja (banco)</div>}
                 </div>
-
-                {/* Fecha de pago */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={labelStyle}>Fecha de pago</label>
-                  <input type="date" value={pagoIgForm.fecha}
-                    onChange={e => setPagoIgForm(f => ({ ...f, fecha: e.target.value }))}
-                    style={inputStyle} />
+                  <input type="date" value={pagoIgForm.fecha} onChange={e => setPagoIgForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
                 </div>
-
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => { setShowPagoIg(false); setSelGastoIg(null); }}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button onClick={() => { setShowPagoIg(false); setSelGastoIg(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                   <button disabled={!pagoIgForm.metodo}
                     onClick={() => {
                       if (!pagoIgForm.metodo) return;
                       const egresoId = Date.now();
-                      // Registrar en CAJA
-                      setEgresos(p => [...p, {
-                        id: egresoId,
-                        desc: `Ignacio — ${selGastoIg.desc || selGastoIg.catName}`,
-                        monto: parseFloat(selGastoIg.monto) || 0,
-                        fecha: pagoIgForm.fecha,
-                        categoria: "ignacio",
-                        categoriaLabel: "Ignacio",
-                        detalle: selGastoIg.catName || selGastoIg.categoria || "",
-                        metodoPago: pagoIgForm.metodo,
-                      }]);
-                      // Marcar gasto como pagado
-                      setIgGastos(prev => prev.map(x => x.id === selGastoIg.id
-                        ? { ...x, estado: "pagado", fechaPago: pagoIgForm.fecha, pagoMetodo: pagoIgForm.metodo, egresoId }
-                        : x
-                      ));
-                      setShowPagoIg(false);
-                      setSelGastoIg(null);
-                      setIgFiltro("pendiente");
+                      setEgresos(p => [...p, { id: egresoId, desc: `Ignacio — ${selGastoIg.desc || selGastoIg.catName}`, monto: parseFloat(selGastoIg.monto) || 0, fecha: pagoIgForm.fecha, categoria: "ignacio", categoriaLabel: "Ignacio", detalle: selGastoIg.catName || selGastoIg.categoria || "", metodoPago: pagoIgForm.metodo }]);
+                      setIgGastos(prev => prev.map(x => x.id === selGastoIg.id ? { ...x, estado: "pagado", fechaPago: pagoIgForm.fecha, pagoMetodo: pagoIgForm.metodo, egresoId } : x));
+                      setShowPagoIg(false); setSelGastoIg(null);
                     }}
-                    style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: !pagoIgForm.metodo ? 0.4 : 1 }}>
-                    ✅ Confirmar Pago
-                  </button>
+                    style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: !pagoIgForm.metodo ? 0.4 : 1 }}>✅ Confirmar Pago</button>
                 </div>
               </div>
             </div>
