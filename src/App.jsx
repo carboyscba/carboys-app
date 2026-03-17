@@ -11018,7 +11018,43 @@ const InspectionScreen = (props) => {
   var PASTILLAS_ITEMS = [{ key: "past_del", label: "Eje Delantero" }, { key: "past_tra", label: "Eje Trasero" }];
 
   var initData = function() {
-    if (order.inspectionData) return order.inspectionData;
+    if (order.inspectionData) {
+      // Merge missing items from BUDGET_CATEGORIES into saved data
+      var saved = JSON.parse(JSON.stringify(order.inspectionData));
+      INSP_CATS.forEach(function(cat) {
+        if (!cat.hasItems) return;
+        if (!saved[cat.key]) return; // category not in saved data, skip
+        var existingKeys = new Set((saved[cat.key].items || []).map(function(i) { return i.key; }));
+        var sourceItems = cat.key === "Pastillas de Freno" ? PASTILLAS_ITEMS : (BUDGET_CATEGORIES[cat.key] || BUDGET_CATEGORIES["Mecánica"] && cat.key === "Mecánica" ? BUDGET_CATEGORIES["Mecánica"] : BUDGET_CATEGORIES[cat.key] || []);
+        sourceItems.forEach(function(t) {
+          if (!existingKeys.has(t.key)) {
+            saved[cat.key].items.push({ key: t.key, label: t.label, checked: false, hasSide: t.hasSide });
+          }
+        });
+        // Ensure at least one "Otro" exists at the end
+        var hasOtro = saved[cat.key].items.some(function(i) { return i.isCustom; });
+        if (!hasOtro) {
+          saved[cat.key].items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
+        }
+      });
+      // Add missing categories
+      INSP_CATS.forEach(function(cat) {
+        if (saved[cat.key]) return;
+        var items = [];
+        if (cat.hasItems) {
+          if (cat.key === "Pastillas de Freno") {
+            items = PASTILLAS_ITEMS.map(function(t) { return { key: t.key, label: t.label, checked: false }; });
+          } else if (cat.key === "Mecánica") {
+            items = (BUDGET_CATEGORIES["Mecánica"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
+          } else {
+            items = (BUDGET_CATEGORIES[cat.key] || []).map(function(t) { return { key: t.key, label: t.label, checked: false, hasSide: t.hasSide }; });
+          }
+          items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
+        }
+        saved[cat.key] = { selected: false, items: items, desc: "", customOtros: [] };
+      });
+      return saved;
+    }
     var d = {};
     var preCats = order.budgetCategories || (order.budgetCategory ? [order.budgetCategory] : []);
     INSP_CATS.forEach(function(cat) {
@@ -11205,11 +11241,14 @@ const BudgetPricingScreen = (props) => {
       var d = pricing[catKey];
       var desc = "";
       if (d.noItems) {
-        desc = d.desc || catKey;
+        desc = (d.desc || catKey) + (d.obs ? " — " + d.obs : "");
       } else {
-        desc = (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) { return it.desc ? it.label + " (" + it.desc + ")" : it.label; }).join(", ");
+        desc = (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) {
+          var lbl = it.desc ? it.label + " (" + it.desc + ")" : it.label;
+          return it.obs ? lbl + " — " + it.obs : lbl;
+        }).join(", ");
       }
-      return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: d.noItems ? [] : (d.items || []).map(function(it) { return Object.assign({}, it, { selected: true }); }) };
+      return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: d.noItems ? [] : (d.items || []).map(function(it) { return Object.assign({}, it, { selected: true, otroDesc: it.obs || it.otroDesc || "" }); }) };
     }).filter(function(w) { return w.price > 0; });
     setOrders(function(prev) { return prev.map(function(o) {
       if (o.id !== order.id) return o;
@@ -11317,21 +11356,59 @@ const BudgetPricingScreen = (props) => {
                 </div>
                 {d.desc && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8 }}>{d.desc}</div>}
                 {d.noItems ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13, flex: 1, color: T.gray }}>Precio total:</span>
-                    <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                    <input inputMode="numeric" type="text" value={d.totalPrice ? Number(d.totalPrice).toLocaleString("es-AR") : ""} onChange={function(e) { setCatPrice(catKey, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, flex: 1, color: T.gray }}>Precio total:</span>
+                      <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                      <input inputMode="numeric" type="text" value={d.totalPrice ? Number(d.totalPrice).toLocaleString("es-AR") : ""} onChange={function(e) { setCatPrice(catKey, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                    </div>
+                    <input inputMode="text" value={d.obs || ""} onChange={function(e) { setPricing(function(prev) { var c = Object.assign({}, prev); c[catKey] = Object.assign({}, c[catKey], { obs: e.target.value }); return c; }); }} placeholder="Observación..." style={{ ...inputStyle, width: "100%", fontSize: 11, padding: "4px 8px", marginTop: 4 }} />
                   </div>
                 ) : (
-                  d.items.map(function(item, idx) {
+                  <div>
+                  {d.items.map(function(item, idx) {
                     return (
-                      <div key={item.key || idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + T.border }}>
-                        <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
-                        <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
-                        <input inputMode="numeric" type="text" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={function(e) { setPrice(catKey, idx, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                      <div key={item.key || idx} style={{ padding: "6px 0", borderBottom: "1px solid " + T.border }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.label}</span>
+                          <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
+                          <input inputMode="numeric" type="text" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={function(e) { setPrice(catKey, idx, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                          <span onClick={function() { setPricing(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.filter(function(_, j) { return j !== idx; }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; }); }} style={{ fontSize: 12, color: T.red, cursor: "pointer", padding: "2px 4px", opacity: 0.5 }}>✕</span>
+                        </div>
+                        <input inputMode="text" value={item.obs || ""} onChange={function(e) { setPricing(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.slice(); items[idx] = Object.assign({}, items[idx], { obs: e.target.value }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; }); }} placeholder="Observación..." style={{ ...inputStyle, width: "100%", fontSize: 11, padding: "3px 8px", marginTop: 3, color: T.grayLight }} />
                       </div>
                     );
-                  })
+                  })}
+                  {/* + Agregar item de esta categoría */}
+                  {(() => {
+                    var budgetItems = BUDGET_CATEGORIES[catKey] || [];
+                    var existingKeys = new Set(d.items.map(function(i) { return i.key; }));
+                    var available = budgetItems.filter(function(t) { return !existingKeys.has(t.key); });
+                    if (available.length === 0) return null;
+                    return (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 6 }}>+ Agregar item:</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {available.map(function(t) {
+                            return (
+                              <div key={t.key} onClick={function() {
+                                setPricing(function(prev) {
+                                  var c = Object.assign({}, prev);
+                                  var items = c[catKey].items.slice();
+                                  items.push({ key: t.key, label: t.label, price: "", desc: "", obs: "" });
+                                  c[catKey] = Object.assign({}, c[catKey], { items: items });
+                                  return c;
+                                });
+                              }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid " + T.border, background: T.bg, fontSize: 11, fontWeight: 600, color: T.grayLight, cursor: "pointer" }}>
+                                {t.label}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  </div>
                 )}
               </div>
             );
@@ -11464,15 +11541,21 @@ const BudgetPricingScreen = (props) => {
                     <div style={{ fontSize: 12, fontWeight: 800, color: "#9C27B0", textTransform: "uppercase", letterSpacing: 1 }}>{catKey}</div>
                   </div>
                   {d.noItems ? (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, fontWeight: 600 }}>
-                      <span>{d.desc || catKey}</span>
-                      <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{fmtP(sub)}</span>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, fontWeight: 600 }}>
+                        <span>{d.desc || catKey}</span>
+                        <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{fmtP(sub)}</span>
+                      </div>
+                      {d.obs && <div style={{ fontSize: 10, color: "#64748b", fontStyle: "italic", paddingLeft: 4 }}>{d.obs}</div>}
                     </div>
                   ) : pricedItems.map(function(item, idx) {
                     return (
-                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
-                        <span style={{ color: "#334155" }}>{item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
-                        <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, color: "#0d1526" }}>{fmtP(parseFloat(item.price) || 0)}</span>
+                      <div key={idx} style={{ padding: "4px 0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                          <span style={{ color: "#334155" }}>{item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
+                          <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, color: "#0d1526" }}>{fmtP(parseFloat(item.price) || 0)}</span>
+                        </div>
+                        {item.obs && <div style={{ fontSize: 10, color: "#64748b", fontStyle: "italic", paddingLeft: 4 }}>{item.obs}</div>}
                       </div>
                     );
                   })}
