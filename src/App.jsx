@@ -3756,6 +3756,7 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
             _createdAt: new Date().toISOString(),
             isQuickSale: true,
             quickSaleDesc: descList,
+            cajaDate: todayStr,
           };
 
           setOrders(prev => [...prev, newOrder]);
@@ -5450,7 +5451,7 @@ const VehicleDetailScreen = (props) => {
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>Confirmar Entrega</div>
             <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 20 }}>El vehículo será marcado como entregado y ya no aparecerá en el taller.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => { setShowDeliverPopup(false); setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "delivered", deliveredAt: new Date().toLocaleString("es-AR"), _createdAt: o._createdAt || new Date().toISOString() } : o)); onNavigate("workshop"); }}
+              <button onClick={() => { setShowDeliverPopup(false); setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "delivered", deliveredAt: new Date().toLocaleString("es-AR"), _createdAt: o._createdAt || new Date().toISOString(), cajaDate: o.cajaDate || new Date().toISOString().split("T")[0] } : o)); onNavigate("workshop"); }}
                 style={{ ...btnPrimary("#00C853"), fontSize: 15, padding: "14px 0" }}>
                 Confirmar Entrega
               </button>
@@ -6513,7 +6514,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   };
 
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
-  const periodOrders = useMemo(() => completed.filter(o => normDate(o.date) >= startDate && normDate(o.date) <= today), [completed, startDate, today]);
+  const periodOrders = useMemo(() => completed.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [completed, startDate, today]);
   const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0), [periodOrders]);
   const totalIngresos = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const periodEgresos = useMemo(() => egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today), [egresos, startDate, today]);
@@ -6801,7 +6802,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: isPaid ? T.green : T.orange, fontFamily: fontD }}>{fmt(totalPaid || (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.cajaDate || o.date)}</div>
                 </div>
               </div>
             );
@@ -7221,8 +7222,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, totalCobrado - otrosTotalFinal);
                         return { ...pp, amount: amt };
                       });
-                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays } : o2));
-                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays }));
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0] } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0] }));
                       setHoldProgress(0);
                     };
                     return (
@@ -7952,7 +7953,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               wStart.setDate(wStart.getDate() + 7);
             }
             return weeks.map(function(w) {
-              var wOrders = completed.filter(function(o) { var d = normDate(o.date); return d >= w.start && d <= w.end; });
+              var wOrders = completed.filter(function(o) { var d = normDate(o.cajaDate || o.date); return d >= w.start && d <= w.end; });
               var wEgrEf = egresosEfectivo.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wEgrV = egresosVirtuales.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wIng = ingresosExtra.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
