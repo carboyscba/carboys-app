@@ -11260,11 +11260,25 @@ const BudgetPricingScreen = (props) => {
         desc = (d.desc || catKey) + (d.obs ? " — " + d.obs : "");
       } else {
         desc = (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) {
-          var lbl = it.desc ? it.label + " (" + it.desc + ")" : it.label;
-          return it.obs ? lbl + " — " + it.obs : lbl;
+          var lbl = it.isCustom ? (it.desc || "Otro") : it.label;
+          var sideLabel = it.side && it.side !== "ambos" ? (it.side === "izq" ? " (Izq)" : " (Der)") : "";
+          return lbl + sideLabel + (it.obs ? " — " + it.obs : "");
         }).join(", ");
       }
-      return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: d.noItems ? [] : (d.items || []).map(function(it) { return Object.assign({}, it, { selected: true, otroDesc: it.obs || it.otroDesc || "" }); }) };
+      var trenItems = d.noItems ? [] : (d.items || []).map(function(it) {
+        return {
+          key: it.key,
+          label: it.isCustom ? (it.desc || "Otro") : it.label,
+          price: it.price || "",
+          selected: true,
+          side: it.side || "ambos",
+          hasSide: it.hasSide || false,
+          isCustom: it.isCustom || false,
+          desc: it.desc || "",
+          otroDesc: it.obs || it.otroDesc || "",
+        };
+      });
+      return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: trenItems };
     }).filter(function(w) { return w.price > 0; });
     setOrders(function(prev) { return prev.map(function(o) {
       if (o.id !== order.id) return o;
@@ -11383,14 +11397,37 @@ const BudgetPricingScreen = (props) => {
                 ) : (
                   <div>
                   {d.items.map(function(item, idx) {
+                    var itemHasSide = item.hasSide || (BUDGET_CATEGORIES[catKey] || []).some(function(t) { return t.key === item.key && t.hasSide; });
                     return (
-                      <div key={item.key || idx} style={{ padding: "6px 0", borderBottom: "1px solid " + T.border }}>
+                      <div key={item.key || idx} style={{ padding: "8px 0", borderBottom: "1px solid " + T.border }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.label}</span>
+                          <span style={{ fontSize: 13, flex: 1, fontWeight: 600, color: "#9C27B0" }}>✓ {item.isCustom ? (item.desc || "Otro") : item.label}</span>
                           <span style={{ fontSize: 12, color: "#9C27B0", fontWeight: 700 }}>$</span>
                           <input inputMode="numeric" type="text" value={item.price ? Number(item.price).toLocaleString("es-AR") : ""} onChange={function(e) { setPrice(catKey, idx, e.target.value.replace(/[^0-9]/g, "")); }} placeholder="0" style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
                           <span onClick={function() { setPricing(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.filter(function(_, j) { return j !== idx; }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; }); }} style={{ fontSize: 12, color: T.red, cursor: "pointer", padding: "2px 4px", opacity: 0.5 }}>✕</span>
                         </div>
+                        {/* Side selector for hasSide items */}
+                        {itemHasSide && (
+                          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                            {[{ v: "izq", l: "Izq" }, { v: "der", l: "Der" }, { v: "ambos", l: "Ambos" }].map(function(s) {
+                              var sel = (item.side || "ambos") === s.v;
+                              return (
+                                <div key={s.v} onClick={function() { setPricing(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.slice(); items[idx] = Object.assign({}, items[idx], { side: s.v }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; }); }}
+                                  style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                                    border: "1.5px solid " + (sel ? "#9C27B0" : T.border),
+                                    background: sel ? "rgba(156,39,176,0.1)" : T.bg,
+                                    color: sel ? "#9C27B0" : T.gray }}>
+                                  {s.l}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {/* Custom item description */}
+                        {item.isCustom && (
+                          <input inputMode="text" value={item.desc || ""} onChange={function(e) { setPricing(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.slice(); items[idx] = Object.assign({}, items[idx], { desc: e.target.value }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; }); }} placeholder="Describir..." style={{ ...inputStyle, width: "100%", fontSize: 12, padding: "4px 8px", marginTop: 4 }} />
+                        )}
+                        {/* Observation */}
                         <input inputMode="text" value={item.obs || ""} onChange={function(e) { setPricing(function(prev) { var c = Object.assign({}, prev); var items = c[catKey].items.slice(); items[idx] = Object.assign({}, items[idx], { obs: e.target.value }); c[catKey] = Object.assign({}, c[catKey], { items: items }); return c; }); }} placeholder="Observación..." style={{ ...inputStyle, width: "100%", fontSize: 11, padding: "3px 8px", marginTop: 3, color: T.grayLight }} />
                       </div>
                     );
@@ -11400,7 +11437,6 @@ const BudgetPricingScreen = (props) => {
                     var budgetItems = BUDGET_CATEGORIES[catKey] || [];
                     var existingKeys = new Set(d.items.map(function(i) { return i.key; }));
                     var available = budgetItems.filter(function(t) { return !existingKeys.has(t.key); });
-                    if (available.length === 0) return null;
                     return (
                       <div style={{ marginTop: 8 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 6 }}>+ Agregar item:</div>
@@ -11411,7 +11447,7 @@ const BudgetPricingScreen = (props) => {
                                 setPricing(function(prev) {
                                   var c = Object.assign({}, prev);
                                   var items = c[catKey].items.slice();
-                                  items.push({ key: t.key, label: t.label, price: "", desc: "", obs: "" });
+                                  items.push({ key: t.key, label: t.label, price: "", desc: "", obs: "", hasSide: t.hasSide, side: "ambos" });
                                   c[catKey] = Object.assign({}, c[catKey], { items: items });
                                   return c;
                                 });
@@ -11420,6 +11456,18 @@ const BudgetPricingScreen = (props) => {
                               </div>
                             );
                           })}
+                          {/* Otro chip — always available */}
+                          <div onClick={function() {
+                            setPricing(function(prev) {
+                              var c = Object.assign({}, prev);
+                              var items = c[catKey].items.slice();
+                              items.push({ key: "otro_" + Date.now(), label: "Otro", price: "", desc: "", obs: "", isCustom: true });
+                              c[catKey] = Object.assign({}, c[catKey], { items: items });
+                              return c;
+                            });
+                          }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px dashed #9C27B0", background: "rgba(156,39,176,0.04)", fontSize: 11, fontWeight: 700, color: "#9C27B0", cursor: "pointer" }}>
+                            📝 Otro
+                          </div>
                         </div>
                       </div>
                     );
@@ -11432,7 +11480,7 @@ const BudgetPricingScreen = (props) => {
 
           {/* ➕ Agregar Servicio */}
           {(() => {
-            var allCats = ["Service Full", "Service Base", "Tren Delantero", "Tren Trasero", "Pastillas de Freno", "Mecánica", "Escape", "Repro", "Arreglo", "Baterías", "Chequeo Pre-Post", "Otros"];
+            var allCats = ["Service Full", "Service Base", "Tren Delantero", "Tren Trasero", "Pastillas de Freno", "Mecánica", "Escape", "Repro", "Arreglo", "Baterías", "Otros"];
             var available = allCats.filter(function(c) { return !pricing[c]; });
             if (available.length === 0) return null;
             return (
@@ -11565,10 +11613,12 @@ const BudgetPricingScreen = (props) => {
                       {d.obs && <div style={{ fontSize: 10, color: "#64748b", fontStyle: "italic", paddingLeft: 4 }}>{d.obs}</div>}
                     </div>
                   ) : pricedItems.map(function(item, idx) {
+                    var lbl = item.isCustom ? (item.desc || "Otro") : item.label;
+                    var sideLabel = item.side && item.side !== "ambos" ? (item.side === "izq" ? " (Izq)" : " (Der)") : "";
                     return (
                       <div key={idx} style={{ padding: "4px 0" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                          <span style={{ color: "#334155" }}>{item.desc ? item.label + " (" + item.desc + ")" : item.label}</span>
+                          <span style={{ color: "#334155" }}>{lbl}{sideLabel}</span>
                           <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, color: "#0d1526" }}>{fmtP(parseFloat(item.price) || 0)}</span>
                         </div>
                         {item.obs && <div style={{ fontSize: 10, color: "#64748b", fontStyle: "italic", paddingLeft: 4 }}>{item.obs}</div>}
