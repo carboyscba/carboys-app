@@ -6523,11 +6523,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const ingresosExtra = useMemo(() => periodEgresos.filter(e => e.esIngreso), [periodEgresos]);
   const totalEgr = useMemo(() => egresosEfectivo.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [egresosEfectivo]);
   const totalEgrVirtual = useMemo(() => egresosVirtuales.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [egresosVirtuales]);
-  const totalIngresosExtra = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const totalIngresosExtra = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0), [ingresosExtra]);
   // Cobros por método — incluye pagos directos de órdenes + cobros CTA CTE (ingresosExtra) del mismo método
-  const ingExEf = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
-  const ingExTarj = useMemo(() => ingresosExtra.filter(e => e.metodoPago === "Tarjeta").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
-  const ingExTransf = useMemo(() => ingresosExtra.filter(e => e.metodoPago === "Transferencia").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const ingExEf = useMemo(() => ingresosExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const ingExTarj = useMemo(() => ingresosExtra.filter(e => e.metodoPago === "Tarjeta").reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0), [ingresosExtra]);
+  const ingExTransf = useMemo(() => ingresosExtra.filter(e => e.metodoPago === "Transferencia").reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0), [ingresosExtra]);
   const efIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExEf, [periodOrders, ingExEf]);
   const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTarj, [periodOrders, ingExTarj]);
   const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTransf, [periodOrders, ingExTransf]);
@@ -7910,7 +7910,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             // Ingresos extra (cobros CTA CTE, saldo inicial, etc)
             filtIngExtra.forEach(function(e) {
               var metColor = e.metodoPago === "Efectivo" ? T.green : e.metodoPago === "Tarjeta" ? "#9C27B0" : e.metodoPago === "Transferencia" ? T.accent : T.green;
-              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: parseFloat(e.monto) || 0, color: metColor, _ts: typeof e.id === "number" ? e.id : 0 });
+              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: Math.abs(parseFloat(e.monto) || 0), color: metColor, _ts: typeof e.id === "number" ? e.id : 0 });
             });
             // ── Sort: chronological, newest first (date desc → timestamp desc) ──
             items.sort(function(a, b) { var dc = (b.date || "").localeCompare(a.date || ""); return dc !== 0 ? dc : (b._ts || 0) - (a._ts || 0); });
