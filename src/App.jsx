@@ -6795,7 +6795,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   </div>
                   <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}</div>
                   <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    {mainMethod && <span style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, background: T.bg3, padding: "2px 8px", borderRadius: 4 }}>{mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}</span>}
+                    {mainMethod && <span style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, background: T.bg3, padding: "2px 8px", borderRadius: 4 }}>{mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}{mainMethod === "Transferencia" ? (() => { const acc = (o.payments||[]).find(p => p.method === "Transferencia")?.account; return acc === "1" ? " → CARBOYS" : acc === "2" ? " → Ignacio Karqui" : ""; })() : ""}</span>}
                     {fcLabel && <span style={{ fontSize: 10, fontWeight: 700, color: hasFc ? T.green : T.grayLight, background: hasFc ? `${T.green}15` : T.bg3, padding: "2px 8px", borderRadius: 4 }}>🧾 {fcLabel}</span>}
                   </div>
                 </div>
@@ -6906,7 +6906,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <span style={{ fontSize: 13, color: T.gray }}>Método</span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
-                          {mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}
+                          {mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}{mainMethod === "Transferencia" ? (() => { const acc = (o.payments||[]).find(p => p.method === "Transferencia")?.account; return acc === "1" ? " → CARBOYS" : acc === "2" ? " → Ignacio Karqui" : ""; })() : ""}
                         </span>
                       </div>
                       {withIva && (
@@ -8527,7 +8527,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                         {(() => {
                           const mainM = (o.payments||[]).find(p => p.method)?.method || "";
-                          return mainM ? <div style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, marginTop: 3 }}>{mainM === "Efectivo" ? "💵" : mainM === "Transferencia" ? "🔁" : mainM === "Tarjeta" ? "💳" : "📒"} {mainM}</div> : null;
+                          const accLabel = mainM === "Transferencia" ? (() => { const acc = (o.payments||[]).find(p => p.method === "Transferencia")?.account; return acc === "1" ? " → CARBOYS" : acc === "2" ? " → Ignacio Karqui" : ""; })() : "";
+                          return mainM ? <div style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, marginTop: 3 }}>{mainM === "Efectivo" ? "💵" : mainM === "Transferencia" ? "🔁" : mainM === "Tarjeta" ? "💳" : "📒"} {mainM}{accLabel}</div> : null;
                         })()}
                       </div>
                       <div style={{ textAlign: "right" }}>
