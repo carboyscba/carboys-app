@@ -5919,8 +5919,10 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
                   <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     body { font-family: 'Outfit', sans-serif; background: #fff; }
-                    @page { size: A4; margin: 10mm; }
+                    @page { size: A4; margin: 0; }
                     @media print { body { margin: 0; } }
+                    #ticket-print { max-width: 100% !important; width: 100% !important; border-radius: 0 !important; box-shadow: none !important; margin: 0 !important; min-height: 100vh; display: flex; flex-direction: column; }
+                    #ticket-print > div:last-child { margin-top: auto; }
                   </style>
                 </head><body>${el.outerHTML}</body></html>`);
                 printWin.document.close();
@@ -6147,8 +6149,10 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
                   <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     body { font-family: 'Outfit', sans-serif; background: #fff; }
-                    @page { size: A4; margin: 10mm; }
+                    @page { size: A4; margin: 0; }
                     @media print { body { margin: 0; } }
+                    #factura-print { max-width: 100% !important; width: 100% !important; border-radius: 0 !important; box-shadow: none !important; margin: 0 !important; min-height: 100vh; display: flex; flex-direction: column; }
+                    #factura-print > div:last-child { margin-top: auto; }
                   </style>
                 </head><body>${el.outerHTML}</body></html>`);
                 printWin.document.close();
