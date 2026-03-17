@@ -5911,22 +5911,21 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
           {readonly && (
             <>
               <button onClick={() => {
-                // Ocultar todo excepto el ticket antes de imprimir
-                const allElements = document.querySelectorAll("body > *");
-                const ticketEl = document.getElementById("ticket-print");
-                const ticketWrapper = ticketEl?.closest("[style*='position: fixed']") || ticketEl?.parentElement?.parentElement;
-                // Marcar elementos a ocultar
-                const hidden = [];
-                allElements.forEach(el => {
-                  if (ticketWrapper && !el.contains(ticketWrapper) && el !== ticketWrapper) {
-                    el.setAttribute("data-ph", "1");
-                    el.style.setProperty("display", "none", "important");
-                    hidden.push(el);
-                  }
-                });
-                window.print();
-                // Restaurar
-                setTimeout(() => { hidden.forEach(el => { el.removeAttribute("data-ph"); el.style.removeProperty("display"); }); }, 500);
+                const el = document.getElementById("ticket-print");
+                if (!el) return;
+                const printWin = window.open("", "_blank", "width=800,height=1100");
+                printWin.document.write(`<!DOCTYPE html><html><head><title>Comprobante</title>
+                  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+                  <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    body { font-family: 'Outfit', sans-serif; background: #fff; }
+                    @page { size: A4; margin: 10mm; }
+                    @media print { body { margin: 0; } }
+                  </style>
+                </head><body>${el.outerHTML}</body></html>`);
+                printWin.document.close();
+                printWin.onload = function() { printWin.focus(); printWin.print(); printWin.close(); };
+                setTimeout(() => { try { printWin.focus(); printWin.print(); } catch(e) {} }, 800);
               }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
                 🖨️ Imprimir
               </button>
@@ -6140,22 +6139,22 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
           {readonly && (
             <>
               <button onClick={() => {
-                // Ocultar todo excepto el ticket antes de imprimir
-                const allElements = document.querySelectorAll("body > *");
-                const ticketEl = document.getElementById("factura-print");
-                const ticketWrapper = ticketEl?.closest("[style*='position: fixed']") || ticketEl?.parentElement?.parentElement;
-                // Marcar elementos a ocultar
-                const hidden = [];
-                allElements.forEach(el => {
-                  if (ticketWrapper && !el.contains(ticketWrapper) && el !== ticketWrapper) {
-                    el.setAttribute("data-ph", "1");
-                    el.style.setProperty("display", "none", "important");
-                    hidden.push(el);
-                  }
-                });
-                window.print();
-                // Restaurar
-                setTimeout(() => { hidden.forEach(el => { el.removeAttribute("data-ph"); el.style.removeProperty("display"); }); }, 500);
+                const el = document.getElementById("factura-print");
+                if (!el) return;
+                const printWin = window.open("", "_blank", "width=800,height=1100");
+                printWin.document.write(`<!DOCTYPE html><html><head><title>Factura</title>
+                  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+                  <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    body { font-family: 'Outfit', sans-serif; background: #fff; }
+                    @page { size: A4; margin: 10mm; }
+                    @media print { body { margin: 0; } }
+                  </style>
+                </head><body>${el.outerHTML}</body></html>`);
+                printWin.document.close();
+                printWin.onload = function() { printWin.focus(); printWin.print(); printWin.close(); };
+                // Fallback if onload doesn't fire
+                setTimeout(() => { try { printWin.focus(); printWin.print(); } catch(e) {} }, 800);
               }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, padding: "8px 16px", fontSize: 13 }}>
                 🖨️ Imprimir
               </button>
@@ -6320,12 +6319,19 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
               </div>
               {order.factura?.caeVto && <div style={{ fontSize: 11, color: "#64748b" }}>Vencimiento CAE: {order.factura.caeVto}</div>}
             </div>
-            {order.factura?.cae && (
-              <div style={{ textAlign: "center" }}>
-                <img src={`https://chart.googleapis.com/chart?cht=qr&chs=80x80&chl=https://www.afip.gob.ar/fe/qr/?p=${btoa(JSON.stringify({ver:1,fecha:order.factura.fecha?.split("/").reverse().join("-"),cuit:entityCuit.replace(/[^0-9]/g,""),ptoVta:entityPV,tipoCmp:invoiceType==="A"?1:invoiceType==="B"?6:11,nroCmp:order.factura.cbteNro||1,importe:order.factura.importeTotal||totalFact,moneda:"PES",ctz:1,tipoDocRec:99,nroDocRec:0,tipoCodAut:"E",codAut:parseInt(order.factura.cae)}))}`} alt="QR AFIP" style={{ width: 80, height: 80, borderRadius: 4 }} />
-                <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 2 }}>Verificar en AFIP</div>
-              </div>
-            )}
+            {order.factura?.cae && (() => {
+              const qrData = JSON.stringify({ver:1,fecha:order.factura.fecha?.split("/").reverse().join("-"),cuit:entityCuit.replace(/[^0-9]/g,""),ptoVta:entityPV,tipoCmp:invoiceType==="A"?1:invoiceType==="B"?6:11,nroCmp:order.factura.cbteNro||1,importe:order.factura.importeTotal||totalFact,moneda:"PES",ctz:1,tipoDocRec:99,nroDocRec:0,tipoCodAut:"E",codAut:parseInt(order.factura.cae)});
+              const afipUrl = "https://www.afip.gob.ar/fe/qr/?p=" + btoa(qrData);
+              const qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(afipUrl);
+              return (
+                <div style={{ textAlign: "center" }}>
+                  <a href={afipUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                    <img src={qrImgUrl} alt="QR AFIP" crossOrigin="anonymous" style={{ width: 80, height: 80, borderRadius: 4, background: "#fff" }} />
+                    <div style={{ fontSize: 8, color: "#1E88E5", marginTop: 2 }}>Verificar en AFIP</div>
+                  </a>
+                </div>
+              );
+            })()}
             {!order.factura?.cae && (
               <div style={{ width: 64, height: 64, border: "2px dashed #cbd5e1", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#94a3b8", textAlign: "center" }}>
                 QR<br/>AFIP
