@@ -6499,6 +6499,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [cmVentaMetodo, setCmVentaMetodo] = useState(null); // método filtrado en ventas
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Migration: patch cobrado orders missing cajaDate (pre-deploy backward compat)
+  useEffect(() => {
+    const needsPatch = orders.some(o => o.cobrado && !o.cajaDate && o.payments && o.payments.length > 0);
+    if (needsPatch) {
+      setOrders(prev => prev.map(o => {
+        if (o.cobrado && !o.cajaDate && o.payments && o.payments.length > 0) {
+          return { ...o, cajaDate: today };
+        }
+        return o;
+      }));
+    }
+  }, []); // eslint-disable-line -- runs once on mount
+
   const _now = new Date();
   const _dayOfWeek = _now.getDay(); // 0=dom, 1=lun, ..., 6=sab
   const _mondayOffset = _dayOfWeek === 0 ? 6 : _dayOfWeek - 1; // días desde el lunes
@@ -6514,7 +6528,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   };
 
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
-  const cobradas = useMemo(() => completed.filter(o => o.cobrado || o.isQuickSale), [completed]);
+  const cobradas = useMemo(() => completed.filter(o => o.cobrado || o.isQuickSale || (o.status === "delivered" && o.payments && o.payments.length > 0 && o.payments.some(p => parseFloat(p.amount) > 0))), [completed]);
   const periodOrders = useMemo(() => cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
   const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0), [periodOrders]);
   const totalIngresos = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
@@ -6533,7 +6547,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const efIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExEf, [periodOrders, ingExEf]);
   const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTarj, [periodOrders, ingExTarj]);
   const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTransf, [periodOrders, ingExTransf]);
-  const ctaCteIngresado = useMemo(() => periodOrders.filter(o => !o.ctaCobrada).reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const ctaCteIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const saldoCajaCalculado = efIngresado - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
