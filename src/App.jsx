@@ -6500,18 +6500,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Migration: patch cobrado orders missing cajaDate (pre-deploy backward compat)
+  // Cleanup: remove cajaDate incorrectly set on historical orders by a bad migration
   useEffect(() => {
-    const needsPatch = orders.some(o => o.cobrado && !o.cajaDate && o.payments && o.payments.length > 0);
-    if (needsPatch) {
+    const bad = orders.some(o => o.cajaDate && o.cajaDate === today && o.date && o.date.slice(0, 10) !== today && !o.isQuickSale);
+    if (bad) {
       setOrders(prev => prev.map(o => {
-        if (o.cobrado && !o.cajaDate && o.payments && o.payments.length > 0) {
-          return { ...o, cajaDate: today };
+        if (o.cajaDate && o.cajaDate === today && o.date && o.date.slice(0, 10) !== today && !o.isQuickSale) {
+          const copy = { ...o };
+          delete copy.cajaDate;
+          return copy;
         }
         return o;
       }));
     }
-  }, []); // eslint-disable-line -- runs once on mount
+  }, []);
 
   const _now = new Date();
   const _dayOfWeek = _now.getDay(); // 0=dom, 1=lun, ..., 6=sab
