@@ -6718,8 +6718,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
           {[
-            { l: "Total Ventas", v: showTotalVentas ? fmt(totalVentas) : "• • • • •", c: T.accent, ic: "💰", tap: true },
-            { l: "Ticket Promedio", v: fmt(periodOrders.length > 0 ? totalVentas / periodOrders.length : 0), c: "#9C27B0", ic: "🎯" },
+            { l: "Total Cobrado", v: showTotalVentas ? fmt(totalIngresos) : "• • • • •", c: T.accent, ic: "💰", tap: true },
+            { l: "Ticket Promedio", v: fmt(periodOrders.length > 0 ? totalIngresos / periodOrders.length : 0), c: "#9C27B0", ic: "🎯" },
             { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "✅" },
             { l: "Vehículos Entregados", v: periodOrders.filter(o => o.status === "delivered").length, c: T.orange, ic: "🚗" },
           ].map(s => (
@@ -6735,7 +6735,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           {periodOrders.slice(-8).reverse().map(o => {
             const c = clients.find(x => x.id === o.clientId);
             const v = c?.vehicles?.find(x => x.domain === o.domain);
-            const tot = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const tot = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) || (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
                 <div>
@@ -6818,9 +6818,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   ))}
                   <div style={{ height: 2, background: T.border, margin: "12px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-                    <span>TOTAL</span>
+                    <span>TOTAL BASE</span>
                     <span style={{ color: T.accent }}>{fmt(total)}</span>
                   </div>
+                  {(cobroPay[0]?.withIva || o.paymentPref?.withIva) && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.gray }}><span>+ IVA {iva}%</span><span style={{ fontWeight: 700, color: T.orange }}>{fmt(Math.round(total * iva / 100))}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, marginTop: 6, paddingTop: 8, borderTop: `2px solid ${T.accent}` }}>
+                        <span>TOTAL A COBRAR</span>
+                        <span style={{ color: T.green }}>{fmt(Math.round(total * (1 + iva / 100)))}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── 3. MÉTODO DE PAGO ── */}
@@ -6945,13 +6954,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
                       {/* Desglose IVA */}
                       {pm.withIva && parseFloat(i === 0 && cobroPay.length > 1 ? primerMonto : pm.amount) > 0 && (() => {
-                        const base = parseFloat(i === 0 && cobroPay.length > 1 ? primerMonto : pm.amount);
+                        const totalConIva = parseFloat(i === 0 && cobroPay.length > 1 ? primerMonto : pm.amount);
+                        // pm.amount YA incluye IVA → reverse-calcular base
+                        const baseNeto = Math.round(totalConIva / (1 + iva / 100));
+                        const ivaAmount = totalConIva - baseNeto;
                         return (
                           <div style={{ marginTop: 6, padding: 10, borderRadius: 8, background: T.bg2 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>Subtotal</span><span style={{ fontWeight: 700 }}>{fmt(base)}</span></div>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>IVA {iva}%</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(base * iva / 100)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>Base (neto)</span><span style={{ fontWeight: 700 }}>{fmt(baseNeto)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>IVA {iva}%</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(ivaAmount)}</span></div>
                             <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>Total con IVA</span><span style={{ color: T.accent, fontFamily: fontD }}>{fmt(base * (1 + iva / 100))}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>Total a cobrar</span><span style={{ color: T.accent, fontFamily: fontD }}>{fmt(totalConIva)}</span></div>
                           </div>
                         );
                       })()}
@@ -7182,6 +7194,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
                 const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : "ESPERANDO";
                 const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                const displayTotal = o.paymentPref?.withIva ? Math.round(total * (1 + (config.ivaRate || 21) / 100)) : total;
                 return (
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
@@ -7213,7 +7226,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       )}
                       {/* Derecha: status siempre fijo */}
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(displayTotal)}</div>
+                        {o.paymentPref?.withIva && <div style={{ fontSize: 9, color: T.orange, fontWeight: 700 }}>IVA incluido</div>}
                         <div style={{ fontSize: 11, fontWeight: 700, color: sc, marginTop: 2 }}>{sl}</div>
                       </div>
                     </div>
