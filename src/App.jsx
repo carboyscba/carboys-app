@@ -1088,6 +1088,8 @@ const BUDGET_CATEGORIES = {
     { key: "parrilla", label: "Parrilla completa", hasSide: true },
     { key: "rotulas", label: "Rótulas", hasSide: true },
     { key: "bujes", label: "Bujes", hasSide: true },
+    { key: "rulemanes", label: "Rulemanes", hasSide: true },
+    { key: "discos", label: "Discos de freno", hasSide: true },
     { key: "alineado", label: "Alineado" },
     { key: "balanceado", label: "Balanceado" },
     { key: "rotacion", label: "Rotación" },
@@ -1095,6 +1097,7 @@ const BUDGET_CATEGORIES = {
   "Tren Trasero": [
     { key: "amortiguadores_t", label: "Amortiguadores", hasSide: true },
     { key: "bujes_t", label: "Bujes", hasSide: true },
+    { key: "rulemanes_t", label: "Rulemanes", hasSide: true },
   ],
   "Mecánica": [
     { key: "kit_distribucion", label: "Kit de distribución" },
@@ -4895,8 +4898,9 @@ const VehicleDetailScreen = (props) => {
           }, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "budget_closed" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
-            { icon: "▶️", label: "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
-              setBudgetSelWorks((order.works || []).map(w => ({ ...w, selected: true, expanded: true, price: String(w.price || 0), trenItems: (w.trenItems || []).map(ti => ({ ...ti, selected: ti.selected !== false, price: String(ti.price || 0) })) })));
+            { icon: "▶️", label: order.budgetRemainingWorks ? "Continuar (pendientes)" : "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
+              var worksToShow = order.budgetRemainingWorks || (order.works || []);
+              setBudgetSelWorks(worksToShow.map(w => ({ ...w, selected: true, expanded: true, price: String(w.price || 0), trenItems: (w.trenItems || []).map(ti => ({ ...ti, selected: ti.selected !== false, price: String(ti.price || 0) })) })));
               setShowBudgetStartPopup(true);
             }, bg: "rgba(67,160,71,.08)" },
             { icon: "✏️", label: "Editar Presupuesto", show: canSeePrices, color: T.accent, action: () => {
@@ -5579,15 +5583,30 @@ const VehicleDetailScreen = (props) => {
                         id: newId, clientId: order.clientId, domain: order.domain,
                         status: "pending", works: newWorks, payments: [],
                         assignedTo: "", date: new Date().toISOString().split("T")[0],
+                        _createdAt: new Date().toISOString(),
                         km: order.km || "", budgetApproved: true, approvedAt: new Date().toISOString(),
                         fromBudgetId: order.id, startedBy: "", startedAt: "", waRecepcion: false,
                         paymentPref: { method: budgetPayPref.method, withIva: budgetPayPref.withIva }
                       };
-                      setOrders(prev => [...prev, newOrder]);
+                      // Save remaining (not selected) works on the budget order
+                      var remainingWorks = budgetSelWorks.filter(w => !w.selected).map(w => ({
+                        ...w, selected: true, expanded: true
+                      }));
+                      // Also save partially selected tren items (category selected but not all sub-items)
+                      budgetSelWorks.filter(w => w.selected && (w.trenItems || []).length > 0).forEach(w => {
+                        var unselSubs = (w.trenItems || []).filter(ti => !ti.selected);
+                        if (unselSubs.length > 0) {
+                          remainingWorks.push({ ...w, trenItems: unselSubs.map(ti => ({ ...ti, selected: true })) });
+                        }
+                      });
+                      setOrders(prev => {
+                        var updated = prev.map(o => o.id === order.id ? { ...o, budgetRemainingWorks: remainingWorks.length > 0 ? remainingWorks : null, partialStarted: true } : o);
+                        return [...updated, newOrder];
+                      });
                       setShowBudgetStartPopup(false);
                       onNavigate("vehicleDetail", newOrder);
                     }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, fontWeight: 800, opacity: (selWorks.length > 0 && budgetPayPref.method && budgetPayPref.withIva !== null) ? 1 : 0.4 }}>
-                      ▶️ Crear Orden de Trabajo
+                      ▶️ Crear Orden {selWorks.length < budgetSelWorks.length ? "Parcial" : "de Trabajo"} ({selWorks.length}/{budgetSelWorks.length})
                     </button>
                   </div>
                 </>
@@ -10984,13 +11003,16 @@ const InspectionScreen = (props) => {
   var INSP_CATS = [
     { key: "Tren Delantero", icon: "⚙️", hasItems: true },
     { key: "Tren Trasero", icon: "⚙️", hasItems: true },
-    { key: "Service Full", icon: "🔧", hasItems: false },
+    { key: "Service Full", icon: "🛠️", hasItems: false },
     { key: "Service Base", icon: "🔧", hasItems: false },
-    { key: "Mecanica", icon: "🔩", hasItems: true },
+    { key: "Mecánica", icon: "🔩", hasItems: true },
     { key: "Escape", icon: "💨", hasItems: true },
     { key: "Pastillas de Freno", icon: "🛞", hasItems: true },
     { key: "Baterías", icon: "🔋", hasItems: false },
+    { key: "Repro", icon: "⚡", hasItems: false, hasDesc: true },
     { key: "Arreglo", icon: "🪛", hasItems: false, hasDesc: true },
+    { key: "Chequeo Pre-Post", icon: "🔍", hasItems: false, hasDesc: true },
+    { key: "Otros", icon: "📝", hasItems: false, hasDesc: true },
   ];
 
   var PASTILLAS_ITEMS = [{ key: "past_del", label: "Eje Delantero" }, { key: "past_tra", label: "Eje Trasero" }];
@@ -11004,19 +11026,15 @@ const InspectionScreen = (props) => {
       if (cat.hasItems) {
         if (cat.key === "Pastillas de Freno") {
           items = PASTILLAS_ITEMS.map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-          items.push({ key: "otro_past", label: "Otro", checked: false, desc: "", isCustom: true });
-        } else if (cat.key === "Mecanica") {
+        } else if (cat.key === "Mecánica") {
           items = (BUDGET_CATEGORIES["Mecánica"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-          items.push({ key: "otro_mec", label: "Otro", checked: false, desc: "", isCustom: true });
-        } else if (cat.key === "Escape") {
-          items = (BUDGET_CATEGORIES["Escape"] || []).map(function(t) { return { key: t.key, label: t.label, checked: false }; });
-          items.push({ key: "otro_esc", label: "Otro", checked: false, desc: "", isCustom: true });
         } else {
           items = (BUDGET_CATEGORIES[cat.key] || []).map(function(t) { return { key: t.key, label: t.label, checked: false, hasSide: t.hasSide }; });
-          items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
         }
+        // Add "Otro" at end for all categories with items
+        items.push({ key: "otro_" + cat.key, label: "Otro", checked: false, desc: "", isCustom: true });
       }
-      d[cat.key] = { selected: preCats.indexOf(cat.key) >= 0, items: items, desc: "" };
+      d[cat.key] = { selected: preCats.indexOf(cat.key) >= 0 || preCats.indexOf("Mecanica") >= 0 && cat.key === "Mecánica", items: items, desc: "", customOtros: [] };
     });
     return d;
   };
@@ -11035,6 +11053,17 @@ const InspectionScreen = (props) => {
   };
   var setCatDesc = function(catKey, val) {
     setData(function(prev) { var c = Object.assign({}, prev); c[catKey] = Object.assign({}, c[catKey], { desc: val }); return c; });
+  };
+
+  var addOtro = function(catKey) {
+    setData(function(prev) {
+      var c = Object.assign({}, prev);
+      var items = c[catKey].items.slice();
+      var otroCount = items.filter(function(i) { return i.isCustom; }).length;
+      items.push({ key: "otro_" + catKey + "_" + Date.now(), label: "Otro", checked: true, desc: "", isCustom: true });
+      c[catKey] = Object.assign({}, c[catKey], { items: items });
+      return c;
+    });
   };
 
   var selectedCats = INSP_CATS.filter(function(c) { return data[c.key] && data[c.key].selected; });
@@ -11094,6 +11123,7 @@ const InspectionScreen = (props) => {
                     </div>
                   );
                 })}
+                <div onClick={function() { addOtro(cat.key); }} style={{ padding: "8px 0", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#9C27B0", textAlign: "center", marginTop: 4 }}>+ Agregar otro</div>
               </div>
             )}
 
@@ -11283,6 +11313,7 @@ const BudgetPricingScreen = (props) => {
                   <span style={{ fontSize: 20 }}>{catIcons[catKey] || "📝"}</span>
                   <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, flex: 1 }}>{catKey}</span>
                   {sub > 0 && <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(sub)}</span>}
+                  <span onClick={function() { setPricing(function(prev) { var c = Object.assign({}, prev); delete c[catKey]; return c; }); }} style={{ fontSize: 14, color: T.red, cursor: "pointer", padding: "2px 6px", opacity: 0.6 }} title="Quitar">✕</span>
                 </div>
                 {d.desc && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8 }}>{d.desc}</div>}
                 {d.noItems ? (
@@ -11305,6 +11336,40 @@ const BudgetPricingScreen = (props) => {
               </div>
             );
           })}
+
+          {/* ➕ Agregar Servicio */}
+          {(() => {
+            var allCats = ["Service Full", "Service Base", "Tren Delantero", "Tren Trasero", "Pastillas de Freno", "Mecánica", "Escape", "Repro", "Arreglo", "Baterías", "Chequeo Pre-Post", "Otros"];
+            var available = allCats.filter(function(c) { return !pricing[c]; });
+            if (available.length === 0) return null;
+            return (
+              <div style={{ ...card, padding: 14, marginBottom: 12, borderStyle: "dashed", borderColor: "#9C27B040", background: "rgba(156,39,176,0.02)", cursor: "pointer" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#9C27B0", marginBottom: 10 }}>➕ Agregar servicio al presupuesto</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {available.map(function(catName) {
+                    var ic = catIcons[catName] || "📝";
+                    return (
+                      <div key={catName} onClick={function() {
+                        var budgetItems = BUDGET_CATEGORIES[catName];
+                        var hasItems = budgetItems && budgetItems.length > 0;
+                        setPricing(function(prev) {
+                          var c = Object.assign({}, prev);
+                          if (hasItems) {
+                            c[catName] = { items: budgetItems.map(function(t) { return { key: t.key, label: t.label, price: "", desc: "" }; }), noItems: false };
+                          } else {
+                            c[catName] = { items: [], noItems: true, totalPrice: "", desc: "" };
+                          }
+                          return c;
+                        });
+                      }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + T.border, background: T.bg2, fontSize: 11, fontWeight: 700, color: T.text, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                        <span>{ic}</span> {catName}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {grandTotal > 0 && (
             <div style={{ ...card, padding: 14, marginBottom: 16, fontSize: 12 }}>
@@ -11829,6 +11894,7 @@ const ServiceSheetScreen = (props) => {
       const TREN_TRA_MAP = {
         amortiguadores_t: "tt_amortiguadores",
         bujes_t: "tt_bujes",
+        rulemanes_t: "tt_rulemanes",
       };
       w.trenItems.filter(ti => ti.selected).forEach(ti => {
         const sheetKey = TREN_TRA_MAP[ti.key];
@@ -14032,11 +14098,11 @@ const InterventionDiagram = ({ order, sheet }) => {
   // Solo agregar si no están ya cubiertos por los trenItems originales de la orden
   if (sheet) {
     const alreadyInDelantero = (key) => order.works.some(w => w.type === "Tren Delantero" && w.trenItems?.some(ti => {
-      const MAP = { amortiguadores: "td_amortiguadores", extremos: "td_extremos", rotulas: "td_rotulas", bieletas: "td_bieletas", bujes: "td_bujes", parrilla: "td_parrilla", axiales: "td_axiales", discos: "td_discos", pastillas: "td_pastillas" };
+      const MAP = { amortiguadores: "td_amortiguadores", extremos: "td_extremos", rotulas: "td_rotulas", bieletas: "td_bieletas", bujes: "td_bujes", parrilla: "td_parrilla", axiales: "td_axiales", discos: "td_discos", pastillas: "td_pastillas", rulemanes: "td_rulemanes" };
       return MAP[ti.key] === key && ti.selected;
     }));
     const alreadyInTrasero = (key) => order.works.some(w => w.type === "Tren Trasero" && w.trenItems?.some(ti => {
-      const MAP = { amortiguadores_t: "tt_amortiguadores", bujes_t: "tt_bujes" };
+      const MAP = { amortiguadores_t: "tt_amortiguadores", bujes_t: "tt_bujes", rulemanes_t: "tt_rulemanes" };
       return MAP[ti.key] === key && ti.selected;
     }));
 
@@ -14071,6 +14137,14 @@ const InterventionDiagram = ({ order, sheet }) => {
     if (sheet.tt_bujes?.status === "cambiado" && !alreadyInTrasero("tt_bujes")) {
       zones[2].items.push({ name: "Buje trasero", status: "changed" });
       zones[3].items.push({ name: "Buje trasero", status: "changed" });
+    }
+    if (sheet.td_rulemanes?.status === "cambiado" && !alreadyInDelantero("td_rulemanes")) {
+      zones[0].items.push({ name: "Rulemanes", status: "changed" });
+      zones[1].items.push({ name: "Rulemanes", status: "changed" });
+    }
+    if (sheet.tt_rulemanes?.status === "cambiado" && !alreadyInTrasero("tt_rulemanes")) {
+      zones[2].items.push({ name: "Rulemanes tra.", status: "changed" });
+      zones[3].items.push({ name: "Rulemanes tra.", status: "changed" });
     }
     // Ítems que solo aparecen si no hay works del tren
     const hasAnyTren = zones.some(z => z.items.length > 0) || generalItems.length > 0;
@@ -14938,7 +15012,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       if (m[ti.key]) fojaPDFForcedKeys.add(m[ti.key]);
     });
     if (w.type === "Tren Trasero" && w.trenItems) w.trenItems.filter(ti => ti.selected).forEach(ti => {
-      const m = { amortiguadores_t:"tt_amortiguadores", bujes_t:"tt_bujes" };
+      const m = { amortiguadores_t:"tt_amortiguadores", bujes_t:"tt_bujes", rulemanes_t:"tt_rulemanes" };
       if (m[ti.key]) fojaPDFForcedKeys.add(m[ti.key]);
     });
   });
