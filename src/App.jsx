@@ -11128,7 +11128,7 @@ const BudgetPricingScreen = (props) => {
   };
 
   var [pricing, setPricing] = useState(initPricing);
-  var [showPDF, setShowPDF] = useState(order.status === "budget_sent");
+  var [showPDF, setShowPDF] = useState(order.status === "budget_sent" || order.status === "budget_closed" || order.status === "budget_approved");
   var [sendingWA, setSendingWA] = useState(false);
 
   var setPrice = function(catKey, idx, val) {
