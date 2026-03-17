@@ -6488,6 +6488,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [igFiltro, setIgFiltro] = useState("pendiente");
   const [showExtraccion, setShowExtraccion] = useState(false);
   const [extraccionForm, setExtraccionForm] = useState({ monto: "", nota: "", fecha: new Date().toISOString().split("T")[0] });
+  const [selSueldoEmp, setSelSueldoEmp] = useState(null);
+  const [showPagoSueldo, setShowPagoSueldo] = useState(false);
+  const [sueldoForm, setSueldoForm] = useState({ empleado: "", monto: "", desc: "", metodo: "", fecha: new Date().toISOString().split("T")[0] });
   const [cmYear, setCmYear] = useState(new Date().getFullYear());
   const [cmMonth, setCmMonth] = useState(new Date().getMonth());
   const [cmSub, setCmSub] = useState("resumen");
@@ -6597,6 +6600,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     { key: "ctacte", icon: "💰", l: "Cta. Cte." },
     { key: "proveedores", icon: "📦", l: "Proveedores" },
     { key: "servicios", icon: "🔧", l: "Servicios" },
+    { key: "sueldos", icon: "💼", l: "Sueldos" },
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
     { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "campanas", icon: "📣", l: "Campañas" },
@@ -6745,7 +6749,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {/* Tabs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 20 }}>
         {TABS.map(t => (
-          <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); setSelProv(null); setSelServ(null); setSelIgnacio(null); }}
+          <div key={t.key} onClick={() => { setTab(t.key); setSelCobro(null); setCobroPay([]); setCobroClient(null); setHistDetail(null); setHistMonth(null); setStatView(null); setSelProv(null); setSelServ(null); setSelIgnacio(null); setSelSueldoEmp(null); }}
             style={{ ...card, padding: 8, cursor: "pointer", textAlign: "center", borderColor: tab === t.key ? T.accent : T.border, background: tab === t.key ? `${T.accent}12` : T.bg2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 65, gridColumn: "span 1" }}>
             <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{t.icon}</div>
             <div style={{ fontSize: t.half ? 12 : 8, fontWeight: 700, color: tab === t.key ? T.accent : T.gray, lineHeight: 1.2 }}>{t.l}</div>
@@ -10230,6 +10234,250 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           </div>
         );
       })()}
+
+      {/* ══════ SUELDOS ══════ */}
+      {tab === "sueldos" && (<div>
+        {/* ══ HEADER ══ */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {selSueldoEmp && (
+              <span onClick={() => setSelSueldoEmp(null)}
+                style={{ cursor: "pointer", fontSize: 20, color: T.gray, padding: "0 4px" }}>←</span>
+            )}
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>
+              {selSueldoEmp ? `👤 ${selSueldoEmp}` : "💼 Sueldos"}
+            </div>
+          </div>
+          <button onClick={() => {
+            setSueldoForm({ empleado: selSueldoEmp || "", monto: "", desc: "", metodo: "", fecha: today });
+            setShowPagoSueldo(true);
+          }} style={{ ...btnPrimary(T.green), fontSize: 12 }}>💰 Pagar Sueldo</button>
+        </div>
+
+        {/* ══ NIVEL 2: Dentro de un empleado — meses ══ */}
+        {selSueldoEmp && (() => {
+          const empPagos = egresos.filter(e => e.categoria === "sueldo" && e.detalle === selSueldoEmp).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+          const totalEmp = empPagos.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+
+          // Group by month
+          const mesesMap = {};
+          empPagos.forEach(e => {
+            const ym = (e.fecha || "").slice(0, 7);
+            if (!mesesMap[ym]) mesesMap[ym] = [];
+            mesesMap[ym].push(e);
+          });
+          const mesesKeys = Object.keys(mesesMap).sort((a, b) => b.localeCompare(a));
+          const MESES_N = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+          return (
+            <div>
+              {/* Summary */}
+              <div style={{ ...card, padding: 16, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 11, color: T.gray }}>Total abonado</div>
+                  <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.green }}>{fmt(totalEmp)}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: T.gray }}>{empPagos.length} pago{empPagos.length !== 1 ? "s" : ""}</div>
+                  <div style={{ fontSize: 12, color: T.grayLight }}>{mesesKeys.length} mes{mesesKeys.length !== 1 ? "es" : ""}</div>
+                </div>
+              </div>
+
+              {empPagos.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin pagos registrados para {selSueldoEmp}</div>}
+
+              {mesesKeys.map(ym => {
+                const pagos = mesesMap[ym];
+                const parts = ym.split("-");
+                const mesLabel = MESES_N[parseInt(parts[1]) - 1] + " " + parts[0];
+                const totalMes = pagos.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+
+                return (
+                  <div key={ym} style={{ ...card, padding: 0, marginBottom: 12, overflow: "hidden" }}>
+                    {/* Month header */}
+                    <div style={{ padding: "12px 16px", background: `${T.green}08`, borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>📅 {mesLabel}</div>
+                        <div style={{ fontSize: 11, color: T.gray }}>{pagos.length} pago{pagos.length !== 1 ? "s" : ""}</div>
+                      </div>
+                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{fmt(totalMes)}</div>
+                    </div>
+                    {/* Payments */}
+                    <div style={{ padding: "8px 16px" }}>
+                      {pagos.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")).map((pg, pi) => (
+                        <div key={pg.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: pi < pagos.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700 }}>{pg.desc || `Pago ${pi + 1}`}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(pg.fecha)}{pg.metodoPago ? ` · ${pg.metodoPago}` : ""}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.green }}>{fmt(parseFloat(pg.monto) || 0)}</div>
+                            <div onClick={() => setEgresos(p => p.filter(e => e.id !== pg.id))}
+                              style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 7px", borderRadius: 4, border: `1px solid ${T.red}30`, opacity: 0.6 }}>✕</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ══ NIVEL 1: Lista de empleados ══ */}
+        {!selSueldoEmp && (() => {
+          const empleados = users.filter(u => u.role !== "dueño" && u.name !== "Gerente General");
+          const allSueldos = egresos.filter(e => e.categoria === "sueldo");
+          const mesActual = new Date().toISOString().slice(0, 7);
+          const totalMesActual = allSueldos.filter(e => (e.fecha || "").startsWith(mesActual)).reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+          const totalHistorico = allSueldos.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+
+          return (
+            <div>
+              {/* KPI cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Este mes</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalMesActual)}</div>
+                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{allSueldos.filter(e => (e.fecha || "").startsWith(mesActual)).length} pagos</div>
+                </div>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.accent}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Total histórico</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(totalHistorico)}</div>
+                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{allSueldos.length} pagos</div>
+                </div>
+              </div>
+
+              {empleados.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin empleados configurados</div>}
+
+              {empleados.map(emp => {
+                const empPagos = allSueldos.filter(e => e.detalle === emp.name);
+                const empMesActual = empPagos.filter(e => (e.fecha || "").startsWith(mesActual));
+                const empTotalMes = empMesActual.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+                const empTotal = empPagos.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+                const ultimoPago = empPagos.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
+
+                return (
+                  <div key={emp.id} onClick={() => setSelSueldoEmp(emp.name)}
+                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${emp.color || T.accent}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${emp.color || T.accent}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: emp.color || T.accent, fontFamily: fontD }}>
+                          {emp.initial || emp.name[0]}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{emp.name}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>{emp.role}</div>
+                          {ultimoPago && <div style={{ fontSize: 11, color: T.grayLight, marginTop: 2 }}>Último pago: {fmtDate(ultimoPago.fecha)}</div>}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        {empTotalMes > 0 && (
+                          <div>
+                            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.green }}>{fmt(empTotalMes)}</div>
+                            <div style={{ fontSize: 10, color: T.gray }}>este mes · {empMesActual.length}x</div>
+                          </div>
+                        )}
+                        {empTotalMes <= 0 && empTotal > 0 && (
+                          <div>
+                            <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.grayLight }}>{fmt(empTotal)}</div>
+                            <div style={{ fontSize: 10, color: T.gray }}>total</div>
+                          </div>
+                        )}
+                        {empTotal <= 0 && (
+                          <div style={{ fontSize: 11, color: T.gray }}>Sin pagos</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ── MODAL PAGAR SUELDO ── */}
+        {showPagoSueldo && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)" }} onClick={() => setShowPagoSueldo(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>💰 Pagar Sueldo</div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Empleado *</label>
+                <select value={sueldoForm.empleado} onChange={e => setSueldoForm(f => ({ ...f, empleado: e.target.value }))} style={inputStyle}>
+                  <option value="">Seleccionar</option>
+                  {users.filter(u => u.role !== "dueño" && u.name !== "Gerente General").map(u => <option key={u.id} value={u.name}>{u.name} — {u.role}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontWeight: 800, color: T.green, fontSize: 16 }}>$</span>
+                    <input inputMode="numeric" value={sueldoForm.monto ? Number(sueldoForm.monto).toLocaleString("es-AR") : ""}
+                      onChange={e => setSueldoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
+                      placeholder="0" style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD, fontSize: 16 }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Descripción *</label>
+                  <input inputMode="text" value={sueldoForm.desc}
+                    onChange={e => setSueldoForm(f => ({ ...f, desc: e.target.value }))}
+                    placeholder="Ej: 1/4, Quincena 1..." style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Método de pago *</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["Efectivo", "Transferencia"].map(m => (
+                    <div key={m} onClick={() => setSueldoForm(f => ({ ...f, metodo: m }))}
+                      style={{ flex: 1, padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                        border: `2px solid ${sueldoForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.border}`,
+                        background: sueldoForm.metodo === m ? `${m === "Efectivo" ? T.green : T.accent}15` : T.bg }}>
+                      <div style={{ fontSize: 20 }}>{m === "Efectivo" ? "💵" : "🔁"}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4,
+                        color: sueldoForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.grayLight }}>{m}</div>
+                    </div>
+                  ))}
+                </div>
+                {sueldoForm.metodo === "Efectivo" && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>💵 Se registrará como <strong>egreso efectivo</strong> en Caja</div>}
+                {sueldoForm.metodo === "Transferencia" && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>🏦 Se registrará como <strong>egreso virtual</strong> en Caja (banco)</div>}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Fecha de pago</label>
+                <input type="date" value={sueldoForm.fecha} onChange={e => setSueldoForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowPagoSueldo(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button disabled={!sueldoForm.empleado || !sueldoForm.monto || !sueldoForm.desc || !sueldoForm.metodo}
+                  onClick={() => {
+                    const monto = parseFloat(sueldoForm.monto) || 0;
+                    if (monto <= 0) return;
+                    setEgresos(p => [...p, {
+                      id: Date.now(),
+                      desc: sueldoForm.desc,
+                      monto: monto,
+                      fecha: sueldoForm.fecha,
+                      categoria: "sueldo",
+                      categoriaLabel: "Sueldo",
+                      detalle: sueldoForm.empleado,
+                      metodoPago: sueldoForm.metodo,
+                    }]);
+                    setSueldoForm({ empleado: selSueldoEmp || "", monto: "", desc: "", metodo: "", fecha: today });
+                    setShowPagoSueldo(false);
+                  }}
+                  style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: (sueldoForm.empleado && sueldoForm.monto && sueldoForm.desc && sueldoForm.metodo) ? 1 : 0.4 }}>
+                  ✅ Confirmar Pago
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>)}
 
       {/* ══════ IGNACIO ══════ */}
       {tab === "ignacio" && (<div>
