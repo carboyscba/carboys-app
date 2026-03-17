@@ -4021,16 +4021,21 @@ const DashboardScreen = (props) => {
       </div>
 
       {/* En Taller - últimos vehículos */}
-      {orders.filter(o => ["pending", "working", "done"].includes(o.status)).length > 0 && (
+      {orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)).length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span>🔧</span> EN TALLER</div>
             <div onClick={() => onNavigate("workshop")} style={{ fontSize: 13, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver todos →</div>
           </div>
-          {orders.filter(o => ["pending", "working", "done"].includes(o.status)).slice(0, 5).map(o => {
+          {orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)).sort((a, b) => {
+            const ta = new Date(a._createdAt || a.date || 0).getTime();
+            const tb = new Date(b._createdAt || b.date || 0).getTime();
+            return ta - tb;
+          }).slice(0, 5).map(o => {
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
+            const isInspection = o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved";
+            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : isInspection ? "#9C27B0" : T.red;
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
                 style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
@@ -4043,7 +4048,7 @@ const DashboardScreen = (props) => {
                     </div>
                   </div>
                   {o.cobrado && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1px solid ${T.green}60`, marginRight: 8 }}>COBRADO</span>}
-                  <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isInspection ? "INSPECCIÓN" : "ESPERANDO"}</span>
                 </div>
               </div>
             );
@@ -4493,7 +4498,11 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
   const [filter, setFilter] = useState("all");
   const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved");
   const statusPriority = { inspection: 0, inspection_done: 0, budget_sent: 1, budget_approved: 2, pending: 3, working: 4, done: 5, delivered: 6 };
-  const filtered = (filter === "all" ? active : active.filter(o => o.status === filter)).sort((a, b) => (statusPriority[a.status] ?? 9) - (statusPriority[b.status] ?? 9));
+  const filtered = (filter === "all" ? active : active.filter(o => o.status === filter)).sort((a, b) => {
+    const ta = new Date(a._createdAt || a.date || 0).getTime();
+    const tb = new Date(b._createdAt || b.date || 0).getTime();
+    return ta - tb;
+  });
 
   const getVehicleInfo = (order) => {
     const client = clients.find(c => c.id === order.clientId);
@@ -6761,7 +6770,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {tab === "cobros" && (<div>
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🧾 Cobros — Vehículos en Taller</div>
         {(() => {
-          const inTaller = orders.filter(o => ["pending", "working", "done"].includes(o.status));
+          const inTaller = orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status));
           if (selCobro) {
             const o = selCobro;
             const cl = clients.find(c => c.id === o.clientId);
@@ -7186,8 +7195,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             <div>
               {inTaller.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>No hay vehículos en taller</div>}
               {[...inTaller].sort((a, b) => {
-                const p = { done: 0, working: 1, pending: 2, inspection: 2, budget_sent: 2, budget_approved: 2 };
-                return (p[a.status] ?? 3) - (p[b.status] ?? 3);
+                const ta = new Date(a._createdAt || a.date || 0).getTime();
+                const tb = new Date(b._createdAt || b.date || 0).getTime();
+                return ta - tb;
               }).map(o => {
                 const cl = clients.find(c => c.id === o.clientId);
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
