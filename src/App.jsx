@@ -7007,7 +7007,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       {isTransf && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           {getCuentaOptions(config).map(opt => (
-                            <div key={opt.acc} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, account: opt.acc, withIva: opt.iva, invoiceType: opt.acc === "2" ? "C" : "" } : p))}
+                            <div key={opt.acc} onClick={() => {
+                              const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                              const ivaRate = config.ivaRate || 21;
+                              setCobroPay(ps => ps.map((p, j) => {
+                                if (j !== i) return p;
+                                const newIva = opt.iva;
+                                const newAmt = ps.length === 1 ? (newIva ? String(Math.round(totalBase * (1 + ivaRate / 100))) : String(totalBase)) : p.amount;
+                                return { ...p, account: opt.acc, withIva: newIva, invoiceType: opt.acc === "2" ? "C" : "", amount: newAmt };
+                              }));
+                            }}
                               style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.account === opt.acc ? T.accent : T.border}`, background: pm.account === opt.acc ? `${T.accent}10` : T.bg, color: pm.account === opt.acc ? T.accent : T.gray }}>
                               {opt.label}
                               <div style={{ fontSize: 10, color: T.gray, fontWeight: 400, marginTop: 2 }}>{opt.sub}</div>
@@ -7016,8 +7025,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       )}
 
-                      {/* Efectivo / Tarjeta / Cta Cte → IVA */}
-                      {(isEfectivo || isTarjeta || isCtaCte) && (
+                      {/* IVA toggle — Efectivo / Tarjeta / Cta Cte / Transferencia (after account) */}
+                      {(isEfectivo || isTarjeta || isCtaCte || (isTransf && pm.account)) && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <div onClick={() => (() => {
                               const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
@@ -7037,7 +7046,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                               setCobroPay(ps => ps.map((p, j) => {
                                 if (j !== i) return p;
                                 const newAmt = ps.length === 1 ? String(totalBase) : p.amount;
-                                return { ...p, withIva: false, invoiceType: "C", amount: newAmt };
+                                return { ...p, withIva: false, invoiceType: isTransf && pm.account === "2" ? "C" : "C", amount: newAmt };
                               }));
                             })()}
                             style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.gray : T.border}`, background: pm.withIva === false ? T.bg3 : T.bg, color: pm.withIva === false ? T.grayLight : T.gray }}>
@@ -7048,7 +7057,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       )}
 
                       {/* Tipo de factura — obligatorio cuando withIva=true */}
-                      {pm.withIva && (isEfectivo || isTarjeta || isCtaCte || (isTransf && pm.account === "1")) && (
+                      {pm.withIva && (isEfectivo || isTarjeta || isCtaCte || isTransf) && (
                         <div style={{ marginBottom: 8 }}>
                           <div style={{ fontSize: 11, color: pm.invoiceType ? T.gray : T.orange, fontWeight: 700, marginBottom: 5, display: "flex", alignItems: "center", gap: 5 }}>
                             {!pm.invoiceType && <span style={{ color: T.orange }}>⚠</span>}
@@ -7181,7 +7190,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           return false;
                         }
 
-                        // 3. Transferencia → cuenta obligatoria + tipo factura en Cta 1
+                        // 3. Transferencia → cuenta obligatoria + IVA obligatorio
                         if (pm.method === "Transferencia") {
                           if (!pm.account) {
                             const _cta1Name = getCta1(config).nombre;
@@ -7190,12 +7199,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             setCobroValidError(`En Transferencia${nro}: elegí la cuenta (${_ctaMsg}).`);
                             return false;
                           }
-                          if (pm.account === "1" && !pm.invoiceType) {
-                            const opts = hasCuitVal ? "A o B" : "B";
-                            setCobroValidError(`En Transferencia ${getCta1(config).nombre}${nro}: seleccioná el tipo de factura (${opts}).`);
+                          if (pm.withIva === null || pm.withIva === undefined) {
+                            setCobroValidError(`En Transferencia${nro}: seleccioná CON IVA o SIN IVA.`);
                             return false;
                           }
-                          // Cta 2 → Sin IVA, Fact. C — se setea automático.
+                          if (pm.withIva && !pm.invoiceType) {
+                            const opts = hasCuitVal ? "A o B" : "B";
+                            setCobroValidError(`En Transferencia${nro} con IVA: seleccioná el tipo de factura (${opts}).`);
+                            return false;
+                          }
                         }
 
                         // 4. Efectivo / Tarjeta / Cuenta Corriente → CON o SIN IVA obligatorio
