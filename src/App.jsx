@@ -6427,9 +6427,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [holdProgress, setHoldProgress] = useState(0);
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
-  const [selServFolder, setSelServFolder] = useState(null); // folder name
-  const [showServFolder, setShowServFolder] = useState(false);
-  const [servFolderForm, setServFolderForm] = useState("");
+  const [selServFolder, setSelServFolder] = useState(null); // parent service as folder
   const [showServFc, setShowServFc] = useState(false);
   const [editServFc, setEditServFc] = useState(null);
 
@@ -6479,14 +6477,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [pagoMultiForm, setPagoMultiForm] = useState({ metodo: "", fecha: new Date().toISOString().split("T")[0] });
   const [showPagoServ, setShowPagoServ] = useState(false);
   const [pagoServForm, setPagoServForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
-  const [selServMes, setSelServMes]     = useState(null);   // { year, month, label } del mes abierto
-  const [selServAnio, setSelServAnio]   = useState(null);   // año expandido en el accordion de servicios
-  const [showPagoMes, setShowPagoMes]   = useState(false);  // modal pagar factura de un mes
+  const [showPagoMes, setShowPagoMes]   = useState(false);  // modal pagar factura
   const [pagoMesForm, setPagoMesForm]   = useState({ nroFc: "", vencimiento: "", monto: "", metodo: "" });
   const [showNuevaFcServ, setShowNuevaFcServ] = useState(false);
   const [nuevaFcServForm, setNuevaFcServForm] = useState({ anio: new Date().getFullYear(), mes: new Date().getMonth(), monto: "", fechaEmision: new Date().toISOString().split("T")[0], vencimiento: "" });
-  const [delFcServConfirm, setDelFcServConfirm] = useState(false);
-  const [showConfirmDelServ, setShowConfirmDelServ] = useState(null); // id servicio a eliminar
+
   const [showConfirmDelProv, setShowConfirmDelProv] = useState(null); // id proveedor a eliminar
   // CTA CTE — pago directo
   const [showCtaPago, setShowCtaPago] = useState(false);
@@ -6497,8 +6492,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [editProvForm, setEditProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
   const [delProvConfirm, setDelProvConfirm] = useState(0); // 0, 1, 2
   // SERVICIOS — edición
-  const [editServModal, setEditServModal] = useState(null); // servicio obj
-  const [editServForm, setEditServForm] = useState({ nombre: "", desc: "", monto: "", metodo: "" });
+
   const [delServConfirm, setDelServConfirm] = useState(0);
   // CAJA — saldo inicial
   const [showSaldoInicial, setShowSaldoInicial] = useState(false);
@@ -9462,12 +9456,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           if (needsMigration) {
             setTimeout(() => {
               setServicios(prev => prev.map(s => {
-                if (s.facturas) return s;
+                if (s.facturas) return { ...s, parentId: s.parentId || null, sortOrder: s.sortOrder || 0 };
                 const facturas = Object.keys(s.meses || {}).map((mk, i) => {
                   const m = s.meses[mk];
                   return { id: Date.now() + i, nroFc: m.nroFc || "", monto: m.monto || "", fechaEmision: m.fechaEmision || mk + "-01", vencimiento: m.vencimiento || "", desc: mk, pagado: m.pagado || false, pagoMetodo: m.pagoMetodo || "", pagoFecha: m.pagoFecha || "", pagoMonto: m.pagoMonto || "", egresoId: m.egresoId || null };
                 });
-                return { ...s, facturas, folder: s.folder || "General" };
+                return { ...s, facturas, parentId: null, sortOrder: s.sortOrder || 0 };
               }));
             }, 50);
           }
@@ -9482,18 +9476,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 style={{ cursor: "pointer", fontSize: 20, color: T.gray, padding: "0 4px" }}>←</span>
             )}
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>
-              {selServ ? `📄 ${selServ.nombre}` : selServFolder ? `📁 ${selServFolder}` : "🔧 Servicios"}
+              {selServ ? `📄 ${selServ.nombre}` : selServFolder ? `📁 ${selServFolder.nombre}` : "🔧 Servicios"}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {!selServFolder && !selServ && (
-              <button onClick={() => { setServFolderForm(""); setShowServFolder(true); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12 }}>+ Carpeta</button>
-            )}
-            {selServFolder && !selServ && (
-              <button onClick={() => { setServForm({ nombre: "", desc: "", folder: selServFolder }); setShowServ(true); }} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Servicio</button>
+            {!selServ && (
+              <button onClick={() => { setServForm({ nombre: "", desc: "", parentId: selServFolder ? selServFolder.id : null }); setShowServ(true); }}
+                style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ {selServFolder ? "Sub-servicio" : "Servicio"}</button>
             )}
             {selServ && (
-              <button onClick={() => setShowServFc(true)} style={{ ...btnPrimary(T.green), fontSize: 12 }}>+ Cargar Factura</button>
+              <button onClick={() => setShowServFc(true)} style={{ ...btnPrimary(T.green), fontSize: 12 }}>+ Factura</button>
             )}
           </div>
         </div>
@@ -9508,16 +9500,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           return (
             <div>
               {/* Summary */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(totalPend)}</div>
+              {fcs.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                  <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
+                    <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
+                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(totalPend)}</div>
+                  </div>
+                  <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
+                    <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pagado</div>
+                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.green }}>{fmt(totalPag)}</div>
+                  </div>
                 </div>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pagado</div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.green }}>{fmt(totalPag)}</div>
-                </div>
-              </div>
+              )}
 
               {fcs.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin facturas cargadas</div>}
 
@@ -9536,21 +9530,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             {isPagada && <span style={{ fontSize: 10, fontWeight: 700, color: T.green, background: `${T.green}15`, padding: "2px 7px", borderRadius: 4 }}>✅ PAGADA</span>}
                           </div>
                           <div style={{ fontSize: 11, color: T.gray, marginTop: 3 }}>
-                            {f.fechaEmision ? `Emisión: ${fmtDate(f.fechaEmision)}` : ""}
-                            {f.vencimiento ? ` • Venc: ${fmtDate(f.vencimiento)}` : ""}
+                            {f.fechaEmision ? `Emisión: ${fmtDate(f.fechaEmision)}` : ""}{f.vencimiento ? ` • Venc: ${fmtDate(f.vencimiento)}` : ""}
                           </div>
                           {f.desc && <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2, fontStyle: "italic" }}>{f.desc}</div>}
-                          {isPagada && f.pagoFecha && (
-                            <div style={{ fontSize: 12, color: T.green, marginTop: 3, fontWeight: 600 }}>
-                              ✅ Pagado el {fmtDate(f.pagoFecha)}{f.pagoMetodo ? ` · ${f.pagoMetodo}` : ""}
-                            </div>
-                          )}
+                          {isPagada && f.pagoFecha && <div style={{ fontSize: 12, color: T.green, marginTop: 3, fontWeight: 600 }}>✅ Pagado el {fmtDate(f.pagoFecha)}{f.pagoMetodo ? ` · ${f.pagoMetodo}` : ""}</div>}
                         </div>
                         <div style={{ textAlign: "right", marginLeft: 12 }}>
                           <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isPagada ? T.green : T.orange }}>{fmt(parseFloat(f.monto) || 0)}</div>
                         </div>
                       </div>
-                      {/* Buttons */}
                       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                         {!isPagada && (
                           <button onClick={() => { setSelFactPago(f); setPagoProvForm({ fecha: today, monto: String(f.monto || ""), metodo: "Transferencia" }); setShowPagoMes(true); }}
@@ -9561,7 +9549,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             if (f.egresoId) setEgresos(p => p.filter(e => e.id !== f.egresoId));
                             const upd = { ...sv, facturas: (sv.facturas || []).map(x => x.id === f.id ? { ...x, pagado: false, pagoMetodo: "", pagoFecha: "", pagoMonto: "", egresoId: null } : x) };
                             setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
-                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>↩ Deshacer pago</button>
+                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>↩ Deshacer</button>
                         )}
                         <button onClick={() => setEditServFc({ ...f, monto: String(f.monto || 0) })}
                           style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.accent}40`, fontSize: 12, padding: "9px 12px", color: T.accent }}>✏️</button>
@@ -9576,116 +9564,165 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   </div>
                 );
               })}
-            </div>
-          );
-        })()}
 
-        {/* ══ NIVEL 2: Servicios dentro de una carpeta ══ */}
-        {selServFolder && !selServ && (() => {
-          const folderServs = servicios.filter(s => (s.folder || "General") === selServFolder);
-          return (
-            <div>
-              {folderServs.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin servicios en esta carpeta</div>}
-              {folderServs.map(sv => {
-                const fcs = sv.facturas || [];
-                const pend = fcs.filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
-                const vencidas = fcs.filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length;
-                return (
-                  <div key={sv.id} onClick={() => setSelServ(sv)}
-                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${vencidas > 0 ? T.red : pend > 0 ? T.orange : T.green}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontSize: 28 }}>📄</div>
-                        <div>
-                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{sv.nombre}</div>
-                          <div style={{ fontSize: 12, color: T.gray }}>{fcs.length} factura{fcs.length !== 1 ? "s" : ""}{sv.desc ? ` · ${sv.desc}` : ""}</div>
-                          {vencidas > 0 && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ {vencidas} vencida{vencidas !== 1 ? "s" : ""}</div>}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        {pend > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(pend)}</div>}
-                        {pend <= 0 && fcs.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: `${T.green}12`, padding: "3px 10px", borderRadius: 20, border: `1px solid ${T.green}40` }}>✅ Al día</span>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {/* Rename / delete folder */}
-              <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+              {/* Rename / delete service */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${T.border}`, display: "flex", gap: 8 }}>
                 <button onClick={() => {
-                  const newName = prompt("Nuevo nombre para la carpeta:", selServFolder);
-                  if (newName && newName !== selServFolder) {
-                    setServicios(p => p.map(s => (s.folder || "General") === selServFolder ? { ...s, folder: newName } : s));
-                    setSelServFolder(newName);
+                  const newName = prompt("Nuevo nombre:", sv.nombre);
+                  if (newName && newName !== sv.nombre) {
+                    const upd = { ...sv, nombre: newName };
+                    setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
                   }
-                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>✏️ Renombrar carpeta</button>
-                {folderServs.length === 0 && (
-                  <button onClick={() => { setSelServFolder(null); }}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, flex: 1, fontSize: 12 }}>🗑️ Eliminar carpeta</button>
-                )}
+                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>✏️ Renombrar</button>
+                <button onClick={() => {
+                  if (!confirm("¿Eliminar " + sv.nombre + " y todas sus facturas?")) return;
+                  (sv.facturas || []).forEach(f => { if (f.egresoId) setEgresos(p => p.filter(e => e.id !== f.egresoId)); });
+                  setServicios(p => p.filter(s => s.id !== sv.id));
+                  setSelServ(null);
+                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, fontSize: 12, padding: "9px 14px" }}>🗑️</button>
               </div>
             </div>
           );
         })()}
 
-        {/* ══ NIVEL 1: Lista de carpetas ══ */}
+        {/* ══ NIVEL 2: Sub-servicios dentro de una carpeta ══ */}
+        {selServFolder && !selServ && (() => {
+          const children = servicios.filter(s => s.parentId === selServFolder.id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          const parentFcs = (selServFolder.facturas || []);
+          const parentSv = servicios.find(s => s.id === selServFolder.id) || selServFolder;
+          return (
+            <div>
+              {/* Parent's own facturas if any */}
+              {parentFcs.length > 0 && (
+                <div style={{ ...card, padding: 14, marginBottom: 12, borderLeft: `4px solid ${T.accent}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 6 }}>Facturas directas de {selServFolder.nombre}</div>
+                  <div style={{ fontSize: 13, color: T.grayLight }}>{parentFcs.length} factura{parentFcs.length !== 1 ? "s" : ""}</div>
+                  <button onClick={() => setSelServ(parentSv)} style={{ ...btnPrimary(T.accent), fontSize: 12, marginTop: 8, width: "100%" }}>Ver facturas</button>
+                </div>
+              )}
+
+              {children.length === 0 && parentFcs.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin sub-servicios. Tocá "+ Sub-servicio" para crear.</div>}
+
+              {children.map((sv, idx) => {
+                const fcs = sv.facturas || [];
+                const pend = fcs.filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+                const vencidas = fcs.filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length;
+                const hasChildren = servicios.some(s => s.parentId === sv.id);
+                return (
+                  <div key={sv.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `4px solid ${vencidas > 0 ? T.red : pend > 0 ? T.orange : T.green}`, overflow: "hidden" }}>
+                    <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                      {/* Reorder arrows */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                        <span onClick={(e) => { e.stopPropagation(); if (idx === 0) return; setServicios(prev => { const arr = prev.map(s => s.parentId === selServFolder.id ? { ...s } : s); const sorted = arr.filter(s => s.parentId === selServFolder.id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)); if (idx > 0) { const t = sorted[idx].sortOrder; sorted[idx].sortOrder = sorted[idx - 1].sortOrder; sorted[idx - 1].sortOrder = t; } return prev.map(s => { const match = sorted.find(x => x.id === s.id); return match ? { ...s, sortOrder: match.sortOrder } : s; }); }); }}
+                          style={{ fontSize: 10, cursor: idx > 0 ? "pointer" : "default", opacity: idx > 0 ? 1 : 0.2, padding: "2px 4px", color: T.gray }}>▲</span>
+                        <span onClick={(e) => { e.stopPropagation(); if (idx >= children.length - 1) return; setServicios(prev => { const sorted = prev.filter(s => s.parentId === selServFolder.id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)); if (idx < sorted.length - 1) { const t = sorted[idx].sortOrder; sorted[idx].sortOrder = sorted[idx + 1].sortOrder; sorted[idx + 1].sortOrder = t; } return prev.map(s => { const match = sorted.find(x => x.id === s.id); return match ? { ...s, sortOrder: match.sortOrder } : s; }); }); }}
+                          style={{ fontSize: 10, cursor: idx < children.length - 1 ? "pointer" : "default", opacity: idx < children.length - 1 ? 1 : 0.2, padding: "2px 4px", color: T.gray }}>▼</span>
+                      </div>
+                      <div onClick={() => hasChildren ? setSelServFolder(sv) : setSelServ(sv)} style={{ flex: 1, cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 20 }}>{hasChildren ? "📁" : "📄"}</span>
+                          <div>
+                            <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{sv.nombre}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>{fcs.length} FC{sv.desc ? ` · ${sv.desc}` : ""}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        {pend > 0 && <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: T.orange }}>{fmt(pend)}</div>}
+                        {pend <= 0 && fcs.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: T.green }}>✅</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Rename folder */}
+              <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                <button onClick={() => {
+                  const newName = prompt("Nuevo nombre:", selServFolder.nombre);
+                  if (newName && newName !== selServFolder.nombre) {
+                    const upd = { ...selServFolder, nombre: newName };
+                    setServicios(p => p.map(s => s.id === selServFolder.id ? upd : s));
+                    setSelServFolder(upd);
+                  }
+                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>✏️ Renombrar</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ══ NIVEL 1: Todos los servicios (top-level) ══ */}
         {!selServFolder && !selServ && (() => {
-          const folders = {};
-          servicios.forEach(s => {
-            const f = s.folder || "General";
-            if (!folders[f]) folders[f] = { servs: [], pend: 0, pagado: 0, vencidas: 0, total: 0 };
-            folders[f].servs.push(s);
-            (s.facturas || []).forEach(fc => {
-              if (fc.pagado) folders[f].pagado += (parseFloat(fc.pagoMonto || fc.monto) || 0);
-              else {
-                folders[f].pend += (parseFloat(fc.monto) || 0);
-                if (fc.vencimiento && fc.vencimiento < today) folders[f].vencidas++;
-              }
-              folders[f].total++;
-            });
-          });
-          const folderNames = Object.keys(folders).sort();
-          const totalPend = Object.values(folders).reduce((s, f) => s + f.pend, 0);
-          const totalPag = Object.values(folders).reduce((s, f) => s + f.pagado, 0);
-          const catIc = { "Casa": "🏠", "Taller": "🏢", "Vehículos": "🚗", "General": "📁" };
+          const topLevel = servicios.filter(s => !s.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          const totalPend = servicios.reduce((s, sv) => s + (sv.facturas || []).filter(f => !f.pagado).reduce((s2, f) => s2 + (parseFloat(f.monto) || 0), 0), 0);
+          const totalPag = servicios.reduce((s, sv) => s + (sv.facturas || []).filter(f => f.pagado).reduce((s2, f) => s2 + (parseFloat(f.pagoMonto || f.monto) || 0), 0), 0);
 
           return (
             <div>
               {/* KPIs */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(totalPend)}</div>
+              {servicios.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                  <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
+                    <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
+                    <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(totalPend)}</div>
+                  </div>
+                  <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
+                    <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pagado</div>
+                    <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalPag)}</div>
+                  </div>
                 </div>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pagado</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalPag)}</div>
-                </div>
-              </div>
+              )}
 
-              {folderNames.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin carpetas. Tocá "+ Carpeta" para crear.</div>}
+              {topLevel.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin servicios cargados. Tocá "+ Servicio" para crear.</div>}
 
-              {folderNames.map(fn => {
-                const data = folders[fn];
-                const ic = catIc[fn] || "📁";
-                const borderColor = data.vencidas > 0 ? T.red : data.pend > 0 ? T.orange : T.green;
+              {topLevel.map((sv, idx) => {
+                const fcs = sv.facturas || [];
+                const pend = fcs.filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+                const vencidas = fcs.filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length;
+                const hasChildren = servicios.some(s => s.parentId === sv.id);
+                // Count all descendant facturas
+                const countDescFcs = (id) => {
+                  let count = (servicios.find(s => s.id === id)?.facturas || []).length;
+                  servicios.filter(s => s.parentId === id).forEach(ch => { count += countDescFcs(ch.id); });
+                  return count;
+                };
+                const totalFcs = hasChildren ? countDescFcs(sv.id) : fcs.length;
+                const descPend = (id) => {
+                  let p = (servicios.find(s => s.id === id)?.facturas || []).filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+                  servicios.filter(s => s.parentId === id).forEach(ch => { p += descPend(ch.id); });
+                  return p;
+                };
+                const allPend = hasChildren ? descPend(sv.id) : pend;
+                const descVenc = (id) => {
+                  let v = (servicios.find(s => s.id === id)?.facturas || []).filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length;
+                  servicios.filter(s => s.parentId === id).forEach(ch => { v += descVenc(ch.id); });
+                  return v;
+                };
+                const allVenc = hasChildren ? descVenc(sv.id) : vencidas;
+
                 return (
-                  <div key={fn} onClick={() => setSelServFolder(fn)}
-                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${borderColor}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontSize: 28 }}>{ic}</div>
+                  <div key={sv.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `4px solid ${allVenc > 0 ? T.red : allPend > 0 ? T.orange : T.green}`, overflow: "hidden" }}>
+                    <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                      {/* Reorder */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                        <span onClick={(e) => { e.stopPropagation(); if (idx === 0) return; setServicios(prev => { const sorted = prev.filter(s => !s.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)); const t = sorted[idx].sortOrder || idx; sorted[idx] = { ...sorted[idx], sortOrder: sorted[idx - 1].sortOrder || (idx - 1) }; sorted[idx - 1] = { ...sorted[idx - 1], sortOrder: t }; return prev.map(s => { const m = sorted.find(x => x.id === s.id); return m ? { ...s, sortOrder: m.sortOrder } : s; }); }); }}
+                          style={{ fontSize: 10, cursor: idx > 0 ? "pointer" : "default", opacity: idx > 0 ? 1 : 0.2, padding: "2px 4px", color: T.gray }}>▲</span>
+                        <span onClick={(e) => { e.stopPropagation(); if (idx >= topLevel.length - 1) return; setServicios(prev => { const sorted = prev.filter(s => !s.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)); const t = sorted[idx].sortOrder || idx; sorted[idx] = { ...sorted[idx], sortOrder: sorted[idx + 1].sortOrder || (idx + 1) }; sorted[idx + 1] = { ...sorted[idx + 1], sortOrder: t }; return prev.map(s => { const m = sorted.find(x => x.id === s.id); return m ? { ...s, sortOrder: m.sortOrder } : s; }); }); }}
+                          style={{ fontSize: 10, cursor: idx < topLevel.length - 1 ? "pointer" : "default", opacity: idx < topLevel.length - 1 ? 1 : 0.2, padding: "2px 4px", color: T.gray }}>▼</span>
+                      </div>
+                      <div onClick={() => hasChildren ? setSelServFolder(sv) : setSelServ(sv)} style={{ flex: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 28 }}>{hasChildren ? "📁" : "📄"}</div>
                         <div>
-                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fn}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{sv.nombre}</div>
                           <div style={{ fontSize: 12, color: T.gray }}>
-                            {data.servs.length} servicio{data.servs.length !== 1 ? "s" : ""} · {data.total} factura{data.total !== 1 ? "s" : ""}
+                            {hasChildren ? `${servicios.filter(s => s.parentId === sv.id).length} sub-servicios · ` : ""}{totalFcs} FC{sv.desc ? ` · ${sv.desc}` : ""}
                           </div>
-                          {data.vencidas > 0 && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ {data.vencidas} vencida{data.vencidas !== 1 ? "s" : ""}</div>}
+                          {allVenc > 0 && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ {allVenc} vencida{allVenc !== 1 ? "s" : ""}</div>}
                         </div>
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        {data.pend > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(data.pend)}</div>}
-                        {data.pend <= 0 && data.total > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: `${T.green}12`, padding: "3px 10px", borderRadius: 20, border: `1px solid ${T.green}40` }}>✅ Al día</span>}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        {allPend > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(allPend)}</div>}
+                        {allPend <= 0 && totalFcs > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: `${T.green}12`, padding: "3px 10px", borderRadius: 20, border: `1px solid ${T.green}40` }}>✅</span>}
                       </div>
                     </div>
                   </div>
@@ -9694,49 +9731,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             </div>
           );
         })()}
-
-        {/* ══ MODAL NUEVA CARPETA ══ */}
-        {showServFolder && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServFolder(false)}>
-            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 360, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>📁 Nueva Carpeta</div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Nombre *</label>
-                <input inputMode="text" value={servFolderForm} onChange={e => setServFolderForm(e.target.value)} style={inputStyle} placeholder="Ej: Casa, Taller, Vehículos..." autoFocus />
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setShowServFolder(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => {
-                  if (!servFolderForm.trim()) return;
-                  // Create a placeholder service to establish the folder
-                  setSelServFolder(servFolderForm.trim());
-                  setShowServFolder(false);
-                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Crear</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ══ MODAL NUEVO SERVICIO ══ */}
         {showServ && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServ(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>📄 Nuevo Servicio</div>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>{servForm.parentId ? "📄 Nuevo Sub-servicio" : "📄 Nuevo Servicio"}</div>
               <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Alquiler, Gas..." autoFocus /></div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={servForm.desc || ""} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Opcional" /></div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Carpeta</label>
-                <select value={servForm.folder || selServFolder || "General"} onChange={e => setServForm(f => ({ ...f, folder: e.target.value }))} style={inputStyle}>
-                  {[...new Set([...servicios.map(s => s.folder || "General"), selServFolder || "General"])].sort().map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
+              <div style={{ marginBottom: 14 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={servForm.desc || ""} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Opcional" /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   if (!servForm.nombre) return;
-                  const newServ = { id: Date.now(), nombre: servForm.nombre, desc: servForm.desc || "", folder: servForm.folder || selServFolder || "General", facturas: [] };
-                  setServicios(p => [...p, newServ]);
-                  setServForm({ nombre: "", desc: "", folder: "" });
+                  const maxSort = servicios.filter(s => (s.parentId || null) === (servForm.parentId || null)).reduce((m, s) => Math.max(m, s.sortOrder || 0), 0);
+                  setServicios(p => [...p, { id: Date.now(), nombre: servForm.nombre, desc: servForm.desc || "", parentId: servForm.parentId || null, facturas: [], sortOrder: maxSort + 1 }]);
+                  setServForm({ nombre: "", desc: "" });
                   setShowServ(false);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
               </div>
@@ -9762,20 +9771,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={factProvForm.fechaEmision} onChange={e => setFactProvForm(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
                 <div><label style={labelStyle}>Vencimiento</label><input type="date" value={factProvForm.fechaVenc || ""} onChange={e => setFactProvForm(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} /></div>
               </div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Descripción</label>
-                <input inputMode="text" value={factProvForm.desc || ""} onChange={e => setFactProvForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Opcional" />
-              </div>
+              <div style={{ marginBottom: 14 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={factProvForm.desc || ""} onChange={e => setFactProvForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Opcional" /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowServFc(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   if (!factProvForm.monto) return;
                   const sv = servicios.find(s => s.id === selServ.id);
                   if (!sv) return;
-                  const newFc = { id: Date.now(), nroFc: factProvForm.nroFactura || "", monto: parseFloat(factProvForm.monto) || 0, fechaEmision: factProvForm.fechaEmision || today, vencimiento: factProvForm.fechaVenc || "", desc: factProvForm.desc || "", pagado: false };
-                  const upd = { ...sv, facturas: [...(sv.facturas || []), newFc] };
-                  setServicios(p => p.map(s => s.id === sv.id ? upd : s));
-                  setSelServ(upd);
+                  const upd = { ...sv, facturas: [...(sv.facturas || []), { id: Date.now(), nroFc: factProvForm.nroFactura || "", monto: parseFloat(factProvForm.monto) || 0, fechaEmision: factProvForm.fechaEmision || today, vencimiento: factProvForm.fechaVenc || "", desc: factProvForm.desc || "", pagado: false }] };
+                  setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
                   setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente", desc: "" });
                   setShowServFc(false);
                 }} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
@@ -9784,7 +9788,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           </div>
         )}
 
-        {/* ══ MODAL EDITAR FACTURA SERVICIO ══ */}
+        {/* ══ MODAL EDITAR FACTURA ══ */}
         {editServFc && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setEditServFc(null)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
@@ -9802,19 +9806,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={editServFc.fechaEmision || ""} onChange={e => setEditServFc(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
                 <div><label style={labelStyle}>Vencimiento</label><input type="date" value={editServFc.vencimiento || ""} onChange={e => setEditServFc(f => ({ ...f, vencimiento: e.target.value }))} style={inputStyle} /></div>
               </div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Descripción</label>
-                <input inputMode="text" value={editServFc.desc || ""} onChange={e => setEditServFc(f => ({ ...f, desc: e.target.value }))} style={inputStyle} />
-              </div>
+              <div style={{ marginBottom: 14 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={editServFc.desc || ""} onChange={e => setEditServFc(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setEditServFc(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
-                  if (!editServFc.monto) return;
                   const sv = servicios.find(s => s.id === selServ.id);
                   if (!sv) return;
                   const upd = { ...sv, facturas: (sv.facturas || []).map(x => x.id === editServFc.id ? { ...x, nroFc: editServFc.nroFc, monto: parseFloat(editServFc.monto) || 0, fechaEmision: editServFc.fechaEmision, vencimiento: editServFc.vencimiento, desc: editServFc.desc } : x) };
-                  setServicios(p => p.map(s => s.id === sv.id ? upd : s));
-                  setSelServ(upd);
+                  setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
                   setEditServFc(null);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>💾 Guardar</button>
               </div>
@@ -9822,7 +9821,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           </div>
         )}
 
-        {/* ══ MODAL PAGAR FACTURA SERVICIO ══ */}
+        {/* ══ MODAL PAGAR FACTURA ══ */}
         {showPagoMes && selFactPago && (() => {
           const esEfectivo = pagoProvForm.metodo === "Efectivo";
           const esVirtual = pagoProvForm.metodo === "Transferencia" || pagoProvForm.metodo === "Tarjeta";
@@ -9850,10 +9849,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       </div>
                     ))}
                   </div>
-                  {esEfectivo && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>💵 Se registrará como <strong>egreso efectivo</strong> en Caja</div>}
-                  {esVirtual && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>🏦 Se registrará como <strong>egreso virtual</strong> en Caja</div>}
+                  {esEfectivo && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>💵 Egreso efectivo en Caja</div>}
+                  {esVirtual && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>🏦 Egreso virtual en Caja</div>}
                 </div>
-                <div style={{ marginBottom: 20 }}><label style={labelStyle}>Fecha de pago</label><input type="date" value={pagoProvForm.fecha} onChange={e => setPagoProvForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
+                <div style={{ marginBottom: 20 }}><label style={labelStyle}>Fecha</label><input type="date" value={pagoProvForm.fecha} onChange={e => setPagoProvForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setShowPagoMes(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                   <button disabled={!pagoProvForm.metodo} onClick={() => {
@@ -9864,11 +9863,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     const sv = servicios.find(s => s.id === selServ.id);
                     if (sv) {
                       const upd = { ...sv, facturas: (sv.facturas || []).map(x => x.id === selFactPago.id ? { ...x, pagado: true, pagoMetodo: pagoProvForm.metodo, pagoFecha: pagoProvForm.fecha, pagoMonto: String(monto), egresoId } : x) };
-                      setServicios(p => p.map(s => s.id === sv.id ? upd : s));
-                      setSelServ(upd);
+                      setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
                     }
                     setShowPagoMes(false); setSelFactPago(null);
-                  }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: !pagoProvForm.metodo ? 0.4 : 1 }}>✅ Confirmar Pago</button>
+                  }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, opacity: !pagoProvForm.metodo ? 0.4 : 1 }}>✅ Confirmar</button>
                 </div>
               </div>
             </div>
