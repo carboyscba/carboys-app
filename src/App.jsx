@@ -6435,6 +6435,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [period, setPeriod] = useState("dia");
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
+  const [movDetail, setMovDetail] = useState(null); // selected movement for detail popup
   const [saldoReal, setSaldoReal] = useState("");
   const [showCierre, setShowCierre] = useState(false);
   // Ingreso
@@ -7934,27 +7935,42 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var ts = orderTs(o);
               var desc = movDesc(o);
               var pays = o.payments || [];
+              var rawOrder = { id: o.id, domain: o.domain, clientId: o.clientId, works: o.works, payments: o.payments, date: o.date, cajaDate: o.cajaDate, paymentPref: o.paymentPref, factura: o.factura, ticket: o.ticket, cobrado: o.cobrado };
               // Efectivo
               var efAmt = pays.filter(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: desc, date: o.date, amount: efAmt, color: T.green, _ts: ts, _orderId: o.id });
+              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: desc, date: o.cajaDate || o.date, amount: efAmt, color: T.green, _ts: ts, _orderId: o.id, _raw: rawOrder });
               // Tarjeta
               var tarjAmt = pays.filter(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (tarjAmt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: desc, date: o.date, amount: tarjAmt, color: "#9C27B0", _ts: ts, _orderId: o.id });
+              if (tarjAmt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: desc, date: o.cajaDate || o.date, amount: tarjAmt, color: "#9C27B0", _ts: ts, _orderId: o.id, _raw: rawOrder });
               // Transferencia
               var transfAmt = pays.filter(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (transfAmt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: desc, date: o.date, amount: transfAmt, color: T.accent, _ts: ts, _orderId: o.id });
+              if (transfAmt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: desc, date: o.cajaDate || o.date, amount: transfAmt, color: T.accent, _ts: ts, _orderId: o.id, _raw: rawOrder });
               // Cuenta Corriente
               var ctaAmt = pays.filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (ctaAmt > 0) items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: desc, date: o.date, amount: ctaAmt, color: T.orange, _ts: ts, _orderId: o.id });
+              if (ctaAmt > 0) items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: desc, date: o.cajaDate || o.date, amount: ctaAmt, color: T.orange, _ts: ts, _orderId: o.id, _raw: rawOrder });
             });
             // Egresos efectivo
-            filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id }); });
+            filtEgrEf.forEach(function(e) {
+              var cleanDesc = e.desc || "";
+              if (e.categoriaLabel && cleanDesc.startsWith(e.categoriaLabel + " — ")) cleanDesc = cleanDesc.slice(e.categoriaLabel.length + 3);
+              var parts = [e.categoriaLabel || e.categoria];
+              if (e.detalle) parts.push(e.detalle);
+              if (cleanDesc && parts.indexOf(cleanDesc) < 0) parts.push(cleanDesc);
+              items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: parts.join(" — "), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id, _raw: e });
+            });
             // Egresos virtuales
-            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B", _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id }); });
+            filtEgrVirt.forEach(function(e) {
+              var cleanDesc = e.desc || "";
+              if (e.categoriaLabel && cleanDesc.startsWith(e.categoriaLabel + " — ")) cleanDesc = cleanDesc.slice(e.categoriaLabel.length + 3);
+              var parts = [e.categoriaLabel || e.categoria];
+              if (e.detalle) parts.push(e.detalle);
+              if (cleanDesc && parts.indexOf(cleanDesc) < 0) parts.push(cleanDesc);
+              items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: parts.join(" — "), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B", _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id, _raw: e });
+            });
             // Ingresos extra (cobros CTA CTE, saldo inicial, etc)
             filtIngExtra.forEach(function(e) {
               var metColor = e.metodoPago === "Efectivo" ? T.green : e.metodoPago === "Tarjeta" ? "#9C27B0" : e.metodoPago === "Transferencia" ? T.accent : T.green;
-              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: Math.abs(parseFloat(e.monto) || 0), color: metColor, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id });
+              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: Math.abs(parseFloat(e.monto) || 0), color: metColor, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id, _raw: e });
             });
             // ── Sort: chronological, newest first (date desc → timestamp desc) ──
             items.sort(function(a, b) { var dc = (b.date || "").localeCompare(a.date || ""); return dc !== 0 ? dc : (b._ts || 0) - (a._ts || 0); });
@@ -7966,29 +7982,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var symbol = isCta ? "●" : isEgr ? "−" : "+";
               var canDelete = !!(item._egresoId || item._orderId);
               return (
-                <div key={item.key} style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1, gap: 8 }}>
+                <div key={item.key} onClick={function() { setMovDetail(item); }} style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1, gap: 8, cursor: "pointer" }}>
                   <div style={{ flex: 1, minWidth: 0 }}><span style={{ color: item.color, fontWeight: 800, fontSize: 14, marginRight: 4 }}>{symbol}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     <span style={{ color: T.gray, fontSize: 12 }}>{fmtDate(item.date)}</span>
                     <span style={{ fontWeight: 700, color: item.color, minWidth: 70, textAlign: "right" }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span>
-                    {canDelete && (
-                      <span onClick={function() {
-                        if (!confirm("¿Eliminar este movimiento?")) return;
-                        if (item._egresoId) {
-                          setEgresos(function(p) { return p.filter(function(e) { return e.id !== item._egresoId; }); });
-                        }
-                        if (item._orderId) {
-                          setOrders(function(p) { return p.map(function(o) {
-                            if (o.id !== item._orderId) return o;
-                            var copy = Object.assign({}, o);
-                            delete copy.cobrado;
-                            delete copy.cajaDate;
-                            copy.payments = [];
-                            return copy;
-                          }); });
-                        }
-                      }} style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 6px", borderRadius: 4, border: "1px solid " + T.red + "30", opacity: 0.5, lineHeight: 1 }}>✕</span>
-                    )}
                   </div>
                 </div>
               );
@@ -8173,6 +8171,130 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             </div>
           </div>
         )}
+
+        {/* ══ POPUP DETALLE MOVIMIENTO ══ */}
+        {movDetail && (() => {
+          const m = movDetail;
+          const r = m._raw || {};
+          const isEgr = m.type === "egreso" || m.type === "egreso_virt";
+          const isOrder = !!m._orderId;
+          const isIngExtra = m.type === "ingreso_extra";
+          const cl = isOrder ? clients.find(c => c.id === r.clientId) : null;
+          const vh = cl?.vehicles?.find(v => v.domain === r.domain) || null;
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}
+              onClick={() => setMovDetail(null)}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${m.color}40`, maxHeight: "85vh", overflowY: "auto" }}
+                onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: m.color, padding: "4px 12px", borderRadius: 6, background: m.color + "15" }}>{m.label}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 900, color: m.color }}>{isEgr ? "-" : ""}{fmt(m.amount)}</div>
+                </div>
+
+                {/* Details */}
+                <div style={{ ...card, padding: 14, marginBottom: 14, background: T.bg }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
+                    <span style={{ color: T.gray }}>Fecha</span>
+                    <span style={{ fontWeight: 700 }}>{fmtDate(m.date)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
+                    <span style={{ color: T.gray }}>Tipo</span>
+                    <span style={{ fontWeight: 700 }}>{isEgr ? "Egreso" : isIngExtra ? "Ingreso manual" : "Ingreso"}</span>
+                  </div>
+                  {r.metodoPago && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
+                      <span style={{ color: T.gray }}>Método</span>
+                      <span style={{ fontWeight: 700 }}>{r.metodoPago === "Efectivo" ? "💵" : r.metodoPago === "Transferencia" ? "🔁" : "💳"} {r.metodoPago}</span>
+                    </div>
+                  )}
+                  {r.categoriaLabel && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
+                      <span style={{ color: T.gray }}>Categoría</span>
+                      <span style={{ fontWeight: 700 }}>{r.categoriaLabel}</span>
+                    </div>
+                  )}
+                  {r.detalle && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
+                      <span style={{ color: T.gray }}>Detalle</span>
+                      <span style={{ fontWeight: 700 }}>{r.detalle}</span>
+                    </div>
+                  )}
+                  {r.desc && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
+                      <span style={{ color: T.gray }}>Descripción</span>
+                      <span style={{ fontWeight: 700, textAlign: "right", maxWidth: "60%" }}>{r.desc}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Order detail */}
+                {isOrder && (
+                  <div style={{ ...card, padding: 14, marginBottom: 14, background: T.bg }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, letterSpacing: .5 }}>ORDEN DE TRABAJO</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                      <span style={{ color: T.gray }}>Dominio</span>
+                      <span style={{ fontFamily: fontD, fontWeight: 800 }}>{fmtD(r.domain)}</span>
+                    </div>
+                    {cl && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                        <span style={{ color: T.gray }}>Cliente</span>
+                        <span style={{ fontWeight: 700 }}>{cl.name} {cl.lastName}</span>
+                      </div>
+                    )}
+                    {vh && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                        <span style={{ color: T.gray }}>Vehículo</span>
+                        <span style={{ fontWeight: 600 }}>{vh.brand} {vh.model} {vh.year}</span>
+                      </div>
+                    )}
+                    {(r.payments || []).length > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                        <span style={{ color: T.gray }}>Método cobro</span>
+                        <span style={{ fontWeight: 700 }}>{(r.payments || []).map(function(p) { return p.method; }).filter(Boolean).join(", ")}{(r.payments || []).some(function(p) { return p.withIva; }) ? " (con IVA)" : ""}</span>
+                      </div>
+                    )}
+                    {r.factura && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                        <span style={{ color: T.gray }}>Factura</span>
+                        <span style={{ fontWeight: 700, color: T.green }}>FC {r.factura.tipo} — #{r.factura.numero}</span>
+                      </div>
+                    )}
+                    {(r.works || []).length > 0 && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + T.border }}>
+                        <div style={{ fontSize: 11, color: T.grayLight, marginBottom: 6 }}>Trabajos:</div>
+                        {(r.works || []).map(function(w, i) {
+                          return <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
+                            <span style={{ color: T.text }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                            <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price) || 0)}</span>
+                          </div>;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: "flex", gap: 10 }}>
+                  {isOrder && (
+                    <button onClick={() => { setMovDetail(null); var o = orders.find(function(x) { return x.id === m._orderId; }); if (o) onNavigate("vehicleDetail", o); }}
+                      style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 13 }}>📋 Ver orden</button>
+                  )}
+                  <button onClick={() => {
+                    if (!confirm("¿Eliminar este movimiento?")) return;
+                    if (m._egresoId) setEgresos(function(p) { return p.filter(function(e) { return e.id !== m._egresoId; }); });
+                    if (m._orderId) setOrders(function(p) { return p.map(function(o) {
+                      if (o.id !== m._orderId) return o;
+                      var copy = Object.assign({}, o); delete copy.cobrado; delete copy.cajaDate; copy.payments = []; return copy;
+                    }); });
+                    setMovDetail(null);
+                  }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.red + "40", color: T.red, flex: 1, fontSize: 13 }}>🗑️ Eliminar</button>
+                  <button onClick={() => setMovDetail(null)} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, padding: "10px 16px" }}>Cerrar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══ POPUP REGISTRAR INGRESO ══ */}
         {showIngreso && (
