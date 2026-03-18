@@ -7983,11 +7983,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var symbol = isCta ? "●" : isEgr ? "−" : "+";
               var canDelete = !!(item._egresoId || item._orderId);
               return (
-                <div key={item.key} onClick={function() { setMovDetail(item); }} style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1, gap: 8, cursor: "pointer" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}><span style={{ color: item.color, fontWeight: 800, fontSize: 14, marginRight: 4 }}>{symbol}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
+                <div key={item.key} style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1, gap: 8 }}>
+                  <div onClick={function() { setMovDetail(item); }} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}><span style={{ color: item.color, fontWeight: 800, fontSize: 14, marginRight: 4 }}>{symbol}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     <span style={{ color: T.gray, fontSize: 12 }}>{fmtDate(item.date)}</span>
-                    <span style={{ fontWeight: 700, color: item.color, minWidth: 70, textAlign: "right" }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span>
+                    <span onClick={function() { setMovDetail(item); }} style={{ fontWeight: 700, color: item.color, minWidth: 70, textAlign: "right", cursor: "pointer" }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span>
+                    {canDelete && (
+                      <span onClick={function(ev) {
+                        ev.stopPropagation();
+                        if (!confirm("¿Eliminar este movimiento?")) return;
+                        if (item._egresoId) setEgresos(function(p) { return p.filter(function(e) { return e.id !== item._egresoId; }); });
+                        if (item._orderId) setOrders(function(p) { return p.map(function(o) {
+                          if (o.id !== item._orderId) return o;
+                          var copy = Object.assign({}, o); delete copy.cobrado; delete copy.cajaDate; copy.payments = []; return copy;
+                        }); });
+                      }} style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 6px", borderRadius: 4, border: "1px solid " + T.red + "30", opacity: 0.5, lineHeight: 1 }}>✕</span>
+                    )}
                   </div>
                 </div>
               );
