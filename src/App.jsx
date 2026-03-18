@@ -6427,7 +6427,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [holdProgress, setHoldProgress] = useState(0);
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
-  const [selServFolder, setSelServFolder] = useState(null); // parent service as folder
   const [showServFc, setShowServFc] = useState(false);
   const [editServFc, setEditServFc] = useState(null);
 
@@ -9470,33 +9469,25 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {(() => {
           // Build breadcrumb path
           const breadcrumb = [];
-          let cur = selServ || selServFolder;
+          let cur = selServ;
           while (cur) {
             breadcrumb.unshift(cur);
             cur = cur.parentId ? servicios.find(s => s.id === cur.parentId) : null;
           }
-          const viewing = selServ || selServFolder;
+          const viewing = selServ;
 
           return (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
                 {viewing && (
                   <span onClick={() => {
-                    if (selServ) {
-                      // Go back: if parent has children, go to parent as folder; else go to top
-                      const parent = selServ.parentId ? servicios.find(s => s.id === selServ.parentId) : null;
-                      setSelServ(null);
-                      setSelServFolder(parent || null);
-                    } else if (selServFolder) {
-                      const parent = selServFolder.parentId ? servicios.find(s => s.id === selServFolder.parentId) : null;
-                      setSelServFolder(parent || null);
-                    }
+                    const parent = selServ.parentId ? servicios.find(s => s.id === selServ.parentId) : null;
+                    setSelServ(parent || null);
                   }} style={{ cursor: "pointer", fontSize: 20, color: T.gray, flexShrink: 0 }}>←</span>
                 )}
                 <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {selServ ? `📄 ${selServ.nombre}` : selServFolder ? `📁 ${selServFolder.nombre}` : "🔧 Servicios"}
+                  {selServ ? (servicios.some(s => s.parentId === selServ.id) ? `📁 ${selServ.nombre}` : `📄 ${selServ.nombre}`) : "🔧 Servicios"}
                 </div>
-                {/* Inline edit/delete for current service or folder */}
                 {viewing && (
                   <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                     <span onClick={() => {
@@ -9504,8 +9495,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       if (newName && newName !== viewing.nombre) {
                         const upd = { ...viewing, nombre: newName };
                         setServicios(p => p.map(s => s.id === viewing.id ? upd : s));
-                        if (selServ) setSelServ(upd);
-                        else setSelServFolder(upd);
+                        setSelServ(upd);
                       }
                     }} style={{ fontSize: 14, cursor: "pointer", padding: "2px 6px", color: T.accent }}>✏️</span>
                     <span onClick={() => {
@@ -9513,52 +9503,83 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       const hasFcs = (viewing.facturas || []).length > 0;
                       const warn = hasChildren ? "Tiene sub-servicios adentro. " : hasFcs ? "Tiene facturas cargadas. " : "";
                       if (!confirm(warn + "¿Eliminar " + viewing.nombre + "?")) return;
-                      // Delete all descendants recursively
                       const idsToDelete = new Set();
                       const collectIds = (pid) => { servicios.filter(s => s.parentId === pid).forEach(ch => { idsToDelete.add(ch.id); collectIds(ch.id); }); };
                       idsToDelete.add(viewing.id);
                       collectIds(viewing.id);
-                      // Remove egresos from all facturas
                       servicios.filter(s => idsToDelete.has(s.id)).forEach(s => {
                         (s.facturas || []).forEach(f => { if (f.egresoId) setEgresos(p => p.filter(e => e.id !== f.egresoId)); });
                       });
                       setServicios(p => p.filter(s => !idsToDelete.has(s.id)));
-                      if (selServ) { setSelServ(null); }
-                      else { const parent = viewing.parentId ? servicios.find(s => s.id === viewing.parentId) : null; setSelServFolder(parent || null); }
+                      const parent = viewing.parentId ? servicios.find(s => s.id === viewing.parentId) : null;
+                      setSelServ(parent || null);
                     }} style={{ fontSize: 14, cursor: "pointer", padding: "2px 6px", color: T.red }}>🗑️</span>
                   </div>
                 )}
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 {!selServ && (
-                  <button onClick={() => { setServForm({ nombre: "", desc: "", parentId: selServFolder ? selServFolder.id : null }); setShowServ(true); }}
+                  <button onClick={() => { setServForm({ nombre: "", desc: "" }); setShowServ(true); }}
                     style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo</button>
                 )}
-                {selServ && (
+                {selServ && (<>
+                  <button onClick={() => { setServForm({ nombre: "", desc: "", parentId: selServ.id }); setShowServ(true); }}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.accent}`, color: T.accent, fontSize: 12 }}>+ Sub</button>
                   <button onClick={() => setShowServFc(true)} style={{ ...btnPrimary(T.green), fontSize: 12 }}>+ Factura</button>
-                )}
+                </>)}
               </div>
             </div>
           );
         })()}
 
-        {/* ══ NIVEL FACTURAS: cuando selServ es un servicio hoja ══ */}
+        {/* ══ NIVEL FACTURAS: cuando selServ es un servicio ══ */}
         {selServ && (() => {
           const sv = servicios.find(s => s.id === selServ.id) || selServ;
-          const hasChildren = servicios.some(s => s.parentId === sv.id);
+          const children = servicios.filter(s => s.parentId === sv.id);
           const fcs = (sv.facturas || []).sort((a, b) => (b.fechaEmision || "").localeCompare(a.fechaEmision || ""));
           const totalPend = fcs.filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
           const totalPag = fcs.filter(f => f.pagado).reduce((s, f) => s + (parseFloat(f.pagoMonto || f.monto) || 0), 0);
 
-          // If this service has children, show them as a folder listing too
-          if (hasChildren) {
-            // Redirect: treat as folder
-            setTimeout(() => { setSelServ(null); setSelServFolder(sv); }, 0);
-            return null;
-          }
+          const descPendR = (id) => { let p = (servicios.find(s => s.id === id)?.facturas || []).filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0); servicios.filter(s => s.parentId === id).forEach(ch => { p += descPendR(ch.id); }); return p; };
+          const descFcR = (id) => { let c = (servicios.find(s => s.id === id)?.facturas || []).length; servicios.filter(s => s.parentId === id).forEach(ch => { c += descFcR(ch.id); }); return c; };
+          const descVencR = (id) => { let v = (servicios.find(s => s.id === id)?.facturas || []).filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length; servicios.filter(s => s.parentId === id).forEach(ch => { v += descVencR(ch.id); }); return v; };
 
           return (
             <div>
+              {/* Sub-servicios */}
+              {children.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: T.grayLight, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>Sub-servicios</div>
+                  {children.map(ch => {
+                    const chHasKids = servicios.some(s => s.parentId === ch.id);
+                    const chPend = descPendR(ch.id);
+                    const chVenc = descVencR(ch.id);
+                    const chFcs = descFcR(ch.id);
+                    const bc = chVenc > 0 ? T.red : chPend > 0 ? T.orange : chFcs > 0 ? T.green : T.border;
+                    return (
+                      <div key={ch.id} onClick={() => setSelServ(ch)}
+                        style={{ ...card, padding: "12px 16px", marginBottom: 8, cursor: "pointer", borderLeft: `4px solid ${bc}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 22 }}>{chHasKids ? "\u{1F4C1}" : "\u{1F4C4}"}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700 }}>{ch.nombre}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>{chFcs} FC{ch.desc ? ` \u00B7 ${ch.desc}` : ""}</div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            {chPend > 0 && <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: T.orange }}>{fmt(chPend)}</div>}
+                            {chPend <= 0 && chFcs > 0 && <span style={{ fontSize: 10, color: T.green, fontWeight: 700 }}>\u2705</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {children.length > 0 && fcs.length > 0 && (
+                <div style={{ fontSize: 12, color: T.grayLight, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>Facturas</div>
+              )}
+
               {fcs.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
                   <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
@@ -9625,36 +9646,29 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           );
         })()}
 
-        {/* ══ FOLDER LISTING: children of selServFolder (or top-level if null) ══ */}
+        {/* ══ TOP-LEVEL LISTING ══ */}
         {!selServ && (() => {
-          const parentId = selServFolder ? selServFolder.id : null;
-          const items = servicios.filter(s => (s.parentId || null) === parentId);
+          const items = servicios.filter(s => !s.parentId);
 
-          // Recursive helpers
           const descPend = (id) => {
             let p = (servicios.find(s => s.id === id)?.facturas || []).filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
-            servicios.filter(s => s.parentId === id).forEach(ch => { p += descPend(ch.id); });
-            return p;
+            servicios.filter(s => s.parentId === id).forEach(ch => { p += descPend(ch.id); }); return p;
           };
           const descVenc = (id) => {
             let v = (servicios.find(s => s.id === id)?.facturas || []).filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length;
-            servicios.filter(s => s.parentId === id).forEach(ch => { v += descVenc(ch.id); });
-            return v;
+            servicios.filter(s => s.parentId === id).forEach(ch => { v += descVenc(ch.id); }); return v;
           };
           const descFcCount = (id) => {
             let c = (servicios.find(s => s.id === id)?.facturas || []).length;
-            servicios.filter(s => s.parentId === id).forEach(ch => { c += descFcCount(ch.id); });
-            return c;
+            servicios.filter(s => s.parentId === id).forEach(ch => { c += descFcCount(ch.id); }); return c;
           };
 
-          // Top-level KPIs
-          const isTop = !parentId;
-          const totalPend = isTop ? servicios.reduce((s, sv) => s + (sv.facturas || []).filter(f => !f.pagado).reduce((s2, f) => s2 + (parseFloat(f.monto) || 0), 0), 0) : 0;
-          const totalPag = isTop ? servicios.reduce((s, sv) => s + (sv.facturas || []).filter(f => f.pagado).reduce((s2, f) => s2 + (parseFloat(f.pagoMonto || f.monto) || 0), 0), 0) : 0;
+          const totalPend = servicios.reduce((s, sv) => s + (sv.facturas || []).filter(f => !f.pagado).reduce((s2, f) => s2 + (parseFloat(f.monto) || 0), 0), 0);
+          const totalPag = servicios.reduce((s, sv) => s + (sv.facturas || []).filter(f => f.pagado).reduce((s2, f) => s2 + (parseFloat(f.pagoMonto || f.monto) || 0), 0), 0);
 
           return (
             <div>
-              {isTop && servicios.length > 0 && (
+              {servicios.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
                   <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
                     <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
@@ -9667,21 +9681,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 </div>
               )}
 
-              {/* Parent's own facturas link */}
-              {selServFolder && (selServFolder.facturas || []).length > 0 && (
-                <div style={{ ...card, padding: 14, marginBottom: 12, borderLeft: `4px solid ${T.accent}`, cursor: "pointer" }}
-                  onClick={() => setSelServ(servicios.find(s => s.id === selServFolder.id) || selServFolder)}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>📑 Facturas de {selServFolder.nombre}</div>
-                    <div style={{ fontSize: 12, color: T.gray }}>{(selServFolder.facturas || []).length} FC →</div>
-                  </div>
-                </div>
-              )}
-
-              {items.length === 0 && (!selServFolder || (selServFolder.facturas || []).length === 0) && (
-                <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>
-                  {isTop ? "Sin servicios cargados. Tocá \"+  Nuevo\" para crear." : "Sin sub-servicios. Tocá \"+ Nuevo\" para crear."}
-                </div>
+              {items.length === 0 && (
+                <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin servicios cargados. Tocá "+ Nuevo" para crear.</div>
               )}
 
               {items.map(sv => {
@@ -9693,7 +9694,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const bc = allVenc > 0 ? T.red : allPend > 0 ? T.orange : totalFcs > 0 ? T.green : T.border;
 
                 return (
-                  <div key={sv.id} onClick={() => hasChildren ? setSelServFolder(sv) : setSelServ(sv)}
+                  <div key={sv.id} onClick={() => setSelServ(sv)}
                     style={{ ...card, padding: "14px 16px", marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${bc}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ fontSize: 28, flexShrink: 0 }}>{hasChildren ? "📁" : "📄"}</div>
