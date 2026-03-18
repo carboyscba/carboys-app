@@ -3922,6 +3922,8 @@ const GlobalDashboard = ({ googleAuth, onSelectSucursal }) => {
 
 const DashboardScreen = (props) => {
   const { user, orders, clients, notifications, setNotifications, onNavigate } = props;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayOrders = orders.filter(o => (o.date || "").slice(0, 10) === todayStr);
   const active = orders.filter(o => o.status === "pending" || o.status === "working" || o.status === "done" || o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved");
   const pending = active.filter(o => o.status === "pending").length;
   const working = active.filter(o => o.status === "working").length;
@@ -3944,7 +3946,7 @@ const DashboardScreen = (props) => {
     <div style={{ padding: 24, animation: "fadeUp .4s ease" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 28 }}>
         {[
-          { icon: "🚗", value: active.length, label: "En taller hoy", color: T.accent },
+          { icon: "🚗", value: todayOrders.length, label: "Autos hoy", color: T.accent },
           { icon: "🔴", value: pending, label: "Esperando", color: T.red },
           { icon: "🟡", value: working, label: "En curso", color: T.orange },
           { icon: "✅", value: done, label: "Listos", color: T.green },
@@ -4037,25 +4039,27 @@ const DashboardScreen = (props) => {
         ))}
       </div>
 
-      {/* En Taller - últimos vehículos */}
-      {orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)).length > 0 && (
+      {/* Autos de hoy */}
+      {todayOrders.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span>🔧</span> EN TALLER</div>
-            <div onClick={() => onNavigate("workshop")} style={{ fontSize: 13, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver todos →</div>
+            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span>🔧</span> AUTOS DE HOY</div>
+            <div onClick={() => onNavigate("workshop")} style={{ fontSize: 13, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver taller →</div>
           </div>
-          {orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)).sort((a, b) => {
+          {todayOrders.sort((a, b) => {
             const ta = new Date(a._createdAt || a.date || 0).getTime();
             const tb = new Date(b._createdAt || b.date || 0).getTime();
             return ta - tb;
-          }).slice(0, 5).map(o => {
+          }).slice(0, 8).map(o => {
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+            const isDelivered = o.status === "delivered";
             const isInspection = o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved";
-            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : isInspection ? "#9C27B0" : T.red;
+            const sc = isDelivered ? T.grayLight : o.status === "done" ? T.green : o.status === "working" ? T.orange : isInspection ? "#9C27B0" : T.red;
+            const sl = isDelivered ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
-                style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
+                style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}`, opacity: isDelivered ? 0.65 : 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: sc }} />
@@ -4064,8 +4068,10 @@ const DashboardScreen = (props) => {
                       <span style={{ fontSize: 13, color: T.gray, marginLeft: 8 }}>{vh ? vh.brand + " " + vh.model + " " + vh.year : ""}</span>
                     </div>
                   </div>
-                  {o.cobrado && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1px solid ${T.green}60`, marginRight: 8 }}>COBRADO</span>}
-                  <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isInspection ? "INSPECCIÓN" : "ESPERANDO"}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {o.cobrado && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${T.green}10`, color: `${T.green}bb`, border: `1px solid ${T.green}60` }}>COBRADO</span>}
+                    <span style={{ fontSize: 11, fontWeight: 700, color: sc }}>{sl}</span>
+                  </div>
                 </div>
               </div>
             );
