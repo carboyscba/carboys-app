@@ -7936,25 +7936,25 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var pays = o.payments || [];
               // Efectivo
               var efAmt = pays.filter(function(p) { return p.method === "Efectivo" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: desc, date: o.date, amount: efAmt, color: T.green, _ts: ts });
+              if (efAmt > 0) items.push({ key: "ef-" + o.id, type: "ingreso", label: "EFECTIVO", desc: desc, date: o.date, amount: efAmt, color: T.green, _ts: ts, _orderId: o.id });
               // Tarjeta
               var tarjAmt = pays.filter(function(p) { return p.method === "Tarjeta" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (tarjAmt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: desc, date: o.date, amount: tarjAmt, color: "#9C27B0", _ts: ts });
+              if (tarjAmt > 0) items.push({ key: "tarj-" + o.id, type: "virtual", label: "TARJETA", desc: desc, date: o.date, amount: tarjAmt, color: "#9C27B0", _ts: ts, _orderId: o.id });
               // Transferencia
               var transfAmt = pays.filter(function(p) { return p.method === "Transferencia" && !p.ctaFechaPago; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (transfAmt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: desc, date: o.date, amount: transfAmt, color: T.accent, _ts: ts });
+              if (transfAmt > 0) items.push({ key: "transf-" + o.id, type: "virtual", label: "TRANSFERENCIA", desc: desc, date: o.date, amount: transfAmt, color: T.accent, _ts: ts, _orderId: o.id });
               // Cuenta Corriente
               var ctaAmt = pays.filter(function(p) { return p.method === "Cuenta Corriente"; }).reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-              if (ctaAmt > 0) items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: desc, date: o.date, amount: ctaAmt, color: T.orange, _ts: ts });
+              if (ctaAmt > 0) items.push({ key: "cta-" + o.id, type: "info_cta", label: "CTA CTE", desc: desc, date: o.date, amount: ctaAmt, color: T.orange, _ts: ts, _orderId: o.id });
             });
             // Egresos efectivo
-            filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0 }); });
+            filtEgrEf.forEach(function(e) { items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : "") + (e.desc ? " — " + e.desc : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id }); });
             // Egresos virtuales
-            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B", _ts: typeof e.id === "number" ? e.id : 0 }); });
+            filtEgrVirt.forEach(function(e) { items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: (e.categoriaLabel || e.categoria) + (e.detalle ? " — " + e.detalle : ""), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B", _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id }); });
             // Ingresos extra (cobros CTA CTE, saldo inicial, etc)
             filtIngExtra.forEach(function(e) {
               var metColor = e.metodoPago === "Efectivo" ? T.green : e.metodoPago === "Tarjeta" ? "#9C27B0" : e.metodoPago === "Transferencia" ? T.accent : T.green;
-              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: Math.abs(parseFloat(e.monto) || 0), color: metColor, _ts: typeof e.id === "number" ? e.id : 0 });
+              items.push({ key: "ingex-" + e.id, type: "ingreso_extra", label: e.metodoPago || "Efectivo", desc: e.categoriaLabel || e.desc || e.categoria, date: e.fecha, amount: Math.abs(parseFloat(e.monto) || 0), color: metColor, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id });
             });
             // ── Sort: chronological, newest first (date desc → timestamp desc) ──
             items.sort(function(a, b) { var dc = (b.date || "").localeCompare(a.date || ""); return dc !== 0 ? dc : (b._ts || 0) - (a._ts || 0); });
@@ -7964,10 +7964,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var isVirt = item.type === "virtual" || item.type === "egreso_virt";
               var isCta = item.type === "info_cta";
               var symbol = isCta ? "●" : isEgr ? "−" : "+";
+              var canDelete = !!(item._egresoId || item._orderId);
               return (
-                <div key={item.key} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1 }}>
-                  <div><span style={{ color: item.color, fontWeight: 800, fontSize: 14, marginRight: 4 }}>{symbol}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
-                  <div style={{ display: "flex", gap: 12 }}><span style={{ color: T.gray }}>{fmtDate(item.date)}</span><span style={{ fontWeight: 700, color: item.color }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span></div>
+                <div key={item.key} style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid " + T.border, fontSize: 13, opacity: isVirt || isCta ? 0.75 : 1, gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}><span style={{ color: item.color, fontWeight: 800, fontSize: 14, marginRight: 4 }}>{symbol}</span> <span style={{ color: item.color, fontSize: 11, fontWeight: 700, marginRight: 4 }}>{item.label}</span> {item.desc}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <span style={{ color: T.gray, fontSize: 12 }}>{fmtDate(item.date)}</span>
+                    <span style={{ fontWeight: 700, color: item.color, minWidth: 70, textAlign: "right" }}>{isEgr ? "-" : ""}{fmt(item.amount)}</span>
+                    {canDelete && (
+                      <span onClick={function() {
+                        if (!confirm("¿Eliminar este movimiento?")) return;
+                        if (item._egresoId) {
+                          setEgresos(function(p) { return p.filter(function(e) { return e.id !== item._egresoId; }); });
+                        }
+                        if (item._orderId) {
+                          setOrders(function(p) { return p.map(function(o) {
+                            if (o.id !== item._orderId) return o;
+                            var copy = Object.assign({}, o);
+                            delete copy.cobrado;
+                            delete copy.cajaDate;
+                            copy.payments = [];
+                            return copy;
+                          }); });
+                        }
+                      }} style={{ fontSize: 11, color: T.red, cursor: "pointer", padding: "3px 6px", borderRadius: 4, border: "1px solid " + T.red + "30", opacity: 0.5, lineHeight: 1 }}>✕</span>
+                    )}
+                  </div>
                 </div>
               );
             });
