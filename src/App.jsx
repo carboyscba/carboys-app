@@ -6467,6 +6467,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [selFactPago, setSelFactPago] = useState(null);
   const [pagoProvForm, setPagoProvForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Transferencia" });
   const [expandedFact, setExpandedFact] = useState(null);
+  const [editFactProv, setEditFactProv] = useState(null); // factura being edited
   const [factsSeleccionadas, setFactsSeleccionadas] = useState(new Set()); // multi-pago
   const [showConfirmCancelar, setShowConfirmCancelar] = useState(null);    // { factId, pagoIdx }
   const [showPagoMulti, setShowPagoMulti] = useState(false);               // modal pago múltiple
@@ -8924,6 +8925,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             {isExpanded ? "▲ Ocultar" : `▼ ${(f.pagos || []).length} pago${(f.pagos || []).length !== 1 ? "s" : ""}`}
                           </button>
                         )}
+                        <button onClick={() => setEditFactProv({ ...f, monto: String(f.monto || 0) })}
+                          style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.accent}40`, fontSize: 12, padding: "9px 12px", color: T.accent }}>✏️</button>
+                        <button onClick={() => {
+                          if (!confirm("¿Eliminar FC #" + f.nroFactura + "?" + ((f.pagos || []).length > 0 ? " También se eliminarán los egresos asociados." : ""))) return;
+                          // Remove associated egresos
+                          (f.pagos || []).forEach(function(pg) { if (pg.egresoId) setEgresos(function(p) { return p.filter(function(e) { return e.id !== pg.egresoId; }); }); });
+                          setFactProv(function(p) { return p.filter(function(x) { return x.id !== f.id; }); });
+                        }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, fontSize: 12, padding: "9px 12px", color: T.red }}>🗑️</button>
                       </div>
                     </div>
 
@@ -9147,6 +9156,41 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     setShowFactProv(false);
                   }
                 }} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ MODAL EDITAR FACTURA PROVEEDOR ══ */}
+        {editFactProv && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setEditFactProv(null)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>✏️ Editar Factura</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>N° Factura *</label><input inputMode="text" value={editFactProv.nroFactura || ""} onChange={e => setEditFactProv(f => ({ ...f, nroFactura: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={editFactProv.monto ? Number(editFactProv.monto).toLocaleString("es-AR") : ""} onChange={e => setEditFactProv(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={editFactProv.fechaEmision || ""} onChange={e => setEditFactProv(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Fecha vencimiento</label><input type="date" value={editFactProv.fechaVenc || ""} onChange={e => setEditFactProv(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Descripción</label>
+                <input inputMode="text" value={editFactProv.desc || ""} onChange={e => setEditFactProv(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Repuestos motor, frenos..." />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setEditFactProv(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (editFactProv.nroFactura && editFactProv.monto) {
+                    setFactProv(prev => prev.map(x => x.id === editFactProv.id ? { ...x, nroFactura: editFactProv.nroFactura, monto: parseFloat(editFactProv.monto) || 0, fechaEmision: editFactProv.fechaEmision, fechaVenc: editFactProv.fechaVenc, desc: editFactProv.desc } : x));
+                    setEditFactProv(null);
+                  }
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>💾 Guardar</button>
               </div>
             </div>
           </div>
@@ -9444,31 +9488,31 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={labelStyle}>Nro. de Factura</label>
-                    <input inputMode="text" value={mesData.nroFc || ""} disabled={pagado}
+                    <input inputMode="text" value={mesData.nroFc || ""} 
                       onChange={e => updateMes({ nroFc: e.target.value })}
-                      style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} placeholder="Ej: 0001-00012345" />
+                      style={{ ...inputStyle, opacity: 1 }} placeholder="Ej: 0001-00012345" />
                   </div>
                   <div>
                     <label style={labelStyle}>Vencimiento</label>
-                    <input type="date" value={mesData.vencimiento || ""} disabled={pagado}
+                    <input type="date" value={mesData.vencimiento || ""} 
                       onChange={e => updateMes({ vencimiento: e.target.value })}
-                      style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} />
+                      style={{ ...inputStyle, opacity: 1 }} />
                   </div>
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={labelStyle}>Fecha de emisión</label>
-                  <input type="date" value={mesData.fechaEmision || ""} disabled={pagado}
+                  <input type="date" value={mesData.fechaEmision || ""} 
                     onChange={e => updateMes({ fechaEmision: e.target.value })}
-                    style={{ ...inputStyle, opacity: pagado ? 0.5 : 1 }} />
+                    style={{ ...inputStyle, opacity: 1 }} />
                 </div>
                 <div>
                   <label style={labelStyle}>Monto</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
-                    <input inputMode="numeric" disabled={pagado}
+                    <input inputMode="numeric" 
                       value={mesData.monto ? Number(mesData.monto).toLocaleString("es-AR") : ""}
                       onChange={e => updateMes({ monto: e.target.value.replace(/[^0-9]/g, "") })}
-                      style={{ ...inputStyle, flex: 1, opacity: pagado ? 0.5 : 1 }} placeholder="0" />
+                      style={{ ...inputStyle, flex: 1, opacity: 1 }} placeholder="0" />
                   </div>
                 </div>
                 {/* Vencimiento warning */}
