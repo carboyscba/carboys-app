@@ -695,6 +695,19 @@ const wahaGetSession = async (wahaUrl, wahaApiKey = "", session = "default") => 
   } catch { return null; }
 };
 
+// ── Global WA Toast — lightweight DOM-based popup ──
+const showWAToast = (msg, success = true) => {
+  var existing = document.getElementById("wa-toast");
+  if (existing) existing.remove();
+  var el = document.createElement("div");
+  el.id = "wa-toast";
+  el.style.cssText = "position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 24px;border-radius:12px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;color:#fff;box-shadow:0 8px 32px rgba(0,0,0,.4);backdrop-filter:blur(8px);animation:fadeUp .3s ease;max-width:90%;text-align:center;";
+  el.style.background = success ? "rgba(67,160,71,0.95)" : "rgba(229,57,53,0.95)";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { if (el.parentNode) { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(function() { el.remove(); }, 300); } }, 3000);
+};
+
 // ── Google Login Screen ───────────────────────────────────────
 const GoogleLoginScreen = ({ onSuccess }) => {
   const [status, setStatus] = React.useState("idle"); // idle | loading | error
@@ -3524,7 +3537,7 @@ const NewOrderScreen = (props) => {
             const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio).replace(/{orden}/g, ordId).replace(/{fecha}/g, fecha).replace(/{trabajos}/g, trabajosList).replace(/{total}/g, fmt(total));
             return phone ? (
               <button onClick={() => {
-                sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
+                sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey).then(ok => showWAToast(ok ? "✅ Mensaje enviado por WhatsApp" : "❌ No se pudo enviar el mensaje", ok));
                 if (lastCreatedOrderId) setOrders(prev => prev.map(o => o.id === lastCreatedOrderId ? { ...o, waRecepcion: true } : o));
               }}
                 style={{ background: "#25D366", color: "#fff", border: "none", borderRadius: 10, padding: "14px 28px", cursor: "pointer", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, margin: "0 auto 24px" }}>
@@ -5412,7 +5425,7 @@ const VehicleDetailScreen = (props) => {
                 const brand = vehicle?.brand || "";
                 const model = vehicle?.model || "";
                 const msg = "Hola " + name + "! Te informamos que tu " + brand + " " + model + " (" + order.domain + ") ya está *listo para retirar*. 🚗\n\n¡Te esperamos en *CarBoys*!";
-                sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
+                sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey).then(ok => showWAToast(ok ? "✅ Mensaje enviado a " + name : "❌ No se pudo enviar el mensaje", ok));
                 setOrders(prev => prev.map(o => o.id === order.id ? { ...o, clientNotified: true } : o));
                 setShowNotifyPopup(false);
               }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 13 }}>📱 Enviar WhatsApp</button>
@@ -5804,8 +5817,8 @@ const VehicleDetailScreen = (props) => {
                   const phone = fc?.phone || "";
                   const nro = fo.factura?.numero || "";
                   const msg = "Hola " + (fc?.name || "") + "! Te enviamos la Factura " + invoiceType + " Nro " + nro + " de tu " + (fv?.brand || "") + " " + (fv?.model || "") + " (" + fmtD(fo.domain) + ").\n\n" + "Gracias por confiar en *CarBoys*! 🔧";
-                  if (phone) sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey);
-                  else alert("El cliente no tiene teléfono registrado.");
+                  if (phone) sendWA(phone, msg, config?.wahaUrl, config?.wahaApiKey).then(ok => showWAToast(ok ? "✅ Factura enviada por WhatsApp" : "❌ No se pudo enviar la factura", ok));
+                  else showWAToast("❌ El cliente no tiene teléfono registrado", false);
                 }} style={{ ...btnPrimary(T.green), fontSize: 14, padding: "13px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   📱 Enviar por WhatsApp
                 </button>
@@ -5969,9 +5982,9 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
                   var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
                   var caption = "Comprobante " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
                   var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
-                  if (sent) { alert("✅ Comprobante enviado por WhatsApp!"); }
-                  else { alert("❌ No se pudo enviar el comprobante. Verificá la conexión con WAHA."); }
-                } catch(e) { console.warn("Error enviando comprobante:", e); alert("❌ Error al enviar comprobante: " + e.message); }
+                  if (sent) { showWAToast("✅ Comprobante enviado por WhatsApp"); }
+                  else { showWAToast("❌ No se pudo enviar el comprobante", false); }
+                } catch(e) { console.warn("Error enviando comprobante:", e); showWAToast("❌ Error al enviar comprobante", false); }
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -6200,9 +6213,9 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
                   var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
                   var caption = "Factura " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
                   var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
-                  if (sent) { alert("✅ Factura enviada por WhatsApp!"); }
-                  else { alert("❌ No se pudo enviar la factura. Verificá la conexión con WAHA."); }
-                } catch(e) { console.warn("Error enviando factura:", e); alert("❌ Error al enviar factura: " + e.message); }
+                  if (sent) { showWAToast("✅ Factura enviada por WhatsApp"); }
+                  else { showWAToast("❌ No se pudo enviar la factura", false); }
+                } catch(e) { console.warn("Error enviando factura:", e); showWAToast("❌ Error al enviar factura", false); }
               }} style={{ ...btnPrimary(T.green), padding: "8px 16px", fontSize: 13 }}>
                 📱 WhatsApp
               </button>
@@ -6982,7 +6995,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         <div><label style={labelStyle}>Método</label>
                           <select value={pm.method || ""} onChange={e => {
                             const v = e.target.value;
-                            setCobroPay(ps => ps.map((p, j) => j === i ? { method: v, amount: p.amount, account: "", withIva: null, invoiceType: "" } : p));
+                            const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                            setCobroPay(ps => ps.map((p, j) => j === i ? { method: v, amount: ps.length === 1 ? String(totalBase) : p.amount, account: "", withIva: null, invoiceType: "" } : p));
                           }} style={inputStyle}>
                             <option value="">Seleccionar</option>
                             <option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cuenta Corriente</option>
@@ -10221,7 +10235,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                         <button onClick={function() {
                           var msg = (config.serviceReminderMsg || "Hola {nombre}, desde CarBoys le recordamos que su vehiculo {vehiculo} ({dominio}) esta proximo al service. Los esperamos!").replace("{nombre}", a.client.name + " " + a.client.lastName).replace("{vehiculo}", a.vehicle.brand + " " + a.vehicle.model).replace("{dominio}", a.vehicle.domain);
-                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "").then(ok => showWAToast(ok ? "✅ Recordatorio enviado" : "❌ No se pudo enviar", ok));
                         }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>📱 Enviar recordatorio</button>
                         <button onClick={function() { setConfig(function(prev) { var dr = Object.assign({}, prev.dismissedReminders || {}); dr[a.vehicle.domain] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedReminders: dr }); }); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, padding: "8px 14px" }}>✕</button>
                       </div>
@@ -10311,7 +10325,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             </div>
                             <button onClick={function() {
                               var msg = (config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitas. Te esperamos en CarBoys!").replace("{nombre}", cl.name);
-                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "").then(ok => showWAToast(ok ? "✅ Mensaje enviado a " + cl.name : "❌ No se pudo enviar", ok));
                             }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "6px 12px" }}>📱 Enviar</button>
                           </div>
                         );
@@ -11848,7 +11862,7 @@ const BudgetPricingScreen = (props) => {
 
   var sendWABudget = async function() {
     var phone = (client && client.phone || "");
-    if (!phone) { alert("El cliente no tiene telefono"); return; }
+    if (!phone) { showWAToast("❌ El cliente no tiene teléfono", false); return; }
     setSendingWA(true);
     try {
       // Load html2canvas dynamically
@@ -11870,13 +11884,13 @@ const BudgetPricingScreen = (props) => {
       var caption = "Presupuesto " + fmtD(order.domain) + " — " + (client ? client.name + " " + client.lastName : "") + "\nTotal: " + fmt(grandTotalIva) + " (IVA inc.)\n\nPresupuesto valido por 15 dias.\nCarBoys — Servicio Integral del Automotor";
       var sent = await sendWAImage(phone, base64, caption, config.wahaUrl || "", config.wahaApiKey || "", config.wahaSession || "default");
       if (sent) {
-        alert("✅ Presupuesto enviado por WhatsApp!");
+        showWAToast("✅ Presupuesto enviado por WhatsApp");
       } else {
-        alert("❌ No se pudo enviar el presupuesto. Verificá la conexión con WAHA.");
+        showWAToast("❌ No se pudo enviar el presupuesto", false);
       }
     } catch (e) {
       console.warn("Error enviando imagen:", e);
-      alert("❌ Error al capturar o enviar el presupuesto: " + e.message);
+      showWAToast("❌ Error al enviar el presupuesto", false);
     }
     setSendingWA(false);
   };
@@ -14369,7 +14383,7 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
       .replace("{precio}", fmt(totalSinIva))
       .replace("{precioIVA}", fmt(totalConIva))
       .replace("{total}", fmt(totalConIva));
-    if (ph) sendWA(ph, msg, config?.wahaUrl, config?.wahaApiKey);
+    if (ph) sendWA(ph, msg, config?.wahaUrl, config?.wahaApiKey).then(ok => showWAToast(ok ? "✅ Autorización enviada por WhatsApp" : "❌ No se pudo enviar", ok));
     // Guardar tracking en la orden
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, waPresupuesto: true } : o));
     setSent(true);
@@ -14965,7 +14979,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
   const sendFojaWA = async (fojaLabel) => {
     const phone = client?.phone;
-    if (!phone) { alert("El cliente no tiene telefono"); return; }
+    if (!phone) { showWAToast("❌ El cliente no tiene teléfono", false); return; }
     try {
       if (!window.html2canvas) {
         await new Promise((resolve, reject) => {
@@ -14981,9 +14995,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
       var caption = fojaLabel + " — " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nCarBoys — Servicio Integral del Automotor";
       var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
-      if (sent) { alert("✅ " + fojaLabel + " enviada por WhatsApp!"); }
-      else { alert("❌ No se pudo enviar " + fojaLabel + ". Verificá la conexión con WAHA."); }
-    } catch(e) { console.warn("Error enviando foja:", e); alert("❌ Error al enviar " + fojaLabel + ": " + e.message); }
+      if (sent) { showWAToast("✅ " + fojaLabel + " enviada por WhatsApp"); }
+      else { showWAToast("❌ No se pudo enviar " + fojaLabel, false); }
+    } catch(e) { console.warn("Error enviando foja:", e); showWAToast("❌ Error al enviar " + fojaLabel, false); }
   };
 
   const getFojaLabel = () => {
@@ -14999,8 +15013,18 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
   React.useEffect(() => {
     if (autoSendWA) {
-      var timer = setTimeout(() => { sendFojaWA(getFojaLabel()); }, 1500);
-      return () => clearTimeout(timer);
+      // Poll for foja-print element to be rendered before sending
+      var attempts = 0;
+      var poll = setInterval(() => {
+        attempts++;
+        var el = document.getElementById("foja-print");
+        if (el && el.offsetHeight > 100) {
+          clearInterval(poll);
+          setTimeout(() => sendFojaWA(getFojaLabel()), 500);
+        }
+        if (attempts > 20) { clearInterval(poll); showWAToast("❌ No se pudo cargar la foja para enviar", false); }
+      }, 300);
+      return () => clearInterval(poll);
     }
   }, []);
 
