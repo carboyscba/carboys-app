@@ -6427,6 +6427,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [holdProgress, setHoldProgress] = useState(0);
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
+  const [selServFolder, setSelServFolder] = useState(null); // folder name
+  const [showServFolder, setShowServFolder] = useState(false);
+  const [servFolderForm, setServFolderForm] = useState("");
+  const [showServFc, setShowServFc] = useState(false);
+  const [editServFc, setEditServFc] = useState(null);
 
   const [showIgGasto, setShowIgGasto] = useState(false);
   const [selIgnacio, setSelIgnacio] = useState(null);
@@ -9451,277 +9456,123 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       </div>)}
 
       {tab === "servicios" && (<div>
+        {/* ══ MIGRATION: convert old meses format to facturas ══ */}
+        {(() => {
+          const needsMigration = servicios.some(s => s.meses && !s.facturas);
+          if (needsMigration) {
+            setTimeout(() => {
+              setServicios(prev => prev.map(s => {
+                if (s.facturas) return s;
+                const facturas = Object.keys(s.meses || {}).map((mk, i) => {
+                  const m = s.meses[mk];
+                  return { id: Date.now() + i, nroFc: m.nroFc || "", monto: m.monto || "", fechaEmision: m.fechaEmision || mk + "-01", vencimiento: m.vencimiento || "", desc: mk, pagado: m.pagado || false, pagoMetodo: m.pagoMetodo || "", pagoFecha: m.pagoFecha || "", pagoMonto: m.pagoMonto || "", egresoId: m.egresoId || null };
+                });
+                return { ...s, facturas, folder: s.folder || "General" };
+              }));
+            }, 50);
+          }
+          return null;
+        })()}
+
         {/* ══ HEADER ══ */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {(selServ || selServMes) && (
-              <span onClick={() => { if (selServMes) { setSelServMes(null); setDelFcServConfirm(false); } else { setSelServ(null); } }}
+            {(selServFolder || selServ) && (
+              <span onClick={() => { if (selServ) { setSelServ(null); } else { setSelServFolder(null); } }}
                 style={{ cursor: "pointer", fontSize: 20, color: T.gray, padding: "0 4px" }}>←</span>
             )}
             <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>
-              {selServMes ? `📅 ${selServMes.label}` : selServ ? `🔧 ${selServ.nombre}` : "🔧 Servicios"}
+              {selServ ? `📄 ${selServ.nombre}` : selServFolder ? `📁 ${selServFolder}` : "🔧 Servicios"}
             </div>
           </div>
-          {!selServ && !selServMes && (
-            <button onClick={() => setShowServ(true)} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Nuevo Servicio</button>
-          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            {!selServFolder && !selServ && (
+              <button onClick={() => { setServFolderForm(""); setShowServFolder(true); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12 }}>+ Carpeta</button>
+            )}
+            {selServFolder && !selServ && (
+              <button onClick={() => { setServForm({ nombre: "", desc: "", folder: selServFolder }); setShowServ(true); }} style={{ ...btnPrimary(T.accent), fontSize: 12 }}>+ Servicio</button>
+            )}
+            {selServ && (
+              <button onClick={() => setShowServFc(true)} style={{ ...btnPrimary(T.green), fontSize: 12 }}>+ Cargar Factura</button>
+            )}
+          </div>
         </div>
 
-        {/* ══ NIVEL 3: detalle de un MES dentro de un servicio ══ */}
-        {selServMes && selServ && (() => {
-          const mesKey  = `${selServMes.year}-${String(selServMes.month + 1).padStart(2, "0")}`;
-          const mesData = (selServ.meses || {})[mesKey] || {};
-          const pagado  = mesData.pagado || false;
-          const hoy     = new Date().toISOString().split("T")[0];
-
-          const updateMes = (fields) => {
-            const upd = { ...selServ, meses: { ...(selServ.meses || {}), [mesKey]: { ...mesData, ...fields } } };
-            setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-            setSelServ(upd);
-          };
-
-          const eliminarFc = () => {
-            const mesesSinEste = { ...(selServ.meses || {}) };
-            delete mesesSinEste[mesKey];
-            if (mesData.egresoId) setEgresos(p => p.filter(e => e.id !== mesData.egresoId));
-            const upd = { ...selServ, meses: mesesSinEste };
-            setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-            setSelServ(upd);
-            setSelServMes(null);
-            setDelFcServConfirm(false);
-          };
+        {/* ══ NIVEL 3: Facturas de un servicio ══ */}
+        {selServ && (() => {
+          const sv = servicios.find(s => s.id === selServ.id) || selServ;
+          const fcs = (sv.facturas || []).sort((a, b) => (b.fechaEmision || "").localeCompare(a.fechaEmision || ""));
+          const totalPend = fcs.filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+          const totalPag = fcs.filter(f => f.pagado).reduce((s, f) => s + (parseFloat(f.pagoMonto || f.monto) || 0), 0);
 
           return (
             <div>
-              {/* Card datos de la factura */}
-              <div style={{ ...card, padding: 20, marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: T.gray, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Datos de la Factura</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <label style={labelStyle}>Nro. de Factura</label>
-                    <input inputMode="text" value={mesData.nroFc || ""} 
-                      onChange={e => updateMes({ nroFc: e.target.value })}
-                      style={{ ...inputStyle, opacity: 1 }} placeholder="Ej: 0001-00012345" />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Vencimiento</label>
-                    <input type="date" value={mesData.vencimiento || ""} 
-                      onChange={e => updateMes({ vencimiento: e.target.value })}
-                      style={{ ...inputStyle, opacity: 1 }} />
-                  </div>
+              {/* Summary */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(totalPend)}</div>
                 </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={labelStyle}>Fecha de emisión</label>
-                  <input type="date" value={mesData.fechaEmision || ""} 
-                    onChange={e => updateMes({ fechaEmision: e.target.value })}
-                    style={{ ...inputStyle, opacity: 1 }} />
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pagado</div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.green }}>{fmt(totalPag)}</div>
                 </div>
-                <div>
-                  <label style={labelStyle}>Monto</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
-                    <input inputMode="numeric" 
-                      value={mesData.monto ? Number(mesData.monto).toLocaleString("es-AR") : ""}
-                      onChange={e => updateMes({ monto: e.target.value.replace(/[^0-9]/g, "") })}
-                      style={{ ...inputStyle, flex: 1, opacity: 1 }} placeholder="0" />
-                  </div>
-                </div>
-                {/* Vencimiento warning */}
-                {mesData.vencimiento && !pagado && (() => {
-                  const diff = Math.ceil((new Date(mesData.vencimiento) - new Date(hoy)) / 86400000);
-                  if (diff < 0) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.red}15`, border: `1px solid ${T.red}40`, fontSize: 12, fontWeight: 700, color: T.red }}>⚠️ Vencida hace {Math.abs(diff)} día{Math.abs(diff) !== 1 ? "s" : ""}</div>;
-                  if (diff <= 7) return <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: `${T.orange}15`, border: `1px solid ${T.orange}40`, fontSize: 12, fontWeight: 700, color: T.orange }}>⏰ Vence en {diff} día{diff !== 1 ? "s" : ""}</div>;
-                  return null;
-                })()}
               </div>
 
-              {/* Estado de pago */}
-              {pagado ? (
-                <div style={{ ...card, padding: 20, marginBottom: 12, borderColor: T.green, background: `${T.green}08` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 36 }}>✅</div>
-                    <div>
-                      <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>PAGADO</div>
-                      <div style={{ fontSize: 13, color: T.grayLight, marginTop: 2 }}>
-                        {mesData.pagoMetodo} · {mesData.pagoFecha ? new Date(mesData.pagoFecha + "T12:00:00").toLocaleDateString("es-AR") : ""}
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: T.green, marginTop: 4 }}>
-                        {fmt(parseFloat(mesData.pagoMonto || mesData.monto) || 0)}
-                      </div>
-                    </div>
-                    <button onClick={() => {
-                      if (mesData.egresoId) setEgresos(p => p.filter(e => e.id !== mesData.egresoId));
-                      updateMes({ pagado: false, pagoMetodo: undefined, pagoFecha: undefined, pagoMonto: undefined, egresoId: undefined });
-                    }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 11, marginLeft: "auto", padding: "6px 12px", color: T.red }}>
-                      Deshacer
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => {
-                  setPagoMesForm({ nroFc: mesData.nroFc || "", vencimiento: mesData.vencimiento || "", monto: mesData.monto || "", metodo: "" });
-                  setShowPagoMes(true);
-                }}
-                  style={{ ...btnPrimary(T.green), width: "100%", fontSize: 15, padding: "16px 0", fontWeight: 800, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                  💳 Pagar Factura
-                </button>
-              )}
+              {fcs.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin facturas cargadas</div>}
 
-              {/* Zona eliminar FC */}
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
-                {!delFcServConfirm ? (
-                  <button onClick={() => setDelFcServConfirm(true)}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, width: "100%", fontSize: 13 }}>
-                    🗑️ Eliminar esta factura
-                  </button>
-                ) : (
-                  <div style={{ background: `${T.red}10`, borderRadius: 10, padding: 14, border: `1px solid ${T.red}40` }}>
-                    <div style={{ fontSize: 13, color: T.red, fontWeight: 700, marginBottom: 10, textAlign: "center" }}>
-                      ¿Eliminar factura {selServMes.label}?{pagado ? " También se eliminará el egreso de caja." : ""}
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setDelFcServConfirm(false)}
-                        style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>Cancelar</button>
-                      <button onClick={eliminarFc}
-                        style={{ ...btnPrimary(T.red), flex: 1, fontSize: 12, fontWeight: 800 }}>🗑️ Sí, eliminar</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ══ NIVEL 2: años → meses (lista) dentro de un servicio ══ */}
-        {selServ && !selServMes && (() => {
-          const MESES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-          const now     = new Date();
-          const hoy     = now.toISOString().split("T")[0];
-          const svMeses = selServ.meses || {};
-          const totalPagado = Object.values(svMeses).filter(m => m.pagado).reduce((s, m) => s + (parseFloat(m.pagoMonto || m.monto) || 0), 0);
-          const cantPagados = Object.values(svMeses).filter(m => m.pagado).length;
-
-          // Solo años 2026 en adelante
-          const anioActual = now.getFullYear();
-          const anioMin    = 2026;
-          const aniosConDatos = [...new Set(Object.keys(svMeses).map(k => parseInt(k.split("-")[0])))].filter(y => y >= anioMin);
-          const maxAnio = Math.max(anioActual, ...aniosConDatos, anioMin);
-          const anios   = Array.from({ length: maxAnio - anioMin + 1 }, (_, i) => maxAnio - i); // más reciente primero
-          const anioExpandido = selServAnio !== null ? selServAnio : anioActual >= anioMin ? anioActual : anioMin;
-
-          return (
-            <div>
-              {/* Resumen del servicio */}
-              <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700 }}>{selServ.nombre}</div>
-                    {selServ.desc && <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{selServ.desc}</div>}
-                  </div>
-                  <button onClick={() => {
-                    setNuevaFcServForm({ anio: anioActual >= anioMin ? anioActual : anioMin, mes: now.getMonth(), monto: "", fechaEmision: hoy, vencimiento: "" });
-                    setShowNuevaFcServ(true);
-                  }} style={{ ...btnPrimary(T.accent), fontSize: 13, padding: "10px 18px", fontWeight: 800 }}>
-                    + Agregar FC
-                  </button>
-                </div>
-                {cantPagados > 0 && (
-                  <div style={{ display: "flex", gap: 10, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
-                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: T.gray }}>Total pagado</div>
-                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: T.green }}>{fmt(totalPagado)}</div>
-                    </div>
-                    <div style={{ flex: 1, padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border}`, textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: T.gray }}>Meses pagados</div>
-                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800 }}>{cantPagados}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Acordeón por año → lista de meses */}
-              {anios.map(anio => {
-                const isOpen = anio === anioExpandido;
-                const esAnioActual = anio === anioActual;
-                // Solo meses que tienen datos registrados para este año
-                const mesesConDatos = Array.from({ length: 12 }, (_, m) => {
-                  const key = `${anio}-${String(m + 1).padStart(2, "0")}`;
-                  return { month: m, key, data: svMeses[key] };
-                }).filter(x => x.data && (x.data.monto || x.data.vencimiento));
-
-                const vencidosAnio = mesesConDatos.filter(m => !m.data.pagado && m.data.vencimiento && m.data.vencimiento < hoy).length;
-                const pagadosAnio  = mesesConDatos.filter(m => m.data.pagado).length;
-
+              {fcs.map(f => {
+                const isPagada = f.pagado;
+                const isVencida = !isPagada && f.vencimiento && f.vencimiento < today;
+                const borderColor = isPagada ? T.green : isVencida ? T.red : T.orange;
                 return (
-                  <div key={anio} style={{ marginBottom: 10 }}>
-                    {/* Header año */}
-                    <div onClick={() => setSelServAnio(isOpen ? -1 : anio)}
-                      style={{ ...card, padding: "14px 18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-                        borderLeft: `4px solid ${vencidosAnio > 0 ? T.red : pagadosAnio > 0 && pagadosAnio === mesesConDatos.length ? T.green : esAnioActual ? T.accent : T.border}`,
-                        background: isOpen ? `${T.accent}08` : T.bg2 }}>
-                      <div>
-                        <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: esAnioActual ? T.accent : T.white }}>
-                          {anio}{esAnioActual ? " · este año" : ""}
-                        </div>
-                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>
-                          {mesesConDatos.length === 0 ? "Sin facturas cargadas"
-                            : `${mesesConDatos.length} factura${mesesConDatos.length !== 1 ? "s" : ""} · ${pagadosAnio} pagada${pagadosAnio !== 1 ? "s" : ""}`}
-                          {vencidosAnio > 0 ? ` · ⚠️ ${vencidosAnio} vencida${vencidosAnio !== 1 ? "s" : ""}` : ""}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 18, color: T.gray, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "none" }}>›</div>
-                    </div>
-
-                    {/* Lista de meses con datos */}
-                    {isOpen && (
-                      <div style={{ paddingTop: 6 }}>
-                        {mesesConDatos.length === 0 ? (
-                          <div style={{ padding: "16px 12px", textAlign: "center", color: T.gray, fontSize: 13 }}>
-                            Sin facturas cargadas para {anio}
+                  <div key={f.id} style={{ ...card, padding: 0, marginBottom: 10, borderLeft: `4px solid ${borderColor}`, overflow: "hidden" }}>
+                    <div style={{ padding: "14px 16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 14, fontWeight: 700 }}>FC #{f.nroFc || "—"}</div>
+                            {isVencida && <span style={{ fontSize: 10, fontWeight: 700, color: T.red, background: `${T.red}15`, padding: "2px 7px", borderRadius: 4 }}>⚠️ VENCIDA</span>}
+                            {isPagada && <span style={{ fontSize: 10, fontWeight: 700, color: T.green, background: `${T.green}15`, padding: "2px 7px", borderRadius: 4 }}>✅ PAGADA</span>}
                           </div>
-                        ) : (
-                          mesesConDatos.map(({ month, key, data }) => {
-                            const pagado  = data.pagado || false;
-                            const vencido = !pagado && data.vencimiento && data.vencimiento < hoy;
-                            const diff    = data.vencimiento ? Math.ceil((new Date(data.vencimiento) - new Date(hoy)) / 86400000) : null;
-                            const proxVencer = !pagado && diff !== null && diff >= 0 && diff <= 7;
-                            const label   = MESES_FULL[month];
-
-                            let statusColor = T.gray;
-                            let statusText  = "Pendiente";
-                            let statusBg    = T.bg2;
-                            let borderC     = T.border;
-                            if (pagado)      { statusColor = T.green;  statusText = "✅ Pagada";  statusBg = `${T.green}08`; borderC = `${T.green}40`; }
-                            else if (vencido){ statusColor = T.red;    statusText = "⚠️ Vencida"; statusBg = `${T.red}08`;   borderC = `${T.red}40`; }
-                            else if (proxVencer){ statusColor = "#F59E0B"; statusText = `⏰ Vence en ${diff} día${diff !== 1 ? "s" : ""}`; statusBg = `#F59E0B10`; borderC = `#F59E0B50`; }
-
-                            return (
-                              <div key={key} onClick={() => setSelServMes({ year: anio, month, label })}
-                                style={{ ...card, padding: "14px 16px", marginBottom: 8, cursor: "pointer",
-                                  background: statusBg, border: `1px solid ${borderC}`,
-                                  display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>
-                                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{label} {anio}</div>
-                                  {data.vencimiento && (
-                                    <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>
-                                      Vence: {new Date(data.vencimiento + "T12:00:00").toLocaleDateString("es-AR")}
-                                    </div>
-                                  )}
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                  {data.monto && (
-                                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: pagado ? T.green : T.orange }}>
-                                      {fmt(parseFloat(data.monto) || 0)}
-                                    </div>
-                                  )}
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: statusColor, marginTop: 2 }}>{statusText}</div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 3 }}>
+                            {f.fechaEmision ? `Emisión: ${fmtDate(f.fechaEmision)}` : ""}
+                            {f.vencimiento ? ` • Venc: ${fmtDate(f.vencimiento)}` : ""}
+                          </div>
+                          {f.desc && <div style={{ fontSize: 12, color: T.grayLight, marginTop: 2, fontStyle: "italic" }}>{f.desc}</div>}
+                          {isPagada && f.pagoFecha && (
+                            <div style={{ fontSize: 12, color: T.green, marginTop: 3, fontWeight: 600 }}>
+                              ✅ Pagado el {fmtDate(f.pagoFecha)}{f.pagoMetodo ? ` · ${f.pagoMetodo}` : ""}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: "right", marginLeft: 12 }}>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: isPagada ? T.green : T.orange }}>{fmt(parseFloat(f.monto) || 0)}</div>
+                        </div>
                       </div>
-                    )}
+                      {/* Buttons */}
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        {!isPagada && (
+                          <button onClick={() => { setSelFactPago(f); setPagoProvForm({ fecha: today, monto: String(f.monto || ""), metodo: "Transferencia" }); setShowPagoMes(true); }}
+                            style={{ ...btnPrimary(T.green), fontSize: 12, flex: 1, padding: "9px 0" }}>✅ Pagar</button>
+                        )}
+                        {isPagada && (
+                          <button onClick={() => {
+                            if (f.egresoId) setEgresos(p => p.filter(e => e.id !== f.egresoId));
+                            const upd = { ...sv, facturas: (sv.facturas || []).map(x => x.id === f.id ? { ...x, pagado: false, pagoMetodo: "", pagoFecha: "", pagoMonto: "", egresoId: null } : x) };
+                            setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
+                          }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>↩ Deshacer pago</button>
+                        )}
+                        <button onClick={() => setEditServFc({ ...f, monto: String(f.monto || 0) })}
+                          style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.accent}40`, fontSize: 12, padding: "9px 12px", color: T.accent }}>✏️</button>
+                        <button onClick={() => {
+                          if (!confirm("¿Eliminar FC #" + (f.nroFc || "—") + "?")) return;
+                          if (f.egresoId) setEgresos(p => p.filter(e => e.id !== f.egresoId));
+                          const upd = { ...sv, facturas: (sv.facturas || []).filter(x => x.id !== f.id) };
+                          setServicios(p => p.map(s => s.id === sv.id ? upd : s)); setSelServ(upd);
+                        }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, fontSize: 12, padding: "9px 12px", color: T.red }}>🗑️</button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -9729,72 +9580,140 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           );
         })()}
 
-        {/* ══ NIVEL 1: lista de servicios ══ */}
-        {!selServ && !selServMes && (
-          <div>
-            {servicios.length === 0 && (
-              <div style={{ ...card, padding: 30, textAlign: "center", color: T.gray }}>
-                <div style={{ fontSize: 40, marginBottom: 10 }}>🔌</div>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Sin servicios registrados</div>
-                <div style={{ fontSize: 12 }}>Agregá servicios como EPEC, Internet, Alquiler, etc.</div>
-              </div>
-            )}
-            {servicios.map(s => {
-              const svMeses = s.meses || {};
-              const now = new Date();
-              const hoy = now.toISOString().split("T")[0];
-              const todosLosMeses = Object.values(svMeses);
-              const tieneVencidas = todosLosMeses.some(m => !m.pagado && m.vencimiento && m.vencimiento < hoy);
-              const tieneProxVencer = !tieneVencidas && todosLosMeses.some(m => {
-                if (m.pagado || !m.vencimiento || m.vencimiento < hoy) return false;
-                const diff = Math.ceil((new Date(m.vencimiento) - new Date(hoy)) / 86400000);
-                return diff <= 7;
-              });
-              const tienePendientes = todosLosMeses.some(m => !m.pagado && m.monto);
-              const cantPagados = todosLosMeses.filter(m => m.pagado).length;
-
-              // Badge de estado
-              let badgeColor, badgeText, badgeBg, cardBorderL;
-              if (tieneVencidas) {
-                badgeColor = T.red; badgeText = "⚠️ FC vencidas"; badgeBg = `${T.red}15`; cardBorderL = T.red;
-              } else if (tieneProxVencer) {
-                badgeColor = "#F59E0B"; badgeText = "⏰ FC por vencer"; badgeBg = `#F59E0B15`; cardBorderL = "#F59E0B";
-              } else if (!tienePendientes && cantPagados > 0) {
-                badgeColor = T.green; badgeText = "✅ Al día"; badgeBg = `${T.green}12`; cardBorderL = T.green;
-              } else {
-                badgeColor = T.gray; badgeText = null; badgeBg = "transparent"; cardBorderL = T.border;
-              }
-
-              return (
-                <div key={s.id} style={{ ...card, padding: 16, marginBottom: 10,
-                    borderLeft: `4px solid ${cardBorderL}`, position: "relative" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-                    onClick={() => setSelServ(s)}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontSize: 28 }}>🔌</div>
-                      <div>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{s.nombre}</div>
-                        {s.desc && <div style={{ fontSize: 12, color: T.gray }}>{s.desc}</div>}
-                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{cantPagados} mes{cantPagados !== 1 ? "es" : ""} pagado{cantPagados !== 1 ? "s" : ""}</div>
+        {/* ══ NIVEL 2: Servicios dentro de una carpeta ══ */}
+        {selServFolder && !selServ && (() => {
+          const folderServs = servicios.filter(s => (s.folder || "General") === selServFolder);
+          return (
+            <div>
+              {folderServs.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin servicios en esta carpeta</div>}
+              {folderServs.map(sv => {
+                const fcs = sv.facturas || [];
+                const pend = fcs.filter(f => !f.pagado).reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
+                const vencidas = fcs.filter(f => !f.pagado && f.vencimiento && f.vencimiento < today).length;
+                return (
+                  <div key={sv.id} onClick={() => setSelServ(sv)}
+                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${vencidas > 0 ? T.red : pend > 0 ? T.orange : T.green}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 28 }}>📄</div>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{sv.nombre}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>{fcs.length} factura{fcs.length !== 1 ? "s" : ""}{sv.desc ? ` · ${sv.desc}` : ""}</div>
+                          {vencidas > 0 && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ {vencidas} vencida{vencidas !== 1 ? "s" : ""}</div>}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        {pend > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(pend)}</div>}
+                        {pend <= 0 && fcs.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: `${T.green}12`, padding: "3px 10px", borderRadius: 20, border: `1px solid ${T.green}40` }}>✅ Al día</span>}
                       </div>
                     </div>
-                    <div style={{ textAlign: "right", marginRight: 30 }}>
-                      {badgeText && (
-                        <div style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, background: badgeBg,
-                          fontSize: 11, fontWeight: 700, color: badgeColor, border: `1px solid ${badgeColor}40` }}>
-                          {badgeText}
+                  </div>
+                );
+              })}
+              {/* Rename / delete folder */}
+              <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                <button onClick={() => {
+                  const newName = prompt("Nuevo nombre para la carpeta:", selServFolder);
+                  if (newName && newName !== selServFolder) {
+                    setServicios(p => p.map(s => (s.folder || "General") === selServFolder ? { ...s, folder: newName } : s));
+                    setSelServFolder(newName);
+                  }
+                }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>✏️ Renombrar carpeta</button>
+                {folderServs.length === 0 && (
+                  <button onClick={() => { setSelServFolder(null); }}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, flex: 1, fontSize: 12 }}>🗑️ Eliminar carpeta</button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ══ NIVEL 1: Lista de carpetas ══ */}
+        {!selServFolder && !selServ && (() => {
+          const folders = {};
+          servicios.forEach(s => {
+            const f = s.folder || "General";
+            if (!folders[f]) folders[f] = { servs: [], pend: 0, pagado: 0, vencidas: 0, total: 0 };
+            folders[f].servs.push(s);
+            (s.facturas || []).forEach(fc => {
+              if (fc.pagado) folders[f].pagado += (parseFloat(fc.pagoMonto || fc.monto) || 0);
+              else {
+                folders[f].pend += (parseFloat(fc.monto) || 0);
+                if (fc.vencimiento && fc.vencimiento < today) folders[f].vencidas++;
+              }
+              folders[f].total++;
+            });
+          });
+          const folderNames = Object.keys(folders).sort();
+          const totalPend = Object.values(folders).reduce((s, f) => s + f.pend, 0);
+          const totalPag = Object.values(folders).reduce((s, f) => s + f.pagado, 0);
+          const catIc = { "Casa": "🏠", "Taller": "🏢", "Vehículos": "🚗", "General": "📁" };
+
+          return (
+            <div>
+              {/* KPIs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.orange}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pendiente</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange }}>{fmt(totalPend)}</div>
+                </div>
+                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
+                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase" }}>Pagado</div>
+                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalPag)}</div>
+                </div>
+              </div>
+
+              {folderNames.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin carpetas. Tocá "+ Carpeta" para crear.</div>}
+
+              {folderNames.map(fn => {
+                const data = folders[fn];
+                const ic = catIc[fn] || "📁";
+                const borderColor = data.vencidas > 0 ? T.red : data.pend > 0 ? T.orange : T.green;
+                return (
+                  <div key={fn} onClick={() => setSelServFolder(fn)}
+                    style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${borderColor}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 28 }}>{ic}</div>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fn}</div>
+                          <div style={{ fontSize: 12, color: T.gray }}>
+                            {data.servs.length} servicio{data.servs.length !== 1 ? "s" : ""} · {data.total} factura{data.total !== 1 ? "s" : ""}
+                          </div>
+                          {data.vencidas > 0 && <div style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 2 }}>⚠️ {data.vencidas} vencida{data.vencidas !== 1 ? "s" : ""}</div>}
                         </div>
-                      )}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        {data.pend > 0 && <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.orange }}>{fmt(data.pend)}</div>}
+                        {data.pend <= 0 && data.total > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: `${T.green}12`, padding: "3px 10px", borderRadius: 20, border: `1px solid ${T.green}40` }}>✅ Al día</span>}
+                      </div>
                     </div>
                   </div>
-                  {/* Botón editar */}
-                  <div onClick={e => { e.stopPropagation(); setEditServForm({ nombre: s.nombre, desc: s.desc || "", monto: s.monto || "", metodo: s.metodo || "" }); setDelServConfirm(0); setEditServModal(s); }}
-                    style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 8,
-                      background: `${T.accent}18`, border: `1px solid ${T.accent}40`, display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: "pointer", fontSize: 14 }}>✏️</div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ══ MODAL NUEVA CARPETA ══ */}
+        {showServFolder && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServFolder(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 360, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>📁 Nueva Carpeta</div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Nombre *</label>
+                <input inputMode="text" value={servFolderForm} onChange={e => setServFolderForm(e.target.value)} style={inputStyle} placeholder="Ej: Casa, Taller, Vehículos..." autoFocus />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowServFolder(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!servFolderForm.trim()) return;
+                  // Create a placeholder service to establish the folder
+                  setSelServFolder(servFolderForm.trim());
+                  setShowServFolder(false);
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Crear</button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -9802,15 +9721,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {showServ && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServ(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🔌 Nuevo Servicio</div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Internet, Alquiler" /></div>
-              <div style={{ marginBottom: 16 }}><label style={labelStyle}>Descripción <span style={{ fontWeight: 400, color: T.gray, fontSize: 10 }}>(opcional)</span></label><input inputMode="text" value={servForm.desc} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>📄 Nuevo Servicio</div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={servForm.nombre} onChange={e => setServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} placeholder="Ej: EPEC, Alquiler, Gas..." autoFocus /></div>
+              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={servForm.desc || ""} onChange={e => setServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Opcional" /></div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Carpeta</label>
+                <select value={servForm.folder || selServFolder || "General"} onChange={e => setServForm(f => ({ ...f, folder: e.target.value }))} style={inputStyle}>
+                  {[...new Set([...servicios.map(s => s.folder || "General"), selServFolder || "General"])].sort().map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowServ(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   if (!servForm.nombre) return;
-                  setServicios(p => [...p, { nombre: servForm.nombre, desc: servForm.desc, id: Date.now(), meses: {} }]);
-                  setServForm({ nombre: "", desc: "", monto: "", metodo: "", vencimiento: "" });
+                  const newServ = { id: Date.now(), nombre: servForm.nombre, desc: servForm.desc || "", folder: servForm.folder || selServFolder || "General", facturas: [] };
+                  setServicios(p => [...p, newServ]);
+                  setServForm({ nombre: "", desc: "", folder: "" });
                   setShowServ(false);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
               </div>
@@ -9818,725 +9744,137 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           </div>
         )}
 
-        {/* ══ MODAL EDITAR SERVICIO ══ */}
-        {editServModal && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(4px)" }}
-            onClick={() => { setEditServModal(null); setDelServConfirm(0); }}>
-            <div style={{ background: T.bg2, borderRadius: 18, padding: 26, maxWidth: 400, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 18 }}>✏️ Editar Servicio</div>
-              <div style={{ marginBottom: 10 }}><label style={labelStyle}>Nombre *</label><input inputMode="text" value={editServForm.nombre} onChange={e => setEditServForm(f => ({ ...f, nombre: e.target.value }))} style={inputStyle} /></div>
-              <div style={{ marginBottom: 20 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={editServForm.desc} onChange={e => setEditServForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} /></div>
-              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                <button onClick={() => { setEditServModal(null); setDelServConfirm(0); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                <button onClick={() => {
-                  if (!editServForm.nombre) return;
-                  setServicios(p => p.map(x => x.id === editServModal.id ? { ...x, nombre: editServForm.nombre, desc: editServForm.desc } : x));
-                  setEditServModal(null); setDelServConfirm(0);
-                }} style={{ ...btnPrimary(T.accent), flex: 2, fontWeight: 800 }}>✓ Guardar cambios</button>
+        {/* ══ MODAL CARGAR FACTURA ══ */}
+        {showServFc && selServ && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowServFc(false)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>🧾 Nueva Factura — {selServ.nombre}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>N° Factura</label><input inputMode="text" value={factProvForm.nroFactura} onChange={e => setFactProvForm(f => ({ ...f, nroFactura: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={factProvForm.monto ? Number(factProvForm.monto).toLocaleString("es-AR") : ""} onChange={e => setFactProvForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                  </div>
+                </div>
               </div>
-              {/* Zona peligrosa */}
-              <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
-                {delServConfirm === 0 && (
-                  <button onClick={() => setDelServConfirm(1)}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.red}40`, color: T.red, width: "100%", fontSize: 13 }}>
-                    🗑️ Eliminar servicio
-                  </button>
-                )}
-                {delServConfirm === 1 && (
-                  <div style={{ background: `${T.red}10`, borderRadius: 10, padding: 14, border: `1px solid ${T.red}40` }}>
-                    <div style={{ fontSize: 13, color: T.red, fontWeight: 700, marginBottom: 10 }}>¿Eliminar "{editServModal.nombre}" y todos sus registros?</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setDelServConfirm(0)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 12 }}>No, cancelar</button>
-                      <button onClick={() => setDelServConfirm(2)} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 12 }}>Sí, eliminar</button>
-                    </div>
-                  </div>
-                )}
-                {delServConfirm === 2 && (
-                  <div style={{ background: `${T.red}18`, borderRadius: 10, padding: 14, border: `2px solid ${T.red}` }}>
-                    <div style={{ fontSize: 13, color: T.red, fontWeight: 800, marginBottom: 6, textAlign: "center" }}>⚠️ ÚLTIMA CONFIRMACIÓN</div>
-                    <div style={{ fontSize: 12, color: T.gray, marginBottom: 12, textAlign: "center" }}>Esta acción es irreversible</div>
-                    <button onClick={() => {
-                      setServicios(p => p.filter(x => x.id !== editServModal.id));
-                      setEditServModal(null); setDelServConfirm(0);
-                    }} style={{ ...btnPrimary(T.red), width: "100%", fontWeight: 800, fontSize: 14 }}>🗑️ ELIMINAR DEFINITIVAMENTE</button>
-                  </div>
-                )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={factProvForm.fechaEmision} onChange={e => setFactProvForm(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Vencimiento</label><input type="date" value={factProvForm.fechaVenc || ""} onChange={e => setFactProvForm(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Descripción</label>
+                <input inputMode="text" value={factProvForm.desc || ""} onChange={e => setFactProvForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Opcional" />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowServFc(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!factProvForm.monto) return;
+                  const sv = servicios.find(s => s.id === selServ.id);
+                  if (!sv) return;
+                  const newFc = { id: Date.now(), nroFc: factProvForm.nroFactura || "", monto: parseFloat(factProvForm.monto) || 0, fechaEmision: factProvForm.fechaEmision || today, vencimiento: factProvForm.fechaVenc || "", desc: factProvForm.desc || "", pagado: false };
+                  const upd = { ...sv, facturas: [...(sv.facturas || []), newFc] };
+                  setServicios(p => p.map(s => s.id === sv.id ? upd : s));
+                  setSelServ(upd);
+                  setFactProvForm({ provId: "", nroFactura: "", monto: "", fechaEmision: today, fechaVenc: "", estado: "pendiente", desc: "" });
+                  setShowServFc(false);
+                }} style={{ ...btnPrimary(T.green), flex: 1 }}>Guardar</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ══ POPUP CONFIRMAR ELIMINAR SERVICIO ══ */}
-        {showConfirmDelServ && (() => {
-          const srv = servicios.find(s => s.id === showConfirmDelServ);
-          return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(6px)" }}
-              onClick={() => setShowConfirmDelServ(null)}>
-              <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 340, width: "88%", border: `1px solid ${T.red}40`, textAlign: "center" }}
-                onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
-                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Eliminar servicio</div>
-                <div style={{ fontFamily: fontD, fontSize: 16, color: T.accent, marginBottom: 12 }}>{srv?.nombre}</div>
-                <div style={{ fontSize: 12, color: T.gray, marginBottom: 20, lineHeight: 1.5 }}>
-                  Se eliminarán todos los datos y registros de pago asociados a este servicio.<br/>Esta acción no se puede deshacer.
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setShowConfirmDelServ(null)}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                  <button onClick={() => {
-                    setServicios(p => p.filter(s => s.id !== showConfirmDelServ));
-                    setShowConfirmDelServ(null);
-                  }} style={{ ...btnPrimary(T.red), flex: 1, fontWeight: 800 }}>Sí, eliminar</button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ══ MODAL NUEVA FC DE SERVICIO ══ */}
-        {showNuevaFcServ && selServ && (() => {
-          const MESES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-          const anioMin   = 2026;
-          const anioMax   = new Date().getFullYear() + 2;
-          const anioOpts  = Array.from({ length: anioMax - anioMin + 1 }, (_, i) => anioMin + i);
-          const mesKey    = `${nuevaFcServForm.anio}-${String(nuevaFcServForm.mes + 1).padStart(2, "0")}`;
-          const yaExiste  = !!(selServ.meses || {})[mesKey]?.monto;
-          const canSave   = nuevaFcServForm.monto && nuevaFcServForm.vencimiento && !yaExiste;
-
-          return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(4px)" }}
-              onClick={() => setShowNuevaFcServ(false)}>
-              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }}
-                onClick={e => e.stopPropagation()}>
-                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>🧾 Nueva Factura</div>
-                <div style={{ fontSize: 13, color: T.gray, marginBottom: 18 }}>{selServ.nombre}</div>
-
-                {/* Período */}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Período *</label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <select value={nuevaFcServForm.mes}
-                      onChange={e => setNuevaFcServForm(f => ({ ...f, mes: parseInt(e.target.value) }))}
-                      style={inputStyle}>
-                      {MESES_FULL.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                    </select>
-                    <select value={nuevaFcServForm.anio}
-                      onChange={e => setNuevaFcServForm(f => ({ ...f, anio: parseInt(e.target.value) }))}
-                      style={inputStyle}>
-                      {anioOpts.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                  {yaExiste && <div style={{ marginTop: 6, fontSize: 12, color: T.red, fontWeight: 600 }}>⚠️ Ya existe una factura para {MESES_FULL[nuevaFcServForm.mes]} {nuevaFcServForm.anio}</div>}
-                </div>
-
-                {/* Monto */}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Monto *</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
-                    <input inputMode="numeric" autoFocus
-                      value={nuevaFcServForm.monto ? Number(nuevaFcServForm.monto).toLocaleString("es-AR") : ""}
-                      onChange={e => setNuevaFcServForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
-                      style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 700 }} placeholder="0" />
+        {/* ══ MODAL EDITAR FACTURA SERVICIO ══ */}
+        {editServFc && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setEditServFc(null)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>✏️ Editar Factura</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>N° Factura</label><input inputMode="text" value={editServFc.nroFc || ""} onChange={e => setEditServFc(f => ({ ...f, nroFc: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={editServFc.monto ? Number(editServFc.monto).toLocaleString("es-AR") : ""} onChange={e => setEditServFc(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
                   </div>
                 </div>
-
-                {/* Fecha emisión */}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Fecha de emisión</label>
-                  <input type="date" value={nuevaFcServForm.fechaEmision}
-                    onChange={e => setNuevaFcServForm(f => ({ ...f, fechaEmision: e.target.value }))}
-                    style={inputStyle} />
-                </div>
-
-                {/* Fecha vencimiento */}
-                <div style={{ marginBottom: 20 }}>
-                  <label style={labelStyle}>Fecha de vencimiento *</label>
-                  <input type="date" value={nuevaFcServForm.vencimiento}
-                    onChange={e => setNuevaFcServForm(f => ({ ...f, vencimiento: e.target.value }))}
-                    style={inputStyle} />
-                </div>
-
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setShowNuevaFcServ(false)}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                  <button disabled={!canSave} onClick={() => {
-                    if (!canSave) return;
-                    const upd = {
-                      ...selServ,
-                      meses: {
-                        ...(selServ.meses || {}),
-                        [mesKey]: {
-                          monto:       nuevaFcServForm.monto,
-                          fechaEmision: nuevaFcServForm.fechaEmision,
-                          vencimiento: nuevaFcServForm.vencimiento,
-                          pagado:      false,
-                        }
-                      }
-                    };
-                    setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-                    setSelServ(upd);
-                    // Auto-expandir el año recién creado
-                    setSelServAnio(nuevaFcServForm.anio);
-                    setShowNuevaFcServ(false);
-                  }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, opacity: !canSave ? 0.4 : 1 }}>
-                    ✅ Guardar Factura
-                  </button>
-                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div><label style={labelStyle}>Fecha emisión</label><input type="date" value={editServFc.fechaEmision || ""} onChange={e => setEditServFc(f => ({ ...f, fechaEmision: e.target.value }))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Vencimiento</label><input type="date" value={editServFc.vencimiento || ""} onChange={e => setEditServFc(f => ({ ...f, vencimiento: e.target.value }))} style={inputStyle} /></div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Descripción</label>
+                <input inputMode="text" value={editServFc.desc || ""} onChange={e => setEditServFc(f => ({ ...f, desc: e.target.value }))} style={inputStyle} />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setEditServFc(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!editServFc.monto) return;
+                  const sv = servicios.find(s => s.id === selServ.id);
+                  if (!sv) return;
+                  const upd = { ...sv, facturas: (sv.facturas || []).map(x => x.id === editServFc.id ? { ...x, nroFc: editServFc.nroFc, monto: parseFloat(editServFc.monto) || 0, fechaEmision: editServFc.fechaEmision, vencimiento: editServFc.vencimiento, desc: editServFc.desc } : x) };
+                  setServicios(p => p.map(s => s.id === sv.id ? upd : s));
+                  setSelServ(upd);
+                  setEditServFc(null);
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>💾 Guardar</button>
               </div>
             </div>
-          );
-        })()}
+          </div>
+        )}
 
-        {/* ══ MODAL PAGAR FACTURA DEL MES ══ */}
-        {showPagoMes && selServ && selServMes && (() => {
-          const mesKey = `${selServMes.year}-${String(selServMes.month + 1).padStart(2, "0")}`;
-          const esEfectivo = pagoMesForm.metodo === "Efectivo";
-          const esVirtual  = pagoMesForm.metodo === "Transferencia" || pagoMesForm.metodo === "Tarjeta";
-
+        {/* ══ MODAL PAGAR FACTURA SERVICIO ══ */}
+        {showPagoMes && selFactPago && (() => {
+          const esEfectivo = pagoProvForm.metodo === "Efectivo";
+          const esVirtual = pagoProvForm.metodo === "Transferencia" || pagoProvForm.metodo === "Tarjeta";
           return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}
-              onClick={() => setShowPagoMes(false)}>
-              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }}
-                onClick={e => e.stopPropagation()}>
-                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>💳 Pagar Factura</div>
-                <div style={{ fontSize: 13, color: T.gray, marginBottom: 18 }}>{selServ.nombre} · {selServMes.label}</div>
-
-                {/* Método de pago */}
-                <div style={{ marginBottom: 16 }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setShowPagoMes(false)}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 24, maxWidth: 400, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 4 }}>✅ Pagar Factura</div>
+                <div style={{ fontSize: 13, color: T.gray, marginBottom: 16 }}>{selServ?.nombre} — FC #{selFactPago.nroFc || "—"}</div>
+                <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                    <span style={{ color: T.gray }}>Monto</span>
+                    <span style={{ fontFamily: fontD, fontWeight: 800, color: T.orange }}>{fmt(parseFloat(selFactPago.monto) || 0)}</span>
+                  </div>
+                </div>
+                <div style={{ marginBottom: 14 }}>
                   <label style={labelStyle}>Método de pago *</label>
                   <div style={{ display: "flex", gap: 8 }}>
                     {["Efectivo", "Transferencia", "Tarjeta"].map(m => (
-                      <div key={m} onClick={() => setPagoMesForm(f => ({ ...f, metodo: m }))}
-                        style={{ flex: 1, padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center",
-                          border: `2px solid ${pagoMesForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.border}`,
-                          background: pagoMesForm.metodo === m ? `${m === "Efectivo" ? T.green : T.accent}15` : T.bg }}>
-                        <div style={{ fontSize: 18 }}>{m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "💳"}</div>
-                        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4,
-                          color: pagoMesForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.grayLight }}>{m}</div>
+                      <div key={m} onClick={() => setPagoProvForm(f => ({ ...f, metodo: m }))}
+                        style={{ flex: 1, padding: "12px 6px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                          border: `2px solid ${pagoProvForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.border}`,
+                          background: pagoProvForm.metodo === m ? `${m === "Efectivo" ? T.green : T.accent}15` : T.bg }}>
+                        <div style={{ fontSize: 20 }}>{m === "Efectivo" ? "💵" : m === "Transferencia" ? "🔁" : "💳"}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4, color: pagoProvForm.metodo === m ? (m === "Efectivo" ? T.green : T.accent) : T.grayLight }}>{m}</div>
                       </div>
                     ))}
                   </div>
-                  {/* Aviso egreso */}
-                  {esEfectivo && (
-                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>
-                      💵 Se registrará como <strong>egreso efectivo</strong> en Caja (descuenta saldo físico)
-                    </div>
-                  )}
-                  {esVirtual && (
-                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>
-                      🏦 Se registrará como <strong>egreso virtual</strong> en Caja (banco / no descuenta efectivo)
-                    </div>
-                  )}
+                  {esEfectivo && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.green}10`, border: `1px solid ${T.green}30`, fontSize: 11, color: T.green, fontWeight: 600 }}>💵 Se registrará como <strong>egreso efectivo</strong> en Caja</div>}
+                  {esVirtual && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${T.accent}10`, border: `1px solid ${T.accent}30`, fontSize: 11, color: T.accent, fontWeight: 600 }}>🏦 Se registrará como <strong>egreso virtual</strong> en Caja</div>}
                 </div>
-
-                {/* Monto */}
-                <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>Monto *</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 700, color: T.accent, fontSize: 16 }}>$</span>
-                    <input inputMode="numeric" autoFocus
-                      value={pagoMesForm.monto ? Number(pagoMesForm.monto).toLocaleString("es-AR") : ""}
-                      onChange={e => setPagoMesForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))}
-                      style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 700 }} placeholder="0" />
-                  </div>
-                </div>
-
-                {/* Fecha de pago */}
-                <div style={{ marginBottom: 20 }}>
-                  <label style={labelStyle}>Fecha de pago</label>
-                  <input type="date" value={pagoMesForm.fecha || new Date().toISOString().split("T")[0]}
-                    onChange={e => setPagoMesForm(f => ({ ...f, fecha: e.target.value }))}
-                    style={inputStyle} />
-                </div>
-
+                <div style={{ marginBottom: 20 }}><label style={labelStyle}>Fecha de pago</label><input type="date" value={pagoProvForm.fecha} onChange={e => setPagoProvForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} /></div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setShowPagoMes(false)}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
-                  <button onClick={() => {
-                    if (!pagoMesForm.metodo || !pagoMesForm.monto) return;
-                    const fechaPago = pagoMesForm.fecha || new Date().toISOString().split("T")[0];
-                    const montoNum  = parseFloat(pagoMesForm.monto) || 0;
-                    const egresoId  = Date.now();
-
-                    // Registrar egreso en CAJA
-                    const esEfec = pagoMesForm.metodo === "Efectivo";
-                    setEgresos(p => [...p, {
-                      id: egresoId,
-                      desc: `${selServ.nombre} — ${selServMes.label}`,
-                      monto: montoNum,
-                      fecha: fechaPago,
-                      categoria: "servicios",
-                      categoriaLabel: "Servicios",
-                      detalle: `FC: ${pagoMesForm.nroFc || "—"}`,
-                      metodoPago: pagoMesForm.metodo,
-                    }]);
-
-                    // Actualizar mes del servicio como PAGADO
-                    const mesData = (selServ.meses || {})[mesKey] || {};
-                    const upd = {
-                      ...selServ,
-                      meses: {
-                        ...(selServ.meses || {}),
-                        [mesKey]: {
-                          ...mesData,
-                          pagado:     true,
-                          pagoMetodo: pagoMesForm.metodo,
-                          pagoFecha:  fechaPago,
-                          pagoMonto:  pagoMesForm.monto,
-                          egresoId,
-                        }
-                      }
-                    };
-                    setServicios(p => p.map(s => s.id === selServ.id ? upd : s));
-                    setSelServ(upd);
-                    setShowPagoMes(false);
-                  }} disabled={!pagoMesForm.metodo || !pagoMesForm.monto}
-                    style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: (!pagoMesForm.metodo || !pagoMesForm.monto) ? 0.4 : 1 }}>
-                    ✅ Confirmar Pago
-                  </button>
+                  <button onClick={() => setShowPagoMes(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                  <button disabled={!pagoProvForm.metodo} onClick={() => {
+                    if (!pagoProvForm.metodo) return;
+                    const egresoId = Date.now();
+                    const monto = parseFloat(selFactPago.monto) || 0;
+                    setEgresos(p => [...p, { id: egresoId, desc: `${selServ?.nombre} — FC: ${selFactPago.nroFc || "—"}`, monto, fecha: pagoProvForm.fecha, categoria: "servicios", categoriaLabel: "Servicios", detalle: selServ?.nombre || "", metodoPago: pagoProvForm.metodo }]);
+                    const sv = servicios.find(s => s.id === selServ.id);
+                    if (sv) {
+                      const upd = { ...sv, facturas: (sv.facturas || []).map(x => x.id === selFactPago.id ? { ...x, pagado: true, pagoMetodo: pagoProvForm.metodo, pagoFecha: pagoProvForm.fecha, pagoMonto: String(monto), egresoId } : x) };
+                      setServicios(p => p.map(s => s.id === sv.id ? upd : s));
+                      setSelServ(upd);
+                    }
+                    setShowPagoMes(false); setSelFactPago(null);
+                  }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14, opacity: !pagoProvForm.metodo ? 0.4 : 1 }}>✅ Confirmar Pago</button>
                 </div>
               </div>
             </div>
           );
         })()}
       </div>)}
-
-      {tab === "stats" && (() => {
-        const STAT_ITEMS = [
-          { key: "reportes", icon: "📊", label: "Reportes" },
-          { key: "pagos", icon: "💳", label: "Medios de Pago" },
-          { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
-          { key: "productividad", icon: "⚡", label: "Productividad" },
-          { key: "retencion", icon: "📈", label: "Retención" },
-        ];
-
-        if (!statView) return (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              {STAT_ITEMS.map(s => (
-                <div key={s.key} onClick={() => setStatView(s.key)}
-                  style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center" }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>{s.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-        return (
-          <div>
-            <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Estadísticas</button>
-
-            {statView === "reportes" && (() => {
-              const repRevenue = periodOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
-              const repTicket = periodOrders.length > 0 ? repRevenue / periodOrders.length : 0;
-              const tiempos = completed.filter(o => o.date && o.deliveredAt).map(o => Math.max(0, (new Date(o.deliveredAt) - new Date(o.date)) / 86400000)).filter(t => t > 0 && t < 60);
-              const avgDays = tiempos.length > 0 ? (tiempos.reduce((s, t) => s + t, 0) / tiempos.length).toFixed(1) : "—";
-              const uniqueClients = Object.keys(clientStats).length;
-              const recurrentCount = Object.values(clientStats).filter(v => v >= 2).length;
-              const recurrentPct = uniqueClients > 0 ? Math.round((recurrentCount / uniqueClients) * 100) : 0;
-              const egresosPeriod = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
-              const totalEgresosPeriod = egresosPeriod.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-              const margin = repRevenue > 0 ? Math.round(((repRevenue - totalEgresosPeriod) / repRevenue) * 100) : 0;
-              const marginColor = margin > 40 ? T.green : margin > 20 ? T.orange : T.red;
-              const workRev = {};
-              periodOrders.forEach(o => (o.works || []).forEach(w => { workRev[w.type] = (workRev[w.type] || 0) + (parseFloat(w.price) || 0); }));
-              const topWorkRev = Object.entries(workRev).sort((a, b) => b[1] - a[1]);
-              const payM = { Efectivo: 0, Transferencia: 0, Tarjeta: 0, "Cuenta Corriente": 0 };
-              periodOrders.forEach(o => (o.payments || []).forEach(p => { if (payM[p.method] !== undefined) payM[p.method] += parseFloat(p.amount) || 0; }));
-              const payTotal = Object.values(payM).reduce((s, v) => s + v, 0);
-              const BarR = (label, value, max, color, sub) => (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color: color }}>{sub}</span>
-                  </div>
-                  <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                    <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? Math.min(100, (value / max) * 100) + "%" : "0%", transition: "width .5s ease" }} />
-                  </div>
-                </div>
-              );
-              return (
-                <div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📊 Reportes</div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
-                    {[
-                      { l: "Facturación", v: fmt(repRevenue), c: T.accent, ic: "💰" },
-                      { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "📋" },
-                      { l: "Ticket Promedio", v: fmt(repTicket), c: "#9C27B0", ic: "🎯" },
-                      { l: "Días en Taller", v: avgDays, c: parseFloat(avgDays) > 3 ? T.orange : T.green, ic: "⏱️" },
-                    ].map(s => (
-                      <div key={s.l} style={{ ...card, padding: 14, borderLeft: "3px solid " + s.c }}>
-                        <div style={{ fontSize: 20, marginBottom: 2 }}>{s.ic}</div>
-                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: s.c }}>{s.v}</div>
-                        <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>{s.l}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📊 Rentabilidad</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
-                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>INGRESOS</div>
-                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(repRevenue)}</div>
-                      </div>
-                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>EGRESOS</div>
-                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.red }}>{fmt(totalEgresosPeriod)}</div>
-                      </div>
-                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>MARGEN</div>
-                        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: marginColor }}>{margin}%</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👥 Clientes</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>TOTAL</div>
-                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>{clients.length}</div>
-                      </div>
-                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>RECURRENTES</div>
-                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: recurrentPct > 40 ? T.green : T.orange }}>{recurrentPct}%</div>
-                      </div>
-                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>EN PERIODO</div>
-                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>{periodOrders.length}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>🔧 Servicios más Rentables</div>
-                    {topWorkRev.slice(0, 8).map(function(item, idx) { return BarR((idx + 1) + ". " + item[0], item[1], topWorkRev[0] ? topWorkRev[0][1] : 1, T.accent, fmt(item[1])); })}
-                    {topWorkRev.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
-                  </div>
-                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>💳 Métodos de Pago</div>
-                    {Object.entries(payM).filter(function(e) { return e[1] > 0; }).sort(function(a, b) { return b[1] - a[1]; }).map(function(e) {
-                      var pct = payTotal > 0 ? Math.round(e[1] * 100 / payTotal) : 0;
-                      var pc = { Efectivo: T.green, Transferencia: T.accent, Tarjeta: "#9C27B0", "Cuenta Corriente": T.orange }[e[0]] || T.gray;
-                      return BarR(e[0] + " (" + pct + "%)", e[1], payTotal, pc, fmt(e[1]));
-                    })}
-                  </div>
-                  <div style={{ ...card, padding: 20 }}>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👤 Rendimiento por Mecánico</div>
-                    {(function() {
-                      var ms = {};
-                      periodOrders.forEach(function(o) { var m = o.tech || o.assignedTo || "Sin asignar"; if (!ms[m]) ms[m] = { count: 0, rev: 0 }; ms[m].count++; ms[m].rev += (o.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0); });
-                      var entries = Object.entries(ms).sort(function(a, b) { return b[1].count - a[1].count; });
-                      if (entries.length === 0) return <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>;
-                      var maxC = entries[0][1].count;
-                      return entries.map(function(e) { return BarR(e[0], e[1].count, maxC, T.green, e[1].count + " ord. - " + fmt(e[1].rev)); });
-                    })()}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {statView === "pagos" && (<div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
-              <div style={{ ...card, padding: 20 }}>
-                {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
-                  const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
-                  const color = payColors[method] || T.grayLight;
-                  return (
-                    <div key={method} style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
-                        <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: color }}>{pct}%</span>
-                      </div>
-                      <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
-                        <div style={{ width: pct + "%", height: "100%", borderRadius: 5, background: color }} />
-                      </div>
-                    </div>
-                  );
-                }) : <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
-              </div>
-            </div>)}
-
-            {statView === "trabajos" && (<div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔧 Trabajos más Realizados</div>
-              <div style={{ ...card, padding: 20 }}>
-                {topWorks.slice(0, 10).map(([type, count], i) => {
-                  const maxC = topWorks[0][1];
-                  return (
-                    <div key={type} style={{ marginBottom: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontSize: 14 }}>{i + 1}. {type}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{count}</span>
-                      </div>
-                      <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
-                        <div style={{ width: `${Math.round(count * 100 / maxC)}%`, height: "100%", borderRadius: 4, background: T.accent }} />
-                      </div>
-                    </div>
-                  );
-                })}
-                {topWorks.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
-              </div>
-            </div>)}
-
-            {statView === "clientes" && (<div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>👥 Clientes Frecuentes</div>
-              <div style={{ ...card, padding: 20 }}>
-                {topClients.map((c, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
-                    <span style={{ fontSize: 14 }}>{i + 1}. {c.name}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#9C27B0" }}>{c.count} orden{c.count !== 1 ? "es" : ""}</span>
-                  </div>
-                ))}
-                {topClients.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
-              </div>
-            </div>)}
-
-            {statView === "productividad" && (<div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>⚡ Productividad</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 16 }}>
-                {[
-                  { l: "Órdenes Hoy", v: orders.filter(o => o.date === today).length, c: T.accent, ic: "📋" },
-                  { l: "En Taller", v: orders.filter(o => ["pending", "working"].includes(o.status)).length, c: T.orange, ic: "🔧" },
-                  { l: "Finalizadas Hoy", v: orders.filter(o => o.status === "done" && o.date === today).length, c: T.green, ic: "✅" },
-                  { l: "Entregadas Hoy", v: orders.filter(o => o.status === "delivered" && o.date === today).length, c: "#9C27B0", ic: "🚗" },
-                ].map(s => (
-                  <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
-                    <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
-                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: s.c }}>{s.v}</div>
-                    <div style={{ fontSize: 12, color: T.gray }}>{s.l}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ ...card, padding: 20 }}>
-                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>👤 Rendimiento por Mecánico</div>
-                {(() => {
-                  const ms = {}; completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; ms[m] = (ms[m] || 0) + 1; });
-                  return Object.entries(ms).sort((a, b) => b[1] - a[1]).map(([name, cnt]) => {
-                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
-                    return (<div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
-                      <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{cnt} órdenes</div></div>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(rev)}</div>
-                    </div>);
-                  });
-                })()}
-              </div>
-            </div>)}
-
-            {statView === "retencion" && (<div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📈 Retención de Clientes</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
-                {[
-                  { l: "Clientes Totales", v: clients.length, c: T.accent },
-                  { l: "Recurrentes (2+)", v: Object.values(clientStats).filter(v => v >= 2).length, c: T.green },
-                  { l: "Tasa Retención", v: clients.length > 0 ? Math.round(Object.values(clientStats).filter(v => v >= 2).length * 100 / clients.length) + "%" : "0%", c: "#9C27B0" },
-                ].map(s => (
-                  <div key={s.l} style={{ ...card, padding: 16, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: T.gray }}>{s.l}</div>
-                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: s.c }}>{s.v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>)}
-
-          </div>
-        );
-      })()}
-
-      {/* ══════ CAMPAÑAS ══════ */}
-      {tab === "campanas" && (() => {
-        const SERVICE_KM = 10000;
-        const ALERT_GREEN = 1500;
-        const ALERT_YELLOW = 500;
-        const DEFAULT_KM_DAY = 33;
-        const serviceAlerts = [];
-        var serviceTypes = ["Service Full", "Service Base"];
-        clients.forEach(function(c) {
-          (c.vehicles || []).forEach(function(v) {
-            var vOrders = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && (o.works || []).some(function(w) { return serviceTypes.indexOf(w.type) >= 0; }); }).sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
-            if (vOrders.length === 0) return;
-            var lastService = vOrders[0];
-            var lastKm = parseInt(lastService.km) || parseInt(v.km) || 0;
-            var lastDate = lastService.date;
-            if (!lastDate || !lastKm) return;
-            var allVisits = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && o.km; }).sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); });
-            var kmPerDay = DEFAULT_KM_DAY;
-            if (allVisits.length >= 2) {
-              var first = allVisits[0]; var last = allVisits[allVisits.length - 1];
-              var kmDiff = (parseInt(last.km) || 0) - (parseInt(first.km) || 0);
-              var daysDiff = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
-              if (kmDiff > 0) kmPerDay = Math.round(kmDiff / daysDiff);
-            }
-            kmPerDay = Math.max(5, Math.min(100, kmPerDay));
-            var daysSinceService = Math.max(0, (Date.now() - new Date(lastDate).getTime()) / 86400000);
-            var estimatedKm = lastKm + Math.round(daysSinceService * kmPerDay);
-            var nextServiceKm = lastKm + SERVICE_KM;
-            var kmRemaining = nextServiceKm - estimatedKm;
-            var daysRemaining = kmPerDay > 0 ? Math.round(kmRemaining / kmPerDay) : 999;
-            if (kmRemaining < ALERT_GREEN) {
-              var urgency = kmRemaining < ALERT_YELLOW ? (kmRemaining < 0 ? "overdue" : "red") : "yellow";
-              serviceAlerts.push({ client: c, vehicle: v, lastService: lastService, lastKm: lastKm, lastDate: lastDate, kmPerDay: kmPerDay, estimatedKm: estimatedKm, nextServiceKm: nextServiceKm, kmRemaining: kmRemaining, daysRemaining: daysRemaining, urgency: urgency, visits: allVisits.length });
-            }
-          });
-        });
-        serviceAlerts.sort(function(a, b) { return a.kmRemaining - b.kmRemaining; });
-        var dismissed = config.dismissedReminders || {};
-        var filteredAlerts = serviceAlerts.filter(function(a) { return !dismissed[a.vehicle.domain]; });
-        var cv = statView;
-        if (!cv) return (
-          <div>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              {[
-                { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: filteredAlerts.length },
-                { key: "promo", icon: "📣", l: "Promoción" },
-                { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
-              ].map(function(v) { return (
-                <div key={v.key} onClick={function() { setStatView(v.key); setHistDetail(null); }} style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center" }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>{v.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{v.l}</div>
-                  {v.count > 0 && <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: T.orange }}>{v.count} pendientes</div>}
-                </div>
-              ); })}
-            </div>
-          </div>
-        );
-        return (
-          <div>
-            <button onClick={function() { setStatView(null); setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
-            {cv === "recordatorio" && (
-              <div>
-                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔔 Service Recordatorio</div>
-                {filteredAlerts.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>No hay vehiculos proximos a su service</div>}
-                {filteredAlerts.map(function(a) {
-                  var urgColor = a.urgency === "overdue" || a.urgency === "red" ? T.red : T.orange;
-                  return (
-                    <div key={a.vehicle.domain} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "4px solid " + urgColor }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div>
-                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>{fmtD(a.vehicle.domain)}</div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{a.client.name} {a.client.lastName}</div>
-                          <div style={{ fontSize: 12, color: T.grayLight }}>{a.vehicle.brand} {a.vehicle.model} {a.vehicle.year}</div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: urgColor }}>{a.kmRemaining > 0 ? a.kmRemaining.toLocaleString("es-AR") + " km" : "+" + Math.abs(a.kmRemaining).toLocaleString("es-AR") + " km"}</div>
-                          <div style={{ fontSize: 11, color: T.gray }}>{a.kmRemaining > 0 ? "~" + a.daysRemaining + " dias" : "Ya deberia hacer service"}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
-                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Ultimo service</div><div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div><div style={{ color: T.gray, fontSize: 10 }}>{fmtDate(a.lastDate)}</div></div>
-                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Estimado</div><div style={{ fontWeight: 700, color: T.accent }}>~{a.estimatedKm.toLocaleString("es-AR")} km</div></div>
-                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Prox. service</div><div style={{ fontWeight: 700, color: urgColor }}>{a.nextServiceKm.toLocaleString("es-AR")} km</div></div>
-                      </div>
-                      <div style={{ fontSize: 10, color: T.gray, marginTop: 6 }}>~{a.kmPerDay} km/dia ({a.visits} visitas)</div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        <button onClick={function() {
-                          var msg = (config.serviceReminderMsg || "Hola {nombre}, desde CarBoys le recordamos que su vehiculo {vehiculo} ({dominio}) esta proximo al service. Los esperamos!").replace("{nombre}", a.client.name + " " + a.client.lastName).replace("{vehiculo}", a.vehicle.brand + " " + a.vehicle.model).replace("{dominio}", a.vehicle.domain);
-                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "").then(ok => showWAToast(ok ? "✅ Recordatorio enviado" : "❌ No se pudo enviar", ok));
-                        }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>📱 Enviar recordatorio</button>
-                        <button onClick={function() { setConfig(function(prev) { var dr = Object.assign({}, prev.dismissedReminders || {}); dr[a.vehicle.domain] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedReminders: dr }); }); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, padding: "8px 14px" }}>✕</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {cv === "promo" && (function() {
-              var serviceGroups = {};
-              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
-              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set(); serviceGroups[w.type].add(o.clientId); }); });
-              var groups = Object.entries(serviceGroups).map(function(e) { return { type: e[0], clientIds: Array.from(e[1]), count: e[1].size }; }).sort(function(a, b) { return b.count - a.count; });
-              return (
-                <div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Promocion</div>
-                  {!histDetail ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                      {groups.map(function(g) { return (
-                        <div key={g.type} onClick={function() { setHistDetail(g); }} style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center" }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
-                          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{g.count}</div>
-                          <div style={{ fontSize: 10, color: T.gray }}>clientes</div>
-                        </div>
-                      ); })}
-                    </div>
-                  ) : (
-                    <div>
-                      <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} clientes</div>
-                      {histDetail.clientIds.map(function(cId) {
-                        var cl = clients.find(function(x) { return x.id === cId; });
-                        if (!cl) return null;
-                        return (
-                          <div key={cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700 }}>{cl.name} {cl.lastName}</div>
-                              {cl.phone && <div style={{ fontSize: 11, color: T.gray }}>{cl.phone}</div>}
-                            </div>
-                            <button onClick={function() { if (cl.phone) { window.open("https://wa.me/549" + String(cl.phone).replace(/\D/g, ""), "_blank"); } }} style={{ ...btnPrimary(T.green), fontSize: 11, padding: "6px 12px" }}>📷 WhatsApp</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            {cv === "dormidos" && (function() {
-              var SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
-              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
-              var dormidosGroups = {};
-              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {}; if (!dormidosGroups[w.type][o.clientId] || o.date > dormidosGroups[w.type][o.clientId]) dormidosGroups[w.type][o.clientId] = o.date; }); });
-              var groups = Object.entries(dormidosGroups).map(function(e) {
-                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO; }).map(function(d) { return { cId: parseInt(d[0]), lastDate: d[1] }; });
-                return { type: e[0], dormidos: dormidos, count: dormidos.length };
-              }).filter(function(g) { return g.count > 0; }).sort(function(a, b) { return b.count - a.count; });
-              return (
-                <div>
-                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💤 Clientes Dormidos</div>
-                  {!histDetail ? (
-                    <div>
-                      {groups.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>No hay clientes dormidos</div>}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                        {groups.map(function(g) { return (
-                          <div key={g.type} onClick={function() { setHistDetail(g); }} style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center" }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
-                            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{g.count}</div>
-                            <div style={{ fontSize: 10, color: T.gray }}>dormidos</div>
-                          </div>
-                        ); })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
-                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} dormidos</div>
-                      {histDetail.dormidos.sort(function(a, b) { return a.lastDate.localeCompare(b.lastDate); }).map(function(d) {
-                        var cl = clients.find(function(x) { return x.id === d.cId; });
-                        if (!cl) return null;
-                        var months = Math.round((Date.now() - new Date(d.lastDate).getTime()) / 86400000 / 30);
-                        return (
-                          <div key={d.cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, borderLeft: "3px solid " + T.orange }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700 }}>{cl.name} {cl.lastName}</div>
-                              <div style={{ fontSize: 12, color: T.orange, fontWeight: 600 }}>Ultima visita: {fmtDate(d.lastDate)} ({months} meses)</div>
-                            </div>
-                            <button onClick={function() {
-                              var msg = (config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitas. Te esperamos en CarBoys!").replace("{nombre}", cl.name);
-                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "").then(ok => showWAToast(ok ? "✅ Mensaje enviado a " + cl.name : "❌ No se pudo enviar", ok));
-                            }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "6px 12px" }}>📱 Enviar</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        );
-      })()}
 
       {/* ══════ SUELDOS ══════ */}
       {tab === "sueldos" && (<div>
@@ -11186,7 +10524,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         // ── SERVICIOS del mes ──
         const servPagosDelMes = [];
-        servicios.forEach(s => { (s.facturas || []).filter(f => (f.fecha || "").startsWith(ym)).forEach(f => servPagosDelMes.push({ ...f, servNombre: s.nombre })); });
+        servicios.forEach(s => { (s.facturas || []).filter(f => (f.fechaEmision || f.pagoFecha || "").startsWith(ym)).forEach(f => servPagosDelMes.push({ ...f, servNombre: s.nombre })); });
         const totalServMes = servPagosDelMes.reduce((s, f) => s + (parseFloat(f.monto) || 0), 0);
 
         // ── GASTOS IGNACIO del mes ──
