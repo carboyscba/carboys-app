@@ -4955,7 +4955,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
           ...(order.fromBudgetId && order.status === "pending" ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
-          ...(getPerm(user, "cancelar") && ["pending","working","inspection","inspection_done"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && !order.cobrado && ["pending","working","inspection","inspection_done","done","budget_sent","budget_approved"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -5690,6 +5690,12 @@ const VehicleDetailScreen = (props) => {
                 <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", marginBottom: 8, color: T.red }}>¿Estás seguro?</div>
                 <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
                   Esta acción <strong style={{ color: T.red }}>eliminará permanentemente</strong> la orden de trabajo de <strong>{fmtD(order.domain)}</strong>.
+                  {(order.cobrado || (order.payments && order.payments.length > 0)) && (
+                    <span style={{ display: "block", marginTop: 6, color: T.orange, fontWeight: 600 }}>⚠️ El cobro registrado se revertirá de la caja.</span>
+                  )}
+                  {order.factura && (
+                    <span style={{ display: "block", marginTop: 4, color: T.red, fontWeight: 600 }}>⚠️ La factura emitida en ARCA NO se puede anular desde acá.</span>
+                  )}
                 </div>
                 <div style={{ fontSize: 12, color: T.red, textAlign: "center", marginBottom: 20, fontWeight: 600 }}>No se podrá recuperar.</div>
                 <div style={{ display: "flex", gap: 10 }}>
@@ -5701,6 +5707,14 @@ const VehicleDetailScreen = (props) => {
                     var prevKm = prevOrders.length > 0 ? prevOrders[0].km : null;
                     if (prevKm && client) {
                       setClients(prev => prev.map(c => c.id !== client.id ? c : { ...c, vehicles: (c.vehicles || []).map(v => v.domain !== order.domain ? v : { ...v, km: prevKm }) }));
+                    }
+                    // If cobrado, revert related egresos from caja
+                    if (order.cobrado || (order.payments && order.payments.length > 0)) {
+                      // Remove any egresos linked to this order's payments
+                      var orderEgresoIds = (order.payments || []).map(p => p.egresoId).filter(Boolean);
+                      if (orderEgresoIds.length > 0) {
+                        setEgresos(prev => prev.filter(e => !orderEgresoIds.includes(e.id)));
+                      }
                     }
                     setOrders(prev => prev.filter(o => o.id !== order.id));
                     onNavigate("workshop");
