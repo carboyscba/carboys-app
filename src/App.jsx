@@ -16874,12 +16874,22 @@ export default function App() {
 
       unsubConfig = onSnapshotDoc('meta', 'config', snap => {
         if (snap.exists()) {
-          const cfg = { ...INITIAL_CONFIG, ...snap.data() };
-          _setConfig(cfg);
-          idbSave('config', 'config', cfg, true).catch(console.error);
+          // Merge: Firestore + current local state + INITIAL defaults
+          // Prefer Firestore values, but preserve local values that Firestore doesn't have
+          _setConfig(prev => {
+            const merged = { ...INITIAL_CONFIG, ...prev, ...snap.data() };
+            idbSave('config', 'config', merged, true).catch(console.error);
+            return merged;
+          });
         } else {
-          fsSave('meta', 'config', INITIAL_CONFIG).catch(console.error);
-          idbSave('config', 'config', INITIAL_CONFIG, false).catch(console.error);
+          // Firestore doc doesn't exist → push current local config to Firestore
+          // NEVER overwrite with INITIAL_CONFIG — that destroys saved data
+          _setConfig(prev => {
+            const toSave = { ...INITIAL_CONFIG, ...prev };
+            fsSave('meta', 'config', toSave).catch(console.error);
+            idbSave('config', 'config', toSave, false).catch(console.error);
+            return toSave;
+          });
         }
         if (!configReady) { configReady = true; checkReady(); }
       }, err => { console.error('[FS] config:', err); if (!configReady) { configReady = true; checkReady(); } });
