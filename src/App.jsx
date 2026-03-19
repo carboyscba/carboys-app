@@ -15553,14 +15553,16 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
         body: JSON.stringify({ name: wahaSession }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok || d.status) {
-        setWahaStatus("scan_qr");
-        setTimeout(() => { fetchQR(); }, 2000);
-        // Poll status every 4s
-        const poll = setInterval(async () => {
-          await checkStatus();
-        }, 4000);
-        setTimeout(() => clearInterval(poll), 120000);
+      // 422 = already started → treat as success
+      if (r.ok || r.status === 422 || d.status || d.statusCode) {
+        // Session exists, check its actual status
+        await checkStatus();
+        if (wahaStatus !== "connected") {
+          setWahaStatus("scan_qr");
+          setTimeout(() => { fetchQR(); }, 2000);
+          const poll = setInterval(async () => { await checkStatus(); }, 4000);
+          setTimeout(() => clearInterval(poll), 120000);
+        }
       } else {
         setErrMsg("Error al iniciar: " + (d.message || r.status));
       }
@@ -15577,7 +15579,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
     setWahaStatus("disconnected"); setQrImg(null);
   };
 
-  React.useEffect(() => { if (wahaUrl) checkStatus(); }, []);
+  React.useEffect(() => { if (wahaUrl) checkStatus(); }, [wahaUrl]);
 
   const statusColor = wahaStatus === "connected" ? "#25D366" : wahaStatus === "scan_qr" ? "#FFA500" : wahaStatus === "error" ? "#e53935" : "#888";
   const statusLabel = wahaStatus === "connected" ? "✅ Conectado" : wahaStatus === "scan_qr" ? "📷 Esperando QR..." : wahaStatus === "disconnected" ? "⭕ Desconectado" : wahaStatus === "error" ? "❌ Error" : "— Sin configurar";
