@@ -6273,21 +6273,33 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
           </div>
 
           {/* ── CLIENTE ── */}
-          <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Datos del Cliente</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{client ? `${client.name} ${client.lastName}` : "Consumidor Final"}</div>
-                {client?.dni && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>DNI: {client.dni}</div>}
-                {client?.cuit && <div style={{ fontSize: 12, color: "#64748b" }}>CUIT: {client.cuit}</div>}
+          {(() => {
+            const contrib = order.factura?.contribuyente;
+            const clientName = contrib?.nombre || contrib?.razonSocial || (client ? `${client.name} ${client.lastName}` : "Consumidor Final");
+            const clientCuit = contrib?.cuit || client?.cuit || "";
+            const clientDni = client?.dni || "";
+            const clientDom = contrib?.domicilioFiscal || "";
+            const clientCondIva = contrib?.condIva || "";
+            return (
+              <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Datos del Cliente</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{clientName}</div>
+                    {clientCuit && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>CUIT: {clientCuit.replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3")}</div>}
+                    {!clientCuit && clientDni && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>DNI: {clientDni}</div>}
+                    {clientCondIva && <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{clientCondIva}</div>}
+                    {clientDom && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{clientDom}</div>}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>Dominio</div>
+                    <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, fontWeight: 800, color: "#0d1526", letterSpacing: 1 }}>{order.domain?.replace(/\s/g,"")}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+                  </div>
+                </div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 12, color: "#64748b" }}>Dominio</div>
-                <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, fontWeight: 800, color: "#0d1526", letterSpacing: 1 }}>{order.domain?.replace(/\s/g,"")}</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* ── DETALLE DE TRABAJOS ── */}
           <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
@@ -6705,6 +6717,26 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           cbteNro: result.cbteNro,
           importeTotal,
         };
+        // Consultar padrón AFIP para datos fiscales del cliente
+        const docNum = docNro ? String(docNro) : "";
+        const cuitQuery = docTipo === 80 ? docNum : (client?.cuit || "").replace(/[^0-9]/g, "");
+        if (cuitQuery && cuitQuery.length >= 7) {
+          try {
+            const padronResp = await fetch(`${arcaUrl}/api/padron?cuit=${cuitQuery}`, { headers: { "x-api-key": arcaKey } });
+            const padronData = await padronResp.json();
+            if (padronData.success) {
+              factura.contribuyente = {
+                nombre: padronData.nombre || "",
+                razonSocial: padronData.razonSocial || "",
+                domicilioFiscal: padronData.domicilioFiscal || "",
+                condIva: padronData.condIva || "",
+                cuit: padronData.cuit || cuitQuery,
+                tipoPersona: padronData.tipoPersona || "",
+              };
+              console.log("[PADRON] Datos obtenidos:", factura.contribuyente.nombre, factura.contribuyente.domicilioFiscal);
+            }
+          } catch(padronErr) { console.warn("[PADRON] No se pudo consultar:", padronErr.message); }
+        }
       } else {
         alert("Error ARCA: " + (result.error || "Error desconocido"));
         setFacturando(false);
