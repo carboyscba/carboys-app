@@ -17118,27 +17118,19 @@ export default function App() {
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
 
-  // ── Migración única: marcar todas las CTA CTE pre-existentes como cobradas ──
-  // Se ejecuta una sola vez cuando orders y config ya cargaron desde IDB/FS
-  const ctaMigratedRef = useRef(false);
+  // ── Fix: restaurar 9 CTA CTE de marzo 2026 que fueron incorrectamente marcadas como cobradas ──
+  const ctaFixRef = useRef(false);
   useEffect(() => {
-    if (ctaMigratedRef.current) return;
-    if (dbLoading) return;
-    if (config.ctaInicializado) { ctaMigratedRef.current = true; return; }
-    // Primera vez: marcar todas las órdenes con CTA CTE como cobradas
-    const needsMigration = orders.filter(o =>
-      !o.ctaCobrada &&
-      (o.payments || []).some(p => p.method === "Cuenta Corriente")
-    );
-    if (needsMigration.length > 0 || !config.ctaInicializado) {
-      ctaMigratedRef.current = true;
-      setOrders(prev => prev.map(o => {
-        const tieneCta = (o.payments || []).some(p => p.method === "Cuenta Corriente");
-        return tieneCta && !o.ctaCobrada ? { ...o, ctaCobrada: true } : o;
-      }));
-      setConfig(c => ({ ...c, ctaInicializado: true }));
+    if (ctaFixRef.current || dbLoading) return;
+    if (config.ctaFix202603) { ctaFixRef.current = true; return; }
+    ctaFixRef.current = true;
+    const idsToRestore = ["ord_1473","ord_1474","ord_1478","ord_1441","ord_1445","ord_1440","ord_1434","ord_1429","ord_1425"];
+    const needs = orders.some(o => idsToRestore.includes(String(o.id)) && o.ctaCobrada);
+    if (needs) {
+      setOrders(prev => prev.map(o => idsToRestore.includes(String(o.id)) ? { ...o, ctaCobrada: false } : o));
     }
-  }, [dbLoading, config.ctaInicializado]);
+    setConfig(c => ({ ...c, ctaFix202603: true }));
+  }, [dbLoading]);
 
   // ── Migración única: empujar USERS a Firestore si aún no están ──
   const usersMigratedRef = useRef(false);
