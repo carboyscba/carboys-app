@@ -7848,7 +7848,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       ctaPagos: [...(o.ctaPagos || []), { monto, metodo: ctaPagoForm.metodo, fecha: ctaPagoForm.fecha, id: Date.now() }]
                     } : o));
                     // Registrar ingreso en caja con el método REAL usado para saldar
-                    const egresoEntry = { id: Date.now(), desc: `Cobro Cta. Cte. — ${fmtD(ctaPagoOrder.domain)}`, monto, fecha: ctaPagoForm.fecha, categoria: "cobro_cta_cte", metodoPago: ctaPagoForm.metodo, esIngreso: true };
+                    const ctaClient = clients.find(c => c.id === ctaPagoOrder.clientId);
+                    const ctaClientName = ctaClient ? `${ctaClient.name} ${ctaClient.lastName}` : "";
+                    const egresoEntry = { id: Date.now(), desc: `Cobro Cta. Cte. — ${ctaClientName ? ctaClientName + " — " : ""}${fmtD(ctaPagoOrder.domain)}`, monto, fecha: ctaPagoForm.fecha, categoria: "cobro_cta_cte", metodoPago: ctaPagoForm.metodo, esIngreso: true };
                     setEgresos(prev => [...prev, egresoEntry]);
                     setShowCtaPago(false);
                     setCtaPagoOrder(null);
@@ -8588,13 +8590,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           if (!canConfirm || esDemas) return;
 
                           // Registrar un egreso por cada método de pago
+                          const ctaClientNames = [...new Set(ctaSelOrders.map(oid => { const ord = orders.find(o => o.id === oid); const cl = ord ? clients.find(c => c.id === ord.clientId) : null; return cl ? `${cl.name} ${cl.lastName}` : ""; }).filter(Boolean))].join(", ");
                           ctaMetodos.forEach(m => {
                             const montoM = parseFloat(m.monto) || 0;
                             if (!montoM) return;
                             const egresoId = Date.now() + Math.random();
                             setEgresos(prev => [...prev, {
                               id: egresoId,
-                              desc: `CTA CTE${ctaIngresoDesc ? " — " + ctaIngresoDesc : ""} (${ctaSelOrders.length} orden${ctaSelOrders.length > 1 ? "es" : ""})`,
+                              desc: `CTA CTE — ${ctaClientNames}${ctaIngresoDesc ? " — " + ctaIngresoDesc : ""} (${ctaSelOrders.length} orden${ctaSelOrders.length > 1 ? "es" : ""})`,
                               monto: montoM,
                               fecha: ctaFechaPago,
                               categoria: "cobro_cta_cte",
