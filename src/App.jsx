@@ -3946,7 +3946,7 @@ const DashboardScreen = (props) => {
     <div style={{ padding: 24, animation: "fadeUp .4s ease" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 28 }}>
         {[
-          { icon: "🚗", value: todayOrders.length, label: "Autos hoy", color: T.accent },
+          { icon: "🚗", value: active.length, label: "En taller", color: T.accent },
           { icon: "🔴", value: pending, label: "Esperando", color: T.red },
           { icon: "🟡", value: working, label: "En curso", color: T.orange },
           { icon: "✅", value: done, label: "Listos", color: T.green },
@@ -4039,27 +4039,26 @@ const DashboardScreen = (props) => {
         ))}
       </div>
 
-      {/* Autos de hoy */}
-      {todayOrders.length > 0 && (
+      {/* En Taller */}
+      {active.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span>🔧</span> AUTOS DE HOY</div>
-            <div onClick={() => onNavigate("workshop")} style={{ fontSize: 13, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver taller →</div>
+            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><span>🔧</span> EN TALLER</div>
+            <div onClick={() => onNavigate("workshop")} style={{ fontSize: 13, color: T.accent, cursor: "pointer", fontWeight: 600 }}>Ver todos →</div>
           </div>
-          {todayOrders.sort((a, b) => {
+          {active.sort((a, b) => {
             const ta = new Date(a._createdAt || a.date || 0).getTime();
             const tb = new Date(b._createdAt || b.date || 0).getTime();
-            return ta - tb;
+            return tb - ta;
           }).slice(0, 8).map(o => {
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const isDelivered = o.status === "delivered";
             const isInspection = o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved";
-            const sc = isDelivered ? T.grayLight : o.status === "done" ? T.green : o.status === "working" ? T.orange : isInspection ? "#9C27B0" : T.red;
-            const sl = isDelivered ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
+            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : isInspection ? "#9C27B0" : T.red;
+            const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
-                style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}`, opacity: isDelivered ? 0.65 : 1 }}>
+                style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: sc }} />
@@ -7583,7 +7582,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               const y = new Date(o.date || Date.now()).getFullYear();
               if (!byYear[y]) byYear[y] = { orders: [], total: 0 };
               byYear[y].orders.push(o);
-              byYear[y].total += (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+              if (!["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)) {
+                byYear[y].total += (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+              }
             });
             const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
 
@@ -7640,7 +7641,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       const [y, m] = ym.split("-");
                       const monthName = months[parseInt(m) - 1];
                       const mOrders = byMonth[ym];
-                      const mTotal = mOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                      const mTotal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
                       return (
                         <div key={ym} style={{ marginBottom: 10 }}>
                           <div style={{ ...card, padding: "12px 16px", marginBottom: 1, background: T.bg3, borderLeft: `3px solid ${T.accent}` }}>
@@ -7655,18 +7656,25 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           {mOrders.map(o => {
                             const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                             const metodo = metodoLabel(o);
+                            const oCl = clients.find(c => c.id === o.clientId);
+                            const oVh = oCl?.vehicles?.find(v => v.domain === o.domain);
+                            const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                             return (
                               <div key={o.id} onClick={() => setHistDetail(o)}
-                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${T.border}`,
-                                  borderRadius: "0 8px 8px 0" }}>
+                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${isBudget ? T.orange : T.border}`,
+                                  borderRadius: "0 8px 8px 0", opacity: isBudget ? 0.6 : 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                   <div>
-                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{fmtD(o.domain)}</div>
-                                    <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
-                                    {metodo && <div style={{ fontSize: 11, color: T.grayLight, marginTop: 3 }}>{metodo}</div>}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <span style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                                      {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>{oCl ? oCl.name + " " + oCl.lastName : "—"}{oVh ? " · " + oVh.brand + " " + oVh.model : ""}</div>
+                                    <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
+                                    {metodo && <div style={{ fontSize: 10, color: T.grayLight, marginTop: 3 }}>{metodo}</div>}
                                   </div>
                                   <div style={{ textAlign: "right" }}>
-                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isBudget ? T.orange : T.accent }}>{fmt(total)}</div>
                                     <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                                   </div>
                                 </div>
@@ -7708,13 +7716,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               {/* Grid de meses */}
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>
-                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0))}
+                  {histYear} — {yearOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).length} orden{yearOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
                     const mOrders = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi);
-                    const cnt = mOrders.length;
-                    const mTotal = mOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const mReal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status));
+                    const cnt = mReal.length;
+                    const mTotal = mReal.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
                     return (
                       <div key={mi} onClick={() => setHistMonth(histMonth === mi ? null : mi)}
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
@@ -7735,12 +7744,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                 const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                 const metodo = metodoLabel(o);
+                const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                 return (
                   <div key={o.id} onClick={() => setHistDetail(o)}
-                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${T.border}` }}>
+                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${isBudget ? T.orange : T.border}`, opacity: isBudget ? 0.6 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                          {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
+                        </div>
                         <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>
                           {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
                         </div>
@@ -7750,7 +7763,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         )}
                       </div>
                       <div style={{ textAlign: "right", marginLeft: 12 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isBudget ? T.orange : T.accent }}>{fmt(total)}</div>
                         <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                       </div>
                     </div>
