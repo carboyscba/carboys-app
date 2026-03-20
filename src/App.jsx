@@ -11086,24 +11086,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             {/* ── RESUMEN GENERAL ── */}
             {cmSub === "resumen" && (
               <div>
-                <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: `4px solid ${T.red}` }}>
-                  <div style={{ fontSize: 12, color: T.gray, marginBottom: 4 }}>TOTAL EGRESOS — {MESES[cmMonth]} {cmYear}</div>
-                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.red }}>{fmt(totalGeneral)}</div>
-                </div>
-
-                {/* Ventas brutas */}
-                <div onClick={() => setCmSub("ventas")} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${T.green}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>💰 Total Ventas</div>
-                      <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{ventasDelMes.length} orden{ventasDelMes.length !== 1 ? "es" : ""} entregada{ventasDelMes.length !== 1 ? "s" : ""}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: T.green }}>{totalVentasMes > 0 ? fmt(totalVentasMes) : "—"}</div>
-                    </div>
+                {/* Ventas + Egresos lado a lado */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div onClick={() => setCmSub("ventas")} style={{ ...card, padding: 16, cursor: "pointer", borderLeft: `4px solid ${T.green}` }}>
+                    <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>TOTAL VENTAS</div>
+                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: T.green }}>{totalVentasMes > 0 ? fmt(totalVentasMes) : "—"}</div>
+                    <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{ventasDelMes.length} orden{ventasDelMes.length !== 1 ? "es" : ""}</div>
+                  </div>
+                  <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.red}` }}>
+                    <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>TOTAL EGRESOS</div>
+                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: T.red }}>{fmt(totalGeneral)}</div>
+                    <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{MESES[cmMonth]} {cmYear}</div>
                   </div>
                 </div>
-                <div style={{ height: 1, background: T.border, margin: "4px 0 12px" }} />
+
+                {/* Ganancia neta */}
+                {totalVentasMes > 0 && (
+                  <div style={{ ...card, padding: 14, marginBottom: 16, borderLeft: `4px solid ${(totalVentasMes - totalGeneral) >= 0 ? T.green : T.red}`, background: `${(totalVentasMes - totalGeneral) >= 0 ? T.green : T.red}08` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{(totalVentasMes - totalGeneral) >= 0 ? "📈" : "📉"} Resultado Neto</div>
+                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: (totalVentasMes - totalGeneral) >= 0 ? T.green : T.red }}>{fmt(totalVentasMes - totalGeneral)}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Desglose egresos */}
+                <div style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, textTransform: "uppercase", letterSpacing: .5, marginBottom: 10 }}>Desglose de Egresos</div>
                 {[
                   { key: "proveedores", label: "📦 Proveedores", total: totalProvMes, sub: `${factsDelMes.length} factura${factsDelMes.length !== 1 ? "s" : ""}`, color: T.orange },
                   { key: "servicios", label: "🔧 Servicios", total: totalServMes, sub: `${servPagosDelMes.length} pago${servPagosDelMes.length !== 1 ? "s" : ""}`, color: T.accent },
