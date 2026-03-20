@@ -7367,13 +7367,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   {/* ── Botones FACTURA / COMPROBANTE ── */}
                   {o.cobrado && !o.factura && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-                      <button onClick={() => {
-                        const cl = clients.find(c => c.id === o.clientId);
-                        const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                        setFacturaModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
-                      }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
-                        🧾 EMITIR FACTURA
-                      </button>
+                      {(getPerm(user, "facturar") || (user.role === "encargado" && config.encargadoPuedeFacturar)) && (
+                        <button onClick={() => {
+                          const cl = clients.find(c => c.id === o.clientId);
+                          const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                          setFacturaModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
+                        }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
+                          🧾 EMITIR FACTURA
+                        </button>
+                      )}
                       {!o.ticket && (
                         <button onClick={() => {
                           const cl = clients.find(c => c.id === o.clientId);
@@ -8904,7 +8906,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           <button onClick={() => { setTicketModal({ order: o, payments: o.payments, client: c, vehicle: vh, readonly: true }); }}
                             style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 11, padding: "8px 0" }}>🧾 Ver Comp.</button>
                         )}
-                        {!hasFc && (
+                        {!hasFc && (getPerm(user, "facturar") || (user.role === "encargado" && config.encargadoPuedeFacturar)) && (
                           <button onClick={() => { setFacturaModal({ order: o, payments: o.payments, client: c, vehicle: vh }); }}
                             style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 11, padding: "8px 0" }}>🧾 Emitir FC</button>
                         )}
@@ -16418,6 +16420,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     admin: "📊 Acceder a Administración",
     config: "⚙️ Acceder a Configuración",
     cancelar: "🗑️ Cancelar órdenes",
+    cobro: "💰 Cobrar vehículos",
   };
 
   const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#9C27B0", "#FF5722", "#795548"];
@@ -16758,6 +16761,16 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
           <div onClick={() => setConfig(prev => ({ ...prev, cierreObligatorio: !prev.cierreObligatorio }))}
             style={{ width: 52, height: 28, borderRadius: 14, background: config.cierreObligatorio ? T.green : T.bg3, border: "1px solid " + (config.cierreObligatorio ? T.green : T.border), cursor: "pointer", position: "relative", transition: "all .2s" }}>
             <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: config.cierreObligatorio ? 27 : 2, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Encargado puede facturar</div>
+            <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Si está desactivado, el encargado solo puede emitir comprobantes</div>
+          </div>
+          <div onClick={() => setConfig(prev => ({ ...prev, encargadoPuedeFacturar: !prev.encargadoPuedeFacturar }))}
+            style={{ width: 52, height: 28, borderRadius: 14, background: config.encargadoPuedeFacturar ? T.green : T.bg3, border: "1px solid " + (config.encargadoPuedeFacturar ? T.green : T.border), cursor: "pointer", position: "relative", transition: "all .2s" }}>
+            <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: config.encargadoPuedeFacturar ? 27 : 2, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
           </div>
         </div>
       </div>
