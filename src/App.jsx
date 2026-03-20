@@ -2123,7 +2123,7 @@ const NewOrderScreen = (props) => {
 
                     {hOrders.map(o => {
                       const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : o.status === "inspection" ? "#9C27B0" : o.status === "inspection_done" ? "#FF6F00" : T.red;
+                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : o.status === "inspection" ? "#E91E63" : o.status === "inspection_done" ? "#FF6F00" : T.red;
                       const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "INSP. FINALIZADA" : "PENDIENTE";
                       return (
                         <div key={o.id} onClick={() => setHistoryOrderDetail(o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
@@ -3939,7 +3939,7 @@ const DashboardScreen = (props) => {
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
-  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
+  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#E91E63" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#9C27B0" : s === "budget_approved" ? "#9C27B0" : T.red;
   const getStatusLabel = (s) => s === "done" ? "LISTO" : s === "working" ? "EN CURSO" : s === "inspection" ? "EN INSPECCIÓN" : s === "inspection_done" ? "INSP. FINALIZADA" : s === "budget_sent" ? "PRESUP. ENVIADO" : s === "budget_approved" ? "APROBADO" : "ESPERANDO";
 
   return (
@@ -4053,9 +4053,10 @@ const DashboardScreen = (props) => {
           }).slice(0, 8).map(o => {
             const cl = clients.find(c => c.id === o.clientId);
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const isInspection = o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" || o.status === "budget_approved";
-            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : isInspection ? "#9C27B0" : T.red;
-            const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
+            const isBudgetStatus = o.status === "budget_sent" || o.status === "budget_approved";
+            const isInspection = o.status === "inspection" || o.status === "inspection_done";
+            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : isBudgetStatus ? "#9C27B0" : isInspection ? "#E91E63" : T.red;
+            const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isBudgetStatus ? "PRESUPUESTO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
                 style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
@@ -4423,7 +4424,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
           if (s === "working") return { label: "EN CURSO", color: T.orange, bg: `${T.orange}18` };
           if (s === "pending") return { label: "ESPERANDO", color: T.red, bg: `${T.red}18` };
           if (s === "budget_closed" || s === "budget_sent") return { label: "PRESUPUESTO", color: "#9C27B0", bg: "#9C27B018" };
-          if (s === "inspection" || s === "inspection_done") return { label: "INSPECCIÓN", color: "#9C27B0", bg: "#9C27B018" };
+          if (s === "inspection" || s === "inspection_done") return { label: "INSPECCIÓN", color: "#E91E63", bg: "#E91E6318" };
           return { label: s?.toUpperCase() || "—", color: T.gray, bg: `${T.gray}18` };
         };
 
@@ -4532,7 +4533,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
-  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#9C27B0" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#1E88E5" : s === "budget_approved" ? "#00C853" : T.red;
+  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#E91E63" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#9C27B0" : s === "budget_approved" ? "#9C27B0" : T.red;
   const getStatusLabel = (s) => s === "done" ? "FINALIZADO" : s === "working" ? "EN CURSO" : "ESPERANDO";
 
   return (
@@ -4635,7 +4636,7 @@ const VehicleDetailScreen = (props) => {
   const [showBudgetStartPopup, setShowBudgetStartPopup] = useState(false);
   const [budgetPayPref, setBudgetPayPref] = useState({ method: "", withIva: null });
   const [budgetSelWorks, setBudgetSelWorks] = useState([]);
-  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#9C27B0" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#1E88E5" : order.status === "budget_approved" ? "#00C853" : order.status === "budget_closed" ? "#9C27B0" : T.red;
+  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#9C27B0" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
   const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
@@ -4904,17 +4905,25 @@ const VehicleDetailScreen = (props) => {
       {/* Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
-          ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
+          ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#FF6F00", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
-          ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#9C27B0", action: () => onNavigate("inspection", order), bg: "rgba(156,39,176,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "▶️", label: "Comenzar Reparación", show: canSeePrices, color: T.green, action: () => {
-            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending", budgetApproved: true, approvedAt: new Date().toISOString() } : o));
-          }, bg: "rgba(67,160,71,.08)" }] : []),
-          ...(order.status === "budget_sent" ? [{ icon: "🔚", label: "Cerrar Presupuesto", show: canSeePrices, color: T.orange, action: () => {
-            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "budget_closed", closedAt: new Date().toISOString() } : o));
-            onNavigate("dashboard");
-          }, bg: "rgba(255,152,0,.08)" }] : []),
+          ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
+          ...(order.status === "budget_sent" ? [
+            { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
+            { icon: "▶️", label: "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
+              var worksToShow = order.budgetRemainingWorks || (order.works || []);
+              setBudgetSelWorks(worksToShow.map(w => ({ ...w, selected: true, expanded: true, price: String(w.price || 0), trenItems: (w.trenItems || []).map(ti => ({ ...ti, selected: ti.selected !== false, price: String(ti.price || 0) })) })));
+              setShowBudgetStartPopup(true);
+            }, bg: "rgba(67,160,71,.08)" },
+            { icon: "✏️", label: "Editar Presupuesto", show: canSeePrices, color: T.accent, action: () => {
+              setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "inspection_done" } : o));
+              onNavigate("budgetPricing", order);
+            }, bg: "rgba(30,136,229,.08)" },
+            { icon: "🚗", label: "Cliente retira sin trabajo", show: canSeePrices, color: T.orange, action: () => {
+              setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "budget_closed", closedAt: new Date().toISOString() } : o));
+              onNavigate("dashboard");
+            }, bg: "rgba(255,152,0,.08)" },
+          ] : []),
           ...(order.status === "budget_closed" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
             { icon: "▶️", label: order.budgetRemainingWorks ? "Continuar (pendientes)" : "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
@@ -4928,13 +4937,16 @@ const VehicleDetailScreen = (props) => {
             }, bg: "rgba(30,136,229,.08)" },
           ] : []),
           ...(order.status === "working" && canStartWork ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
+          ...(order.status === "working" && !order.fromBudgetId ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
+            if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
+          }, bg: "rgba(255,152,0,.08)" }] : []),
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
-          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && order.status !== "budget_closed" && canSeePrices, color: T.accent, action: () => {
+          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
             setEditWorks((order.works || []).map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
             setShowEditOrder(true);
           }, bg: "rgba(30,136,229,.08)" },
-          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && order.status !== "budget_closed" && order.status !== "budget_sent" && canSeePrices, color: T.accent, action: () => {
+          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setNewWorks([]);
             setShowAddWork(true);
           }, bg: "rgba(30,136,229,.08)" },
@@ -4953,8 +4965,8 @@ const VehicleDetailScreen = (props) => {
           ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(order.fromBudgetId && order.status === "pending" ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
-          ...(getPerm(user, "cancelar") && !order.cobrado && ["pending","working","inspection","inspection_done","done","budget_sent","budget_approved"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(order.fromBudgetId && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
+          ...(getPerm(user, "cancelar") && !order.cobrado && ["pending","working","inspection","inspection_done","done","budget_sent","budget_approved","budget_closed"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -7661,20 +7673,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                             return (
                               <div key={o.id} onClick={() => setHistDetail(o)}
-                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${isBudget ? T.orange : T.border}`,
+                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${isBudget ? "#9C27B0" : T.border}`,
                                   borderRadius: "0 8px 8px 0", opacity: isBudget ? 0.6 : 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                   <div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                       <span style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{fmtD(o.domain)}</span>
-                                      {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
+                                      {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
                                     </div>
                                     <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>{oCl ? oCl.name + " " + oCl.lastName : "—"}{oVh ? " · " + oVh.brand + " " + oVh.model : ""}</div>
                                     <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
                                     {metodo && <div style={{ fontSize: 10, color: T.grayLight, marginTop: 3 }}>{metodo}</div>}
                                   </div>
                                   <div style={{ textAlign: "right" }}>
-                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isBudget ? T.orange : T.accent }}>{fmt(total)}</div>
+                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
                                     <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                                   </div>
                                 </div>
@@ -7747,12 +7759,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                 return (
                   <div key={o.id} onClick={() => setHistDetail(o)}
-                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${isBudget ? T.orange : T.border}`, opacity: isBudget ? 0.6 : 1 }}>
+                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${isBudget ? "#9C27B0" : T.border}`, opacity: isBudget ? 0.6 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
-                          {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
+                          {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
                         </div>
                         <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>
                           {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
@@ -7763,7 +7775,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         )}
                       </div>
                       <div style={{ textAlign: "right", marginLeft: 12 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isBudget ? T.orange : T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
                         <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                       </div>
                     </div>
@@ -16381,7 +16393,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     cancelar: "🗑️ Cancelar órdenes",
   };
 
-  const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#00BCD4", "#FF5722", "#795548"];
+  const COLORS = [T.red, T.accent, T.orange, T.green, "#9C27B0", "#9C27B0", "#FF5722", "#795548"];
 
   const sections = [
     { key: "sucursales", icon: "🏢", label: "Sucursales", desc: "Crear y administrar sucursales", only: "dueño" },
@@ -16791,7 +16803,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
   // ══════════════════════════════════════════════════════════════════
   if (section === "sucursales") {
     const ICONS = ["🏠","📍","🔧","🏭","⭐","🏪","🏢","🚗"];
-    const SUC_COLORS = ["#e53935","#1e88e5","#43a047","#ff9800","#9C27B0","#00BCD4","#FF5722","#795548"];
+    const SUC_COLORS = ["#e53935","#1e88e5","#43a047","#ff9800","#9C27B0","#9C27B0","#FF5722","#795548"];
 
     const handleTestConnection = async () => {
       setSucTestResult("testing");
