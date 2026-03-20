@@ -4961,8 +4961,8 @@ const VehicleDetailScreen = (props) => {
           ...(canNotify && order.status === "done" && !order.clientNotified ? [{ icon: "📱", label: "Avisar al Cliente", show: true, color: T.green, action: () => {
             setShowNotifyPopup(true);
           }, bg: "rgba(67,160,71,.08)" }] : []),
-          ...(order.factura ? [{ icon: "📄", label: "Factura", show: true, color: T.green, bg: "rgba(67,160,71,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "factura" }); setShowFacturaMenu(true); } }] : []),
-          ...(order.ticket && !order.factura ? [{ icon: "🧾", label: "Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
+          ...(order.factura ? [{ icon: "📄", label: "Ver Factura", show: true, color: T.green, bg: "rgba(67,160,71,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "factura" }); setShowFacturaMenu(true); } }] : []),
+          ...(order.ticket ? [{ icon: "🧾", label: "Ver Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
           ...(order.fromBudgetId && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
@@ -7365,7 +7365,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     );
                   })()}
                   {/* ── Botones FACTURA / COMPROBANTE ── */}
-                  {o.cobrado && !o.factura && !o.ticket && (
+                  {o.cobrado && !o.factura && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                       <button onClick={() => {
                         const cl = clients.find(c => c.id === o.clientId);
@@ -7374,32 +7374,45 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
                         🧾 EMITIR FACTURA
                       </button>
-                      <button onClick={() => {
-                        const cl = clients.find(c => c.id === o.clientId);
-                        const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                        setTicketModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
-                      }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 14, padding: "13px 0" }}>
-                        🧾 EMITIR COMPROBANTE
-                      </button>
+                      {!o.ticket && (
+                        <button onClick={() => {
+                          const cl = clients.find(c => c.id === o.clientId);
+                          const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                          setTicketModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
+                        }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 14, padding: "13px 0" }}>
+                          🧾 EMITIR COMPROBANTE
+                        </button>
+                      )}
+                      {o.ticket && (
+                        <button onClick={() => {
+                          const cl = clients.find(c => c.id === o.clientId);
+                          const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                          setTicketModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
+                        }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 14, padding: "13px 0" }}>
+                          🧾 VER COMPROBANTE
+                        </button>
+                      )}
                     </div>
                   )}
                   {o.factura && (
-                    <button onClick={() => {
-                      const cl = clients.find(c => c.id === o.clientId);
-                      const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                      setFacturaModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
-                    }} style={{ ...btnPrimary(T.green), flex: 1, fontSize: 15, padding: "16px 0" }}>
-                      📄 VER FACTURA
-                    </button>
-                  )}
-                  {o.ticket && !o.factura && (
-                    <button onClick={() => {
-                      const cl = clients.find(c => c.id === o.clientId);
-                      const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                      setTicketModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
-                    }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 15, padding: "16px 0" }}>
-                      🧾 VER COMPROBANTE
-                    </button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                      <button onClick={() => {
+                        const cl = clients.find(c => c.id === o.clientId);
+                        const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                        setFacturaModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
+                      }} style={{ ...btnPrimary(T.green), width: "100%", fontSize: 15, padding: "16px 0" }}>
+                        📄 VER FACTURA
+                      </button>
+                      {o.ticket && (
+                        <button onClick={() => {
+                          const cl = clients.find(c => c.id === o.clientId);
+                          const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                          setTicketModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
+                        }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 13, padding: "10px 0" }}>
+                          🧾 VER COMPROBANTE
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -8802,32 +8815,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
 
         {(() => {
-          // Facturas reales (A, B, C) + Comprobantes (sin validez fiscal), ordenados más reciente primero
-          const lista = [...conFactura, ...conTicket].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          const allCobradas = periodOrders.sort((a, b) => (b.cajaDate || b.date || "").localeCompare(a.cajaDate || a.date || ""));
           const montoTotal = conFactura.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const cntA = factA.length, cntB = factB.length, cntC = factC.length;
+          const sinFc = allCobradas.filter(o => !o.factura && !o.ticket);
 
           return (
             <div>
               {/* ── Resumen superior ── */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}>
-                  <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Total facturas</div>
-                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.green }}>{lista.length}</div>
+                  <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Con factura</div>
+                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.green }}>{conFactura.length}</div>
                 </div>
-                <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.accent}` }}>
-                  <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Monto total</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: T.accent }}>{fmt(montoTotal)}</div>
+                <div style={{ ...card, padding: 16, borderLeft: `4px solid ${sinFc.length > 0 ? T.red : T.gray}` }}>
+                  <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Sin factura</div>
+                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: sinFc.length > 0 ? T.red : T.gray }}>{sinFc.length}</div>
                 </div>
               </div>
 
               {/* ── Desglose A / B / C / Comprobantes ── */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
                 {[
-                  { l: "Factura A", v: cntA, c: T.accent },
-                  { l: "Factura B", v: cntB, c: "#9C27B0" },
-                  { l: "Factura C", v: cntC, c: T.orange },
-                  { l: "Comprobantes", v: conTicket.length, c: T.gray },
+                  { l: "FC A", v: cntA, c: T.accent },
+                  { l: "FC B", v: cntB, c: "#9C27B0" },
+                  { l: "FC C", v: cntC, c: T.orange },
+                  { l: "Comp.", v: conTicket.length, c: T.gray },
                 ].map(s => (
                   <div key={s.l} style={{ ...card, padding: 14, textAlign: "center", borderTop: `3px solid ${s.c}` }}>
                     <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 900, color: s.c }}>{s.v}</div>
@@ -8837,54 +8850,68 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               </div>
 
               {/* ── Listado ── */}
-              {lista.length === 0 ? (
+              {allCobradas.length === 0 ? (
                 <div style={{ ...card, padding: 30, textAlign: "center", color: T.gray }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>🧾</div>
-                  <div style={{ fontWeight: 700 }}>Sin facturas en este período</div>
+                  <div style={{ fontWeight: 700 }}>Sin órdenes cobradas en este período</div>
                 </div>
               ) : (
-                lista.map(o => {
+                allCobradas.map(o => {
                   const c = clients.find(x => x.id === o.clientId);
+                  const vh = c?.vehicles?.find(v => v.domain === o.domain);
                   const monto = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-                  const tipos = [...new Set((o.payments || []).map(p => p.invoiceType).filter(Boolean))];
-                  const tipoColor = tipos.includes("A") ? T.accent : tipos.includes("B") ? "#9C27B0" : T.orange;
-                  const nroFact = o.factura?.numero || o.ticket?.numero || null;
+                  const hasFc = !!o.factura;
+                  const hasTicket = !!o.ticket;
+                  const tipoFc = hasFc ? o.factura.tipo : null;
+                  const nroFact = o.factura?.numero || null;
+                  const nroTicket = o.ticket?.numero || null;
+                  const borderColor = hasFc ? T.green : hasTicket ? T.orange : `${T.red}80`;
                   return (
-                    <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
-                      style={{ ...card, padding: "14px 16px", marginBottom: 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center",
-                        borderLeft: `4px solid ${tipoColor}` }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{fmtD(o.domain)}</div>
-                          {tipos.map(t => (
-                            <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
-                              background: t === "A" ? `${T.accent}20` : t === "B" ? "#9C27B020" : `${T.orange}20`,
-                              color: t === "A" ? T.accent : t === "B" ? "#9C27B0" : T.orange }}>
-                              {t === "T" ? "Comprobante" : `FC ${t}`}
-                            </span>
-                          ))}
-                          {nroFact && <span style={{ fontSize: 10, color: T.gray }}>#{nroFact}</span>}
+                    <div key={o.id} style={{ ...card, padding: "14px 16px", marginBottom: 8, borderLeft: `4px solid ${borderColor}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", cursor: "pointer" }} onClick={() => onNavigate("vehicleDetail", o)}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                            <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{fmtD(o.domain)}</div>
+                            {hasFc && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${T.green}20`, color: T.green }}>FC {tipoFc}</span>}
+                            {hasTicket && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${T.orange}20`, color: T.orange }}>Comp.</span>}
+                            {!hasFc && !hasTicket && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${T.red}15`, color: T.red }}>SIN FC</span>}
+                            {nroFact && <span style={{ fontSize: 10, color: T.gray }}>#{nroFact}</span>}
+                            {!nroFact && nroTicket && <span style={{ fontSize: 10, color: T.gray }}>#{nroTicket}</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: T.gray }}>
+                            {c ? `${c.name} ${c.lastName}` : "—"} · {fmtDate(o.cajaDate || o.date)}
+                            {(() => {
+                              const contrib = o.factura?.contribuyente;
+                              const docUsed = contrib?.cuit || c?.cuit || c?.dni || "";
+                              if (!docUsed) return null;
+                              const isCuit = docUsed.replace(/[^0-9]/g, "").length >= 11;
+                              const formatted = isCuit ? docUsed.replace(/[^0-9]/g, "").replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3") : docUsed;
+                              return <span style={{ marginLeft: 6, color: T.grayLight, fontWeight: 600 }}>· {isCuit ? "CUIT" : "DNI"}: {formatted}</span>;
+                            })()}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 12, color: T.gray }}>
-                          {c ? `${c.name} ${c.lastName}` : "—"} · {fmtDate(o.date)}
-                          {(() => {
-                            const contrib = o.factura?.contribuyente;
-                            const docUsed = contrib?.cuit || c?.cuit || c?.dni || "";
-                            if (!docUsed) return null;
-                            const isCuit = docUsed.replace(/[^0-9]/g, "").length >= 11;
-                            const formatted = isCuit ? docUsed.replace(/[^0-9]/g, "").replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3") : docUsed;
-                            return <span style={{ marginLeft: 6, color: T.grayLight, fontWeight: 600 }}>· {isCuit ? "CUIT" : "DNI"}: {formatted}</span>;
-                          })()}
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.green }}>{fmt(monto)}</div>
                         </div>
-                        {(() => {
-                          const mainM = (o.payments||[]).find(p => p.method)?.method || "";
-                          const accLabel = mainM === "Transferencia" ? (() => { const acc = (o.payments||[]).find(p => p.method === "Transferencia")?.account; return acc === "1" ? " → CARBOYS" : acc === "2" ? " → Ignacio Karqui" : ""; })() : "";
-                          return mainM ? <div style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, marginTop: 3 }}>{mainM === "Efectivo" ? "💵" : mainM === "Transferencia" ? "🔁" : mainM === "Tarjeta" ? "💳" : "📒"} {mainM}{accLabel}</div> : null;
-                        })()}
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.green }}>{fmt(monto)}</div>
-                        <div style={{ fontSize: 10, color: T.gray }}>›</div>
+                      {/* Acciones */}
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        {hasFc && (
+                          <button onClick={() => { setFacturaModal({ order: o, payments: o.payments, client: c, vehicle: vh, readonly: true }); }}
+                            style={{ ...btnPrimary(T.green), flex: 1, fontSize: 11, padding: "8px 0" }}>📄 Ver FC</button>
+                        )}
+                        {hasTicket && (
+                          <button onClick={() => { setTicketModal({ order: o, payments: o.payments, client: c, vehicle: vh, readonly: true }); }}
+                            style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 11, padding: "8px 0" }}>🧾 Ver Comp.</button>
+                        )}
+                        {!hasFc && (
+                          <button onClick={() => { setFacturaModal({ order: o, payments: o.payments, client: c, vehicle: vh }); }}
+                            style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 11, padding: "8px 0" }}>🧾 Emitir FC</button>
+                        )}
+                        {!hasTicket && (
+                          <button onClick={() => { setTicketModal({ order: o, payments: o.payments, client: c, vehicle: vh }); }}
+                            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 11, padding: "8px 0" }}>🧾 Comp.</button>
+                        )}
                       </div>
                     </div>
                   );
