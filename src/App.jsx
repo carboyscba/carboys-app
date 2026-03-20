@@ -6487,6 +6487,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   // Cierre semanal
   const [showCierreAlert, setShowCierreAlert] = useState(false);
   const [ctaFilter, setCtaFilter] = useState("");
+  const [ctaSubTab, setCtaSubTab] = useState("pendientes"); // "pendientes" | "pagados"
   const [showProv, setShowProv] = useState(false);
   const [provForm, setProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
   const [showFactProv, setShowFactProv] = useState(false);
@@ -6629,6 +6630,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
     return s + Math.max(0, monto - pagadoParcial);
   }, 0), [ctaCte]);
+  const ctaPagados = useMemo(() => orders.filter(o => {
+    if (!o.ctaCobrada) return false;
+    return (o.payments || []).some(p => p.method === "Cuenta Corriente");
+  }).sort((a, b) => {
+    const lastA = (a.ctaPagos || []).slice(-1)[0]?.fecha || a.date || "";
+    const lastB = (b.ctaPagos || []).slice(-1)[0]?.fecha || b.date || "";
+    return (lastB).localeCompare(lastA);
+  }), [orders]);
+  const ctaPagadosFiltered = useMemo(() => ctaFilter ? ctaPagados.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaPagados, [ctaPagados, clients, ctaFilter]);
 
   const conFactura = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T")), [periodOrders]);
   const conTicket = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T")), [periodOrders]);
@@ -7755,14 +7765,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         })()}
       </div>)}
       {tab === "ctacte" && (<div>
+        {/* Sub-tabs */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          {[
+            { key: "pendientes", label: "💰 Pendientes", count: ctaCte.length },
+            { key: "pagados", label: "✅ Pagados", count: ctaPagados.length },
+          ].map(t => (
+            <button key={t.key} onClick={() => setCtaSubTab(t.key)}
+              style={{ ...btnPrimary(ctaSubTab === t.key ? T.accent : T.bg3), border: `1px solid ${ctaSubTab === t.key ? T.accent : T.border}`, flex: 1, fontSize: 13, padding: "10px 0", fontWeight: ctaSubTab === t.key ? 800 : 600 }}>
+              {t.label} <span style={{ fontSize: 11, opacity: 0.7 }}>({t.count})</span>
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
           <input inputMode="text" value={ctaFilter} onChange={e => setCtaFilter(e.target.value)} placeholder="🔍 Buscar cliente..." style={{ ...inputStyle, flex: 1 }} />
-          <div style={{ ...card, padding: "10px 16px", borderColor: T.orange, minWidth: 170, flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: T.gray }}>Total pendiente</div>
-            <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: T.orange, whiteSpace: "nowrap" }}>{fmt(ctaTotal)}</div>
-          </div>
+          {ctaSubTab === "pendientes" && (
+            <div style={{ ...card, padding: "10px 16px", borderColor: T.orange, minWidth: 170, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: T.gray }}>Total pendiente</div>
+              <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: T.orange, whiteSpace: "nowrap" }}>{fmt(ctaTotal)}</div>
+            </div>
+          )}
         </div>
-        {ctaFiltered.map(o => {
+
+        {/* ── PENDIENTES ── */}
+        {ctaSubTab === "pendientes" && (<>
+          {ctaFiltered.map(o => {
           const c = clients.find(x => x.id === o.clientId);
           const v = c?.vehicles?.find(x => x.domain === o.domain);
           const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -7793,6 +7821,36 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           );
         })}
         {ctaFiltered.filter(o => !o.ctaCobrada).length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin cuentas corrientes pendientes{ctaFilter ? " para ese filtro" : ""}</div>}
+        </>)}
+
+        {/* ── PAGADOS ── */}
+        {ctaSubTab === "pagados" && (<>
+          {ctaPagadosFiltered.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin pagos de cuentas corrientes registrados{ctaFilter ? " para ese filtro" : ""}</div>}
+          {ctaPagadosFiltered.map(o => {
+            const c = clients.find(x => x.id === o.clientId);
+            const v = c?.vehicles?.find(x => x.domain === o.domain);
+            const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+            const lastPago = (o.ctaPagos || []).slice(-1)[0];
+            const totalPagado = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+            return (
+              <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${T.green}`, opacity: 0.85 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
+                    <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
+                    <div style={{ fontSize: 12, color: T.gray }}>{v ? v.brand + " " + v.model + " " + v.year : ""}</div>
+                    <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{fmt(totalPagado || ctaMonto)}</div>
+                    {lastPago && <div style={{ fontSize: 11, color: T.green, fontWeight: 600, marginTop: 2 }}>✅ {fmtDate(lastPago.fecha)}</div>}
+                    {lastPago?.metodo && <div style={{ fontSize: 10, color: T.gray }}>{lastPago.metodo === "Efectivo" ? "💵" : lastPago.metodo === "Tarjeta" ? "💳" : "🔁"} {lastPago.metodo}</div>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </>)}
 
         {/* ══ MODAL PAGO CTA CTE ══ */}
         {showCtaPago && ctaPagoOrder && (() => {
