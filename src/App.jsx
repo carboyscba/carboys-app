@@ -6876,7 +6876,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     {isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: `${T.green}15`, padding: "2px 6px", borderRadius: 4 }}>PAGADO</span>}
                     {!isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PENDIENTE</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}{(() => {
+                    const contrib = o.factura?.contribuyente;
+                    const doc = contrib?.cuit || c?.cuit || c?.dni || "";
+                    if (!doc) return "";
+                    const isCuit = doc.replace(/[^0-9]/g, "").length >= 11;
+                    const fmtDoc = isCuit ? doc.replace(/[^0-9]/g, "").replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3") : doc;
+                    return ` • ${isCuit ? "CUIT" : "DNI"}: ${fmtDoc}`;
+                  })()}</div>
                   <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                     {mainMethod && <span style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, background: T.bg3, padding: "2px 8px", borderRadius: 4 }}>{mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}{mainMethod === "Transferencia" ? (() => { const acc = (o.payments||[]).find(p => p.method === "Transferencia")?.account; return acc === "1" ? " → CARBOYS" : acc === "2" ? " → Ignacio Karqui" : ""; })() : ""}</span>}
                     {fcLabel && <span style={{ fontSize: 10, fontWeight: 700, color: hasFc ? T.green : T.grayLight, background: hasFc ? `${T.green}15` : T.bg3, padding: "2px 8px", borderRadius: 4 }}>🧾 {fcLabel}</span>}
@@ -8774,6 +8781,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                         <div style={{ fontSize: 12, color: T.gray }}>
                           {c ? `${c.name} ${c.lastName}` : "—"} · {fmtDate(o.date)}
+                          {(() => {
+                            const contrib = o.factura?.contribuyente;
+                            const docUsed = contrib?.cuit || c?.cuit || c?.dni || "";
+                            if (!docUsed) return null;
+                            const isCuit = docUsed.replace(/[^0-9]/g, "").length >= 11;
+                            const formatted = isCuit ? docUsed.replace(/[^0-9]/g, "").replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3") : docUsed;
+                            return <span style={{ marginLeft: 6, color: T.grayLight, fontWeight: 600 }}>· {isCuit ? "CUIT" : "DNI"}: {formatted}</span>;
+                          })()}
                         </div>
                         {(() => {
                           const mainM = (o.payments||[]).find(p => p.method)?.method || "";
