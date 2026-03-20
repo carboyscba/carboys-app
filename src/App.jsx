@@ -7000,8 +7000,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   )}
                 </div>
 
-                {/* ── RESUMEN DE COBRO (cuando ya tiene pagos) ── */}
-                {(o.payments||[]).length > 0 && (() => {
+                {/* ── RESUMEN DE COBRO (solo cuando fue cobrado) ── */}
+                {o.cobrado && (o.payments||[]).length > 0 && (() => {
                   const totalAbonado = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                   const mainMethod = (o.payments||[]).find(p => p.method)?.method || "";
                   const withIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
