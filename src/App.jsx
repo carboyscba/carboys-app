@@ -9906,6 +9906,445 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         })()}
       </div>)}
 
+
+      {/* ══════ ESTADÍSTICAS ══════ */}
+      {tab === "stats" && (() => {
+        const STAT_ITEMS = [
+          { key: "reportes", icon: "📊", label: "Reportes" },
+          { key: "pagos", icon: "💳", label: "Medios de Pago" },
+          { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
+          { key: "productividad", icon: "⚡", label: "Productividad" },
+          { key: "retencion", icon: "📈", label: "Retención" },
+        ];
+
+        if (!statView) return (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {STAT_ITEMS.map(s => (
+                <div key={s.key} onClick={() => setStatView(s.key)}
+                  style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>{s.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+        return (
+          <div>
+            <button onClick={() => setStatView(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a Estadísticas</button>
+
+            {statView === "reportes" && (() => {
+              const repRevenue = periodOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+              const repTicket = periodOrders.length > 0 ? repRevenue / periodOrders.length : 0;
+              const tiempos = completed.filter(o => o.date && o.deliveredAt).map(o => Math.max(0, (new Date(o.deliveredAt) - new Date(o.date)) / 86400000)).filter(t => t > 0 && t < 60);
+              const avgDays = tiempos.length > 0 ? (tiempos.reduce((s, t) => s + t, 0) / tiempos.length).toFixed(1) : "—";
+              const uniqueClients = Object.keys(clientStats).length;
+              const recurrentCount = Object.values(clientStats).filter(v => v >= 2).length;
+              const recurrentPct = uniqueClients > 0 ? Math.round((recurrentCount / uniqueClients) * 100) : 0;
+              const egresosPeriod = egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today);
+              const totalEgresosPeriod = egresosPeriod.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+              const margin = repRevenue > 0 ? Math.round(((repRevenue - totalEgresosPeriod) / repRevenue) * 100) : 0;
+              const marginColor = margin > 40 ? T.green : margin > 20 ? T.orange : T.red;
+              const workRev = {};
+              periodOrders.forEach(o => (o.works || []).forEach(w => { workRev[w.type] = (workRev[w.type] || 0) + (parseFloat(w.price) || 0); }));
+              const topWorkRev = Object.entries(workRev).sort((a, b) => b[1] - a[1]);
+              const payM = { Efectivo: 0, Transferencia: 0, Tarjeta: 0, "Cuenta Corriente": 0 };
+              periodOrders.forEach(o => (o.payments || []).forEach(p => { if (payM[p.method] !== undefined) payM[p.method] += parseFloat(p.amount) || 0; }));
+              const payTotal = Object.values(payM).reduce((s, v) => s + v, 0);
+              const BarR = (label, value, max, color, sub) => (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color: color }}>{sub}</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 4, background: color, width: max > 0 ? Math.min(100, (value / max) * 100) + "%" : "0%", transition: "width .5s ease" }} />
+                  </div>
+                </div>
+              );
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📊 Reportes</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
+                    {[
+                      { l: "Facturación", v: fmt(repRevenue), c: T.accent, ic: "💰" },
+                      { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "📋" },
+                      { l: "Ticket Promedio", v: fmt(repTicket), c: "#9C27B0", ic: "🎯" },
+                      { l: "Días en Taller", v: avgDays, c: parseFloat(avgDays) > 3 ? T.orange : T.green, ic: "⏱️" },
+                    ].map(s => (
+                      <div key={s.l} style={{ ...card, padding: 14, borderLeft: "3px solid " + s.c }}>
+                        <div style={{ fontSize: 20, marginBottom: 2 }}>{s.ic}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: s.c }}>{s.v}</div>
+                        <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>📊 Rentabilidad</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>INGRESOS</div>
+                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(repRevenue)}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>EGRESOS</div>
+                        <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.red }}>{fmt(totalEgresosPeriod)}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>MARGEN</div>
+                        <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: marginColor }}>{margin}%</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👥 Clientes</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>TOTAL</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>{clients.length}</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>RECURRENTES</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: recurrentPct > 40 ? T.green : T.orange }}>{recurrentPct}%</div>
+                      </div>
+                      <div style={{ background: T.bg, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>EN PERIODO</div>
+                        <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: T.accent }}>{periodOrders.length}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>🔧 Servicios más Rentables</div>
+                    {topWorkRev.slice(0, 8).map(function(item, idx) { return BarR((idx + 1) + ". " + item[0], item[1], topWorkRev[0] ? topWorkRev[0][1] : 1, T.accent, fmt(item[1])); })}
+                    {topWorkRev.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+                  </div>
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>💳 Métodos de Pago</div>
+                    {Object.entries(payM).filter(function(e) { return e[1] > 0; }).sort(function(a, b) { return b[1] - a[1]; }).map(function(e) {
+                      var pct = payTotal > 0 ? Math.round(e[1] * 100 / payTotal) : 0;
+                      var pc = { Efectivo: T.green, Transferencia: T.accent, Tarjeta: "#9C27B0", "Cuenta Corriente": T.orange }[e[0]] || T.gray;
+                      return BarR(e[0] + " (" + pct + "%)", e[1], payTotal, pc, fmt(e[1]));
+                    })}
+                  </div>
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 14 }}>👤 Rendimiento por Mecánico</div>
+                    {(function() {
+                      var ms = {};
+                      periodOrders.forEach(function(o) { var m = o.tech || o.assignedTo || "Sin asignar"; if (!ms[m]) ms[m] = { count: 0, rev: 0 }; ms[m].count++; ms[m].rev += (o.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0); });
+                      var entries = Object.entries(ms).sort(function(a, b) { return b[1].count - a[1].count; });
+                      if (entries.length === 0) return <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>;
+                      var maxC = entries[0][1].count;
+                      return entries.map(function(e) { return BarR(e[0], e[1].count, maxC, T.green, e[1].count + " ord. - " + fmt(e[1].rev)); });
+                    })()}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {statView === "pagos" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💳 Medios de Pago</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+              <div style={{ ...card, padding: 20 }}>
+                {payEntries.length > 0 ? payEntries.map(([method, amount]) => {
+                  const pct = totalIngresos > 0 ? Math.round(amount * 100 / totalIngresos) : 0;
+                  const color = payColors[method] || T.grayLight;
+                  return (
+                    <div key={method} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700 }}>{method}</span>
+                        <span style={{ fontSize: 16, fontWeight: 800, fontFamily: fontD, color: color }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 10, borderRadius: 5, background: T.bg, overflow: "hidden" }}>
+                        <div style={{ width: pct + "%", height: "100%", borderRadius: 5, background: color }} />
+                      </div>
+                    </div>
+                  );
+                }) : <div style={{ fontSize: 13, color: T.gray }}>Sin pagos en este período</div>}
+              </div>
+            </div>)}
+
+            {statView === "trabajos" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔧 Trabajos más Realizados</div>
+              <div style={{ ...card, padding: 20 }}>
+                {topWorks.slice(0, 10).map(([type, count], i) => {
+                  const maxC = topWorks[0][1];
+                  return (
+                    <div key={type} style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 14 }}>{i + 1}. {type}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{count}</span>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 4, background: T.bg, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.round(count * 100 / maxC)}%`, height: "100%", borderRadius: 4, background: T.accent }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {topWorks.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+              </div>
+            </div>)}
+
+            {statView === "clientes" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>👥 Clientes Frecuentes</div>
+              <div style={{ ...card, padding: 20 }}>
+                {topClients.map((c, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <span style={{ fontSize: 14 }}>{i + 1}. {c.name}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#9C27B0" }}>{c.count} orden{c.count !== 1 ? "es" : ""}</span>
+                  </div>
+                ))}
+                {topClients.length === 0 && <div style={{ fontSize: 13, color: T.gray }}>Sin datos</div>}
+              </div>
+            </div>)}
+
+            {statView === "productividad" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>⚡ Productividad</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 16 }}>
+                {[
+                  { l: "Órdenes Hoy", v: orders.filter(o => o.date === today).length, c: T.accent, ic: "📋" },
+                  { l: "En Taller", v: orders.filter(o => ["pending", "working"].includes(o.status)).length, c: T.orange, ic: "🔧" },
+                  { l: "Finalizadas Hoy", v: orders.filter(o => o.status === "done" && o.date === today).length, c: T.green, ic: "✅" },
+                  { l: "Entregadas Hoy", v: orders.filter(o => o.status === "delivered" && o.date === today).length, c: "#9C27B0", ic: "🚗" },
+                ].map(s => (
+                  <div key={s.l} style={{ ...card, padding: 16, borderLeft: `4px solid ${s.c}` }}>
+                    <div style={{ fontSize: 24, marginBottom: 4 }}>{s.ic}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: s.c }}>{s.v}</div>
+                    <div style={{ fontSize: 12, color: T.gray }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ ...card, padding: 20 }}>
+                <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>👤 Rendimiento por Mecánico</div>
+                {(() => {
+                  const ms = {}; completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; ms[m] = (ms[m] || 0) + 1; });
+                  return Object.entries(ms).sort((a, b) => b[1] - a[1]).map(([name, cnt]) => {
+                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    return (<div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                      <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{cnt} órdenes</div></div>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(rev)}</div>
+                    </div>);
+                  });
+                })()}
+              </div>
+            </div>)}
+
+            {statView === "retencion" && (<div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📈 Retención de Clientes</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+                {[
+                  { l: "Clientes Totales", v: clients.length, c: T.accent },
+                  { l: "Recurrentes (2+)", v: Object.values(clientStats).filter(v => v >= 2).length, c: T.green },
+                  { l: "Tasa Retención", v: clients.length > 0 ? Math.round(Object.values(clientStats).filter(v => v >= 2).length * 100 / clients.length) + "%" : "0%", c: "#9C27B0" },
+                ].map(s => (
+                  <div key={s.l} style={{ ...card, padding: 16, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: T.gray }}>{s.l}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, color: s.c }}>{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>)}
+
+          </div>
+        );
+      })()}
+
+      {/* ══════ CAMPAÑAS ══════ */}
+      {tab === "campanas" && (() => {
+        const SERVICE_KM = 10000;
+        const ALERT_GREEN = 1500;
+        const ALERT_YELLOW = 500;
+        const DEFAULT_KM_DAY = 33;
+        const serviceAlerts = [];
+        var serviceTypes = ["Service Full", "Service Base"];
+        clients.forEach(function(c) {
+          (c.vehicles || []).forEach(function(v) {
+            var vOrders = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && (o.works || []).some(function(w) { return serviceTypes.indexOf(w.type) >= 0; }); }).sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
+            if (vOrders.length === 0) return;
+            var lastService = vOrders[0];
+            var lastKm = parseInt(lastService.km) || parseInt(v.km) || 0;
+            var lastDate = lastService.date;
+            if (!lastDate || !lastKm) return;
+            var allVisits = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && o.km; }).sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); });
+            var kmPerDay = DEFAULT_KM_DAY;
+            if (allVisits.length >= 2) {
+              var first = allVisits[0]; var last = allVisits[allVisits.length - 1];
+              var kmDiff = (parseInt(last.km) || 0) - (parseInt(first.km) || 0);
+              var daysDiff = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+              if (kmDiff > 0) kmPerDay = Math.round(kmDiff / daysDiff);
+            }
+            kmPerDay = Math.max(5, Math.min(100, kmPerDay));
+            var daysSinceService = Math.max(0, (Date.now() - new Date(lastDate).getTime()) / 86400000);
+            var estimatedKm = lastKm + Math.round(daysSinceService * kmPerDay);
+            var nextServiceKm = lastKm + SERVICE_KM;
+            var kmRemaining = nextServiceKm - estimatedKm;
+            var daysRemaining = kmPerDay > 0 ? Math.round(kmRemaining / kmPerDay) : 999;
+            if (kmRemaining < ALERT_GREEN) {
+              var urgency = kmRemaining < ALERT_YELLOW ? (kmRemaining < 0 ? "overdue" : "red") : "yellow";
+              serviceAlerts.push({ client: c, vehicle: v, lastService: lastService, lastKm: lastKm, lastDate: lastDate, kmPerDay: kmPerDay, estimatedKm: estimatedKm, nextServiceKm: nextServiceKm, kmRemaining: kmRemaining, daysRemaining: daysRemaining, urgency: urgency, visits: allVisits.length });
+            }
+          });
+        });
+        serviceAlerts.sort(function(a, b) { return a.kmRemaining - b.kmRemaining; });
+        var dismissed = config.dismissedReminders || {};
+        var filteredAlerts = serviceAlerts.filter(function(a) { return !dismissed[a.vehicle.domain]; });
+        var cv = statView;
+        if (!cv) return (
+          <div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Campañas</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {[
+                { key: "recordatorio", icon: "🔔", l: "Service Recordatorio", count: filteredAlerts.length },
+                { key: "promo", icon: "📣", l: "Promoción" },
+                { key: "dormidos", icon: "💤", l: "Clientes Dormidos" },
+              ].map(function(v) { return (
+                <div key={v.key} onClick={function() { setStatView(v.key); setHistDetail(null); }} style={{ ...card, padding: 20, cursor: "pointer", textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>{v.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{v.l}</div>
+                  {v.count > 0 && <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: T.orange }}>{v.count} pendientes</div>}
+                </div>
+              ); })}
+            </div>
+          </div>
+        );
+        return (
+          <div>
+            <button onClick={function() { setStatView(null); setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 13, marginBottom: 16 }}>← Volver a Campañas</button>
+            {cv === "recordatorio" && (
+              <div>
+                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🔔 Service Recordatorio</div>
+                {filteredAlerts.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>No hay vehiculos proximos a su service</div>}
+                {filteredAlerts.map(function(a) {
+                  var urgColor = a.urgency === "overdue" || a.urgency === "red" ? T.red : T.orange;
+                  return (
+                    <div key={a.vehicle.domain} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "4px solid " + urgColor }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>{fmtD(a.vehicle.domain)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{a.client.name} {a.client.lastName}</div>
+                          <div style={{ fontSize: 12, color: T.grayLight }}>{a.vehicle.brand} {a.vehicle.model} {a.vehicle.year}</div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: urgColor }}>{a.kmRemaining > 0 ? a.kmRemaining.toLocaleString("es-AR") + " km" : "+" + Math.abs(a.kmRemaining).toLocaleString("es-AR") + " km"}</div>
+                          <div style={{ fontSize: 11, color: T.gray }}>{a.kmRemaining > 0 ? "~" + a.daysRemaining + " dias" : "Ya deberia hacer service"}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Ultimo service</div><div style={{ fontWeight: 700 }}>{a.lastKm.toLocaleString("es-AR")} km</div><div style={{ color: T.gray, fontSize: 10 }}>{fmtDate(a.lastDate)}</div></div>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Estimado</div><div style={{ fontWeight: 700, color: T.accent }}>~{a.estimatedKm.toLocaleString("es-AR")} km</div></div>
+                        <div style={{ background: T.bg, borderRadius: 6, padding: "6px 8px", fontSize: 11 }}><div style={{ color: T.gray }}>Prox. service</div><div style={{ fontWeight: 700, color: urgColor }}>{a.nextServiceKm.toLocaleString("es-AR")} km</div></div>
+                      </div>
+                      <div style={{ fontSize: 10, color: T.gray, marginTop: 6 }}>~{a.kmPerDay} km/dia ({a.visits} visitas)</div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <button onClick={function() {
+                          var msg = (config.serviceReminderMsg || "Hola {nombre}, desde CarBoys le recordamos que su vehiculo {vehiculo} ({dominio}) esta proximo al service. Los esperamos!").replace("{nombre}", a.client.name + " " + a.client.lastName).replace("{vehiculo}", a.vehicle.brand + " " + a.vehicle.model).replace("{dominio}", a.vehicle.domain);
+                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                        }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>📱 Enviar recordatorio</button>
+                        <button onClick={function() { setConfig(function(prev) { var dr = Object.assign({}, prev.dismissedReminders || {}); dr[a.vehicle.domain] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedReminders: dr }); }); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, padding: "8px 14px" }}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {cv === "promo" && (function() {
+              var serviceGroups = {};
+              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
+              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set(); serviceGroups[w.type].add(o.clientId); }); });
+              var groups = Object.entries(serviceGroups).map(function(e) { return { type: e[0], clientIds: Array.from(e[1]), count: e[1].size }; }).sort(function(a, b) { return b.count - a.count; });
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📣 Promocion</div>
+                  {!histDetail ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                      {groups.map(function(g) { return (
+                        <div key={g.type} onClick={function() { setHistDetail(g); }} style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center" }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.accent }}>{g.count}</div>
+                          <div style={{ fontSize: 10, color: T.gray }}>clientes</div>
+                        </div>
+                      ); })}
+                    </div>
+                  ) : (
+                    <div>
+                      <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} clientes</div>
+                      {histDetail.clientIds.map(function(cId) {
+                        var cl = clients.find(function(x) { return x.id === cId; });
+                        if (!cl) return null;
+                        return (
+                          <div key={cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700 }}>{cl.name} {cl.lastName}</div>
+                              {cl.phone && <div style={{ fontSize: 11, color: T.gray }}>{cl.phone}</div>}
+                            </div>
+                            <button onClick={function() { if (cl.phone) { window.open("https://wa.me/549" + String(cl.phone).replace(/\D/g, ""), "_blank"); } }} style={{ ...btnPrimary(T.green), fontSize: 11, padding: "6px 12px" }}>📷 WhatsApp</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {cv === "dormidos" && (function() {
+              var SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
+              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
+              var dormidosGroups = {};
+              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {}; if (!dormidosGroups[w.type][o.clientId] || o.date > dormidosGroups[w.type][o.clientId]) dormidosGroups[w.type][o.clientId] = o.date; }); });
+              var groups = Object.entries(dormidosGroups).map(function(e) {
+                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO; }).map(function(d) { return { cId: parseInt(d[0]), lastDate: d[1] }; });
+                return { type: e[0], dormidos: dormidos, count: dormidos.length };
+              }).filter(function(g) { return g.count > 0; }).sort(function(a, b) { return b.count - a.count; });
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>💤 Clientes Dormidos</div>
+                  {!histDetail ? (
+                    <div>
+                      {groups.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>No hay clientes dormidos</div>}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                        {groups.map(function(g) { return (
+                          <div key={g.type} onClick={function() { setHistDetail(g); }} style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center" }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{g.type}</div>
+                            <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 800, color: T.orange }}>{g.count}</div>
+                            <div style={{ fontSize: 10, color: T.gray }}>dormidos</div>
+                          </div>
+                        ); })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
+                      <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} dormidos</div>
+                      {histDetail.dormidos.sort(function(a, b) { return a.lastDate.localeCompare(b.lastDate); }).map(function(d) {
+                        var cl = clients.find(function(x) { return x.id === d.cId; });
+                        if (!cl) return null;
+                        var months = Math.round((Date.now() - new Date(d.lastDate).getTime()) / 86400000 / 30);
+                        return (
+                          <div key={d.cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, borderLeft: "3px solid " + T.orange }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700 }}>{cl.name} {cl.lastName}</div>
+                              <div style={{ fontSize: 12, color: T.orange, fontWeight: 600 }}>Ultima visita: {fmtDate(d.lastDate)} ({months} meses)</div>
+                            </div>
+                            <button onClick={function() {
+                              var msg = (config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitas. Te esperamos en CarBoys!").replace("{nombre}", cl.name);
+                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                            }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "6px 12px" }}>📱 Enviar</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
+
       {/* ══════ SUELDOS ══════ */}
       {tab === "sueldos" && (<div>
         {/* ══ HEADER ══ */}
