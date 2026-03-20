@@ -2051,7 +2051,7 @@ const NewOrderScreen = (props) => {
                         </div>
                         {/* Card del vehículo clickeable */}
                         <div onClick={() => {
-                          const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").sort((a, b) => (b.date||"").localeCompare(a.date||""));
+                          const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status))).sort((a, b) => (b.date||"").localeCompare(a.date||""));
                           setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
                           setFoundClient(c);
                           setFoundVehicle(v);
@@ -2363,7 +2363,7 @@ const NewOrderScreen = (props) => {
                           return (
                             <div key={i} onClick={() => {
                               if (activeOrder) return;
-                              const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").sort((a, b) => (b.date||"").localeCompare(a.date||""));
+                              const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status))).sort((a, b) => (b.date||"").localeCompare(a.date||""));
                               setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
                               setFoundClient(c);
                               setFoundVehicle(v);
@@ -4396,7 +4396,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
         }
 
         // List view - last 20 orders, grouped chronologically
-        const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 20);
+        const allOrders = orders.filter(o => o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 20);
 
         // Group by temporal buckets
         const today = new Date(); today.setHours(0,0,0,0);
@@ -7468,7 +7468,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {tab === "historial" && (<div>
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📚 Historial de Vehículos</div>
         {(() => {
-          const allOrders = orders.filter(o => o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          const allOrders = orders.filter(o => o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
           const years = [...new Set(allOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
           const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
