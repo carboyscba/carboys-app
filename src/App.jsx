@@ -1674,6 +1674,9 @@ const NewOrderScreen = (props) => {
   const [step, setStep] = useState(1); // 1=domain, 2=client, 3=works, 4=payment, 5=confirm
   const [budgetMode, setBudgetMode] = useState(false);
   const [chequeoMode, setChequeoMode] = useState(false);
+  const [chequeoPrice, setChequeoPrice] = useState("");
+  const [chequeoMethod, setChequeoMethod] = useState("");
+  const [chequeoIva, setChequeoIva] = useState(null);
   const [showAccessoryPopup, setShowAccessoryPopup] = useState(false);
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [budgetNote, setBudgetNote] = useState("");
@@ -2696,48 +2699,76 @@ const NewOrderScreen = (props) => {
                 <div style={{ fontSize: 48, textAlign: "center", marginBottom: 12 }}>🩺</div>
                 <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", color: "#00897B", marginBottom: 8 }}>Chequeo Vehicular</div>
                 <div style={{ fontSize: 13, color: T.gray, textAlign: "center", lineHeight: 1.6, marginBottom: 16 }}>
-                  Se realizará un diagnóstico completo del vehículo.<br/>
-                  Cada item se evalúa como <strong style={{ color: T.green }}>Bien</strong>, <strong style={{ color: T.orange }}>Regular</strong> o <strong style={{ color: T.red }}>Cambiar</strong>.
+                  Diagnóstico completo del vehículo.<br/>
+                  <strong>{fmtD(form.domain)}</strong> — {form.brand} {form.model} {form.year}
                 </div>
-                <div style={{ ...card, padding: 14, background: T.bg3, borderColor: "#00897B40" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: T.gray }}>Vehículo</span>
-                    <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{fmtD(form.domain)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                    <span style={{ fontSize: 13, color: T.gray }}>Auto</span>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{form.brand} {form.model} {form.year}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                    <span style={{ fontSize: 13, color: T.gray }}>Secciones</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#00897B" }}>10 secciones · {CHEQUEO_TEMPLATE.reduce((s, sec) => s + sec.items.length, 0)} items</span>
+
+                {/* Precio */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, color: T.gray, fontWeight: 600 }}>Precio del chequeo</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: "#00897B" }}>$</span>
+                    <input inputMode="numeric" value={chequeoPrice ? Number(chequeoPrice).toLocaleString("es-AR") : ""} onChange={e => setChequeoPrice(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="0" style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD }} />
                   </div>
                 </div>
+
+                {/* Método de pago */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, color: T.gray, fontWeight: 600, marginBottom: 8, display: "block" }}>Método de pago</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
+                      <div key={m} onClick={() => setChequeoMethod(chequeoMethod === m ? "" : m)}
+                        style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                          border: `2px solid ${chequeoMethod === m ? "#00897B" : T.border}`,
+                          background: chequeoMethod === m ? "rgba(0,137,123,0.10)" : T.bg,
+                          color: chequeoMethod === m ? "#00897B" : T.gray }}>{m === "Efectivo" ? "💵" : m === "Tarjeta" ? "💳" : m === "Transferencia" ? "🔁" : "📒"} {m}</div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* IVA */}
+                {chequeoMethod && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div onClick={() => setChequeoIva(true)}
+                      style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                        border: `2px solid ${chequeoIva === true ? T.accent : T.border}`,
+                        background: chequeoIva === true ? `${T.accent}10` : T.bg,
+                        color: chequeoIva === true ? T.accent : T.gray }}>Con IVA (+21%)</div>
+                    <div onClick={() => setChequeoIva(false)}
+                      style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                        border: `2px solid ${chequeoIva === false ? T.gray : T.border}`,
+                        background: chequeoIva === false ? T.bg3 : T.bg,
+                        color: chequeoIva === false ? T.grayLight : T.gray }}>Sin IVA</div>
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
                 <button onClick={() => { setStep(2); setChequeoMode(false); }}
                   style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
-                <button onClick={() => {
+                <button disabled={!chequeoPrice || !chequeoMethod || chequeoIva === null} onClick={() => {
                   const _maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
+                  const priceNum = parseFloat(chequeoPrice) || 0;
                   const newOrder = {
                     id: "ord_" + String(_maxNum + 1).padStart(3, "0"),
                     clientId: foundClient?.id ?? null,
                     domain: form.domain,
                     status: "working",
                     isChequeo: true,
-                    works: [{ type: "Chequeo Vehicular", price: 0, desc: "" }],
+                    works: [{ type: "Chequeo Vehicular", price: priceNum, desc: "" }],
                     payments: [],
                     assignedTo: "",
                     date: new Date().toISOString().split("T")[0],
                     _createdAt: new Date().toISOString(),
                     km: form.km || form.lastKm || "",
+                    paymentPref: { method: chequeoMethod, withIva: chequeoIva },
                     startedBy: "",
                     startedAt: "",
                   };
                   setOrders(prev => [...prev, newOrder]);
                   setChequeoMode(false);
                   onNavigate("chequeo", newOrder);
-                }} style={{ ...btnPrimary("#00897B"), fontSize: 14 }}>
+                }} style={{ ...btnPrimary("#00897B"), fontSize: 14, opacity: (chequeoPrice && chequeoMethod && chequeoIva !== null) ? 1 : 0.4 }}>
                   🩺 Comenzar Chequeo
                 </button>
               </div>
@@ -12831,10 +12862,6 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   const [data, setData] = React.useState(order.chequeoData || {});
   const [notes, setNotes] = React.useState(order.chequeoNotes || {});
   const [expandedNote, setExpandedNote] = React.useState(null);
-  const [price, setPrice] = React.useState(String((order.works || [])[0]?.price || ""));
-  const [method, setMethod] = React.useState(order.paymentPref?.method || "");
-  const [withIva, setWithIva] = React.useState(order.paymentPref?.withIva ?? null);
-  const [showPayment, setShowPayment] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
   const totalItems = CHEQUEO_TEMPLATE.reduce((s, sec) => s + sec.items.length, 0);
@@ -12843,6 +12870,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   const bienCount = Object.values(data).filter(v => v === "bien").length;
   const regularCount = Object.values(data).filter(v => v === "regular").length;
   const cambiarCount = Object.values(data).filter(v => v === "cambiar").length;
+  const existingPrice = (order.works || [])[0]?.price || 0;
 
   const setItem = (id, val) => setData(prev => {
     const n = { ...prev };
@@ -12852,17 +12880,16 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   });
 
   const handleSave = () => {
-    const priceNum = parseFloat(price.replace(/\./g, "")) || 0;
-    setOrders(prev => prev.map(o => o.id === order.id ? {
-      ...o,
+    const updatedOrder = {
+      ...order,
       chequeoData: data,
       chequeoNotes: notes,
-      works: [{ type: "Chequeo Vehicular", price: priceNum, desc: `${bienCount} bien · ${regularCount} regular · ${cambiarCount} cambiar` }],
-      paymentPref: method ? { method, withIva } : o.paymentPref,
+      works: [{ type: "Chequeo Vehicular", price: existingPrice, desc: `${bienCount} bien · ${regularCount} regular · ${cambiarCount} cambiar` }],
       status: "done",
-    } : o));
+    };
+    setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
     setSaved(true);
-    setTimeout(() => onNavigate("vehicleDetail", order), 600);
+    setTimeout(() => onNavigate("vehicleDetail", updatedOrder), 600);
   };
 
   const BRC = ({ id }) => {
@@ -12896,8 +12923,12 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
 
   return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
-      {saved && <div style={{ position: "fixed", inset: 0, background: "rgba(0,137,123,.15)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontSize: 72 }}>✅</div>
+      {saved && <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+        <div style={{ background: T.bg2, borderRadius: 20, padding: 40, textAlign: "center", border: `2px solid ${CH_COLOR}` }}>
+          <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
+          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: CH_COLOR }}>Chequeo Finalizado</div>
+          <div style={{ fontSize: 13, color: T.gray, marginTop: 6 }}>{bienCount} bien · {regularCount} regular · {cambiarCount} cambiar</div>
+        </div>
       </div>}
 
       {/* Header */}
@@ -12925,6 +12956,9 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
             <span style={{ color: T.red }}>🔴 {cambiarCount} Cambiar</span>
           </div>
         )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+          <span style={{ fontSize: 12, color: T.gray }}>💰 {fmt(existingPrice)} · {order.paymentPref?.method || "—"} · {order.paymentPref?.withIva ? "Con IVA" : "Sin IVA"}</span>
+        </div>
       </div>
 
       {/* Sections */}
@@ -12961,48 +12995,9 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
         );
       })}
 
-      {/* Price + Payment */}
-      <div style={{ ...card, padding: 20, marginTop: 16, marginBottom: 16, borderLeft: `4px solid ${CH_COLOR}` }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: CH_COLOR, marginBottom: 12 }}>💰 Precio y Cobro</div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 12, color: T.gray, fontWeight: 600 }}>Precio del chequeo</label>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <span style={{ fontSize: 18, fontWeight: 800, color: CH_COLOR }}>$</span>
-            <input inputMode="numeric" value={price ? Number(price).toLocaleString("es-AR") : ""} onChange={e => setPrice(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="0" style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD }} />
-          </div>
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 12, color: T.gray, fontWeight: 600, marginBottom: 8, display: "block" }}>Método de pago</label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
-              <div key={m} onClick={() => setMethod(method === m ? "" : m)}
-                style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
-                  border: `2px solid ${method === m ? CH_COLOR : T.border}`,
-                  background: method === m ? `${CH_COLOR}10` : T.bg,
-                  color: method === m ? CH_COLOR : T.gray }}>{m}</div>
-            ))}
-          </div>
-        </div>
-        {method && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div onClick={() => setWithIva(true)}
-              style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
-                border: `2px solid ${withIva === true ? T.accent : T.border}`,
-                background: withIva === true ? `${T.accent}10` : T.bg,
-                color: withIva === true ? T.accent : T.gray }}>Con IVA (+21%)</div>
-            <div onClick={() => setWithIva(false)}
-              style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
-                border: `2px solid ${withIva === false ? T.gray : T.border}`,
-                background: withIva === false ? T.bg3 : T.bg,
-                color: withIva === false ? T.grayLight : T.gray }}>Sin IVA</div>
-          </div>
-        )}
-      </div>
-
       {/* Save */}
-      <button onClick={handleSave} disabled={filledItems === 0 || !price}
-        style={{ ...btnPrimary(CH_COLOR), width: "100%", fontSize: 16, padding: "16px 0", fontWeight: 800, opacity: (filledItems > 0 && price) ? 1 : 0.4, marginBottom: 40 }}>
+      <button onClick={handleSave} disabled={filledItems === 0}
+        style={{ ...btnPrimary(CH_COLOR), width: "100%", fontSize: 16, padding: "16px 0", fontWeight: 800, opacity: filledItems > 0 ? 1 : 0.4, marginBottom: 40 }}>
         🩺 Finalizar Chequeo ({filledItems}/{totalItems})
       </button>
     </div>
