@@ -4812,8 +4812,6 @@ const VehicleDetailScreen = (props) => {
   const [cancelStep, setCancelStep] = useState(1);
   const [showEditOrder, setShowEditOrder] = useState(false);
   const [showCobrarPopup, setShowCobrarPopup] = useState(false);
-  const [showAnularCobro, setShowAnularCobro] = useState(false);
-  const [anularMotivo, setAnularMotivo] = useState("");
   const [editClient, setEditClient] = useState(null);
   const [editWorks, setEditWorks] = useState([]);
   const [editPayments, setEditPayments] = useState([]);
@@ -5173,7 +5171,6 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
           ...(order.fromBudgetId && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
           ...(getPerm(user, "cancelar") && !order.cobrado && ["pending","working","inspection","inspection_done","done","budget_sent","budget_approved","budget_closed"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
-          ...(user.role === "dueño" && order.cobrado ? [{ icon: "⏪", label: "Anular Cobro", show: true, color: "#B71C1C", action: () => { setAnularMotivo(""); setShowAnularCobro(true); }, bg: "rgba(183,28,28,.06)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -5674,61 +5671,6 @@ const VehicleDetailScreen = (props) => {
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowCobrarPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cerrar</button>
               <button onClick={() => { setShowCobrarPopup(false); onNavigate("admin", { initialTab: "cobros", initialOrder: order }); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13 }}>🧾 Ir a Cobros</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── POPUP ANULAR COBRO (solo dueño) ── */}
-      {showAnularCobro && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }} onClick={() => setShowAnularCobro(false)}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "92%", border: `2px solid #B71C1C` }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 48, textAlign: "center", marginBottom: 10 }}>⏪</div>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", color: "#B71C1C", marginBottom: 6 }}>Anular Cobro</div>
-            <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 16, lineHeight: 1.5 }}>
-              Se revertirá el cobro completo de esta orden.<br/>
-              Los pagos, factura y comprobante serán eliminados.<br/>
-              <strong style={{ color: T.red }}>La nota de crédito en ARCA debe hacerse manualmente.</strong>
-            </div>
-            <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg3 }}>
-              <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>Orden: <strong>{order.id}</strong> · {fmtD(order.domain)}</div>
-              <div style={{ fontSize: 11, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt((order.works||[]).reduce((s,w) => s + (parseFloat(w.price)||0), 0))}</strong></div>
-              {order.factura && <div style={{ fontSize: 11, color: T.green }}>📄 FC {order.factura.tipo} — #{order.factura.numero}</div>}
-              {order.ticket && <div style={{ fontSize: 11, color: T.orange }}>🧾 Comprobante</div>}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 4, display: "block" }}>Motivo de anulación *</label>
-              <textarea value={anularMotivo} onChange={e => setAnularMotivo(e.target.value)}
-                placeholder="Ej: Cobro realizado en vehículo equivocado" rows={2}
-                style={{ ...inputStyle, resize: "vertical", fontFamily: font, fontSize: 13 }} />
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowAnularCobro(false)}
-                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
-              <button disabled={!anularMotivo.trim()} onClick={() => {
-                const now = new Date().toISOString();
-                setOrders(prev => prev.map(o => o.id === order.id ? {
-                  ...o,
-                  cobrado: false,
-                  payments: [],
-                  factura: null,
-                  ticket: null,
-                  cajaDate: null,
-                  status: o.status === "delivered" ? "done" : o.status,
-                  anulacionCobro: {
-                    fecha: now,
-                    motivo: anularMotivo.trim(),
-                    usuario: user.name,
-                    facturaPrev: o.factura || null,
-                    ticketPrev: o.ticket || null,
-                    paymentsPrev: o.payments || [],
-                  },
-                } : o));
-                setShowAnularCobro(false);
-                setAnularMotivo("");
-              }} style={{ ...btnPrimary("#B71C1C"), flex: 1, fontSize: 13, opacity: anularMotivo.trim() ? 1 : 0.4 }}>
-                ⏪ Confirmar Anulación
-              </button>
             </div>
           </div>
         </div>
@@ -6724,6 +6666,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
   const [showAnularConfirm, setShowAnularConfirm] = useState(false);
+  const [anularMotivoAdmin, setAnularMotivoAdmin] = useState("");
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(null);
   const [histSearch, setHistSearch] = useState("");
@@ -7462,30 +7405,47 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 {/* ── POPUP VALIDACIÓN ── */}
                 {showAnularConfirm && selCobro && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9100,
-          display: "flex", alignItems: "center", justifyContent: "center" }}
+          display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}
           onClick={() => setShowAnularConfirm(false)}>
-          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 340, width: "90%",
-            border: `1px solid ${T.border}`, textAlign: "center" }}
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "92%",
+            border: `2px solid #B71C1C` }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>↩</div>
-            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>¿Anular cobro?</div>
-            <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 24, lineHeight: 1.5 }}>
-              Se va a marcar la orden como <strong>no cobrada</strong>.<br/>El método de pago acordado se va a mantener.
+            <div style={{ fontSize: 48, textAlign: "center", marginBottom: 10 }}>⏪</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", color: "#B71C1C", marginBottom: 6 }}>Anular Cobro</div>
+            <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 16, lineHeight: 1.5 }}>
+              Se revertirá el cobro, pagos, factura y comprobante.<br/>
+              <strong style={{ color: T.red }}>La nota de crédito en ARCA debe hacerse manualmente.</strong>
+            </div>
+            <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg3 }}>
+              <div style={{ fontSize: 11, color: T.gray }}>Orden: <strong>{selCobro.id}</strong> · {fmtD(selCobro.domain)}</div>
+              <div style={{ fontSize: 11, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt((selCobro.works||[]).reduce((s,w) => s + (parseFloat(w.price)||0), 0))}</strong></div>
+              {selCobro.factura && <div style={{ fontSize: 11, color: T.green }}>📄 FC {selCobro.factura.tipo} — #{selCobro.factura.numero}</div>}
+              {selCobro.ticket && <div style={{ fontSize: 11, color: T.orange }}>🧾 Comprobante</div>}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 4, display: "block" }}>Motivo de anulación *</label>
+              <textarea value={anularMotivoAdmin} onChange={e => setAnularMotivoAdmin(e.target.value)}
+                placeholder="Ej: Cobro realizado en vehículo equivocado" rows={2}
+                style={{ ...inputStyle, resize: "vertical", fontFamily: font, fontSize: 13 }} />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowAnularConfirm(false)}
-                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>
-                Cancelar
-              </button>
-              <button onClick={() => {
+              <button onClick={() => { setShowAnularConfirm(false); setAnularMotivoAdmin(""); }}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14 }}>Cancelar</button>
+              <button disabled={!anularMotivoAdmin.trim()} onClick={() => {
                 const o = selCobro;
-                setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: false, payments: [] } : o2));
-                saveOrder({ ...o, cobrado: false, payments: [] });
-                setSelCobro(prev => ({ ...prev, cobrado: false, payments: [] }));
-                setCobroPay(buildInitPay({ ...o, cobrado: false, payments: [] }, config, clients));
+                const now = new Date().toISOString();
+                const updated = {
+                  ...o, cobrado: false, payments: [], factura: null, ticket: null, cajaDate: null,
+                  status: o.status === "delivered" ? "done" : o.status,
+                  anulacionCobro: { fecha: now, motivo: anularMotivoAdmin.trim(), usuario: user.name, facturaPrev: o.factura || null, ticketPrev: o.ticket || null, paymentsPrev: o.payments || [] },
+                };
+                setOrders(prev => prev.map(o2 => o2.id === o.id ? updated : o2));
+                setSelCobro(updated);
+                setCobroPay(buildInitPay(updated, config, clients));
                 setShowAnularConfirm(false);
-              }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 14 }}>
-                Sí, anular
+                setAnularMotivoAdmin("");
+              }} style={{ ...btnPrimary("#B71C1C"), flex: 1, fontSize: 14, opacity: anularMotivoAdmin.trim() ? 1 : 0.4 }}>
+                ⏪ Confirmar Anulación
               </button>
             </div>
           </div>
@@ -7507,20 +7467,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {o.cobrado ? (
-                    <div style={{ display: "flex", gap: 10, flex: 1 }}>
-                      <div style={{ flex: 1, padding: "16px 0", borderRadius: 10, textAlign: "center", fontSize: 15, fontWeight: 700, background: `${T.green}15`, border: `2px solid ${T.green}`, color: T.green }}>✅ COBRADO</div>
-                      {/* Anular cobro — solo si NO hay factura ni comprobante emitido */}
-                      {!o.factura && !o.ticket && (
-                        <button
-                          onClick={() => setShowAnularConfirm(true)}
-                          title="Anular cobro"
-                          style={{ padding: "8px 10px", borderRadius: 8, fontSize: 11, fontWeight: 600,
-                            background: "transparent", border: `1px solid ${T.border}`, color: T.gray,
-                            cursor: "pointer", display: "flex", alignItems: "center", gap: 5, opacity: 0.7 }}>
-                          ↩ Anular
-                        </button>
-                      )}
-                    </div>
+                    <div style={{ flex: 1, padding: "16px 0", borderRadius: 10, textAlign: "center", fontSize: 15, fontWeight: 700, background: `${T.green}15`, border: `2px solid ${T.green}`, color: T.green }}>✅ COBRADO</div>
                   ) : (() => {
                     // ── Validación exhaustiva antes de cobrar ──
                     const otrosTotalVal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -7685,6 +7632,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     </div>
                   )}
                 </div>
+
+                {/* ── Entregar + Anular — abajo de todo ── */}
+                {o.cobrado && (
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    {o.status === "done" && (
+                      <button onClick={() => {
+                        if (confirm("¿Vehículo entregado?")) {
+                          const updated = { ...o, status: "delivered", deliveredAt: new Date().toLocaleString("es-AR") };
+                          setOrders(prev => prev.map(o2 => o2.id === o.id ? updated : o2));
+                          setSelCobro(updated);
+                        }
+                      }} style={{ ...btnPrimary("#00C853"), flex: 1, fontSize: 14, padding: "14px 0" }}>
+                        🚗 Entregar Vehículo
+                      </button>
+                    )}
+                    {o.status === "delivered" && (
+                      <div style={{ flex: 1, padding: "14px 0", borderRadius: 10, textAlign: "center", fontSize: 13, fontWeight: 700, background: "#00C85315", border: "1.5px solid #00C853", color: "#00C853" }}>🚗 ENTREGADO</div>
+                    )}
+                    {user.role === "dueño" && (
+                      <button onClick={() => { setAnularMotivoAdmin(""); setShowAnularConfirm(true); }}
+                        style={{ padding: "14px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+                          background: "rgba(183,28,28,.06)", border: "1.5px solid #B71C1C40", color: "#B71C1C",
+                          cursor: "pointer" }}>
+                        ⏪ Anular Cobro
+                      </button>
+                    )}
+                  </div>
+                )}
+
               </div>
             );
           }
