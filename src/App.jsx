@@ -5037,8 +5037,6 @@ const VehicleDetailScreen = (props) => {
       {/* Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
-          ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
-          ...(order.isChequeo && order.status === "done" ? [{ icon: "🩺", label: "Ver Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
           ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#FF6F00", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
           ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
@@ -5073,16 +5071,16 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "working" && canStartWork && !order.isChequeo ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
           ...(order.isChequeo && order.status === "done" ? [{ icon: "🩺", label: "Ver Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
-          ...(order.status === "working" && !order.fromBudgetId ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
+          ...(order.status === "working" && !order.fromBudgetId && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
           }, bg: "rgba(255,152,0,.08)" }] : []),
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
-          { icon: "✏️", label: "Editar Orden", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
+          { icon: "✏️", label: "Editar Orden", show: !order.isChequeo && order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
             setEditWorks((order.works || []).map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
             setShowEditOrder(true);
           }, bg: "rgba(30,136,229,.08)" },
-          { icon: "➕", label: "Agregar Trabajo", show: order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
+          { icon: "➕", label: "Agregar Trabajo", show: !order.isChequeo && order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setNewWorks([]);
             setShowAddWork(true);
           }, bg: "rgba(30,136,229,.08)" },
