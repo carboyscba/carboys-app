@@ -2626,7 +2626,7 @@ const NewOrderScreen = (props) => {
               )}
               {!budgetMode && (
                 <div onClick={() => { setChequeoMode(!chequeoMode); setBudgetMode(false); if (!chequeoMode) { setWorks([]); } }}
-                  style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: chequeoMode ? T.orange : "#00897B", borderColor: chequeoMode ? T.orange : "#00897B", background: chequeoMode ? "rgba(255,152,0,0.08)" : "rgba(0,137,123,0.08)" }}>
+                  style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: chequeoMode ? T.orange : "#FF4081", borderColor: chequeoMode ? T.orange : "#FF4081", background: chequeoMode ? "rgba(255,152,0,0.08)" : "rgba(255,64,129,0.08)" }}>
                   {chequeoMode ? "🔧 Trabajo" : "🩺 Chequeo"}
                 </div>
               )}
@@ -2695,9 +2695,9 @@ const NewOrderScreen = (props) => {
             </div>
           ) : chequeoMode ? (
             <div>
-              <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: "3px solid #00897B" }}>
+              <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: "3px solid #FF4081" }}>
                 <div style={{ fontSize: 48, textAlign: "center", marginBottom: 12 }}>🩺</div>
-                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", color: "#00897B", marginBottom: 8 }}>Chequeo Vehicular</div>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", color: "#FF4081", marginBottom: 8 }}>Chequeo Vehicular</div>
                 <div style={{ fontSize: 13, color: T.gray, textAlign: "center", lineHeight: 1.6, marginBottom: 16 }}>
                   Diagnóstico completo del vehículo.<br/>
                   <strong>{fmtD(form.domain)}</strong> — {form.brand} {form.model} {form.year}
@@ -2707,7 +2707,7 @@ const NewOrderScreen = (props) => {
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 12, color: T.gray, fontWeight: 600 }}>Precio del chequeo</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: "#00897B" }}>$</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: "#FF4081" }}>$</span>
                     <input inputMode="numeric" value={chequeoPrice ? Number(chequeoPrice).toLocaleString("es-AR") : ""} onChange={e => setChequeoPrice(e.target.value.replace(/[^0-9]/g, ""))}
                       placeholder="0" style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD }} />
                   </div>
@@ -2720,9 +2720,9 @@ const NewOrderScreen = (props) => {
                     {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
                       <div key={m} onClick={() => setChequeoMethod(chequeoMethod === m ? "" : m)}
                         style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
-                          border: `2px solid ${chequeoMethod === m ? "#00897B" : T.border}`,
-                          background: chequeoMethod === m ? "rgba(0,137,123,0.10)" : T.bg,
-                          color: chequeoMethod === m ? "#00897B" : T.gray }}>{m === "Efectivo" ? "💵" : m === "Tarjeta" ? "💳" : m === "Transferencia" ? "🔁" : "📒"} {m}</div>
+                          border: `2px solid ${chequeoMethod === m ? "#FF4081" : T.border}`,
+                          background: chequeoMethod === m ? "rgba(255,64,129,0.10)" : T.bg,
+                          color: chequeoMethod === m ? "#FF4081" : T.gray }}>{m === "Efectivo" ? "💵" : m === "Tarjeta" ? "💳" : m === "Transferencia" ? "🔁" : "📒"} {m}</div>
                     ))}
                   </div>
                 </div>
@@ -2768,7 +2768,7 @@ const NewOrderScreen = (props) => {
                   setOrders(prev => [...prev, newOrder]);
                   setChequeoMode(false);
                   onNavigate("chequeo", newOrder);
-                }} style={{ ...btnPrimary("#00897B"), fontSize: 14, opacity: (chequeoPrice && chequeoMethod && chequeoIva !== null) ? 1 : 0.4 }}>
+                }} style={{ ...btnPrimary("#FF4081"), fontSize: 14, opacity: (chequeoPrice && chequeoMethod && chequeoIva !== null) ? 1 : 0.4 }}>
                   🩺 Comenzar Chequeo
                 </button>
               </div>
@@ -4149,7 +4149,7 @@ const DashboardScreen = (props) => {
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const isBudgetStatus = o.status === "budget_sent" || o.status === "budget_approved";
             const isInspection = o.status === "inspection" || o.status === "inspection_done";
-            const sc = o.isChequeo ? "#00897B" : o.status === "done" ? T.green : o.status === "working" ? T.orange : isBudgetStatus ? "#9C27B0" : isInspection ? "#E91E63" : T.red;
+            const sc = o.isChequeo ? "#FF4081" : o.status === "done" ? T.green : o.status === "working" ? T.orange : isBudgetStatus ? "#9C27B0" : isInspection ? "#E91E63" : T.red;
             const sl = o.isChequeo ? "🩺 CHEQUEO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isBudgetStatus ? "PRESUPUESTO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
@@ -4445,7 +4445,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
           const hVh = hCl?.vehicles?.find(v => v.domain === histDetail.domain);
           const isBudget = histDetail.status === "budget_closed" || histDetail.status === "budget_sent";
           const isChequeo = !!histDetail.isChequeo;
-          const borderColor = isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent;
+          const borderColor = isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.accent;
           return (
             <div>
               <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver al historial</button>
@@ -4456,7 +4456,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                     {hVh && <div style={{ fontSize: 14, color: T.grayLight }}>{hVh.brand} {hVh.model} {hVh.year}</div>}
                     {hCl && <div style={{ fontSize: 13, marginTop: 4 }}>👤 {hCl.name} {hCl.lastName}</div>}
                   </div>
-                  <div style={{ padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: isChequeo ? "#00897B20" : isBudget ? "#9C27B020" : `${T.accent}20`, color: isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent }}>
+                  <div style={{ padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: isChequeo ? "#FF408120" : isBudget ? "#9C27B020" : `${T.accent}20`, color: isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.accent }}>
                     {isChequeo ? "🩺 CHEQUEO" : isBudget ? "PRESUPUESTO" : histDetail.status === "delivered" ? "ENTREGADO" : histDetail.status === "done" ? "FINALIZADO" : histDetail.status?.toUpperCase() || "—"}
                   </div>
                 </div>
@@ -4514,7 +4514,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                               </div>
                             ))}
                             {secItems.filter(it => cn[it.id]).map(it => (
-                              <div key={it.id + "_n"} style={{ fontSize: 11, color: "#00897B", fontStyle: "italic", paddingLeft: 10 }}>📝 {it.label}: {cn[it.id]}</div>
+                              <div key={it.id + "_n"} style={{ fontSize: 11, color: "#FF4081", fontStyle: "italic", paddingLeft: 10 }}>📝 {it.label}: {cn[it.id]}</div>
                             ))}
                           </div>
                         );
@@ -4683,7 +4683,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
       </div>
       {filtered.map((o, i) => {
         const info = getVehicleInfo(o);
-        const sc = o.isChequeo ? "#00897B" : getStatusColor(o.status);
+        const sc = o.isChequeo ? "#FF4081" : getStatusColor(o.status);
         return (
         <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
           style={{ ...card, padding: "18px 20px", marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}`, animation: `slideIn .3s ease ${i*.05}s both`, transition: "background .15s" }}
@@ -4768,7 +4768,7 @@ const VehicleDetailScreen = (props) => {
   const [showBudgetStartPopup, setShowBudgetStartPopup] = useState(false);
   const [budgetPayPref, setBudgetPayPref] = useState({ method: "", withIva: null });
   const [budgetSelWorks, setBudgetSelWorks] = useState([]);
-  const sc = order.isChequeo ? "#00897B" : order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#9C27B0" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
+  const sc = order.isChequeo ? "#FF4081" : order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#9C27B0" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
   const statusLabel = order.isChequeo ? "🩺 CHEQUEO" : order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
@@ -4908,12 +4908,21 @@ const VehicleDetailScreen = (props) => {
       )}
 
       {/* Working indicator */}
-      {order.status === "working" && (
+      {order.status === "working" && !order.isChequeo && (
         <div style={{ ...card, padding: "16px 20px", marginBottom: 20, borderColor: T.orange, display: "flex", alignItems: "center", gap: 14, background: "rgba(255,152,0,0.06)" }}>
           <div style={{ width: 14, height: 14, borderRadius: "50%", background: T.orange, animation: "pulse 1.5s infinite", boxShadow: `0 0 12px ${T.orange}` }} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, color: T.orange }}>Trabajo en curso</div>
             <div style={{ fontSize: 12, color: T.gray }}>{order.assignedTo} está trabajando en este vehículo</div>
+          </div>
+        </div>
+      )}
+      {order.status === "working" && order.isChequeo && (
+        <div style={{ ...card, padding: "16px 20px", marginBottom: 20, borderColor: "#FF4081", display: "flex", alignItems: "center", gap: 14, background: "rgba(255,64,129,0.06)" }}>
+          <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#FF4081", animation: "pulse 1.5s infinite", boxShadow: "0 0 12px #FF4081" }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#FF4081" }}>🩺 Chequeo en curso</div>
+            <div style={{ fontSize: 12, color: T.gray }}>Foja de chequeo pendiente de completar</div>
           </div>
         </div>
       )}
@@ -5069,8 +5078,8 @@ const VehicleDetailScreen = (props) => {
             }, bg: "rgba(30,136,229,.08)" },
           ] : []),
           ...(order.status === "working" && canStartWork && !order.isChequeo ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
-          ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
-          ...(order.isChequeo && order.status === "done" ? [{ icon: "🩺", label: "Ver Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
+          ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" }] : []),
+          ...(order.isChequeo && order.status === "done" ? [{ icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" }] : []),
           ...(order.status === "working" && !order.fromBudgetId && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
           }, bg: "rgba(255,152,0,.08)" }] : []),
@@ -7821,7 +7830,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             const oVh = oCl?.vehicles?.find(v => v.domain === o.domain);
                             const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                             const isChequeo = !!o.isChequeo;
-                            const cardColor = isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.border;
+                            const cardColor = isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.border;
                             return (
                               <div key={o.id} onClick={() => setHistDetail(o)}
                                 style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${cardColor}`,
@@ -7830,7 +7839,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                                   <div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                       <span style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{fmtD(o.domain)}</span>
-                                      {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#00897B", background: "rgba(0,137,123,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
+                                      {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#FF4081", background: "rgba(255,64,129,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
                                       {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
                                     </div>
                                     <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>{oCl ? oCl.name + " " + oCl.lastName : "—"}{oVh ? " · " + oVh.brand + " " + oVh.model : ""}</div>
@@ -7838,7 +7847,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                                     {metodo && <div style={{ fontSize: 10, color: T.grayLight, marginTop: 3 }}>{metodo}</div>}
                                   </div>
                                   <div style={{ textAlign: "right" }}>
-                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
+                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
                                     <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                                   </div>
                                 </div>
@@ -7910,7 +7919,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const metodo = metodoLabel(o);
                 const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                 const isChequeo = !!o.isChequeo;
-                const cardColor = isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.border;
+                const cardColor = isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.border;
                 return (
                   <div key={o.id} onClick={() => setHistDetail(o)}
                     style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${cardColor}`, opacity: isBudget ? 0.6 : 1 }}>
@@ -7918,7 +7927,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
-                          {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#00897B", background: "rgba(0,137,123,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
+                          {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#FF4081", background: "rgba(255,64,129,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
                           {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
                         </div>
                         <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>
@@ -7930,7 +7939,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         )}
                       </div>
                       <div style={{ textAlign: "right", marginLeft: 12 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
                         <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                       </div>
                     </div>
@@ -12750,7 +12759,7 @@ const CHEQUEO_TEMPLATE = [
 const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
-  const CH = "#00897B";
+  const CH = "#FF4081";
   const [data, setData] = React.useState(order.chequeoData || {});
   const [saved, setSaved] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState({});
