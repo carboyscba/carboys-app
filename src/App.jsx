@@ -12711,7 +12711,7 @@ const CHEQUEO_TEMPLATE = [
     { id: "ch_tt_otros", label: "Otros", type: "opt_desc" },
   ]},
   { section: "FLUIDOS", icon: "💧", items: [
-    { id: "ch_liq_frenos", label: "Líquido de frenos", type: "pct" },
+    { id: "ch_liq_frenos", label: "Líquido de frenos", type: "brakeFluidCheck" },
     { id: "ch_liq_direccion", label: "Líquido de dirección", type: "brc" },
     { id: "ch_liq_refrigerante", label: "Líquido refrigerante", type: "brc" },
     { id: "ch_aceite_caja", label: "Aceite de caja", type: "brc" },
@@ -12764,6 +12764,16 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   const [saved, setSaved] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState({});
   const existingPrice = (order.works || [])[0]?.price || 0;
+  const autoSaveRef = React.useRef(null);
+
+  // Auto-save chequeo data on every change
+  React.useEffect(() => {
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(() => {
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, chequeoData: data } : o));
+    }, 500);
+    return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
+  }, [data]);
 
   const get = (key) => data[key];
   const set = (key, val) => setData(prev => ({ ...prev, [key]: val }));
@@ -12780,7 +12790,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
       else if (item.type === "dtc") { if (data[item.id] !== undefined) filled++; }
       else if (item.type === "opt_group") { if (data[item.id + "_on"]) filled++; }
       else if (item.type === "opt" || item.type === "opt_desc" || item.type === "opt_input") { if (data[item.id + "_on"]) filled++; }
-      else if (item.type === "pct") { if (data[item.id] !== undefined) filled++; }
+      else if (item.type === "pct" || item.type === "brakeFluidCheck") { if (data[item.id] !== undefined && data[item.id] >= 0) filled++; }
       else { if (data[item.id]) filled++; }
     }));
     return filled;
@@ -12920,20 +12930,65 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
     );
   };
 
+  // ── Custom slider component ──
+  const Slider = ({ value, onChange, min = 0, max = 100, step = 5 }) => {
+    const pct = ((value - min) / (max - min)) * 100;
+    const col = value > 60 ? T.green : value > 30 ? T.orange : T.red;
+    return (
+      <div style={{ position: "relative", height: 32, display: "flex", alignItems: "center" }}>
+        <div style={{ position: "absolute", left: 0, right: 0, height: 4, borderRadius: 2, background: T.bg3 }}>
+          <div style={{ height: "100%", width: `${pct}%`, borderRadius: 2, background: col, transition: "background .2s" }} />
+        </div>
+        <input type="range" min={min} max={max} step={step} value={value}
+          onChange={e => onChange(parseInt(e.target.value))}
+          style={{ position: "absolute", left: 0, right: 0, width: "100%", height: 32, margin: 0, opacity: 0, cursor: "pointer", zIndex: 2 }} />
+        <div style={{ position: "absolute", left: `calc(${pct}% - 12px)`, width: 24, height: 24, borderRadius: "50%", background: col, border: `3px solid ${T.bg2}`, boxShadow: `0 2px 6px ${col}50`, transition: "left .05s", pointerEvents: "none", zIndex: 1 }} />
+      </div>
+    );
+  };
+
   const renderPct = (item) => {
     const val = data[item.id] ?? 100;
     const col = val > 60 ? T.green : val > 30 ? T.orange : T.red;
     return (
       <div key={item.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</span>
-          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: col }}>{val}%</span>
+          <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: col }}>{val}%</span>
         </div>
-        <input type="range" min="0" max="100" step="5" value={val} onChange={e => set(item.id, parseInt(e.target.value))}
-          style={{ width: "100%", accentColor: col, cursor: "pointer" }} />
-        <div style={{ height: 6, borderRadius: 3, background: T.bg, marginTop: 4, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${val}%`, borderRadius: 3, background: col, transition: "all .2s" }} />
+        <Slider value={val} onChange={v => set(item.id, v)} />
+      </div>
+    );
+  };
+
+  // ── Brake fluid check (same as foja de servicio) ──
+  const renderBrakeFluidCheck = (item) => {
+    const pct = data[item.id] ?? -1;
+    return (
+      <div key={item.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{item.label}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 6 }}>% DE AGUA EN LÍQUIDO</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[
+            { v: 0, l: "0%", c: T.green, t: "OK" },
+            { v: 1, l: "1%", c: T.green, t: "OK" },
+            { v: 2, l: "2%", c: T.green, t: "OK" },
+            { v: 3, l: "3%", c: T.red, t: "CRÍTICO" },
+            { v: 4, l: "4%", c: T.red, t: "MAL" },
+          ].map(o => (
+            <div key={o.v} onClick={() => set(item.id, pct === o.v ? -1 : o.v)}
+              style={{ flex: 1, padding: "10px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center",
+                border: `2px solid ${pct === o.v ? o.c : T.border}`, background: pct === o.v ? `${o.c}20` : T.bg, transition: "all .15s" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: fontD, color: pct === o.v ? o.c : T.gray }}>{o.l}</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: pct === o.v ? o.c : T.gray, marginTop: 2 }}>{o.t}</div>
+            </div>
+          ))}
         </div>
+        {pct >= 3 && (
+          <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: `${T.red}10`, border: `1px solid ${T.red}40`, fontSize: 12, fontWeight: 700, color: T.red }}>
+            ⚠️ Nivel de agua crítico — Se recomienda cambio de líquido de frenos
+          </div>
+        )}
       </div>
     );
   };
@@ -12996,8 +13051,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
               <span style={{ color: T.grayLight }}>{label}</span>
               <span style={{ fontFamily: fontD, fontWeight: 800, color: col(tires[key]) }}>{tires[key]}%</span>
             </div>
-            <input type="range" min="0" max="100" step="5" value={tires[key]} onChange={e => setTire(key, e.target.value)}
-              style={{ width: "100%", accentColor: col(tires[key]), cursor: "pointer" }} />
+            <Slider value={tires[key]} onChange={v => setTire(key, v)} />
           </div>
         ))}
       </div>
@@ -13024,8 +13078,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
             <span style={{ color: T.grayLight }}>🔋 Vida útil</span>
             <span style={{ fontFamily: fontD, fontWeight: 800, color: col }}>{pct}%</span>
           </div>
-          <input type="range" min="0" max="100" step="5" value={pct} onChange={e => set("ch_bat_pct", parseInt(e.target.value))}
-            style={{ width: "100%", accentColor: col, cursor: "pointer" }} />
+          <Slider value={pct} onChange={v => set("ch_bat_pct", v)} />
         </div>
         <div>
           <div style={{ fontSize: 12, color: T.grayLight, marginBottom: 4 }}>⚡ Carga alternador (V)</div>
@@ -13104,6 +13157,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
       case "desc": return renderDesc(item);
       case "opt_desc": return renderOptDesc(item);
       case "pct": return renderPct(item);
+      case "brakeFluidCheck": return renderBrakeFluidCheck(item);
       case "opt_group": return renderOptGroup(item);
       case "tires": return renderTires();
       case "battery": return renderBattery();
@@ -13158,7 +13212,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
           if (it.type === "battery") return data.ch_bat_pct !== undefined || !!data.ch_bat_volt;
           if (it.type === "opt" || it.type === "opt_desc" || it.type === "opt_input" || it.type === "opt_group") return !!data[it.id + "_on"];
           if (it.type === "dtc") return data[it.id] !== undefined;
-          if (it.type === "pct") return data[it.id] !== undefined;
+          if (it.type === "pct" || it.type === "brakeFluidCheck") return data[it.id] !== undefined && data[it.id] >= 0;
           return !!data[it.id];
         }).length;
         return (
