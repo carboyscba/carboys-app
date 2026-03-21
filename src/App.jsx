@@ -1004,9 +1004,9 @@ const _makeSnapshot = (colName, cb, errCb, interval) => {
   fsListeners[colName] = iv;
   return () => clearInterval(iv);
 };
-const onSnapshot     = (col, cb, err) => _makeSnapshot(col, cb, err, 10000); // 10s — órdenes
-const onSnapshotMed  = (col, cb, err) => _makeSnapshot(col, cb, err, 45000); // 45s — clientes/config
-const onSnapshotSlow = (col, cb, err) => _makeSnapshot(col, cb, err, 90000); // 90s — admin cols
+const onSnapshot     = (col, cb, err) => _makeSnapshot(col, cb, err, 5000);  // 5s — órdenes (crítico multi-tablet)
+const onSnapshotMed  = (col, cb, err) => _makeSnapshot(col, cb, err, 30000); // 30s — clientes/config
+const onSnapshotSlow = (col, cb, err) => _makeSnapshot(col, cb, err, 60000); // 60s — admin cols
 const onSnapshotDoc = (colName, docId, cb, errCb) => {
   const poll = async () => {
     try { const d = await fsGetDoc(colName, docId); cb({ exists: () => !!d, data: () => d }); }
@@ -1014,7 +1014,7 @@ const onSnapshotDoc = (colName, docId, cb, errCb) => {
   };
   poll();
   const key = `${colName}/${docId}`;
-  const iv = setInterval(poll, 45000); // 45s — config doc
+  const iv = setInterval(poll, 30000); // 30s — config doc
   fsListeners[key] = iv;
   return () => clearInterval(iv);
 };
@@ -17605,6 +17605,62 @@ export default function App() {
   const [syncActive, setSyncActive] = useState(0);  // active Firebase writes
   const syncPending = syncActive; // alias for backward compat
 
+  // ── Force sync: re-fetch all collections from Firestore immediately ──
+  const forceSyncRef = useRef(null);
+  const forceSync = useCallback(async () => {
+    if (syncState === 'syncing') return;
+    setSyncState('syncing');
+    try {
+      const [fsOrders, fsClients, fsCfg] = await Promise.all([
+        fsGetCol('orders'), fsGetCol('clients'), fsGetDoc('meta', 'config')
+      ]);
+      if (fsOrders.length > 0) {
+        _setOrders(prev => {
+          const fsMap = Object.fromEntries(fsOrders.map(d => [String(d.id), d]));
+          const pending = prev.filter(o => !fsMap[String(o.id)]);
+          fsOrders.forEach(d => idbSave('orders', d.id, d, true).catch(() => {}));
+          return [...fsOrders, ...pending].sort(cmpId);
+        });
+      }
+      if (fsClients.length > 0) {
+        _setClients(prev => {
+          const fsMap = Object.fromEntries(fsClients.map(d => [String(d.id), d]));
+          const pending = prev.filter(c => !fsMap[String(c.id)]);
+          fsClients.forEach(d => idbSave('clients', d.id, d, true).catch(() => {}));
+          return [...fsClients, ...pending];
+        });
+      }
+      if (fsCfg) {
+        _setConfig(prev => {
+          const merged = { ...INITIAL_CONFIG, ...prev, ...fsCfg };
+          idbSave('config', 'config', merged, true).catch(() => {});
+          return merged;
+        });
+      }
+      // Admin collections
+      const adminCols = [
+        { col: 'adm_egresos', setter: _setEgresos },
+        { col: 'adm_proveedores', setter: _setProveedores },
+        { col: 'adm_factprov', setter: _setFactProv },
+        { col: 'adm_servicios', setter: _setServicios },
+        { col: 'adm_igastos', setter: _setIgGastos },
+        { col: 'adm_cierres', setter: _setCierres },
+      ];
+      await Promise.all(adminCols.map(async ({ col, setter }) => {
+        try {
+          const docs = await fsGetCol(col);
+          if (docs.length > 0) setter(docs);
+        } catch(e) { console.warn('[FORCE-SYNC]', col, e.message); }
+      }));
+      setSyncState('ok');
+      console.log('[FORCE-SYNC] ✅ Todas las colecciones actualizadas');
+    } catch(e) {
+      console.error('[FORCE-SYNC] ❌', e.message);
+      setSyncState('error');
+      setTimeout(() => setSyncState('ok'), 3000);
+    }
+  }, [syncState]);
+
   // ── Cargar registro de sucursales + restaurar sesión ────────────
   // Paso 1: Bajar registro de sucursales de Firestore Master
   // Paso 2: Intentar restaurar sesión de localStorage
@@ -18281,7 +18337,7 @@ export default function App() {
               };
               const s = states[syncState] || states.ok;
               return (
-                <div title={s.title} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none' }}>
+                <div title={s.title} onClick={forceSync} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 11, fontWeight: 700, color: s.color, transition: 'all 0.3s ease', userSelect: 'none', cursor: 'pointer' }}>
                   <span style={{ display: 'inline-block', animation: syncState === 'syncing' ? 'spin 1s linear infinite' : 'none' }}>{s.icon}</span> {s.label}
                 </div>
               );
