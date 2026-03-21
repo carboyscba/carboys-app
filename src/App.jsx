@@ -1876,7 +1876,9 @@ const NewOrderScreen = (props) => {
   const paymentsValid = payments.length > 0 && payments.every(p => p.method && p.amount && parseFloat(p.amount) > 0) && Math.abs(totalPayments - expectedCollect) < 1;
 
   const getInvoiceType = (p) => {
-    return p.invoiceType || (p.account === "2" ? "C" : form.cuit ? "A" : "B");
+    if (p.invoiceType) return p.invoiceType;
+    if (p.withIva === false) return ""; // Sin IVA without explicit FC selection = no FC
+    return p.account === "2" ? "C" : form.cuit ? "A" : "B";
   };
 
   const [lastCreatedOrderId, setLastCreatedOrderId] = React.useState(null);
@@ -3415,7 +3417,7 @@ const NewOrderScreen = (props) => {
                       CON IVA
                       <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{config.ivaRate}% · Fact. A/B</div>
                     </div>
-                    <div onClick={() => { updatePayment(i, "withIva", false); updatePayment(i, "invoiceType", "C"); }}
+                    <div onClick={() => { updatePayment(i, "withIva", false); updatePayment(i, "invoiceType", ""); }}
                       style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
                         borderColor: p.withIva === false ? T.gray : T.border,
                         background: p.withIva === false ? T.bg3 : T.bg2,
@@ -3433,8 +3435,8 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* ── TIPO DE FACTURA: cuando hay método + IVA definido (o transferencia con cuenta) ── */}
-              {p.method && (isTransf ? !!p.account : p.withIva !== null && p.withIva !== undefined) && (() => {
+              {/* ── TIPO DE FACTURA: Tarjeta/Transferencia siempre, Efectivo/CTA CTE solo Con IVA ── */}
+              {p.method && (isTarjeta || (isTransf && !!p.account) || ((isEfectivo || isCtaCte) && p.withIva === true)) && (() => {
                 const fcLabels = {
                   A: { sub: config.razonSocial || "Resp. Inscripto", color: T.orange, req: "CUIT", entity: "1" },
                   B: { sub: config.razonSocial || "Resp. Inscripto", color: T.accent, req: "DNI o CUIT", entity: "1" },
@@ -7313,7 +7315,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                               setCobroPay(ps => ps.map((p, j) => {
                                 if (j !== i) return p;
                                 const newAmt = ps.length === 1 ? String(totalBase) : p.amount;
-                                return { ...p, withIva: false, invoiceType: isTransf && pm.account === "2" ? "C" : "C", amount: newAmt };
+                                return { ...p, withIva: false, invoiceType: "", amount: newAmt };
                               }));
                             })()}
                             style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.gray : T.border}`, background: pm.withIva === false ? T.bg3 : T.bg, color: pm.withIva === false ? T.grayLight : T.gray }}>
@@ -7323,8 +7325,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       )}
 
-                      {/* Tipo de factura — obligatorio cuando withIva=true */}
-                      {pm.withIva && (isEfectivo || isTarjeta || isCtaCte || isTransf) && (
+                      {/* Tipo de factura — Tarjeta/Transf siempre, Efectivo/CTA CTE solo con IVA */}
+                      {(isTarjeta || (isTransf && pm.account) || ((isEfectivo || isCtaCte) && pm.withIva)) && (
                         <div style={{ marginBottom: 8 }}>
                           <div style={{ fontSize: 11, color: pm.invoiceType ? T.gray : T.orange, fontWeight: 700, marginBottom: 5, display: "flex", alignItems: "center", gap: 5 }}>
                             {!pm.invoiceType && <span style={{ color: T.orange }}>⚠</span>}
@@ -7483,8 +7485,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             setCobroValidError(`En ${pm.method}${nro}: seleccioná CON IVA o SIN IVA.`);
                             return false;
                           }
-                          // Con IVA → tipo de factura SIEMPRE obligatorio (A/B si tiene CUIT, B si no)
-                          if (pm.withIva && !pm.invoiceType) {
+                          // Tarjeta → siempre requiere FC
+                          if (pm.method === "Tarjeta" && !pm.invoiceType) {
+                            const opts = hasCuitVal ? "A, B o C" : "B o C";
+                            setCobroValidError(`En Tarjeta${nro}: seleccioná el tipo de factura (${opts}).`);
+                            return false;
+                          }
+                          // Con IVA → tipo de factura obligatorio (Efectivo/CTA CTE)
+                          if (pm.method !== "Tarjeta" && pm.withIva && !pm.invoiceType) {
                             const opts = hasCuitVal ? "A o B" : "B";
                             setCobroValidError(`En ${pm.method}${nro} con IVA: seleccioná el tipo de factura (${opts}).`);
                             return false;
@@ -7717,7 +7725,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>💳 Pago</div>
                     {(o.payments||[]).map((pm, i) => {
                       const invLabel = pm.invoiceType === "T" ? "Comprobante" : pm.invoiceType ? `Factura ${pm.invoiceType}` : "";
-                      const ivaLabel = pm.withIva ? " · Con IVA" : "";
+                      const ivaLabel = pm.withIva === true ? " · Con IVA" : pm.withIva === false ? " · Sin IVA" : "";
                       return (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                           <span style={{ color: T.grayLight }}>
@@ -12855,7 +12863,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   const handleSave = () => {
     const updatedOrder = {
       ...order, chequeoData: data, status: "done",
-      works: [{ type: "Chequeo Vehicular", price: existingPrice, desc: `${bienCount}✅ ${regularCount}⚠️ ${cambiarCount}🔴` }],
+      works: [{ type: "Chequeo Vehicular", price: existingPrice, desc: "Chequeo" }],
     };
     setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
     setSaved(true);
