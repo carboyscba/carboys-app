@@ -2251,11 +2251,15 @@ const NewOrderScreen = (props) => {
                       if (o.works.some(w => w.type === "Tren Delantero" || w.type === "Tren Trasero" || w.type === "Pastillas de Freno")) fojas.push({ icon: "⚙️", label: "Informe de Intervención", key: "intervention" });
                       if (o.works.some(w => (w.type === "Baterías" || w.type === "Baterias"))) fojas.push({ icon: "🔋", label: "Foja de Batería", key: "battery" });
                       if (o.works.some(w => w.type === "Escape")) fojas.push({ icon: "💨", label: "Foja de Escape", key: "escape" });
-                      if (!fojas.length) return null;
+                      const hasChequeo = o.isChequeo && o.chequeoData;
+                      const hasFc = !!o.factura;
+                      const hasTicket = !!o.ticket;
+                      if (!fojas.length && !hasChequeo && !hasFc && !hasTicket) return null;
                       return (
                         <div style={{ ...card, padding: 20, marginBottom: 14 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 14 }}>📑 Fojas</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 14 }}>📑 Documentos</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {/* Fojas de servicio */}
                             {fojas.map(f => (
                               <div key={f.key} style={{ display: "flex", gap: 10 }}>
                                 <button onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("fojaClient", { ...o, _fojaType: f.key }); }}
@@ -2268,6 +2272,31 @@ const NewOrderScreen = (props) => {
                                 }} style={{ ...btnPrimary(T.green), padding: "14px 16px", fontSize: 18 }}>📱</button>
                               </div>
                             ))}
+                            {/* Foja de Chequeo */}
+                            {hasChequeo && (
+                              <div style={{ display: "flex", gap: 10 }}>
+                                <button onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("fojaChequeo", o); }}
+                                  style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 22 }}>🩺</span> Foja de Chequeo
+                                </button>
+                                <button onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("fojaChequeo", { ...o, _autoSendWA: true }); }}
+                                  style={{ ...btnPrimary(T.green), padding: "14px 16px", fontSize: 18 }}>📱</button>
+                              </div>
+                            )}
+                            {/* Factura */}
+                            {hasFc && (
+                              <button onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("vehicleDetail", o); }}
+                                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.green}60`, width: "100%", fontSize: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                                <span style={{ fontSize: 18 }}>📄</span> Factura {o.factura.tipo} — #{o.factura.numero}
+                              </button>
+                            )}
+                            {/* Comprobante */}
+                            {hasTicket && (
+                              <button onClick={() => { setHistoryOrderDetail(null); setHistoryVehicle(null); onNavigate("vehicleDetail", o); }}
+                                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.orange}60`, width: "100%", fontSize: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                                <span style={{ fontSize: 18 }}>🧾</span> Comprobante
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
