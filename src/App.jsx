@@ -4812,6 +4812,8 @@ const VehicleDetailScreen = (props) => {
   const [cancelStep, setCancelStep] = useState(1);
   const [showEditOrder, setShowEditOrder] = useState(false);
   const [showCobrarPopup, setShowCobrarPopup] = useState(false);
+  const [showAnularCobro, setShowAnularCobro] = useState(false);
+  const [anularMotivo, setAnularMotivo] = useState("");
   const [editClient, setEditClient] = useState(null);
   const [editWorks, setEditWorks] = useState([]);
   const [editPayments, setEditPayments] = useState([]);
@@ -5171,6 +5173,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
           ...(order.fromBudgetId && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
           ...(getPerm(user, "cancelar") && !order.cobrado && ["pending","working","inspection","inspection_done","done","budget_sent","budget_approved","budget_closed"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
+          ...(user.role === "dueño" && order.cobrado ? [{ icon: "⏪", label: "Anular Cobro", show: true, color: "#B71C1C", action: () => { setAnularMotivo(""); setShowAnularCobro(true); }, bg: "rgba(183,28,28,.06)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
             style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: a.bg || T.bg2, transition: "all .15s" }}
@@ -5671,6 +5674,61 @@ const VehicleDetailScreen = (props) => {
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowCobrarPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cerrar</button>
               <button onClick={() => { setShowCobrarPopup(false); onNavigate("admin", { initialTab: "cobros", initialOrder: order }); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13 }}>🧾 Ir a Cobros</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── POPUP ANULAR COBRO (solo dueño) ── */}
+      {showAnularCobro && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }} onClick={() => setShowAnularCobro(false)}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "92%", border: `2px solid #B71C1C` }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 48, textAlign: "center", marginBottom: 10 }}>⏪</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", color: "#B71C1C", marginBottom: 6 }}>Anular Cobro</div>
+            <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 16, lineHeight: 1.5 }}>
+              Se revertirá el cobro completo de esta orden.<br/>
+              Los pagos, factura y comprobante serán eliminados.<br/>
+              <strong style={{ color: T.red }}>La nota de crédito en ARCA debe hacerse manualmente.</strong>
+            </div>
+            <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg3 }}>
+              <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>Orden: <strong>{order.id}</strong> · {fmtD(order.domain)}</div>
+              <div style={{ fontSize: 11, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt((order.works||[]).reduce((s,w) => s + (parseFloat(w.price)||0), 0))}</strong></div>
+              {order.factura && <div style={{ fontSize: 11, color: T.green }}>📄 FC {order.factura.tipo} — #{order.factura.numero}</div>}
+              {order.ticket && <div style={{ fontSize: 11, color: T.orange }}>🧾 Comprobante</div>}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 4, display: "block" }}>Motivo de anulación *</label>
+              <textarea value={anularMotivo} onChange={e => setAnularMotivo(e.target.value)}
+                placeholder="Ej: Cobro realizado en vehículo equivocado" rows={2}
+                style={{ ...inputStyle, resize: "vertical", fontFamily: font, fontSize: 13 }} />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowAnularCobro(false)}
+                style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
+              <button disabled={!anularMotivo.trim()} onClick={() => {
+                const now = new Date().toISOString();
+                setOrders(prev => prev.map(o => o.id === order.id ? {
+                  ...o,
+                  cobrado: false,
+                  payments: [],
+                  factura: null,
+                  ticket: null,
+                  cajaDate: null,
+                  status: o.status === "delivered" ? "done" : o.status,
+                  anulacionCobro: {
+                    fecha: now,
+                    motivo: anularMotivo.trim(),
+                    usuario: user.name,
+                    facturaPrev: o.factura || null,
+                    ticketPrev: o.ticket || null,
+                    paymentsPrev: o.payments || [],
+                  },
+                } : o));
+                setShowAnularCobro(false);
+                setAnularMotivo("");
+              }} style={{ ...btnPrimary("#B71C1C"), flex: 1, fontSize: 13, opacity: anularMotivo.trim() ? 1 : 0.4 }}>
+                ⏪ Confirmar Anulación
+              </button>
             </div>
           </div>
         </div>
