@@ -12704,7 +12704,9 @@ const CHEQUEO_TEMPLATE = [
   { section: "DIAGNÓSTICO", icon: "💻", items: [
     { id: "ch_dtc", label: "Códigos de falla (DTC)" },
   ]},
-]; = ({ tires, onChange }) => {
+]; 
+
+const CarTiresDiagram = ({ tires, onChange }) => {
   const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
   const [active, setActive] = React.useState(null);
 
