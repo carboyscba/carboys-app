@@ -15765,50 +15765,22 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
   const cd = order.chequeoData || {};
-  const CH = "#FF4081";
-  const bienCount = Object.entries(cd).filter(([k, v]) => v === "bien" && !k.includes("_")).length;
-  const regularCount = Object.entries(cd).filter(([k, v]) => v === "regular" && !k.includes("_")).length;
-  const cambiarCount = Object.entries(cd).filter(([k, v]) => v === "cambiar" && !k.includes("_")).length;
-  const totalChecked = bienCount + regularCount + cambiarCount;
   const price = (order.works || [])[0]?.price || 0;
   const autoSendWA = order._autoSendWA || false;
-
-  React.useEffect(() => {
-    if (autoSendWA) {
-      var attempts = 0;
-      var poll = setInterval(() => {
-        attempts++;
-        var el = document.getElementById("foja-chequeo-print");
-        if (el && el.offsetHeight > 100) {
-          clearInterval(poll);
-          setTimeout(() => sendWA(), 500);
-        }
-        if (attempts > 20) { clearInterval(poll); showWAToast("❌ No se pudo cargar la foja para enviar", false); }
-      }, 300);
-      return () => clearInterval(poll);
-    }
-  }, []);
+  const DARK = "#0d1526";
 
   const sendWA = async () => {
     const phone = client?.phone;
     if (!phone) { showWAToast("❌ El cliente no tiene teléfono", false); return; }
     try {
-      if (!window.html2canvas) {
-        await new Promise((resolve, reject) => {
-          var s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-          s.onload = resolve; s.onerror = reject;
-          document.head.appendChild(s);
-        });
-      }
+      if (!window.html2canvas) { await new Promise((res, rej) => { var s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
       var el = document.getElementById("foja-chequeo-print");
       if (!el) throw new Error("No foja element");
       var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
       var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
       var caption = `Foja de Chequeo — ${order.domain || ""} — ${client?.name || ""} ${client?.lastName || ""}\nCarBoys — Servicio Integral del Automotor`;
       var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
-      if (sent) showWAToast("✅ Foja de Chequeo enviada por WhatsApp");
-      else showWAToast("❌ No se pudo enviar", false);
+      if (sent) showWAToast("✅ Foja de Chequeo enviada"); else showWAToast("❌ No se pudo enviar", false);
     } catch(e) { showWAToast("❌ Error al enviar foja", false); }
   };
 
@@ -15817,335 +15789,309 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
     if (!el) return;
     const pw = window.open("","_blank","width=800,height=1100");
     pw.document.write('<!DOCTYPE html><html><head><title>Foja de Chequeo</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Outfit,sans-serif;background:#fff}@page{size:A4;margin:0}#foja-chequeo-print{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important}</style></head><body>'+el.outerHTML+'</body></html>');
-    pw.document.close();
-    pw.onload = function(){ pw.focus(); pw.print(); pw.close(); };
-    setTimeout(() => { try { pw.focus(); pw.print(); } catch(e){} }, 800);
+    pw.document.close(); pw.onload = function(){ pw.focus(); pw.print(); pw.close(); }; setTimeout(() => { try { pw.focus(); pw.print(); } catch(e){} }, 800);
   };
 
-  // Status badge
-  const Badge = ({ val, small }) => {
-    if (!val) return <span style={{ fontSize: small ? 7 : 9, color: "#A0AEC0" }}>—</span>;
-    const cfg = { bien: { bg: "#C6F6D5", color: "#276749", label: "BIEN", icon: "✅" }, regular: { bg: "#FEFCBF", color: "#975A16", label: "REGULAR", icon: "⚠️" }, cambiar: { bg: "#FED7D7", color: "#9B2C2C", label: "CAMBIAR", icon: "🔴" } };
-    const c = cfg[val] || cfg.bien;
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: small ? "1px 5px" : "2px 8px", borderRadius: 4, fontSize: small ? 6 : 8, fontWeight: 700, background: c.bg, color: c.color }}>
-        {c.icon} {c.label}
-      </span>
-    );
+  React.useEffect(() => {
+    if (autoSendWA) {
+      var attempts = 0;
+      var poll = setInterval(() => { attempts++; var el = document.getElementById("foja-chequeo-print"); if (el && el.offsetHeight > 100) { clearInterval(poll); setTimeout(() => sendWA(), 500); } if (attempts > 20) { clearInterval(poll); showWAToast("❌ No se pudo cargar la foja", false); } }, 300);
+      return () => clearInterval(poll);
+    }
+  }, []);
+
+  // Badge
+  const B = (val) => {
+    if (!val || val === "no_presente") return null;
+    const c = { bien: { bg: "#C6F6D5", color: "#276749", l: "BIEN" }, regular: { bg: "#FEFCBF", color: "#975A16", l: "REGULAR" }, cambiar: { bg: "#FED7D7", color: "#9B2C2C", l: "CAMBIAR" } }[val];
+    if (!c) return null;
+    return <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 6, fontWeight: 700, background: c.bg, color: c.color, whiteSpace: "nowrap" }}>{c.l}</span>;
   };
 
-  // Section row
-  const Row = ({ label, id, indent }) => {
-    const val = cd[id];
+  // Observation text — RED and striking
+  const Obs = ({ id }) => {
     const note = cd[id + "_note"];
-    if (!val && !note) return null;
+    const descs = (cd[id + "_descs"] || []).filter(Boolean);
+    if (!note && descs.length === 0) return null;
     return (
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", paddingLeft: indent ? 10 : 0, borderBottom: "0.5px solid #EDF2F7" }}>
-        <span style={{ fontSize: 8, color: "#4A5568" }}>{label}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {note && <span style={{ fontSize: 6.5, color: "#718096", fontStyle: "italic", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {note}</span>}
-          <Badge val={val} />
-        </div>
+      <div style={{ paddingLeft: 6, paddingTop: 1, paddingBottom: 1 }}>
+        {note && <div style={{ fontSize: 6, fontWeight: 700, color: "#C62828", background: "#FFEBEE", padding: "1px 4px", borderRadius: 2, borderLeft: "2px solid #C62828", marginBottom: 1 }}>⚠ {note}</div>}
+        {descs.map((d, i) => <div key={i} style={{ fontSize: 6, fontWeight: 700, color: "#C62828", background: "#FFEBEE", padding: "1px 4px", borderRadius: 2, borderLeft: "2px solid #C62828", marginBottom: 1 }}>⚠ {d}</div>)}
       </div>
     );
   };
 
-  // Extra descriptions
-  const Descs = ({ id }) => {
-    const descs = cd[id + "_descs"] || [];
-    const mainNote = cd[id + "_note"];
-    if (!mainNote && descs.length === 0) return null;
-    return (
-      <div style={{ paddingLeft: 10, paddingBottom: 2 }}>
-        {mainNote && <div style={{ fontSize: 7, color: "#718096", fontStyle: "italic" }}>→ {mainNote}</div>}
-        {descs.filter(Boolean).map((d, i) => <div key={i} style={{ fontSize: 7, color: "#718096", fontStyle: "italic" }}>→ {d}</div>)}
-      </div>
-    );
+  // Item row
+  const R = (label, id) => {
+    const v = cd[id];
+    if (!v && !cd[id + "_note"]) return null;
+    return <div key={id}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.5px 0", borderBottom: "0.5px solid #F0F4F8" }}><span style={{ fontSize: 7, color: "#4A5568" }}>{label}</span>{B(v)}</div><Obs id={id} /></div>;
   };
+
+  // Module box
+  const Mod = ({ title, icon, children, span2 }) => (
+    <div style={{ border: "1.5px solid #E2E8F0", borderRadius: 5, overflow: "hidden", gridColumn: span2 ? "1 / -1" : undefined }}>
+      <div style={{ background: "#EDF2F7", padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 8 }}>{icon}</span>
+        <span style={{ fontSize: 7, fontWeight: 800, color: "#2D3748", letterSpacing: 0.8 }}>{title}</span>
+      </div>
+      <div style={{ padding: "3px 8px 5px" }}>{children}</div>
+    </div>
+  );
+
+  const t = cd.ch_tires || {};
+  const tCol = (v) => (v||100) > 60 ? "#276749" : (v||100) > 30 ? "#975A16" : "#9B2C2C";
+  const tBg = (v) => (v||100) > 60 ? "#C6F6D5" : (v||100) > 30 ? "#FEFCBF" : "#FED7D7";
 
   return (
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
-      {/* Toolbar */}
       <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
         <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
         <button onClick={printFoja} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
         <button onClick={sendWA} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
       </div>
 
-      {/* A4 Foja */}
       <div id="foja-chequeo-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
-
         {/* Header */}
-        <div style={{ background: "#0d1526", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: DARK, padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 32, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
-            <div style={{ fontSize: 9, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 1 }}>Servicio Integral del Automotor</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 26, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+            <div style={{ fontSize: 7, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase" }}>Servicio Integral del Automotor</div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 8, color: "#7b8fad", lineHeight: 1.6 }}>
+          <div style={{ textAlign: "right", fontSize: 7, color: "#7b8fad", lineHeight: 1.5 }}>
             <div>{config.tallerDir || ""}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
-            <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
+            <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}</div>
           </div>
         </div>
 
-        {/* Title bar */}
-        <div style={{ padding: "8px 24px", background: CH, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 14, fontWeight: 800, color: "#FFF", letterSpacing: 2 }}>🩺 FOJA DE CHEQUEO</div>
-          <div style={{ fontSize: 8, color: "#FFFFFFcc" }}>Fecha: {fmtDate(order.date)}</div>
+        {/* Title — same dark blue */}
+        <div style={{ padding: "4px 20px", background: "#1a2744", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 11, fontWeight: 800, color: "#FFF", letterSpacing: 2 }}>🩺 FOJA DE CHEQUEO</div>
+          <div style={{ fontSize: 7, color: "#7b8fad" }}>Fecha: {fmtDate(order.date)}</div>
         </div>
 
-        {/* KM grande */}
+        {/* KM — GREEN */}
         {(order.km || vehicle?.km) && (
-          <div style={{ padding: "10px 24px", background: "#F8F9FA", borderBottom: "1.5px solid #E2E8F0", textAlign: "center" }}>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#A0AEC0", letterSpacing: 2 }}>KILÓMETROS</div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 28, fontWeight: 900, color: "#0D1B2A", letterSpacing: 1 }}>
-              {Number(order.km || vehicle?.km || 0).toLocaleString("es-AR")} km
-            </div>
+          <div style={{ padding: "6px 20px", background: "#2E7D32", textAlign: "center" }}>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 24, fontWeight: 900, color: "#FFF", letterSpacing: 1 }}>{Number(order.km || vehicle?.km || 0).toLocaleString("es-AR")} km</div>
           </div>
         )}
 
-        {/* Vehicle + Client */}
-        <div style={{ display: "flex", padding: "12px 24px", gap: 12 }}>
-          <div style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-            <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 3 }}>VEHÍCULO</div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
-            <div style={{ fontSize: 8, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+        {/* Vehicle + Solicitante */}
+        <div style={{ display: "flex", padding: "8px 20px", gap: 8 }}>
+          <div style={{ flex: 1, padding: "6px 10px", border: "1.5px solid #E2E8F0", borderRadius: 5 }}>
+            <div style={{ fontSize: 5, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 2 }}>VEHÍCULO</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
+            <div style={{ fontSize: 7, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
           </div>
-          <div style={{ flex: 1.2, padding: "10px 12px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-            <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 3 }}>SOLICITANTE</div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : "—"}</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Tel: {client?.phone || "—"}{client?.dni ? ` · DNI: ${client.dni}` : ""}</div>
-          </div>
-        </div>
-
-        {/* Summary bar */}
-        <div style={{ margin: "0 24px 10px", padding: "8px 14px", borderRadius: 6, background: "#F7FAFC", border: "1.5px solid #E2E8F0", display: "flex", justifyContent: "space-around", alignItems: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 900, color: "#276749" }}>{bienCount}</div>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#276749" }}>✅ BIEN</div>
-          </div>
-          <div style={{ width: 1, height: 24, background: "#E2E8F0" }} />
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 900, color: "#975A16" }}>{regularCount}</div>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#975A16" }}>⚠️ REGULAR</div>
-          </div>
-          <div style={{ width: 1, height: 24, background: "#E2E8F0" }} />
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 900, color: "#9B2C2C" }}>{cambiarCount}</div>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#9B2C2C" }}>🔴 CAMBIAR</div>
-          </div>
-          <div style={{ width: 1, height: 24, background: "#E2E8F0" }} />
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 900, color: "#4A5568" }}>{totalChecked}</div>
-            <div style={{ fontSize: 7, fontWeight: 700, color: "#4A5568" }}>TOTAL</div>
+          <div style={{ flex: 1.2, padding: "6px 10px", border: "1.5px solid #E2E8F0", borderRadius: 5 }}>
+            <div style={{ fontSize: 5, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 2 }}>SOLICITANTE</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : "—"}</div>
+            <div style={{ fontSize: 7, color: "#718096" }}>Tel: {client?.phone || "—"}{client?.dni ? ` · DNI: ${client.dni}` : ""}</div>
           </div>
         </div>
 
-        {/* Sections */}
-        <div style={{ padding: "0 24px 16px" }}>
-          {CHEQUEO_TEMPLATE.map(sec => {
-            // Skip sections with no data
-            const hasData = sec.items.some(it => {
-              if (it.type === "tires") return !!cd.ch_tires;
-              if (it.type === "battery") return cd.ch_bat_pct !== undefined || !!cd.ch_bat_volt;
-              if (it.type === "dtc") return cd[it.id] !== undefined;
-              if (it.type === "opt" || it.type === "opt_desc" || it.type === "opt_input") return !!cd[it.id + "_on"];
-              if (it.type === "opt_group") return !!cd[it.id + "_on"];
-              return !!cd[it.id] || !!cd[it.id + "_note"];
-            });
-            if (!hasData) return null;
+        {/* ══ GRID DE MÓDULOS ══ */}
+        <div style={{ padding: "4px 20px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
 
-            return (
-              <div key={sec.section} style={{ marginBottom: 8 }}>
-                <div style={{ background: "#EDF2F7", padding: "4px 10px", borderRadius: 4, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 10 }}>{sec.icon}</span>
-                  <span style={{ fontSize: 8.5, fontWeight: 800, color: "#2D3748", letterSpacing: 1 }}>{sec.section}</span>
-                </div>
+          {/* MOTOR */}
+          <Mod title="MOTOR" icon="🛢️">
+            {R("Aceite motor", "ch_aceite")}
+            {R("Filtro aceite", "ch_filtro_aceite")}
+            {R("Filtro aire", "ch_filtro_aire")}
+            {R("Filtro habitáculo", "ch_filtro_habitaculo")}
+            {R("Filtro combustible", "ch_filtro_combustible")}
+            {R("Bujías", "ch_bujias")}
+            {cd.ch_correa_distribucion_on && R("Correa distrib.", "ch_correa_distribucion")}
+            {R("Correa poly-v", "ch_correa_polyv")}
+            {R("Tensores poly-v", "ch_tensores")}
+            {cd.ch_bomba_agua_on && R("Bomba de agua", "ch_bomba_agua")}
+            {R("Mangueras refrig.", "ch_mangueras")}
+            {R("Pérdidas aceite", "ch_perdidas_aceite")}
+            {cd.ch_motor_general_on && R("General", "ch_motor_general")}
+          </Mod>
 
-                {sec.items.map(item => {
-                  // Standard BRC items
-                  if (item.type === "brc" || item.type === "desc") {
-                    return (
-                      <React.Fragment key={item.id}>
-                        <Row label={item.label} id={item.id} />
-                        {item.type === "desc" && <Descs id={item.id} />}
-                      </React.Fragment>
-                    );
-                  }
+          {/* TREN DELANTERO */}
+          <Mod title="TREN DELANTERO" icon="⚙️">
+            {R("Amortiguadores", "ch_td_amortiguadores")}
+            {R("Extremos dirección", "ch_td_extremos")}
+            {R("Axiales", "ch_td_axiales")}
+            {R("Bieletas", "ch_td_bieletas")}
+            {R("Parrilla", "ch_td_parrilla")}
+            {R("Rótulas", "ch_td_rotulas")}
+            {R("Bujes", "ch_td_bujes")}
+            {R("Rulemanes", "ch_td_rulemanes")}
+            {R("Discos freno", "ch_td_discos")}
+            {R("Pastillas freno", "ch_td_pastillas")}
+            {R("Otros", "ch_td_otros")}
+          </Mod>
 
-                  // Optional items
-                  if (item.type === "opt" || item.type === "opt_desc") {
-                    if (!cd[item.id + "_on"]) return null;
-                    return (
-                      <React.Fragment key={item.id}>
-                        <Row label={item.label} id={item.id} />
-                        {item.type === "opt_desc" && <Descs id={item.id} />}
-                      </React.Fragment>
-                    );
-                  }
+          {/* TREN TRASERO */}
+          <Mod title="TREN TRASERO" icon="⚙️">
+            {R("Amortiguadores", "ch_tt_amortiguadores")}
+            {R("Freno trasero", "ch_tt_freno")}
+            {R("Bujes traseros", "ch_tt_bujes")}
+            {R("Rulemanes", "ch_tt_rulemanes")}
+            {R("Otros", "ch_tt_otros")}
+          </Mod>
 
-                  // Brake fluid check
-                  if (item.type === "brakeFluidCheck") {
-                    const pct = cd[item.id];
-                    if (pct === undefined || pct < 0) return null;
-                    const isOk = pct <= 2;
-                    return (
-                      <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", borderBottom: "0.5px solid #EDF2F7" }}>
-                        <span style={{ fontSize: 8, color: "#4A5568" }}>{item.label}</span>
-                        <span style={{ fontSize: 8, fontWeight: 800, padding: "2px 8px", borderRadius: 4, background: isOk ? "#C6F6D5" : "#FED7D7", color: isOk ? "#276749" : "#9B2C2C" }}>
-                          {pct}% agua — {isOk ? "✅ OK" : "🔴 CRÍTICO"}
-                        </span>
-                      </div>
-                    );
-                  }
+          {/* FLUIDOS */}
+          <Mod title="FLUIDOS" icon="💧">
+            {/* Brake fluid */}
+            {cd.ch_liq_frenos !== undefined && cd.ch_liq_frenos >= 0 && (() => {
+              const p = cd.ch_liq_frenos;
+              const ok = p <= 2;
+              return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.5px 0", borderBottom: "0.5px solid #F0F4F8" }}>
+                <span style={{ fontSize: 7, color: "#4A5568" }}>Líq. frenos</span>
+                <span style={{ fontSize: 6, fontWeight: 800, padding: "1px 5px", borderRadius: 3, background: ok ? "#C6F6D5" : "#FED7D7", color: ok ? "#276749" : "#9B2C2C" }}>{p}% agua — {ok ? "OK" : "CRÍTICO"}</span>
+              </div>;
+            })()}
+            {R("Líq. dirección", "ch_liq_direccion")}
+            {R("Líq. refrigerante", "ch_liq_refrigerante")}
+            {R("Aceite caja", "ch_aceite_caja")}
+            {R("Lavaparabrisas", "ch_lavaparabrisas")}
+            {cd.ch_4x4_on && <>
+              <div style={{ fontSize: 6.5, fontWeight: 700, color: "#4A5568", padding: "2px 0" }}>4x4:</div>
+              {R("Caja transfer", "ch_4x4_transfer")}
+              {R("Dif. delantero", "ch_4x4_dif_del")}
+              {R("Dif. trasero", "ch_4x4_dif_tra")}
+            </>}
+          </Mod>
 
-                  // Percentage
-                  if (item.type === "pct") {
-                    const val = cd[item.id];
-                    if (val === undefined) return null;
-                    const col = val > 60 ? "#276749" : val > 30 ? "#975A16" : "#9B2C2C";
-                    const bg = val > 60 ? "#C6F6D5" : val > 30 ? "#FEFCBF" : "#FED7D7";
-                    return (
-                      <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", borderBottom: "0.5px solid #EDF2F7" }}>
-                        <span style={{ fontSize: 8, color: "#4A5568" }}>{item.label}</span>
-                        <span style={{ fontSize: 8, fontWeight: 800, padding: "2px 8px", borderRadius: 4, background: bg, color: col }}>{val}%</span>
-                      </div>
-                    );
-                  }
+          {/* LUCES */}
+          <Mod title="LUCES" icon="💡">
+            {R("Baja", "ch_luz_baja")}
+            {R("Alta", "ch_luz_alta")}
+            {R("Posición del.", "ch_luz_pos_del")}
+            {R("Posición tra.", "ch_luz_pos_tra")}
+            {R("Stop", "ch_luz_stop")}
+            {R("Guiños", "ch_guinos")}
+            {R("Patente", "ch_luz_patente")}
+          </Mod>
 
-                  // 4x4 group
-                  if (item.type === "opt_group") {
-                    if (!cd[item.id + "_on"]) return null;
-                    return (
-                      <div key={item.id}>
-                        <div style={{ fontSize: 8, fontWeight: 700, color: "#4A5568", padding: "3px 0" }}>{item.label}</div>
-                        {(item.subItems || []).map(sub => <Row key={sub.id} label={sub.label} id={sub.id} indent />)}
-                      </div>
-                    );
-                  }
+          {/* ESCAPE */}
+          <Mod title="ESCAPE" icon="💨">
+            {R("Sil. trasero", "ch_esc_sil_tra")}
+            {R("Sil. intermedio", "ch_esc_sil_int")}
+            {R("Múltiple", "ch_esc_multiple")}
+            {R("Caño", "ch_esc_cano")}
+            {R("Soporte", "ch_esc_soporte")}
+            {R("Catalizador", "ch_esc_catalizador")}
+          </Mod>
 
-                  // Tires
-                  if (item.type === "tires") {
-                    const t = cd.ch_tires;
-                    if (!t) return null;
-                    const col = (v) => v > 60 ? "#276749" : v > 30 ? "#975A16" : "#9B2C2C";
-                    const bg = (v) => v > 60 ? "#C6F6D5" : v > 30 ? "#FEFCBF" : "#FED7D7";
-                    return (
-                      <div key="tires" style={{ padding: "6px 0" }}>
-                        <div style={{ display: "flex", justifyContent: "center", gap: 30, marginBottom: 6 }}>
-                          {/* Front */}
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: 6, color: "#A0AEC0", fontWeight: 700, marginBottom: 2 }}>DELANTERO</div>
-                            <div style={{ display: "flex", gap: 14 }}>
-                              {["del_izq", "del_der"].map(k => (
-                                <div key={k} style={{ textAlign: "center" }}>
-                                  <div style={{ width: 22, height: 42, borderRadius: 4, border: `2px solid ${col(t[k])}`, background: bg(t[k]), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, fontFamily: "Rajdhani, sans-serif", color: col(t[k]) }}>
-                                    {t[k]}
-                                  </div>
-                                  <div style={{ fontSize: 5.5, color: "#A0AEC0", marginTop: 1 }}>{k.includes("izq") ? "IZQ" : "DER"}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          {/* Rear */}
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: 6, color: "#A0AEC0", fontWeight: 700, marginBottom: 2 }}>TRASERO</div>
-                            <div style={{ display: "flex", gap: 14 }}>
-                              {["tra_izq", "tra_der"].map(k => (
-                                <div key={k} style={{ textAlign: "center" }}>
-                                  <div style={{ width: 22, height: 42, borderRadius: 4, border: `2px solid ${col(t[k])}`, background: bg(t[k]), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, fontFamily: "Rajdhani, sans-serif", color: col(t[k]) }}>
-                                    {t[k]}
-                                  </div>
-                                  <div style={{ fontSize: 5.5, color: "#A0AEC0", marginTop: 1 }}>{k.includes("izq") ? "IZQ" : "DER"}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          {/* Spare */}
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: 6, color: "#A0AEC0", fontWeight: 700, marginBottom: 2 }}>AUXILIO</div>
-                            <div style={{ width: 22, height: 42, borderRadius: 4, border: `2px solid ${col(t.auxilio || 100)}`, background: bg(t.auxilio || 100), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, fontFamily: "Rajdhani, sans-serif", color: col(t.auxilio || 100) }}>
-                              {t.auxilio || 100}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
+          {/* ESCOBILLAS */}
+          <Mod title="ESCOBILLAS" icon="🧹">
+            {R("Escobillas", "ch_escobillas")}
+          </Mod>
 
-                  // Battery
-                  if (item.type === "battery") {
-                    const pct = cd.ch_bat_pct;
-                    const volt = cd.ch_bat_volt;
-                    if (pct === undefined && !volt) return null;
-                    const col = (pct || 100) > 60 ? "#276749" : (pct || 100) > 30 ? "#975A16" : "#9B2C2C";
-                    const bg = (pct || 100) > 60 ? "#C6F6D5" : (pct || 100) > 30 ? "#FEFCBF" : "#FED7D7";
-                    const v = parseFloat(volt) || 0;
-                    const vOk = v >= 13.5 && v <= 14.8;
-                    return (
-                      <div key="battery" style={{ padding: "4px 0" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          {/* Mini gauge */}
-                          <div style={{ width: 50, height: 28, borderRadius: 4, border: `2px solid ${col}`, position: "relative", overflow: "hidden" }}>
-                            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct || 100}%`, background: bg }} />
-                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Rajdhani, sans-serif", fontSize: 12, fontWeight: 900, color: col }}>
-                              {pct ?? 100}%
-                            </div>
-                            <div style={{ position: "absolute", top: -3, right: 6, width: 8, height: 3, borderRadius: "2px 2px 0 0", background: col }} />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 8, color: "#4A5568" }}>🔋 Vida útil: <strong style={{ color: col }}>{pct ?? 100}%</strong></div>
-                            {volt && <div style={{ fontSize: 8, color: "#4A5568" }}>⚡ Alternador: <strong style={{ color: vOk ? "#276749" : "#9B2C2C" }}>{volt}V {vOk ? "✅ Normal" : "🔴"}</strong></div>}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
+          {/* CUBIERTAS — car top view diagram */}
+          <Mod title="CUBIERTAS" icon="🛞">
+            {cd.ch_tires ? (
+              <div style={{ padding: "4px 0" }}>
+                <svg viewBox="0 0 200 130" style={{ width: "100%", height: "auto" }}>
+                  {/* Car body outline — top view */}
+                  <rect x="60" y="10" width="80" height="110" rx="20" fill="#F7FAFC" stroke="#CBD5E0" strokeWidth="1.5"/>
+                  {/* Windshield */}
+                  <path d="M 75,30 Q 100,22 125,30" fill="none" stroke="#CBD5E0" strokeWidth="1"/>
+                  {/* Rear window */}
+                  <path d="M 78,95 Q 100,102 122,95" fill="none" stroke="#CBD5E0" strokeWidth="1"/>
+                  {/* Center line */}
+                  <line x1="100" y1="35" x2="100" y2="90" stroke="#E2E8F0" strokeWidth="0.5" strokeDasharray="3,2"/>
 
-                  // DTC
-                  if (item.type === "dtc") {
-                    const val = cd[item.id];
-                    if (val === undefined) return null;
-                    const codes = cd[item.id + "_note"];
-                    const extraCodes = (cd[item.id + "_descs"] || []).filter(Boolean);
-                    return (
-                      <div key={item.id} style={{ padding: "3px 0", borderBottom: "0.5px solid #EDF2F7" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: 8, color: "#4A5568" }}>{item.label}</span>
-                          <span style={{ fontSize: 8, fontWeight: 800, padding: "2px 8px", borderRadius: 4, background: val === "presente" ? "#FED7D7" : "#C6F6D5", color: val === "presente" ? "#9B2C2C" : "#276749" }}>
-                            {val === "presente" ? "🔴 PRESENTE" : "✅ NO PRESENTE"}
-                          </span>
-                        </div>
-                        {val === "presente" && (codes || extraCodes.length > 0) && (
-                          <div style={{ paddingLeft: 10, paddingTop: 2 }}>
-                            {codes && <div style={{ fontSize: 7, color: "#9B2C2C", fontWeight: 600 }}>Códigos: {codes}</div>}
-                            {extraCodes.map((c, i) => <div key={i} style={{ fontSize: 7, color: "#9B2C2C" }}>{c}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
+                  {/* Front left tire */}
+                  <rect x="42" y="18" width="16" height="30" rx="4" fill={tBg(t.del_izq)} stroke={tCol(t.del_izq)} strokeWidth="1.5"/>
+                  <text x="50" y="37" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.del_izq)}>{t.del_izq || 100}</text>
 
-                  // KM reales / opt_input
-                  if (item.type === "opt_input") {
-                    if (!cd[item.id + "_on"]) return null;
-                    return (
-                      <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", borderBottom: "0.5px solid #EDF2F7" }}>
-                        <span style={{ fontSize: 8, color: "#4A5568" }}>{item.label}</span>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: "#2D3748", fontFamily: "Rajdhani, sans-serif" }}>{cd[item.id + "_val"] ? Number(cd[item.id + "_val"]).toLocaleString("es-AR") : "—"}</span>
-                      </div>
-                    );
-                  }
+                  {/* Front right tire */}
+                  <rect x="142" y="18" width="16" height="30" rx="4" fill={tBg(t.del_der)} stroke={tCol(t.del_der)} strokeWidth="1.5"/>
+                  <text x="150" y="37" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.del_der)}>{t.del_der || 100}</text>
 
-                  return null;
-                })}
+                  {/* Rear left tire */}
+                  <rect x="42" y="82" width="16" height="30" rx="4" fill={tBg(t.tra_izq)} stroke={tCol(t.tra_izq)} strokeWidth="1.5"/>
+                  <text x="50" y="101" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.tra_izq)}>{t.tra_izq || 100}</text>
+
+                  {/* Rear right tire */}
+                  <rect x="142" y="82" width="16" height="30" rx="4" fill={tBg(t.tra_der)} stroke={tCol(t.tra_der)} strokeWidth="1.5"/>
+                  <text x="150" y="101" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.tra_der)}>{t.tra_der || 100}</text>
+
+                  {/* Labels */}
+                  <text x="50" y="14" textAnchor="middle" fontSize="5" fill="#A0AEC0" fontWeight="700">DEL IZQ</text>
+                  <text x="150" y="14" textAnchor="middle" fontSize="5" fill="#A0AEC0" fontWeight="700">DEL DER</text>
+                  <text x="50" y="124" textAnchor="middle" fontSize="5" fill="#A0AEC0" fontWeight="700">TRA IZQ</text>
+                  <text x="150" y="124" textAnchor="middle" fontSize="5" fill="#A0AEC0" fontWeight="700">TRA DER</text>
+
+                  {/* Auxilio — small circle center */}
+                  <circle cx="100" cy="65" r="12" fill={tBg(t.auxilio)} stroke={tCol(t.auxilio)} strokeWidth="1"/>
+                  <text x="100" y="68" textAnchor="middle" fontSize="8" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.auxilio)}>{t.auxilio || 100}</text>
+                  <text x="100" y="55" textAnchor="middle" fontSize="4.5" fill="#A0AEC0" fontWeight="700">AUX</text>
+                </svg>
               </div>
-            );
-          })}
+            ) : <div style={{ fontSize: 7, color: "#A0AEC0", padding: "4px 0" }}>No evaluadas</div>}
+          </Mod>
+
+          {/* BATERÍA — mini gauge */}
+          <Mod title="BATERÍA" icon="🔋">
+            {(cd.ch_bat_pct !== undefined || cd.ch_bat_volt) ? (() => {
+              const pct = cd.ch_bat_pct ?? 100;
+              const volt = cd.ch_bat_volt || "";
+              const col = pct > 60 ? "#276749" : pct > 30 ? "#975A16" : "#9B2C2C";
+              const bg = pct > 60 ? "#C6F6D5" : pct > 30 ? "#FEFCBF" : "#FED7D7";
+              const v = parseFloat(volt) || 0;
+              const vOk = v >= 13.5 && v <= 14.8;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+                  {/* Mini battery gauge */}
+                  <div style={{ width: 36, height: 22, borderRadius: 3, border: `1.5px solid ${col}`, position: "relative", overflow: "hidden", flexShrink: 0 }}>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, background: bg }} />
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Rajdhani, sans-serif", fontSize: 10, fontWeight: 900, color: col }}>{pct}%</div>
+                    <div style={{ position: "absolute", top: -2, right: 5, width: 6, height: 2, borderRadius: "1px 1px 0 0", background: col }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 7, color: "#4A5568" }}>Vida útil: <strong style={{ color: col }}>{pct}%</strong></div>
+                    {volt && <div style={{ fontSize: 7, color: "#4A5568" }}>Alternador: <strong style={{ color: vOk ? "#276749" : "#9B2C2C" }}>{volt}V {vOk ? "OK" : "⚠"}</strong></div>}
+                  </div>
+                </div>
+              );
+            })() : <div style={{ fontSize: 7, color: "#A0AEC0", padding: "4px 0" }}>No evaluada</div>}
+          </Mod>
+
+          {/* DIAGNÓSTICO — full width */}
+          <Mod title="DIAGNÓSTICO" icon="💻" span2>
+            {/* DTC */}
+            {cd.ch_dtc !== undefined && (
+              <div style={{ padding: "2px 0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "0.5px solid #F0F4F8", padding: "1.5px 0" }}>
+                  <span style={{ fontSize: 7, color: "#4A5568" }}>Códigos de falla (DTC)</span>
+                  <span style={{ fontSize: 6, fontWeight: 800, padding: "1px 5px", borderRadius: 3, background: cd.ch_dtc === "presente" ? "#FED7D7" : "#C6F6D5", color: cd.ch_dtc === "presente" ? "#9B2C2C" : "#276749" }}>
+                    {cd.ch_dtc === "presente" ? "PRESENTE" : "NO PRESENTE"}
+                  </span>
+                </div>
+                {cd.ch_dtc === "presente" && (
+                  <div style={{ paddingLeft: 6, paddingTop: 2 }}>
+                    {cd.ch_dtc_note && <div style={{ fontSize: 6.5, fontWeight: 700, color: "#C62828", background: "#FFEBEE", padding: "1px 4px", borderRadius: 2, borderLeft: "2px solid #C62828", marginBottom: 1 }}>⚠ {cd.ch_dtc_note}</div>}
+                    {(cd.ch_dtc_descs || []).filter(Boolean).map((code, i) => (
+                      <div key={i} style={{ fontSize: 6.5, fontWeight: 700, color: "#C62828", background: "#FFEBEE", padding: "1px 4px", borderRadius: 2, borderLeft: "2px solid #C62828", marginBottom: 1 }}>⚠ {code}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* KM reales */}
+            {cd.ch_km_reales_on && cd.ch_km_reales_val && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.5px 0", borderBottom: "0.5px solid #F0F4F8" }}>
+                <span style={{ fontSize: 7, color: "#4A5568" }}>KM reales</span>
+                <span style={{ fontSize: 8, fontWeight: 800, color: "#0D1B2A", fontFamily: "Rajdhani, sans-serif" }}>{Number(cd.ch_km_reales_val).toLocaleString("es-AR")} km</span>
+              </div>
+            )}
+            {/* Otros */}
+            {cd.ch_diag_otros_on && <Obs id="ch_diag_otros" />}
+          </Mod>
+
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "10px 24px", background: "#F8F9FA", borderTop: "1.5px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 7, color: "#A0AEC0" }}>Generado por CarBoys · {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
+        <div style={{ padding: "6px 20px", background: "#F8F9FA", borderTop: "1.5px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 6.5, color: "#A0AEC0" }}>CarBoys · {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
           {price > 0 && <div style={{ fontSize: 9, fontWeight: 800, color: "#0D1B2A", fontFamily: "Rajdhani, sans-serif" }}>Total: ${Number(price).toLocaleString("es-AR")}</div>}
         </div>
       </div>
