@@ -4522,6 +4522,32 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                     </div>
                   );
                 })()}
+                {/* ── Documentos disponibles ── */}
+                {(histDetail.factura || histDetail.ticket || histDetail.serviceSheet || (isChequeo && histDetail.chequeoData)) && (
+                  <div style={{ marginTop: 16, padding: "12px 16px", background: T.bg3, borderRadius: 8, border: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8 }}>📋 Documentos</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {histDetail.factura && (
+                        <button onClick={() => onNavigate("vehicleDetail", histDetail)}
+                          style={{ ...btnPrimary(T.green), fontSize: 11, padding: "7px 12px" }}>📄 FC {histDetail.factura.tipo}</button>
+                      )}
+                      {histDetail.ticket && (
+                        <button onClick={() => onNavigate("vehicleDetail", histDetail)}
+                          style={{ ...btnPrimary(T.orange), fontSize: 11, padding: "7px 12px" }}>🧾 Comprobante</button>
+                      )}
+                      {histDetail.serviceSheet && (
+                        <button onClick={() => {
+                          const fojaType = (histDetail.works||[]).some(w => w.type === "Service Full" || w.type === "Service Base") ? "service" : (histDetail.works||[]).some(w => w.type === "Baterías" || w.type === "Baterias") ? "battery" : (histDetail.works||[]).some(w => w.type === "Escape") ? "escape" : "service";
+                          onNavigate("fojaClient", { ...histDetail, _fojaType: fojaType });
+                        }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "7px 12px" }}>📋 Foja Servicio</button>
+                      )}
+                      {isChequeo && histDetail.chequeoData && (
+                        <button onClick={() => onNavigate("fojaChequeo", histDetail)}
+                          style={{ ...btnPrimary("#FF4081"), fontSize: 11, padding: "7px 12px" }}>🩺 Foja Chequeo</button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -7703,21 +7729,41 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       );
                     })}
-                    {/* Botón Ver Factura / Comprobante */}
-                    {(o.factura || o.ticket) && (
-                      <button onClick={() => {
-                        if (o.factura) setFacturaModal({ order: o, payments: o.payments, client: clients.find(c => c.id === o.clientId), vehicle: clients.find(c => c.id === o.clientId)?.vehicles?.find(v => v.domain === o.domain) });
-                        else setTicketModal({ order: o, payments: o.payments, client: clients.find(c => c.id === o.clientId), vehicle: clients.find(c => c.id === o.clientId)?.vehicles?.find(v => v.domain === o.domain) });
-                      }} style={{ ...btnPrimary(T.accent), marginTop: 12, width: "100%", fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        🧾 Ver {o.factura ? "Factura" : "Comprobante"}
-                      </button>
-                    )}
+                    {/* Botones Ver Factura / Comprobante */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                      {o.factura && (
+                        <button onClick={() => { setFacturaModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true }); }}
+                          style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>📄 Ver FC {o.factura.tipo}</button>
+                      )}
+                      {o.ticket && (
+                        <button onClick={() => { setTicketModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true }); }}
+                          style={{ ...btnPrimary(T.orange), fontSize: 12, padding: "8px 14px", flex: 1 }}>🧾 Ver Comprobante</button>
+                      )}
+                    </div>
                   </div>
                 )}
                 {o.techNotes && o.techNotes.length > 0 && o.techNotes.some(n => n) && (
-                  <div style={{ ...card, padding: 20 }}>
+                  <div style={{ ...card, padding: 20, marginBottom: 16 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: T.orange, marginBottom: 10 }}>📝 Notas Técnicas</div>
                     {o.techNotes.filter(n => n).map((n, i) => <div key={i} style={{ fontSize: 13, color: T.grayLight, marginBottom: 4 }}>• {n}</div>)}
+                  </div>
+                )}
+                {/* ── Documentos / Fojas ── */}
+                {(o.serviceSheet || (o.isChequeo && o.chequeoData)) && (
+                  <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: `4px solid ${T.accent}` }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 8 }}>📋 Fojas</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {o.serviceSheet && (
+                        <button onClick={() => {
+                          const fojaType = (o.works||[]).some(w => w.type === "Service Full" || w.type === "Service Base") ? "service" : (o.works||[]).some(w => w.type === "Baterías" || w.type === "Baterias") ? "battery" : (o.works||[]).some(w => w.type === "Escape") ? "escape" : "service";
+                          onNavigate("fojaClient", { ...o, _fojaType: fojaType });
+                        }} style={{ ...btnPrimary(T.accent), fontSize: 12, padding: "8px 14px" }}>📋 Foja de Servicio</button>
+                      )}
+                      {o.isChequeo && o.chequeoData && (
+                        <button onClick={() => onNavigate("fojaChequeo", o)}
+                          style={{ ...btnPrimary("#FF4081"), fontSize: 12, padding: "8px 14px" }}>🩺 Foja de Chequeo</button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
