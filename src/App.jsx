@@ -1673,6 +1673,7 @@ const NewOrderScreen = (props) => {
   const { clients, setClients, orders, setOrders, config, vehicleDB, setVehicleDB, onNavigate } = props;
   const [step, setStep] = useState(1); // 1=domain, 2=client, 3=works, 4=payment, 5=confirm
   const [budgetMode, setBudgetMode] = useState(false);
+  const [chequeoMode, setChequeoMode] = useState(false);
   const [showAccessoryPopup, setShowAccessoryPopup] = useState(false);
   const [budgetCategories, setBudgetCategories] = useState([]);
   const [budgetNote, setBudgetNote] = useState("");
@@ -2612,10 +2613,20 @@ const NewOrderScreen = (props) => {
       {step === 3 && (
         <div style={{ animation: "fadeUp .3s ease" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700 }}>{budgetMode ? "🔍 Presupuesto" : "🔧 Agregar Trabajos"}</div>
-            <div onClick={() => { setBudgetMode(!budgetMode); if (!budgetMode) { setWorks([]); } else { setBudgetCategories([]); setBudgetNote(""); } }}
-              style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: budgetMode ? T.orange : "#9C27B0", borderColor: budgetMode ? T.orange : "#9C27B0", background: budgetMode ? "rgba(255,152,0,0.08)" : "rgba(156,39,176,0.08)" }}>
-              {budgetMode ? "🔧 Cambiar a Trabajo" : "🔍 Presupuesto"}
+            <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 700 }}>{budgetMode ? "🔍 Presupuesto" : chequeoMode ? "🩺 Chequeo" : "🔧 Agregar Trabajos"}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {!chequeoMode && (
+                <div onClick={() => { setBudgetMode(!budgetMode); setChequeoMode(false); if (!budgetMode) { setWorks([]); } else { setBudgetCategories([]); setBudgetNote(""); } }}
+                  style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: budgetMode ? T.orange : "#9C27B0", borderColor: budgetMode ? T.orange : "#9C27B0", background: budgetMode ? "rgba(255,152,0,0.08)" : "rgba(156,39,176,0.08)" }}>
+                  {budgetMode ? "🔧 Trabajo" : "🔍 Presupuesto"}
+                </div>
+              )}
+              {!budgetMode && (
+                <div onClick={() => { setChequeoMode(!chequeoMode); setBudgetMode(false); if (!chequeoMode) { setWorks([]); } }}
+                  style={{ ...card, padding: "8px 14px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: chequeoMode ? T.orange : "#00897B", borderColor: chequeoMode ? T.orange : "#00897B", background: chequeoMode ? "rgba(255,152,0,0.08)" : "rgba(0,137,123,0.08)" }}>
+                  {chequeoMode ? "🔧 Trabajo" : "🩺 Chequeo"}
+                </div>
+              )}
             </div>
           </div>
           <div style={{ fontSize: 13, color: T.gray, marginBottom: 20 }}>{fmtD(form.domain)} — {form.brand} {form.model} {form.year}</div>
@@ -2676,6 +2687,58 @@ const NewOrderScreen = (props) => {
                 }} disabled={budgetCategories.length === 0}
                   style={{ ...btnPrimary("#9C27B0"), opacity: budgetCategories.length > 0 ? 1 : 0.4, fontSize: 14 }}>
                   🔍 Crear Orden de Inspección
+                </button>
+              </div>
+            </div>
+          ) : chequeoMode ? (
+            <div>
+              <div style={{ ...card, padding: 20, marginBottom: 16, borderLeft: "3px solid #00897B" }}>
+                <div style={{ fontSize: 48, textAlign: "center", marginBottom: 12 }}>🩺</div>
+                <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", color: "#00897B", marginBottom: 8 }}>Chequeo Vehicular</div>
+                <div style={{ fontSize: 13, color: T.gray, textAlign: "center", lineHeight: 1.6, marginBottom: 16 }}>
+                  Se realizará un diagnóstico completo del vehículo.<br/>
+                  Cada item se evalúa como <strong style={{ color: T.green }}>Bien</strong>, <strong style={{ color: T.orange }}>Regular</strong> o <strong style={{ color: T.red }}>Cambiar</strong>.
+                </div>
+                <div style={{ ...card, padding: 14, background: T.bg3, borderColor: "#00897B40" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: T.gray }}>Vehículo</span>
+                    <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{fmtD(form.domain)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                    <span style={{ fontSize: 13, color: T.gray }}>Auto</span>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{form.brand} {form.model} {form.year}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                    <span style={{ fontSize: 13, color: T.gray }}>Secciones</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#00897B" }}>10 secciones · {CHEQUEO_TEMPLATE.reduce((s, sec) => s + sec.items.length, 0)} items</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
+                <button onClick={() => { setStep(2); setChequeoMode(false); }}
+                  style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
+                <button onClick={() => {
+                  const _maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
+                  const newOrder = {
+                    id: "ord_" + String(_maxNum + 1).padStart(3, "0"),
+                    clientId: foundClient?.id ?? null,
+                    domain: form.domain,
+                    status: "working",
+                    isChequeo: true,
+                    works: [{ type: "Chequeo Vehicular", price: 0, desc: "" }],
+                    payments: [],
+                    assignedTo: "",
+                    date: new Date().toISOString().split("T")[0],
+                    _createdAt: new Date().toISOString(),
+                    km: form.km || form.lastKm || "",
+                    startedBy: "",
+                    startedAt: "",
+                  };
+                  setOrders(prev => [...prev, newOrder]);
+                  setChequeoMode(false);
+                  onNavigate("chequeo", newOrder);
+                }} style={{ ...btnPrimary("#00897B"), fontSize: 14 }}>
+                  🩺 Comenzar Chequeo
                 </button>
               </div>
             </div>
@@ -4055,8 +4118,8 @@ const DashboardScreen = (props) => {
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const isBudgetStatus = o.status === "budget_sent" || o.status === "budget_approved";
             const isInspection = o.status === "inspection" || o.status === "inspection_done";
-            const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : isBudgetStatus ? "#9C27B0" : isInspection ? "#E91E63" : T.red;
-            const sl = o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isBudgetStatus ? "PRESUPUESTO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
+            const sc = o.isChequeo ? "#00897B" : o.status === "done" ? T.green : o.status === "working" ? T.orange : isBudgetStatus ? "#9C27B0" : isInspection ? "#E91E63" : T.red;
+            const sl = o.isChequeo ? "🩺 CHEQUEO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isBudgetStatus ? "PRESUPUESTO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
                 style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
@@ -4350,7 +4413,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
           const hCl = clients.find(c => c.id === histDetail.clientId);
           const hVh = hCl?.vehicles?.find(v => v.domain === histDetail.domain);
           const isBudget = histDetail.status === "budget_closed" || histDetail.status === "budget_sent";
-          const borderColor = isBudget ? "#9C27B0" : T.accent;
+          const isChequeo = !!histDetail.isChequeo;
+          const borderColor = isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent;
           return (
             <div>
               <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver al historial</button>
@@ -4361,8 +4425,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                     {hVh && <div style={{ fontSize: 14, color: T.grayLight }}>{hVh.brand} {hVh.model} {hVh.year}</div>}
                     {hCl && <div style={{ fontSize: 13, marginTop: 4 }}>👤 {hCl.name} {hCl.lastName}</div>}
                   </div>
-                  <div style={{ padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: isBudget ? "#9C27B020" : `${T.accent}20`, color: isBudget ? "#9C27B0" : T.accent }}>
-                    {isBudget ? "PRESUPUESTO" : histDetail.status === "delivered" ? "ENTREGADO" : histDetail.status === "done" ? "FINALIZADO" : histDetail.status?.toUpperCase() || "—"}
+                  <div style={{ padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: isChequeo ? "#00897B20" : isBudget ? "#9C27B020" : `${T.accent}20`, color: isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent }}>
+                    {isChequeo ? "🩺 CHEQUEO" : isBudget ? "PRESUPUESTO" : histDetail.status === "delivered" ? "ENTREGADO" : histDetail.status === "done" ? "FINALIZADO" : histDetail.status?.toUpperCase() || "—"}
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
@@ -4390,6 +4454,43 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                     {histDetail.factura.cae && <div style={{ fontSize: 11, color: T.gray }}>CAE: {histDetail.factura.cae}</div>}
                   </div>
                 )}
+                {/* Chequeo results */}
+                {isChequeo && histDetail.chequeoData && (() => {
+                  const cd = histDetail.chequeoData;
+                  const cn = histDetail.chequeoNotes || {};
+                  const bien = Object.values(cd).filter(v => v === "bien").length;
+                  const regular = Object.values(cd).filter(v => v === "regular").length;
+                  const cambiar = Object.values(cd).filter(v => v === "cambiar").length;
+                  return (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ display: "flex", gap: 12, marginBottom: 12, fontSize: 12, fontWeight: 700 }}>
+                        <span style={{ color: T.green }}>✅ {bien} Bien</span>
+                        <span style={{ color: T.orange }}>⚠️ {regular} Regular</span>
+                        <span style={{ color: T.red }}>🔴 {cambiar} Cambiar</span>
+                      </div>
+                      {CHEQUEO_TEMPLATE.map(sec => {
+                        const secItems = sec.items.filter(it => cd[it.id]);
+                        if (secItems.length === 0) return null;
+                        return (
+                          <div key={sec.section} style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: T.grayLight, marginBottom: 4 }}>{sec.icon} {sec.section}</div>
+                            {secItems.map(it => (
+                              <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", fontSize: 12 }}>
+                                <span style={{ color: T.text }}>{it.label}</span>
+                                <span style={{ fontWeight: 700, color: cd[it.id] === "bien" ? T.green : cd[it.id] === "regular" ? T.orange : T.red }}>
+                                  {cd[it.id] === "bien" ? "✅ BIEN" : cd[it.id] === "regular" ? "⚠️ REGULAR" : "🔴 CAMBIAR"}
+                                </span>
+                              </div>
+                            ))}
+                            {secItems.filter(it => cn[it.id]).map(it => (
+                              <div key={it.id + "_n"} style={{ fontSize: 11, color: "#00897B", fontStyle: "italic", paddingLeft: 10 }}>📝 {it.label}: {cn[it.id]}</div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
@@ -4551,7 +4652,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
       </div>
       {filtered.map((o, i) => {
         const info = getVehicleInfo(o);
-        const sc = getStatusColor(o.status);
+        const sc = o.isChequeo ? "#00897B" : getStatusColor(o.status);
         return (
         <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
           style={{ ...card, padding: "18px 20px", marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}`, animation: `slideIn .3s ease ${i*.05}s both`, transition: "background .15s" }}
@@ -4578,7 +4679,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
                 </div>
               )}
               <div style={{ padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: "uppercase", background: `${sc}20`, color: sc }}>
-                {o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}
+                {o.isChequeo ? "🩺 CHEQUEO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : "ESPERANDO"}
               </div>
             </div>
           </div>
@@ -4636,8 +4737,8 @@ const VehicleDetailScreen = (props) => {
   const [showBudgetStartPopup, setShowBudgetStartPopup] = useState(false);
   const [budgetPayPref, setBudgetPayPref] = useState({ method: "", withIva: null });
   const [budgetSelWorks, setBudgetSelWorks] = useState([]);
-  const sc = order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#9C27B0" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
-  const statusLabel = order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
+  const sc = order.isChequeo ? "#00897B" : order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#9C27B0" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
+  const statusLabel = order.isChequeo ? "🩺 CHEQUEO" : order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
     setOrders(prev => prev.map(o => o.id === order.id ? {
@@ -4905,6 +5006,8 @@ const VehicleDetailScreen = (props) => {
       {/* Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
+          ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
+          ...(order.isChequeo && order.status === "done" ? [{ icon: "🩺", label: "Ver Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
           ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#FF6F00", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
           ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
@@ -4936,7 +5039,9 @@ const VehicleDetailScreen = (props) => {
               onNavigate("budgetPricing", order);
             }, bg: "rgba(30,136,229,.08)" },
           ] : []),
-          ...(order.status === "working" && canStartWork ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
+          ...(order.status === "working" && canStartWork && !order.isChequeo ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
+          ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
+          ...(order.isChequeo && order.status === "done" ? [{ icon: "🩺", label: "Ver Chequeo", show: true, color: "#00897B", action: () => onNavigate("chequeo", order), bg: "rgba(0,137,123,.08)" }] : []),
           ...(order.status === "working" && !order.fromBudgetId ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
           }, bg: "rgba(255,152,0,.08)" }] : []),
@@ -7686,14 +7791,17 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             const oCl = clients.find(c => c.id === o.clientId);
                             const oVh = oCl?.vehicles?.find(v => v.domain === o.domain);
                             const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
+                            const isChequeo = !!o.isChequeo;
+                            const cardColor = isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.border;
                             return (
                               <div key={o.id} onClick={() => setHistDetail(o)}
-                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${isBudget ? "#9C27B0" : T.border}`,
+                                style={{ ...card, padding: "12px 16px", marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${cardColor}`,
                                   borderRadius: "0 8px 8px 0", opacity: isBudget ? 0.6 : 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                   <div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                       <span style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                                      {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#00897B", background: "rgba(0,137,123,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
                                       {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
                                     </div>
                                     <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>{oCl ? oCl.name + " " + oCl.lastName : "—"}{oVh ? " · " + oVh.brand + " " + oVh.model : ""}</div>
@@ -7701,7 +7809,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                                     {metodo && <div style={{ fontSize: 10, color: T.grayLight, marginTop: 3 }}>{metodo}</div>}
                                   </div>
                                   <div style={{ textAlign: "right" }}>
-                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
+                                    <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800, color: isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
                                     <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                                   </div>
                                 </div>
@@ -7772,13 +7880,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                 const metodo = metodoLabel(o);
                 const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
+                const isChequeo = !!o.isChequeo;
+                const cardColor = isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.border;
                 return (
                   <div key={o.id} onClick={() => setHistDetail(o)}
-                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${isBudget ? "#9C27B0" : T.border}`, opacity: isBudget ? 0.6 : 1 }}>
+                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${cardColor}`, opacity: isBudget ? 0.6 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                          {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#00897B", background: "rgba(0,137,123,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
                           {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
                         </div>
                         <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>
@@ -7790,7 +7901,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         )}
                       </div>
                       <div style={{ textAlign: "right", marginLeft: 12 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isChequeo ? "#00897B" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
                         <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                       </div>
                     </div>
@@ -12521,8 +12632,79 @@ const PF_AMBOS_TEMPLATE = [
   ]},
 ];
 
-
-const CarTiresDiagram = ({ tires, onChange }) => {
+// ── CHEQUEO TEMPLATE — Solo diagnóstico: Bien / Regular / Cambiar ──
+const CHEQUEO_TEMPLATE = [
+  { section: "MOTOR", icon: "🛢️", items: [
+    { id: "ch_aceite", label: "Aceite motor" },
+    { id: "ch_filtro_aceite", label: "Filtro de aceite" },
+    { id: "ch_filtro_aire", label: "Filtro de aire" },
+    { id: "ch_filtro_habitaculo", label: "Filtro de habitáculo" },
+    { id: "ch_filtro_combustible", label: "Filtro de combustible" },
+    { id: "ch_bujias", label: "Bujías" },
+    { id: "ch_correa_distribucion", label: "Correa de distribución" },
+    { id: "ch_correa_polyv", label: "Correa poly-v" },
+    { id: "ch_tensores", label: "Tensores poly-v" },
+    { id: "ch_bomba_agua", label: "Bomba de agua" },
+    { id: "ch_mangueras", label: "Mangueras de refrigeración" },
+    { id: "ch_perdidas_aceite", label: "Pérdidas de aceite" },
+  ]},
+  { section: "TREN DELANTERO", icon: "⚙️", items: [
+    { id: "ch_td_amortiguadores", label: "Amortiguadores del." },
+    { id: "ch_td_extremos", label: "Extremos de dirección" },
+    { id: "ch_td_axiales", label: "Axiales" },
+    { id: "ch_td_bieletas", label: "Bieletas" },
+    { id: "ch_td_parrilla", label: "Parrilla / Rótulas / Bujes" },
+    { id: "ch_td_rulemanes", label: "Rulemanes del." },
+    { id: "ch_td_discos", label: "Discos de freno del." },
+    { id: "ch_td_pastillas", label: "Pastillas de freno del." },
+  ]},
+  { section: "TREN TRASERO", icon: "⚙️", items: [
+    { id: "ch_tt_amortiguadores", label: "Amortiguadores tra." },
+    { id: "ch_tt_freno", label: "Freno trasero" },
+    { id: "ch_tt_bujes", label: "Bujes traseros" },
+    { id: "ch_tt_rulemanes", label: "Rulemanes tra." },
+  ]},
+  { section: "FLUIDOS", icon: "💧", items: [
+    { id: "ch_liq_frenos", label: "Líquido de frenos" },
+    { id: "ch_liq_direccion", label: "Líquido de dirección" },
+    { id: "ch_liq_refrigerante", label: "Líquido refrigerante" },
+    { id: "ch_aceite_caja", label: "Aceite de caja" },
+    { id: "ch_lavaparabrisas", label: "Líquido lavaparabrisas" },
+  ]},
+  { section: "LUCES", icon: "💡", items: [
+    { id: "ch_luz_baja", label: "Luz baja" },
+    { id: "ch_luz_alta", label: "Luz alta" },
+    { id: "ch_luz_pos_del", label: "Luz posición del." },
+    { id: "ch_luz_pos_tra", label: "Luz posición tra." },
+    { id: "ch_luz_stop", label: "Luz de stop" },
+    { id: "ch_guinos", label: "Guiños" },
+  ]},
+  { section: "ESCAPE", icon: "💨", items: [
+    { id: "ch_silenciador_tra", label: "Silenciador trasero" },
+    { id: "ch_silenciador_int", label: "Silenciador intermedio" },
+    { id: "ch_multiple_escape", label: "Múltiple de escape" },
+    { id: "ch_cano_escape", label: "Caño de escape" },
+    { id: "ch_soporte_escape", label: "Soporte de escape" },
+    { id: "ch_catalizador", label: "Catalizador" },
+  ]},
+  { section: "ESCOBILLAS", icon: "🧹", items: [
+    { id: "ch_escobillas", label: "Escobillas" },
+  ]},
+  { section: "CUBIERTAS", icon: "🛞", items: [
+    { id: "ch_cubierta_del_izq", label: "Cubierta del. izq." },
+    { id: "ch_cubierta_del_der", label: "Cubierta del. der." },
+    { id: "ch_cubierta_tra_izq", label: "Cubierta tra. izq." },
+    { id: "ch_cubierta_tra_der", label: "Cubierta tra. der." },
+    { id: "ch_cubierta_auxilio", label: "Auxilio" },
+  ]},
+  { section: "BATERÍA", icon: "🔋", items: [
+    { id: "ch_bateria", label: "Batería" },
+    { id: "ch_alternador", label: "Alternador" },
+  ]},
+  { section: "DIAGNÓSTICO", icon: "💻", items: [
+    { id: "ch_dtc", label: "Códigos de falla (DTC)" },
+  ]},
+]; = ({ tires, onChange }) => {
   const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
   const [active, setActive] = React.useState(null);
 
@@ -12635,6 +12817,192 @@ const CarTiresDiagram = ({ tires, onChange }) => {
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+// ── CHEQUEO SCREEN ──
+const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }) => {
+  const client = clients.find(c => c.id === order.clientId);
+  const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
+  const CH_COLOR = "#00897B";
+  const [data, setData] = React.useState(order.chequeoData || {});
+  const [notes, setNotes] = React.useState(order.chequeoNotes || {});
+  const [expandedNote, setExpandedNote] = React.useState(null);
+  const [price, setPrice] = React.useState(String((order.works || [])[0]?.price || ""));
+  const [method, setMethod] = React.useState(order.paymentPref?.method || "");
+  const [withIva, setWithIva] = React.useState(order.paymentPref?.withIva ?? null);
+  const [showPayment, setShowPayment] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const totalItems = CHEQUEO_TEMPLATE.reduce((s, sec) => s + sec.items.length, 0);
+  const filledItems = Object.keys(data).length;
+  const progress = totalItems > 0 ? Math.round((filledItems / totalItems) * 100) : 0;
+  const bienCount = Object.values(data).filter(v => v === "bien").length;
+  const regularCount = Object.values(data).filter(v => v === "regular").length;
+  const cambiarCount = Object.values(data).filter(v => v === "cambiar").length;
+
+  const setItem = (id, val) => setData(prev => {
+    const n = { ...prev };
+    if (n[id] === val) { delete n[id]; return n; }
+    n[id] = val;
+    return n;
+  });
+
+  const handleSave = () => {
+    const priceNum = parseFloat(price.replace(/\./g, "")) || 0;
+    setOrders(prev => prev.map(o => o.id === order.id ? {
+      ...o,
+      chequeoData: data,
+      chequeoNotes: notes,
+      works: [{ type: "Chequeo Vehicular", price: priceNum, desc: `${bienCount} bien · ${regularCount} regular · ${cambiarCount} cambiar` }],
+      paymentPref: method ? { method, withIva } : o.paymentPref,
+      status: "done",
+    } : o));
+    setSaved(true);
+    setTimeout(() => onNavigate("vehicleDetail", order), 600);
+  };
+
+  const BRC = ({ id }) => {
+    const val = data[id];
+    const hasNote = notes[id];
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {[
+          { key: "bien", label: "Bien", color: T.green },
+          { key: "regular", label: "Regular", color: T.orange },
+          { key: "cambiar", label: "Cambiar", color: T.red },
+        ].map(opt => (
+          <div key={opt.key} onClick={() => setItem(id, opt.key)}
+            style={{ padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+              background: val === opt.key ? `${opt.color}20` : T.bg,
+              color: val === opt.key ? opt.color : T.gray,
+              border: `2px solid ${val === opt.key ? opt.color : T.border}`,
+              transition: "all .15s" }}>
+            {val === opt.key ? "✓ " : ""}{opt.label}
+          </div>
+        ))}
+        <div onClick={() => setExpandedNote(expandedNote === id ? null : id)}
+          style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            background: hasNote ? `${CH_COLOR}15` : T.bg, border: `1px solid ${hasNote ? CH_COLOR : T.border}`,
+            fontSize: 12, color: hasNote ? CH_COLOR : T.gray }}>
+          📝
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      {saved && <div style={{ position: "fixed", inset: 0, background: "rgba(0,137,123,.15)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 72 }}>✅</div>
+      </div>}
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800 }}>{fmtD(order.domain)}</div>
+          <div style={{ fontSize: 12, color: T.gray }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div style={{ ...card, padding: 16, marginBottom: 20, borderLeft: `4px solid ${CH_COLOR}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: CH_COLOR }}>🩺 Chequeo Vehicular</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: progress === 100 ? T.green : T.gray }}>{filledItems}/{totalItems} · {progress}%</div>
+        </div>
+        <div style={{ height: 6, borderRadius: 3, background: T.bg, overflow: "hidden" }}>
+          <div style={{ height: "100%", borderRadius: 3, background: progress === 100 ? T.green : CH_COLOR, width: `${progress}%`, transition: "width .3s" }} />
+        </div>
+        {filledItems > 0 && (
+          <div style={{ display: "flex", gap: 12, marginTop: 10, fontSize: 12, fontWeight: 700 }}>
+            <span style={{ color: T.green }}>✅ {bienCount} Bien</span>
+            <span style={{ color: T.orange }}>⚠️ {regularCount} Regular</span>
+            <span style={{ color: T.red }}>🔴 {cambiarCount} Cambiar</span>
+          </div>
+        )}
+      </div>
+
+      {/* Sections */}
+      {CHEQUEO_TEMPLATE.map(sec => {
+        const secFilled = sec.items.filter(it => data[it.id]).length;
+        return (
+          <div key={sec.section} style={{ ...card, marginBottom: 12, overflow: "hidden" }}>
+            <div style={{ padding: "14px 16px", background: T.bg3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{sec.icon} {sec.section}</div>
+              <div style={{ fontSize: 11, color: secFilled === sec.items.length ? T.green : T.gray, fontWeight: 700 }}>
+                {secFilled}/{sec.items.length}
+              </div>
+            </div>
+            <div style={{ padding: "8px 16px 12px" }}>
+              {sec.items.map(item => (
+                <div key={item.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: data[item.id] ? T.text : T.grayLight, flex: 1, minWidth: 120 }}>{item.label}</div>
+                    <BRC id={item.id} />
+                  </div>
+                  {expandedNote === item.id && (
+                    <div style={{ marginTop: 8 }}>
+                      <input inputMode="text" value={notes[item.id] || ""} onChange={e => setNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder="Observación..." style={{ ...inputStyle, fontSize: 12 }} />
+                    </div>
+                  )}
+                  {notes[item.id] && expandedNote !== item.id && (
+                    <div style={{ fontSize: 11, color: CH_COLOR, marginTop: 4, fontStyle: "italic" }}>📝 {notes[item.id]}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Price + Payment */}
+      <div style={{ ...card, padding: 20, marginTop: 16, marginBottom: 16, borderLeft: `4px solid ${CH_COLOR}` }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: CH_COLOR, marginBottom: 12 }}>💰 Precio y Cobro</div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, color: T.gray, fontWeight: 600 }}>Precio del chequeo</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: CH_COLOR }}>$</span>
+            <input inputMode="numeric" value={price ? Number(price).toLocaleString("es-AR") : ""} onChange={e => setPrice(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="0" style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD }} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, color: T.gray, fontWeight: 600, marginBottom: 8, display: "block" }}>Método de pago</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
+              <div key={m} onClick={() => setMethod(method === m ? "" : m)}
+                style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                  border: `2px solid ${method === m ? CH_COLOR : T.border}`,
+                  background: method === m ? `${CH_COLOR}10` : T.bg,
+                  color: method === m ? CH_COLOR : T.gray }}>{m}</div>
+            ))}
+          </div>
+        </div>
+        {method && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div onClick={() => setWithIva(true)}
+              style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                border: `2px solid ${withIva === true ? T.accent : T.border}`,
+                background: withIva === true ? `${T.accent}10` : T.bg,
+                color: withIva === true ? T.accent : T.gray }}>Con IVA (+21%)</div>
+            <div onClick={() => setWithIva(false)}
+              style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                border: `2px solid ${withIva === false ? T.gray : T.border}`,
+                background: withIva === false ? T.bg3 : T.bg,
+                color: withIva === false ? T.grayLight : T.gray }}>Sin IVA</div>
+          </div>
+        )}
+      </div>
+
+      {/* Save */}
+      <button onClick={handleSave} disabled={filledItems === 0 || !price}
+        style={{ ...btnPrimary(CH_COLOR), width: "100%", fontSize: 16, padding: "16px 0", fontWeight: 800, opacity: (filledItems > 0 && price) ? 1 : 0.4, marginBottom: 40 }}>
+        🩺 Finalizar Chequeo ({filledItems}/{totalItems})
+      </button>
     </div>
   );
 };
@@ -17825,6 +18193,7 @@ export default function App() {
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
       case "inspection": return currentOrder ? <InspectionScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
+      case "chequeo": return currentOrder ? <ChequeoScreen order={currentOrder} clients={clients} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "budgetPricing": return currentOrder ? <BudgetPricingScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
