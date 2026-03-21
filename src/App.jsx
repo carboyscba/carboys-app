@@ -12663,270 +12663,529 @@ const PF_AMBOS_TEMPLATE = [
   ]},
 ];
 
-// ── CHEQUEO TEMPLATE — Solo diagnóstico: Bien / Regular / Cambiar ──
+// ── CHEQUEO TEMPLATE — Foja de Chequeo completa ──
+// Types: brc (Bien/Regular/Cambiar), opt (tocar para habilitar→BRC), desc (BRC+descripciones),
+//        opt_desc (habilitar+BRC+descripciones), pct (porcentaje), opt_group (grupo habilitable con sub-items),
+//        tires (diagrama cubiertas), battery (% + voltaje), dtc (presente/no + desc), opt_input (habilitar+input)
 const CHEQUEO_TEMPLATE = [
   { section: "MOTOR", icon: "🛢️", items: [
-    { id: "ch_aceite", label: "Aceite motor" },
-    { id: "ch_filtro_aceite", label: "Filtro de aceite" },
-    { id: "ch_filtro_aire", label: "Filtro de aire" },
-    { id: "ch_filtro_habitaculo", label: "Filtro de habitáculo" },
-    { id: "ch_filtro_combustible", label: "Filtro de combustible" },
-    { id: "ch_bujias", label: "Bujías" },
-    { id: "ch_correa_distribucion", label: "Correa de distribución" },
-    { id: "ch_correa_polyv", label: "Correa poly-v" },
-    { id: "ch_tensores", label: "Tensores poly-v" },
-    { id: "ch_bomba_agua", label: "Bomba de agua" },
-    { id: "ch_mangueras", label: "Mangueras de refrigeración" },
-    { id: "ch_perdidas_aceite", label: "Pérdidas de aceite" },
+    { id: "ch_aceite", label: "Aceite motor", type: "brc" },
+    { id: "ch_filtro_aceite", label: "Filtro de aceite", type: "brc" },
+    { id: "ch_filtro_aire", label: "Filtro de aire", type: "brc" },
+    { id: "ch_filtro_habitaculo", label: "Filtro de habitáculo", type: "brc" },
+    { id: "ch_filtro_combustible", label: "Filtro de combustible", type: "brc" },
+    { id: "ch_bujias", label: "Bujías", type: "brc" },
+    { id: "ch_correa_distribucion", label: "Correa de distribución", type: "opt" },
+    { id: "ch_correa_polyv", label: "Correa poly-v", type: "brc" },
+    { id: "ch_tensores", label: "Tensores poly-v", type: "brc" },
+    { id: "ch_bomba_agua", label: "Bomba de agua", type: "opt" },
+    { id: "ch_mangueras", label: "Mangueras de refrigeración", type: "brc" },
+    { id: "ch_perdidas_aceite", label: "Pérdidas de aceite", type: "desc" },
+    { id: "ch_motor_general", label: "General", type: "opt_desc" },
   ]},
   { section: "TREN DELANTERO", icon: "⚙️", items: [
-    { id: "ch_td_amortiguadores", label: "Amortiguadores del." },
-    { id: "ch_td_extremos", label: "Extremos de dirección" },
-    { id: "ch_td_axiales", label: "Axiales" },
-    { id: "ch_td_bieletas", label: "Bieletas" },
-    { id: "ch_td_parrilla", label: "Parrilla / Rótulas / Bujes" },
-    { id: "ch_td_rulemanes", label: "Rulemanes del." },
-    { id: "ch_td_discos", label: "Discos de freno del." },
-    { id: "ch_td_pastillas", label: "Pastillas de freno del." },
+    { id: "ch_td_amortiguadores", label: "Amortiguadores del.", type: "brc" },
+    { id: "ch_td_extremos", label: "Extremos de dirección", type: "brc" },
+    { id: "ch_td_axiales", label: "Axiales", type: "brc" },
+    { id: "ch_td_bieletas", label: "Bieletas", type: "brc" },
+    { id: "ch_td_parrilla", label: "Parrilla", type: "brc" },
+    { id: "ch_td_rotulas", label: "Rótulas", type: "brc" },
+    { id: "ch_td_bujes", label: "Bujes", type: "brc" },
+    { id: "ch_td_rulemanes", label: "Rulemanes del.", type: "brc" },
+    { id: "ch_td_discos", label: "Discos de freno del.", type: "brc" },
+    { id: "ch_td_pastillas", label: "Pastillas de freno del.", type: "brc" },
+    { id: "ch_td_otros", label: "Otros", type: "desc" },
   ]},
   { section: "TREN TRASERO", icon: "⚙️", items: [
-    { id: "ch_tt_amortiguadores", label: "Amortiguadores tra." },
-    { id: "ch_tt_freno", label: "Freno trasero" },
-    { id: "ch_tt_bujes", label: "Bujes traseros" },
-    { id: "ch_tt_rulemanes", label: "Rulemanes tra." },
+    { id: "ch_tt_amortiguadores", label: "Amortiguadores tra.", type: "brc" },
+    { id: "ch_tt_freno", label: "Freno trasero", type: "brc" },
+    { id: "ch_tt_bujes", label: "Bujes traseros", type: "brc" },
+    { id: "ch_tt_rulemanes", label: "Rulemanes tra.", type: "brc" },
+    { id: "ch_tt_otros", label: "Otros", type: "desc" },
   ]},
   { section: "FLUIDOS", icon: "💧", items: [
-    { id: "ch_liq_frenos", label: "Líquido de frenos" },
-    { id: "ch_liq_direccion", label: "Líquido de dirección" },
-    { id: "ch_liq_refrigerante", label: "Líquido refrigerante" },
-    { id: "ch_aceite_caja", label: "Aceite de caja" },
-    { id: "ch_lavaparabrisas", label: "Líquido lavaparabrisas" },
+    { id: "ch_liq_frenos", label: "Líquido de frenos", type: "pct" },
+    { id: "ch_liq_direccion", label: "Líquido de dirección", type: "brc" },
+    { id: "ch_liq_refrigerante", label: "Líquido refrigerante", type: "brc" },
+    { id: "ch_aceite_caja", label: "Aceite de caja", type: "brc" },
+    { id: "ch_lavaparabrisas", label: "Líquido lavaparabrisas", type: "brc" },
+    { id: "ch_4x4", label: "4x4", type: "opt_group", subItems: [
+      { id: "ch_4x4_transfer", label: "Caja transfer" },
+      { id: "ch_4x4_dif_del", label: "Diferencial del." },
+      { id: "ch_4x4_dif_tra", label: "Diferencial tra." },
+    ]},
   ]},
   { section: "LUCES", icon: "💡", items: [
-    { id: "ch_luz_baja", label: "Luz baja" },
-    { id: "ch_luz_alta", label: "Luz alta" },
-    { id: "ch_luz_pos_del", label: "Luz posición del." },
-    { id: "ch_luz_pos_tra", label: "Luz posición tra." },
-    { id: "ch_luz_stop", label: "Luz de stop" },
-    { id: "ch_guinos", label: "Guiños" },
+    { id: "ch_luz_baja", label: "Luz baja", type: "brc" },
+    { id: "ch_luz_alta", label: "Luz alta", type: "brc" },
+    { id: "ch_luz_pos_del", label: "Luz posición del.", type: "brc" },
+    { id: "ch_luz_pos_tra", label: "Luz posición tra.", type: "brc" },
+    { id: "ch_luz_stop", label: "Luz de stop", type: "brc" },
+    { id: "ch_guinos", label: "Guiños", type: "brc" },
+    { id: "ch_luz_patente", label: "Patente", type: "brc" },
   ]},
   { section: "ESCAPE", icon: "💨", items: [
-    { id: "ch_silenciador_tra", label: "Silenciador trasero" },
-    { id: "ch_silenciador_int", label: "Silenciador intermedio" },
-    { id: "ch_multiple_escape", label: "Múltiple de escape" },
-    { id: "ch_cano_escape", label: "Caño de escape" },
-    { id: "ch_soporte_escape", label: "Soporte de escape" },
-    { id: "ch_catalizador", label: "Catalizador" },
+    { id: "ch_esc_sil_tra", label: "Silenciador trasero", type: "brc" },
+    { id: "ch_esc_sil_int", label: "Silenciador intermedio", type: "brc" },
+    { id: "ch_esc_multiple", label: "Múltiple de escape", type: "brc" },
+    { id: "ch_esc_cano", label: "Caño de escape", type: "brc" },
+    { id: "ch_esc_soporte", label: "Soporte de escape", type: "brc" },
+    { id: "ch_esc_catalizador", label: "Catalizador", type: "brc" },
   ]},
   { section: "ESCOBILLAS", icon: "🧹", items: [
-    { id: "ch_escobillas", label: "Escobillas" },
+    { id: "ch_escobillas", label: "Escobillas", type: "brc" },
   ]},
   { section: "CUBIERTAS", icon: "🛞", items: [
-    { id: "ch_cubierta_del_izq", label: "Cubierta del. izq." },
-    { id: "ch_cubierta_del_der", label: "Cubierta del. der." },
-    { id: "ch_cubierta_tra_izq", label: "Cubierta tra. izq." },
-    { id: "ch_cubierta_tra_der", label: "Cubierta tra. der." },
-    { id: "ch_cubierta_auxilio", label: "Auxilio" },
+    { id: "ch_cubiertas", label: "Cubiertas", type: "tires" },
   ]},
   { section: "BATERÍA", icon: "🔋", items: [
-    { id: "ch_bateria", label: "Batería" },
-    { id: "ch_alternador", label: "Alternador" },
+    { id: "ch_bateria", label: "Batería", type: "battery" },
   ]},
   { section: "DIAGNÓSTICO", icon: "💻", items: [
-    { id: "ch_dtc", label: "Códigos de falla (DTC)" },
+    { id: "ch_dtc", label: "Códigos de falla (DTC)", type: "dtc" },
+    { id: "ch_km_reales", label: "KM reales", type: "opt_input" },
+    { id: "ch_diag_otros", label: "Otros", type: "opt_desc" },
   ]},
-]; 
-
-const CarTiresDiagram = ({ tires, onChange }) => {
-  const t = tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
-  const [active, setActive] = React.useState(null);
-
-  const col = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
-  const label = (v) => v > 60 ? "BUENA" : v > 30 ? "DESGASTE" : "CAMBIAR";
-
-  const TIRES = [
-    { key: "del_izq", name: "Del. Izq.",  x: 30,  y: 52  },
-    { key: "del_der", name: "Del. Der.",  x: 110, y: 52  },
-    { key: "tra_izq", name: "Tra. Izq.",  x: 30,  y: 134 },
-    { key: "tra_der", name: "Tra. Der.",  x: 110, y: 134 },
-  ];
-
-  const activeTire = TIRES.find(t2 => t2.key === active);
-
-  return (
-    <div style={{ maxWidth: 320 }}>
-      {/* SVG car + tires */}
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-        <svg width="170" height="210" viewBox="0 0 170 210" style={{ overflow: "visible" }}>
-          {/* Car body */}
-          <rect x="44" y="24" width="82" height="162" rx="18" fill={T.bg3} stroke={T.border} strokeWidth="1.5" />
-          {/* Windshields */}
-          <rect x="52" y="38" width="66" height="32" rx="6" fill="#1a2744" opacity="0.8" />
-          <rect x="52" y="140" width="66" height="32" rx="6" fill="#1a2744" opacity="0.8" />
-          {/* Center console line */}
-          <line x1="85" y1="80" x2="85" y2="130" stroke={T.border} strokeWidth="1" strokeDasharray="4,3" />
-          {/* Door lines */}
-          <line x1="44" y1="105" x2="126" y2="105" stroke={T.border} strokeWidth="1" />
-          {/* Headlights */}
-          <rect x="56" y="28" width="16" height="6" rx="2" fill="#ffd54f" opacity="0.7" />
-          <rect x="98" y="28" width="16" height="6" rx="2" fill="#ffd54f" opacity="0.7" />
-          {/* Taillights */}
-          <rect x="56" y="176" width="16" height="6" rx="2" fill={T.red} opacity="0.7" />
-          <rect x="98" y="176" width="16" height="6" rx="2" fill={T.red} opacity="0.7" />
-          {/* Direction arrow */}
-          <polygon points="85,8 80,18 90,18" fill={T.accent} opacity="0.6" />
-
-          {/* TIRES */}
-          {TIRES.map(({ key, name, x, y }) => {
-            const pct = t[key];
-            const c = col(pct);
-            const isActive = active === key;
-            return (
-              <g key={key} onClick={() => setActive(active === key ? null : key)} style={{ cursor: "pointer" }}>
-                {/* Tire shadow/glow when active */}
-                {isActive && <rect x={x - 3} y={y - 3} width="24" height="38" rx="6" fill={c} opacity="0.18" />}
-                {/* Tire body */}
-                <rect x={x} y={y} width="18" height="32" rx="5"
-                  fill={T.bg}
-                  stroke={isActive ? c : col(pct)}
-                  strokeWidth={isActive ? 2.5 : 1.5} />
-                {/* Fill bar inside tire */}
-                <rect x={x + 2} y={y + 2 + (28 * (1 - pct / 100))} width="14" height={28 * (pct / 100)} rx="3"
-                  fill={c} opacity="0.85" />
-                {/* % label */}
-                <text x={x + 9} y={y + 44} textAnchor="middle" fontSize="9" fill={c} fontWeight="700" fontFamily="Outfit,sans-serif">{pct}%</text>
-              </g>
-            );
-          })}
-
-          {/* Labels */}
-          <text x="25" y="48" textAnchor="end" fontSize="8.5" fill={T.gray} fontFamily="Outfit,sans-serif">IZQ</text>
-          <text x="145" y="48" textAnchor="start" fontSize="8.5" fill={T.gray} fontFamily="Outfit,sans-serif">DER</text>
-          <text x="10" y="72" textAnchor="middle" fontSize="8" fill={T.gray} fontFamily="Outfit,sans-serif" transform="rotate(-90,10,72)">DELANTERO</text>
-          <text x="10" y="155" textAnchor="middle" fontSize="8" fill={T.gray} fontFamily="Outfit,sans-serif" transform="rotate(-90,10,155)">TRASERO</text>
-        </svg>
-      </div>
-
-      {/* Active tire slider */}
-      {activeTire && (
-        <div style={{ background: T.bg, borderRadius: 12, padding: "14px 16px", border: `2px solid ${col(t[activeTire.key])}40`, animation: "fadeUp .2s ease", marginBottom: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: T.white }}>🛞 {activeTire.name}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, background: `${col(t[activeTire.key])}20`, color: col(t[activeTire.key]) }}>
-                {label(t[activeTire.key])}
-              </span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: col(t[activeTire.key]), fontFamily: fontD, minWidth: 44, textAlign: "right" }}>
-                {t[activeTire.key]}%
-              </span>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 10, color: T.gray, width: 20 }}>0%</span>
-            <input type="range" min="0" max="100" value={t[activeTire.key]}
-              onChange={e => onChange({ ...t, [activeTire.key]: parseInt(e.target.value) })}
-              style={{ flex: 1, accentColor: col(t[activeTire.key]), height: 8, cursor: "pointer" }} />
-            <span style={{ fontSize: 10, color: T.gray, width: 28 }}>100%</span>
-          </div>
-          {/* Mini bar */}
-          <div style={{ marginTop: 8, height: 6, borderRadius: 4, background: T.bg3, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${t[activeTire.key]}%`, background: col(t[activeTire.key]), borderRadius: 4, transition: "width .15s, background .15s" }} />
-          </div>
-        </div>
-      )}
-
-      {/* All 4 mini summary bars */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-        {TIRES.map(({ key, name }) => (
-          <div key={key} onClick={() => setActive(active === key ? null : key)}
-            style={{ padding: "8px 10px", borderRadius: 8, background: active === key ? `${col(t[key])}15` : T.bg, border: `1.5px solid ${active === key ? col(t[key]) : T.border}`, cursor: "pointer", transition: "all .15s" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-              <span style={{ fontSize: 10, color: T.grayLight, fontWeight: 600 }}>{name}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: col(t[key]), fontFamily: fontD }}>{t[key]}%</span>
-            </div>
-            <div style={{ height: 5, borderRadius: 3, background: T.bg3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${t[key]}%`, background: col(t[key]), borderRadius: 3, transition: "width .15s" }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+];
 
 // ── CHEQUEO SCREEN ──
 const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }) => {
   const client = clients.find(c => c.id === order.clientId);
   const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
-  const CH_COLOR = "#00897B";
+  const CH = "#00897B";
   const [data, setData] = React.useState(order.chequeoData || {});
-  const [notes, setNotes] = React.useState(order.chequeoNotes || {});
-  const [expandedNote, setExpandedNote] = React.useState(null);
   const [saved, setSaved] = React.useState(false);
-
-  const totalItems = CHEQUEO_TEMPLATE.reduce((s, sec) => s + sec.items.length, 0);
-  const filledItems = Object.keys(data).length;
-  const progress = totalItems > 0 ? Math.round((filledItems / totalItems) * 100) : 0;
-  const bienCount = Object.values(data).filter(v => v === "bien").length;
-  const regularCount = Object.values(data).filter(v => v === "regular").length;
-  const cambiarCount = Object.values(data).filter(v => v === "cambiar").length;
+  const [collapsed, setCollapsed] = React.useState({});
   const existingPrice = (order.works || [])[0]?.price || 0;
 
-  const setItem = (id, val) => setData(prev => {
-    const n = { ...prev };
-    if (n[id] === val) { delete n[id]; return n; }
-    n[id] = val;
-    return n;
+  // Helpers
+  const get = (key) => data[key];
+  const set = (key, val) => setData(prev => ({ ...prev, [key]: val }));
+  const toggle = (key, val) => setData(prev => {
+    if (prev[key] === val) { const n = { ...prev }; delete n[key]; return n; }
+    return { ...prev, [key]: val };
   });
+  const addDesc = (key) => {
+    const arr = data[key + "_descs"] || [];
+    set(key + "_descs", [...arr, ""]);
+  };
+  const updateDesc = (key, idx, val) => {
+    const arr = [...(data[key + "_descs"] || [])];
+    arr[idx] = val;
+    set(key + "_descs", arr);
+  };
+  const removeDesc = (key, idx) => {
+    const arr = (data[key + "_descs"] || []).filter((_, i) => i !== idx);
+    set(key + "_descs", arr);
+  };
+
+  // Count filled items
+  const countFilled = () => {
+    let filled = 0;
+    CHEQUEO_TEMPLATE.forEach(sec => sec.items.forEach(item => {
+      if (item.type === "tires") { if (data.ch_tires) filled++; }
+      else if (item.type === "battery") { if (data.ch_bat_pct !== undefined || data.ch_bat_volt) filled++; }
+      else if (item.type === "dtc") { if (data[item.id] !== undefined) filled++; }
+      else if (item.type === "opt_group") { if (data[item.id + "_on"]) filled++; }
+      else if (item.type === "opt" || item.type === "opt_desc" || item.type === "opt_input") { if (data[item.id + "_on"]) filled++; }
+      else if (item.type === "pct") { if (data[item.id] !== undefined) filled++; }
+      else { if (data[item.id]) filled++; }
+    }));
+    return filled;
+  };
+  const totalItems = CHEQUEO_TEMPLATE.reduce((s, sec) => s + sec.items.length, 0);
+  const filledItems = countFilled();
+  const progress = totalItems > 0 ? Math.round((filledItems / totalItems) * 100) : 0;
+  const bienCount = Object.entries(data).filter(([k, v]) => v === "bien" && !k.includes("_")).length;
+  const regularCount = Object.entries(data).filter(([k, v]) => v === "regular" && !k.includes("_")).length;
+  const cambiarCount = Object.entries(data).filter(([k, v]) => v === "cambiar" && !k.includes("_")).length;
 
   const handleSave = () => {
     const updatedOrder = {
-      ...order,
-      chequeoData: data,
-      chequeoNotes: notes,
-      works: [{ type: "Chequeo Vehicular", price: existingPrice, desc: `${bienCount} bien · ${regularCount} regular · ${cambiarCount} cambiar` }],
-      status: "done",
+      ...order, chequeoData: data, status: "done",
+      works: [{ type: "Chequeo Vehicular", price: existingPrice, desc: `${bienCount}✅ ${regularCount}⚠️ ${cambiarCount}🔴` }],
     };
     setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
     setSaved(true);
-    setTimeout(() => onNavigate("vehicleDetail", updatedOrder), 600);
+    setTimeout(() => onNavigate("vehicleDetail", updatedOrder), 800);
   };
 
-  const BRC = ({ id }) => {
+  // ── BRC buttons (Bien/Regular/Cambiar) ──
+  const BRC = ({ id, small }) => {
     const val = data[id];
-    const hasNote = notes[id];
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", gap: small ? 4 : 6 }}>
         {[
-          { key: "bien", label: "Bien", color: T.green },
-          { key: "regular", label: "Regular", color: T.orange },
-          { key: "cambiar", label: "Cambiar", color: T.red },
+          { key: "bien", label: "Bien", color: T.green, icon: "✅" },
+          { key: "regular", label: "Regular", color: T.orange, icon: "⚠️" },
+          { key: "cambiar", label: "Cambiar", color: T.red, icon: "🔴" },
         ].map(opt => (
-          <div key={opt.key} onClick={() => setItem(id, opt.key)}
-            style={{ padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+          <div key={opt.key} onClick={() => toggle(id, opt.key)}
+            style={{ padding: small ? "4px 8px" : "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: small ? 10 : 11, fontWeight: 700,
               background: val === opt.key ? `${opt.color}20` : T.bg,
               color: val === opt.key ? opt.color : T.gray,
               border: `2px solid ${val === opt.key ? opt.color : T.border}`,
-              transition: "all .15s" }}>
-            {val === opt.key ? "✓ " : ""}{opt.label}
+              transition: "all .15s", whiteSpace: "nowrap" }}>
+            {val === opt.key ? opt.icon + " " : ""}{opt.label}
           </div>
         ))}
-        <div onClick={() => setExpandedNote(expandedNote === id ? null : id)}
-          style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-            background: hasNote ? `${CH_COLOR}15` : T.bg, border: `1px solid ${hasNote ? CH_COLOR : T.border}`,
-            fontSize: 12, color: hasNote ? CH_COLOR : T.gray }}>
-          📝
+      </div>
+    );
+  };
+
+  // ── Note button ──
+  const NoteBtn = ({ id }) => {
+    const hasNote = data[id + "_note"];
+    return (
+      <div onClick={() => set(id + "_noteOpen", !data[id + "_noteOpen"])}
+        style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+          background: hasNote ? `${CH}15` : T.bg, border: `1px solid ${hasNote ? CH : T.border}`, fontSize: 12, color: hasNote ? CH : T.gray, flexShrink: 0 }}>
+        📝
+      </div>
+    );
+  };
+
+  // ── Note input ──
+  const NoteInput = ({ id }) => data[id + "_noteOpen"] ? (
+    <div style={{ marginTop: 6 }}>
+      <input inputMode="text" value={data[id + "_note"] || ""} onChange={e => set(id + "_note", e.target.value)}
+        placeholder="Observación..." style={{ ...inputStyle, fontSize: 12 }} />
+    </div>
+  ) : data[id + "_note"] ? (
+    <div style={{ fontSize: 11, color: CH, marginTop: 4, fontStyle: "italic", cursor: "pointer" }} onClick={() => set(id + "_noteOpen", true)}>📝 {data[id + "_note"]}</div>
+  ) : null;
+
+  // ── Standard item row ──
+  const ItemRow = ({ item }) => (
+    <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: data[item.id] ? T.text : T.grayLight, flex: 1, minWidth: 100 }}>{item.label}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <BRC id={item.id} />
+          <NoteBtn id={item.id} />
+        </div>
+      </div>
+      <NoteInput id={item.id} />
+    </div>
+  );
+
+  // ── Optional item (tocar para habilitar) ──
+  const OptItem = ({ item }) => {
+    const isOn = data[item.id + "_on"];
+    return (
+      <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 100 }}>
+            <div onClick={() => set(item.id + "_on", !isOn)}
+              style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isOn ? CH : T.border}`, background: isOn ? CH : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+              {isOn && <span style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>✓</span>}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: isOn ? T.text : T.grayLight }}>{item.label}</span>
+          </div>
+          {isOn && <div style={{ display: "flex", alignItems: "center", gap: 6 }}><BRC id={item.id} /><NoteBtn id={item.id} /></div>}
+        </div>
+        {isOn && <NoteInput id={item.id} />}
+      </div>
+    );
+  };
+
+  // ── Desc item (BRC + multiple descriptions) ──
+  const DescItem = ({ item }) => (
+    <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: data[item.id] ? T.text : T.grayLight, flex: 1, minWidth: 100 }}>{item.label}</div>
+        <BRC id={item.id} />
+      </div>
+      {/* Description fields */}
+      <div style={{ marginTop: 6 }}>
+        <input inputMode="text" value={data[item.id + "_note"] || ""} onChange={e => set(item.id + "_note", e.target.value)}
+          placeholder="Descripción..." style={{ ...inputStyle, fontSize: 12 }} />
+      </div>
+      {(data[item.id + "_descs"] || []).map((desc, i) => (
+        <div key={i} style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+          <input inputMode="text" value={desc} onChange={e => updateDesc(item.id, i, e.target.value)}
+            placeholder={`Descripción ${i + 2}...`} style={{ ...inputStyle, fontSize: 12, flex: 1 }} />
+          <div onClick={() => removeDesc(item.id, i)}
+            style={{ width: 28, height: 28, borderRadius: 6, background: `${T.red}15`, color: T.red, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>✕</div>
+        </div>
+      ))}
+      <div onClick={() => addDesc(item.id)}
+        style={{ fontSize: 11, color: CH, fontWeight: 700, marginTop: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+        ＋ Agregar descripción
+      </div>
+    </div>
+  );
+
+  // ── OptDesc item (habilitar + BRC + descriptions) ──
+  const OptDescItem = ({ item }) => {
+    const isOn = data[item.id + "_on"];
+    return (
+      <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div onClick={() => set(item.id + "_on", !isOn)}
+            style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isOn ? CH : T.border}`, background: isOn ? CH : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            {isOn && <span style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>✓</span>}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: isOn ? T.text : T.grayLight, flex: 1 }}>{item.label}</span>
+          {isOn && <BRC id={item.id} />}
+        </div>
+        {isOn && (
+          <div style={{ marginTop: 6, paddingLeft: 32 }}>
+            <input inputMode="text" value={data[item.id + "_note"] || ""} onChange={e => set(item.id + "_note", e.target.value)}
+              placeholder="Descripción..." style={{ ...inputStyle, fontSize: 12 }} />
+            {(data[item.id + "_descs"] || []).map((desc, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+                <input inputMode="text" value={desc} onChange={e => updateDesc(item.id, i, e.target.value)}
+                  placeholder={`Descripción ${i + 2}...`} style={{ ...inputStyle, fontSize: 12, flex: 1 }} />
+                <div onClick={() => removeDesc(item.id, i)}
+                  style={{ width: 28, height: 28, borderRadius: 6, background: `${T.red}15`, color: T.red, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>✕</div>
+              </div>
+            ))}
+            <div onClick={() => addDesc(item.id)}
+              style={{ fontSize: 11, color: CH, fontWeight: 700, marginTop: 6, cursor: "pointer" }}>＋ Agregar descripción</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Percentage item ──
+  const PctItem = ({ item }) => {
+    const val = data[item.id] ?? 100;
+    const col = val > 60 ? T.green : val > 30 ? T.orange : T.red;
+    return (
+      <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</span>
+          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: col }}>{val}%</span>
+        </div>
+        <input type="range" min="0" max="100" step="5" value={val}
+          onChange={e => set(item.id, parseInt(e.target.value))}
+          style={{ width: "100%", accentColor: col, cursor: "pointer" }} />
+        <div style={{ height: 6, borderRadius: 3, background: T.bg, marginTop: 4, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${val}%`, borderRadius: 3, background: col, transition: "all .2s" }} />
         </div>
       </div>
     );
   };
 
+  // ── 4x4 group ──
+  const OptGroupItem = ({ item }) => {
+    const isOn = data[item.id + "_on"];
+    return (
+      <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div onClick={() => set(item.id + "_on", !isOn)}
+            style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isOn ? CH : T.border}`, background: isOn ? CH : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            {isOn && <span style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>✓</span>}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: isOn ? T.text : T.grayLight }}>{item.label}</span>
+        </div>
+        {isOn && (
+          <div style={{ paddingLeft: 32, marginTop: 8 }}>
+            {(item.subItems || []).map(sub => (
+              <div key={sub.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${T.border}20` }}>
+                <span style={{ fontSize: 12, color: data[sub.id] ? T.text : T.grayLight }}>{sub.label}</span>
+                <BRC id={sub.id} small />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Tires diagram ──
+  const TiresItem = () => {
+    const tires = data.ch_tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100, auxilio: 100 };
+    const setTire = (key, val) => set("ch_tires", { ...tires, [key]: parseInt(val) });
+    const col = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
+    const TIRES = [
+      { key: "del_izq", label: "Del. Izq." }, { key: "del_der", label: "Del. Der." },
+      { key: "tra_izq", label: "Tra. Izq." }, { key: "tra_der", label: "Tra. Der." },
+      { key: "auxilio", label: "Auxilio" },
+    ];
+    return (
+      <div style={{ padding: "12px 0" }}>
+        {/* Car diagram */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 40, marginBottom: 16 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>DELANTERO</div>
+            <div style={{ display: "flex", gap: 24 }}>
+              {["del_izq", "del_der"].map(k => (
+                <div key={k} style={{ textAlign: "center" }}>
+                  <div style={{ width: 30, height: 60, borderRadius: 6, border: `3px solid ${col(tires[k])}`, background: `${col(tires[k])}20`,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fontD, fontSize: 14, fontWeight: 800, color: col(tires[k]) }}>
+                    {tires[k]}
+                  </div>
+                  <div style={{ fontSize: 9, color: T.gray, marginTop: 2 }}>{k.includes("izq") ? "IZQ" : "DER"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: T.gray, marginBottom: 4 }}>TRASERO</div>
+            <div style={{ display: "flex", gap: 24 }}>
+              {["tra_izq", "tra_der"].map(k => (
+                <div key={k} style={{ textAlign: "center" }}>
+                  <div style={{ width: 30, height: 60, borderRadius: 6, border: `3px solid ${col(tires[k])}`, background: `${col(tires[k])}20`,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fontD, fontSize: 14, fontWeight: 800, color: col(tires[k]) }}>
+                    {tires[k]}
+                  </div>
+                  <div style={{ fontSize: 9, color: T.gray, marginTop: 2 }}>{k.includes("izq") ? "IZQ" : "DER"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Sliders */}
+        {TIRES.map(({ key, label }) => (
+          <div key={key} style={{ marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+              <span style={{ color: T.grayLight }}>{label}</span>
+              <span style={{ fontFamily: fontD, fontWeight: 800, color: col(tires[key]) }}>{tires[key]}%</span>
+            </div>
+            <input type="range" min="0" max="100" step="5" value={tires[key]}
+              onChange={e => setTire(key, e.target.value)}
+              style={{ width: "100%", accentColor: col(tires[key]), cursor: "pointer" }} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ── Battery item ──
+  const BatteryItem = () => {
+    const pct = data.ch_bat_pct ?? 100;
+    const volt = data.ch_bat_volt || "";
+    const col = pct > 60 ? T.green : pct > 30 ? T.orange : T.red;
+    return (
+      <div style={{ padding: "12px 0" }}>
+        {/* Battery gauge */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <div style={{ width: 120, height: 60, borderRadius: 10, border: `3px solid ${col}`, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, background: `${col}30`, transition: "all .3s" }} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: col }}>{pct}%</span>
+            </div>
+            {/* Terminal */}
+            <div style={{ position: "absolute", top: -6, right: 14, width: 16, height: 6, borderRadius: "3px 3px 0 0", background: col }} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+            <span style={{ color: T.grayLight }}>🔋 Vida útil</span>
+            <span style={{ fontFamily: fontD, fontWeight: 800, color: col }}>{pct}%</span>
+          </div>
+          <input type="range" min="0" max="100" step="5" value={pct}
+            onChange={e => set("ch_bat_pct", parseInt(e.target.value))}
+            style={{ width: "100%", accentColor: col, cursor: "pointer" }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: T.grayLight, marginBottom: 4 }}>⚡ Carga alternador (V)</div>
+          <input inputMode="decimal" value={volt} onChange={e => set("ch_bat_volt", e.target.value)}
+            placeholder="Ej: 14.2" style={{ ...inputStyle, fontSize: 16, fontWeight: 700, fontFamily: fontD, width: 120 }} />
+          {volt && (() => {
+            const v = parseFloat(volt);
+            const vCol = v >= 13.5 && v <= 14.8 ? T.green : v > 14.8 ? T.orange : T.red;
+            const vLabel = v >= 13.5 && v <= 14.8 ? "✅ Normal" : v > 14.8 ? "⚠️ Alta" : "🔴 Baja";
+            return <div style={{ fontSize: 11, fontWeight: 700, color: vCol, marginTop: 4 }}>{vLabel} ({v}V)</div>;
+          })()}
+        </div>
+      </div>
+    );
+  };
+
+  // ── DTC item ──
+  const DtcItem = ({ item }) => {
+    const val = data[item.id]; // "presente" | "no_presente"
+    return (
+      <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{item.label}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div onClick={() => toggle(item.id, "no_presente")}
+              style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                background: val === "no_presente" ? `${T.green}20` : T.bg, color: val === "no_presente" ? T.green : T.gray,
+                border: `2px solid ${val === "no_presente" ? T.green : T.border}` }}>
+              {val === "no_presente" ? "✅ " : ""}No presente
+            </div>
+            <div onClick={() => toggle(item.id, "presente")}
+              style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                background: val === "presente" ? `${T.red}20` : T.bg, color: val === "presente" ? T.red : T.gray,
+                border: `2px solid ${val === "presente" ? T.red : T.border}` }}>
+              {val === "presente" ? "🔴 " : ""}Presente
+            </div>
+          </div>
+        </div>
+        {val === "presente" && (
+          <div style={{ marginTop: 8, padding: 12, background: `${T.red}08`, borderRadius: 8, border: `1px solid ${T.red}30` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 6 }}>Códigos encontrados:</div>
+            <input inputMode="text" value={data[item.id + "_note"] || ""} onChange={e => set(item.id + "_note", e.target.value)}
+              placeholder="Ej: P0300, P0171..." style={{ ...inputStyle, fontSize: 12 }} />
+            {(data[item.id + "_descs"] || []).map((desc, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+                <input inputMode="text" value={desc} onChange={e => updateDesc(item.id, i, e.target.value)}
+                  placeholder={`Código ${i + 2}...`} style={{ ...inputStyle, fontSize: 12, flex: 1 }} />
+                <div onClick={() => removeDesc(item.id, i)}
+                  style={{ width: 28, height: 28, borderRadius: 6, background: `${T.red}15`, color: T.red, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>✕</div>
+              </div>
+            ))}
+            <div onClick={() => addDesc(item.id)}
+              style={{ fontSize: 11, color: T.red, fontWeight: 700, marginTop: 6, cursor: "pointer" }}>＋ Agregar código</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── OptInput item (tocar para habilitar → input) ──
+  const OptInputItem = ({ item }) => {
+    const isOn = data[item.id + "_on"];
+    return (
+      <div style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div onClick={() => set(item.id + "_on", !isOn)}
+            style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isOn ? CH : T.border}`, background: isOn ? CH : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            {isOn && <span style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>✓</span>}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: isOn ? T.text : T.grayLight, flex: 1 }}>{item.label}</span>
+          {isOn && (
+            <input inputMode="numeric" value={data[item.id + "_val"] || ""} onChange={e => set(item.id + "_val", e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Valor..." style={{ ...inputStyle, width: 120, fontSize: 14, fontWeight: 700, fontFamily: fontD }} />
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ── Render item by type ──
+  const renderItem = (item) => {
+    switch (item.type) {
+      case "brc": return <ItemRow key={item.id} item={item} />;
+      case "opt": return <OptItem key={item.id} item={item} />;
+      case "desc": return <DescItem key={item.id} item={item} />;
+      case "opt_desc": return <OptDescItem key={item.id} item={item} />;
+      case "pct": return <PctItem key={item.id} item={item} />;
+      case "opt_group": return <OptGroupItem key={item.id} item={item} />;
+      case "tires": return <TiresItem key={item.id} />;
+      case "battery": return <BatteryItem key={item.id} />;
+      case "dtc": return <DtcItem key={item.id} item={item} />;
+      case "opt_input": return <OptInputItem key={item.id} item={item} />;
+      default: return <ItemRow key={item.id} item={item} />;
+    }
+  };
+
   return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
       {saved && <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-        <div style={{ background: T.bg2, borderRadius: 20, padding: 40, textAlign: "center", border: `2px solid ${CH_COLOR}` }}>
+        <div style={{ background: T.bg2, borderRadius: 20, padding: 40, textAlign: "center", border: `2px solid ${CH}` }}>
           <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
-          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: CH_COLOR }}>Chequeo Finalizado</div>
+          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: CH }}>Chequeo Finalizado</div>
           <div style={{ fontSize: 13, color: T.gray, marginTop: 6 }}>{bienCount} bien · {regularCount} regular · {cambiarCount} cambiar</div>
         </div>
       </div>}
@@ -12941,13 +13200,13 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
       </div>
 
       {/* Progress */}
-      <div style={{ ...card, padding: 16, marginBottom: 20, borderLeft: `4px solid ${CH_COLOR}` }}>
+      <div style={{ ...card, padding: 16, marginBottom: 20, borderLeft: `4px solid ${CH}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: CH_COLOR }}>🩺 Chequeo Vehicular</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: CH }}>🩺 Foja de Chequeo</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: progress === 100 ? T.green : T.gray }}>{filledItems}/{totalItems} · {progress}%</div>
         </div>
         <div style={{ height: 6, borderRadius: 3, background: T.bg, overflow: "hidden" }}>
-          <div style={{ height: "100%", borderRadius: 3, background: progress === 100 ? T.green : CH_COLOR, width: `${progress}%`, transition: "width .3s" }} />
+          <div style={{ height: "100%", borderRadius: 3, background: progress === 100 ? T.green : CH, width: `${progress}%`, transition: "width .3s" }} />
         </div>
         {filledItems > 0 && (
           <div style={{ display: "flex", gap: 12, marginTop: 10, fontSize: 12, fontWeight: 700 }}>
@@ -12963,46 +13222,43 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
 
       {/* Sections */}
       {CHEQUEO_TEMPLATE.map(sec => {
-        const secFilled = sec.items.filter(it => data[it.id]).length;
+        const isCollapsed = collapsed[sec.section];
+        const secFilled = sec.items.filter(it => {
+          if (it.type === "tires") return !!data.ch_tires;
+          if (it.type === "battery") return data.ch_bat_pct !== undefined || !!data.ch_bat_volt;
+          if (it.type === "opt" || it.type === "opt_desc" || it.type === "opt_input" || it.type === "opt_group") return !!data[it.id + "_on"];
+          if (it.type === "dtc") return data[it.id] !== undefined;
+          if (it.type === "pct") return data[it.id] !== undefined;
+          return !!data[it.id];
+        }).length;
         return (
           <div key={sec.section} style={{ ...card, marginBottom: 12, overflow: "hidden" }}>
-            <div style={{ padding: "14px 16px", background: T.bg3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div onClick={() => setCollapsed(prev => ({ ...prev, [sec.section]: !isCollapsed }))}
+              style={{ padding: "14px 16px", background: T.bg3, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
               <div style={{ fontSize: 14, fontWeight: 700 }}>{sec.icon} {sec.section}</div>
-              <div style={{ fontSize: 11, color: secFilled === sec.items.length ? T.green : T.gray, fontWeight: 700 }}>
-                {secFilled}/{sec.items.length}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: secFilled === sec.items.length ? T.green : T.gray, fontWeight: 700 }}>{secFilled}/{sec.items.length}</span>
+                <span style={{ fontSize: 12, color: T.gray }}>{isCollapsed ? "▼" : "▲"}</span>
               </div>
             </div>
-            <div style={{ padding: "8px 16px 12px" }}>
-              {sec.items.map(item => (
-                <div key={item.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: data[item.id] ? T.text : T.grayLight, flex: 1, minWidth: 120 }}>{item.label}</div>
-                    <BRC id={item.id} />
-                  </div>
-                  {expandedNote === item.id && (
-                    <div style={{ marginTop: 8 }}>
-                      <input inputMode="text" value={notes[item.id] || ""} onChange={e => setNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
-                        placeholder="Observación..." style={{ ...inputStyle, fontSize: 12 }} />
-                    </div>
-                  )}
-                  {notes[item.id] && expandedNote !== item.id && (
-                    <div style={{ fontSize: 11, color: CH_COLOR, marginTop: 4, fontStyle: "italic" }}>📝 {notes[item.id]}</div>
-                  )}
-                </div>
-              ))}
-            </div>
+            {!isCollapsed && (
+              <div style={{ padding: "4px 16px 12px" }}>
+                {sec.items.map(item => renderItem(item))}
+              </div>
+            )}
           </div>
         );
       })}
 
       {/* Save */}
       <button onClick={handleSave} disabled={filledItems === 0}
-        style={{ ...btnPrimary(CH_COLOR), width: "100%", fontSize: 16, padding: "16px 0", fontWeight: 800, opacity: filledItems > 0 ? 1 : 0.4, marginBottom: 40 }}>
+        style={{ ...btnPrimary(CH), width: "100%", fontSize: 16, padding: "16px 0", fontWeight: 800, opacity: filledItems > 0 ? 1 : 0.4, marginBottom: 40 }}>
         🩺 Finalizar Chequeo ({filledItems}/{totalItems})
       </button>
     </div>
   );
 };
+
 
 const ServiceSheetScreen = (props) => {
   const { order, clients, user, orders, setOrders, notifications, setNotifications, onNavigate } = props;
