@@ -5167,6 +5167,7 @@ const VehicleDetailScreen = (props) => {
           }, bg: "rgba(67,160,71,.08)" }] : []),
           ...(order.factura ? [{ icon: "📄", label: "Ver Factura", show: true, color: T.green, bg: "rgba(67,160,71,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "factura" }); setShowFacturaMenu(true); } }] : []),
           ...(order.ticket ? [{ icon: "🧾", label: "Ver Comprobante", show: true, color: T.orange, bg: "rgba(255,152,0,.08)", action: () => { setFacturaMenuData({ order, client, vehicle, tipo: "ticket" }); setShowFacturaMenu(true); } }] : []),
+          ...(order.status === "done" && !order.cobrado ? [{ icon: "💰", label: "Cobrar", show: true, color: T.green, action: () => onNavigate("admin", { initialTab: "cobros", initialOrder: order }), bg: "rgba(67,160,71,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
           ...(order.fromBudgetId && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
