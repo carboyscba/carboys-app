@@ -6899,6 +6899,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
   // ── Handler emitir factura (con ARCA) ──
   const [facturando, setFacturando] = useState(false);
+  const [fcManualPopup, setFcManualPopup] = useState(null); // { order, reason }
+
   const handleEmitirFactura = async () => {
     if (!facturaModal || facturando) return;
     const { order, payments, client } = facturaModal;
@@ -6908,37 +6910,78 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const entityId = tipoFC === "C" ? "2" : "1";
     const puntoVenta = 3; // PV RECE
     const totalBase = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-    // El monto real cobrado es la suma de los pagos (ya incluye IVA si +IVA)
     const totalCobrado = (payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     
-    // Determinar docTipo y docNro
-    let docTipo = 99; // Consumidor Final
+    let docTipo = 99;
     let docNro = 0;
     if (tipoFC === "A" && client?.cuit) { docTipo = 80; docNro = parseInt((client.cuit || "").replace(/[^0-9]/g, "")) || 0; }
     else if (tipoFC === "B" && client?.cuit) { docTipo = 80; docNro = parseInt((client.cuit || "").replace(/[^0-9]/g, "")) || 0; }
     else if (tipoFC === "B" && client?.dni) { docTipo = 96; docNro = parseInt((client.dni || "").replace(/[^0-9]/g, "")) || 0; }
     else if (tipoFC === "C" && client?.dni) { docTipo = 96; docNro = parseInt((client.dni || "").replace(/[^0-9]/g, "")) || 0; }
     
-    // Calcular importes para ARCA según tipo de FC
     let importeTotal, importeNeto, importeIva;
     if (tipoFC === "A") {
-      // FC A: precio base va como neto, ARCA suma IVA. Total cobrado = base + 21%
       importeNeto = totalBase;
       importeIva = Math.round(totalBase * (config.ivaRate || 21) / 100 * 100) / 100;
       importeTotal = importeNeto + importeIva;
     } else {
-      // FC B: cliente pagó base+IVA ($121k), FC C: cliente pagó base ($100k)
-      // En ambos casos, el total a ARCA es lo que el cliente pagó
       importeTotal = totalCobrado;
       importeNeto = 0;
       importeIva = 0;
     }
     
     setFacturando(true);
+
+    // ── PASO 1: Consultar padrón ARCA ANTES de emitir ──
+    const arcaUrl = config.arcaUrl || "https://carboys-arca-production.up.railway.app";
+    const arcaKey = config.arcaApiKey || "carboys-arca-2026";
+    let contribuyente = null;
+    const docNum = docNro ? String(docNro) : "";
+    const cuitQuery = docTipo === 80 ? docNum : (client?.cuit || "").replace(/[^0-9]/g, "");
+
+    if (cuitQuery && cuitQuery.length >= 7) {
+      try {
+        const padronResp = await fetch(`${arcaUrl}/api/padron?cuit=${cuitQuery}`, { headers: { "x-api-key": arcaKey } });
+        const padronData = await padronResp.json();
+        if (padronData.success) {
+          contribuyente = {
+            nombre: padronData.nombre || "",
+            razonSocial: padronData.razonSocial || "",
+            domicilioFiscal: padronData.domicilioFiscal || "",
+            condIva: padronData.condIva || "",
+            cuit: padronData.cuit || cuitQuery,
+            tipoPersona: padronData.tipoPersona || "",
+          };
+          console.log("[PADRON] ✅ Datos obtenidos:", contribuyente.nombre || contribuyente.razonSocial, contribuyente.domicilioFiscal);
+        } else {
+          console.warn("[PADRON] ❌ Sin datos:", padronData);
+        }
+      } catch(padronErr) {
+        console.warn("[PADRON] ❌ Error:", padronErr.message);
+      }
+    }
+
+    // Si no se pudo obtener datos de ARCA → FC manual
+    if (!contribuyente && cuitQuery && cuitQuery.length >= 7) {
+      setFacturando(false);
+      // Marcar en la orden que necesita FC manual
+      const manualData = {
+        fcManual: true,
+        fcManualReason: "No se pudieron obtener datos del padrón ARCA",
+        fcManualDate: new Date().toISOString(),
+        fcManualTipo: tipoFC,
+        fcManualImporte: importeTotal,
+      };
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...manualData } : o));
+      setSelCobro(prev => prev ? { ...prev, ...manualData } : prev);
+      setFcManualPopup({ order, reason: "No se pudieron obtener los datos fiscales del contribuyente desde ARCA. La factura debe realizarse manualmente." });
+      setFacturaModal(null);
+      return;
+    }
+
+    // ── PASO 2: Emitir FC en ARCA ──
     let factura;
     try {
-      const arcaUrl = config.arcaUrl || "https://carboys-arca-production.up.railway.app";
-      const arcaKey = config.arcaApiKey || "carboys-arca-2026";
       const resp = await fetch(`${arcaUrl}/api/facturar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": arcaKey },
@@ -6957,35 +7000,38 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           puntoVenta,
           cbteNro: result.cbteNro,
           importeTotal,
+          contribuyente, // Datos de ARCA ya obtenidos
         };
-        // Consultar padrón AFIP para datos fiscales del cliente
-        const docNum = docNro ? String(docNro) : "";
-        const cuitQuery = docTipo === 80 ? docNum : (client?.cuit || "").replace(/[^0-9]/g, "");
-        if (cuitQuery && cuitQuery.length >= 7) {
-          try {
-            const padronResp = await fetch(`${arcaUrl}/api/padron?cuit=${cuitQuery}`, { headers: { "x-api-key": arcaKey } });
-            const padronData = await padronResp.json();
-            if (padronData.success) {
-              factura.contribuyente = {
-                nombre: padronData.nombre || "",
-                razonSocial: padronData.razonSocial || "",
-                domicilioFiscal: padronData.domicilioFiscal || "",
-                condIva: padronData.condIva || "",
-                cuit: padronData.cuit || cuitQuery,
-                tipoPersona: padronData.tipoPersona || "",
-              };
-              console.log("[PADRON] Datos obtenidos:", factura.contribuyente.nombre, factura.contribuyente.domicilioFiscal);
-            }
-          } catch(padronErr) { console.warn("[PADRON] No se pudo consultar:", padronErr.message); }
-        }
       } else {
-        alert("Error ARCA: " + (result.error || "Error desconocido"));
+        // Error en ARCA al emitir → FC manual
         setFacturando(false);
+        const manualData = {
+          fcManual: true,
+          fcManualReason: "Error ARCA: " + (result.error || "Error desconocido"),
+          fcManualDate: new Date().toISOString(),
+          fcManualTipo: tipoFC,
+          fcManualImporte: importeTotal,
+        };
+        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...manualData } : o));
+        setSelCobro(prev => prev ? { ...prev, ...manualData } : prev);
+        setFcManualPopup({ order, reason: "Error al emitir en ARCA: " + (result.error || "Error desconocido") + ". La factura debe realizarse manualmente." });
+        setFacturaModal(null);
         return;
       }
     } catch (e) {
-      alert("Error conectando con ARCA: " + e.message);
+      // Error de conexión → FC manual
       setFacturando(false);
+      const manualData = {
+        fcManual: true,
+        fcManualReason: "Error de conexión con ARCA: " + e.message,
+        fcManualDate: new Date().toISOString(),
+        fcManualTipo: tipoFC,
+        fcManualImporte: importeTotal,
+      };
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...manualData } : o));
+      setSelCobro(prev => prev ? { ...prev, ...manualData } : prev);
+      setFcManualPopup({ order, reason: "No se pudo conectar con ARCA: " + e.message + ". La factura debe realizarse manualmente." });
+      setFacturaModal(null);
       return;
     }
     setFacturando(false);
@@ -7037,6 +7083,31 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         onClose={() => setTicketModal(null)}
         onEmit={handleEmitirTicket}
       />
+    )}
+    {/* ── POPUP FC MANUAL — cuando ARCA falla ── */}
+    {fcManualPopup && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={() => setFcManualPopup(null)}>
+        <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "92%", border: `2px solid ${T.orange}` }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize: 48, textAlign: "center", marginBottom: 10 }}>⚠️</div>
+          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", color: T.orange, marginBottom: 8 }}>Factura Manual Requerida</div>
+          <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 16, lineHeight: 1.6 }}>
+            {fcManualPopup.reason}
+          </div>
+          <div style={{ ...card, padding: 14, marginBottom: 16, background: T.bg3, borderColor: `${T.orange}40` }}>
+            <div style={{ fontSize: 12, color: T.gray }}>Orden: <strong>{fcManualPopup.order?.id}</strong> · {fmtD(fcManualPopup.order?.domain)}</div>
+            <div style={{ fontSize: 12, color: T.orange, fontWeight: 700, marginTop: 6 }}>
+              📋 Esta orden quedó registrada en Facturación como "FC PENDIENTE MANUAL"
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: T.grayLight, marginBottom: 16, lineHeight: 1.5, textAlign: "center" }}>
+            Deberás generar la factura manualmente desde ARCA y luego enviarla al cliente.
+          </div>
+          <button onClick={() => setFcManualPopup(null)}
+            style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 14, padding: "14px 0" }}>
+            Entendido
+          </button>
+        </div>
+      </div>
     )}
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -9099,17 +9170,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             return false;
           };
           const pendientesFc = allCobradas.filter(o => !o.factura && requiereFc(o));
+          const fcManuales = allCobradas.filter(o => o.fcManual && !o.factura);
           const canFact = getPerm(user, "facturar") || (user.role === "encargado" && config.encargadoPuedeFacturar);
 
           return (
             <div>
               {/* ── Alerta FC pendientes ── */}
-              {pendientesFc.length > 0 && (
+              {(pendientesFc.length > 0 || fcManuales.length > 0) && (
                 <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: T.red, background: `${T.red}10`, borderLeft: `4px solid ${T.red}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 22 }}>⚠️</span>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: T.red }}>{pendientesFc.length} orden{pendientesFc.length > 1 ? "es requieren" : " requiere"} factura</div>
+                      {pendientesFc.length > 0 && <div style={{ fontSize: 14, fontWeight: 700, color: T.red }}>{pendientesFc.length} orden{pendientesFc.length > 1 ? "es requieren" : " requiere"} factura</div>}
+                      {fcManuales.length > 0 && <div style={{ fontSize: 14, fontWeight: 700, color: T.orange, marginTop: pendientesFc.length > 0 ? 4 : 0 }}>📋 {fcManuales.length} factura{fcManuales.length > 1 ? "s" : ""} debe{fcManuales.length > 1 ? "n" : ""} hacerse manualmente</div>}
                       <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Tarjeta, Transferencia o Efectivo con IVA deben facturarse</div>
                     </div>
                   </div>
@@ -9125,6 +9198,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 <div style={{ ...card, padding: 16, borderLeft: `4px solid ${pendientesFc.length > 0 ? T.red : T.gray}` }}>
                   <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pendientes FC</div>
                   <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: pendientesFc.length > 0 ? T.red : T.gray }}>{pendientesFc.length}</div>
+                  {fcManuales.length > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: T.orange, marginTop: 4 }}>📋 {fcManuales.length} manual{fcManuales.length > 1 ? "es" : ""}</div>}
                 </div>
               </div>
 
@@ -9175,6 +9249,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             {hasFc && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: `${T.green}20`, color: T.green }}>FC {tipoFc}</span>}
                             {hasTicket && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: `${T.orange}20`, color: T.orange }}>Comp.</span>}
                             {urgente && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: `${T.red}20`, color: T.red, animation: "pulse 2s infinite" }}>⚠️ FC PENDIENTE</span>}
+                            {o.fcManual && !hasFc && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: `${T.orange}20`, color: T.orange, animation: "pulse 2s infinite" }}>📋 FC MANUAL</span>}
                             {nroFact && <span style={{ fontSize: 9, color: T.gray }}>#{nroFact}</span>}
                           </div>
                           <div style={{ fontSize: 12, color: T.gray }}>
