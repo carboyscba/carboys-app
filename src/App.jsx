@@ -2313,12 +2313,16 @@ const NewOrderScreen = (props) => {
                         </div>
                         <div onClick={() => {
                           var selWorks = (o.works || []).map(w => ({ type: w.type, price: parseFloat(w.price) || 0, desc: w.desc || "", trenItems: w.trenItems || [] }));
-                          var maxNum = Math.max(0, ...orders.map(ox => { var s = String(ox.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
-                          var newId = "ord_" + String(maxNum + 1).padStart(3, "0");
-                          var newOrder = { id: newId, clientId: o.clientId, domain: o.domain, status: "pending", works: selWorks, payments: [], assignedTo: "", date: new Date().toISOString().split("T")[0], km: o.km || "", budgetApproved: true, approvedAt: new Date().toISOString(), fromBudgetId: o.id, startedBy: "", startedAt: "", waRecepcion: false, paymentPref: o.paymentPref || {} };
-                          setOrders(prev => [...prev, newOrder]);
+                          // Transform same order
+                          var transformed = {
+                            ...o, status: "pending", works: selWorks, payments: [],
+                            budgetApproved: true, approvedAt: new Date().toISOString(),
+                            budgetOriginalWorks: o.works, budgetPendingWorks: null,
+                            paymentPref: o.paymentPref || {}
+                          };
+                          setOrders(prev => prev.map(ox => ox.id === o.id ? transformed : ox));
                           setHistoryOrderDetail(null); setHistoryVehicle(null);
-                          onNavigate("vehicleDetail", newOrder);
+                          onNavigate("vehicleDetail", transformed);
                         }}
                           style={{ ...card, padding: 16, cursor: "pointer", textAlign: "center", background: "rgba(67,160,71,.06)" }}
                           onMouseEnter={e => { e.currentTarget.style.borderColor = T.green; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
@@ -5141,7 +5145,7 @@ const VehicleDetailScreen = (props) => {
             { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
           ] : []),
-          ...(order.status === "working" && !order.fromBudgetId && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
+          ...(order.status === "working" && !order.budgetApproved && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
           }, bg: "rgba(255,152,0,.08)" }] : []),
           ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
@@ -5170,7 +5174,7 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "done" && !order.cobrado ? [{ icon: "💰", label: "Cobrar", show: true, color: T.green, action: () => onNavigate("admin", { initialTab: "cobros", initialOrder: order }), bg: "rgba(67,160,71,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🔄", label: "Reabrir Orden", show: true, color: T.orange, action: reopenOrder, bg: "rgba(255,152,0,.08)" }] : []),
           ...(order.status === "done" ? [{ icon: "🚗", label: "Entregado", show: true, color: "#00C853", action: () => { if (!order.cobrado) { setShowCobrarPopup(true); return; } setShowDeliverPopup(true); }, bg: "rgba(0,200,83,.08)" }] : []),
-          ...(order.fromBudgetId && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
+          ...(order.budgetApproved && (order.status === "pending" || order.status === "working") ? [{ icon: "↩️", label: "Volver a Presupuesto", show: true, color: T.orange, action: () => setShowRevertBudgetPopup(true), bg: "rgba(255,152,0,.08)" }] : []),
           ...(getPerm(user, "cancelar") && !order.cobrado && ["pending","working","inspection","inspection_done","done","budget_sent","budget_approved","budget_closed"].indexOf(order.status) >= 0 ? [{ icon: "🗑️", label: "Cancelar Orden", show: true, color: T.red, action: () => { setCancelStep(1); setShowCancelPopup(true); }, bg: "rgba(229,57,53,.08)" }] : []),
         ].filter(x => x.show).map((a, i) => (
           <div key={i} onClick={a.action || (() => {})}
@@ -5813,36 +5817,35 @@ const VehicleDetailScreen = (props) => {
                         var workPrice = hasSubs ? selSubs.reduce((s, ti) => s + (parseFloat(ti.price) || 0), 0) : (parseFloat(w.price) || 0);
                         return { type: w.type, price: workPrice, desc: w.desc || "", trenItems: selSubs };
                       });
-                      var maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
-                      var newId = "ord_" + String(maxNum + 1).padStart(3, "0");
-                      var newOrder = {
-                        id: newId, clientId: order.clientId, domain: order.domain,
-                        status: "pending", works: newWorks, payments: [],
-                        assignedTo: "", date: new Date().toISOString().split("T")[0],
-                        _createdAt: new Date().toISOString(),
-                        km: order.km || "", budgetApproved: true, approvedAt: new Date().toISOString(),
-                        fromBudgetId: order.id, startedBy: "", startedAt: "", waRecepcion: false,
-                        paymentPref: { method: budgetPayPref.method, withIva: budgetPayPref.withIva }
-                      };
-                      // Save remaining (not selected) works on the budget order
+                      // Save remaining (not selected) works for future
                       var remainingWorks = budgetSelWorks.filter(w => !w.selected).map(w => ({
                         ...w, selected: true, expanded: true
                       }));
-                      // Also save partially selected tren items (category selected but not all sub-items)
+                      // Also save partially selected tren items
                       budgetSelWorks.filter(w => w.selected && (w.trenItems || []).length > 0).forEach(w => {
                         var unselSubs = (w.trenItems || []).filter(ti => !ti.selected);
                         if (unselSubs.length > 0) {
                           remainingWorks.push({ ...w, trenItems: unselSubs.map(ti => ({ ...ti, selected: true })) });
                         }
                       });
-                      setOrders(prev => {
-                        var updated = prev.map(o => o.id === order.id ? { ...o, budgetRemainingWorks: remainingWorks.length > 0 ? remainingWorks : null, partialStarted: true } : o);
-                        return [...updated, newOrder];
-                      });
+                      // TRANSFORM the same order — don't create a new one
+                      var transformedOrder = {
+                        ...order,
+                        status: "pending",
+                        works: newWorks,
+                        payments: [],
+                        budgetApproved: true,
+                        approvedAt: new Date().toISOString(),
+                        budgetPendingWorks: remainingWorks.length > 0 ? remainingWorks : null,
+                        budgetOriginalWorks: order.works, // Keep original budget works for reference
+                        partialStarted: selWorks.length < budgetSelWorks.length,
+                        paymentPref: { method: budgetPayPref.method, withIva: budgetPayPref.withIva },
+                      };
+                      setOrders(prev => prev.map(o => o.id === order.id ? transformedOrder : o));
                       setShowBudgetStartPopup(false);
-                      onNavigate("vehicleDetail", newOrder);
+                      onNavigate("vehicleDetail", transformedOrder);
                     }} style={{ ...btnPrimary("#9C27B0"), flex: 2, fontSize: 14, fontWeight: 800, opacity: (selWorks.length > 0 && budgetPayPref.method && budgetPayPref.withIva !== null) ? 1 : 0.4 }}>
-                      ▶️ Crear Orden {selWorks.length < budgetSelWorks.length ? "Parcial" : "de Trabajo"} ({selWorks.length}/{budgetSelWorks.length})
+                      ▶️ Iniciar {selWorks.length < budgetSelWorks.length ? "Parcial" : "Trabajo"} ({selWorks.length}/{budgetSelWorks.length})
                     </button>
                   </div>
                 </>
@@ -5863,16 +5866,28 @@ const VehicleDetailScreen = (props) => {
             <div style={{ fontSize: 48, marginBottom: 12 }}>↩️</div>
             <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Volver a Presupuesto</div>
             <div style={{ fontSize: 13, color: T.grayLight, marginBottom: 20, lineHeight: 1.5 }}>
-              Se eliminará esta orden de trabajo y el presupuesto original quedará vigente para el vehículo <strong>{fmtD(order.domain)}</strong>.
+              La orden volverá al estado de presupuesto con los trabajos originales para <strong>{fmtD(order.domain)}</strong>.
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowRevertBudgetPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => {
-                setOrders(prev => prev.filter(o => o.id !== order.id));
+                const originalWorks = order.budgetOriginalWorks || order.works;
+                const restored = {
+                  ...order,
+                  status: "budget_sent",
+                  works: originalWorks,
+                  budgetApproved: false,
+                  budgetPendingWorks: null,
+                  budgetOriginalWorks: null,
+                  partialStarted: false,
+                  serviceSheet: null,
+                  assignedTo: "",
+                  startedBy: "",
+                  startedAt: "",
+                };
+                setOrders(prev => prev.map(o => o.id === order.id ? restored : o));
                 setShowRevertBudgetPopup(false);
-                const budgetOrder = orders.find(o => o.id === order.fromBudgetId);
-                if (budgetOrder) onNavigate("vehicleDetail", budgetOrder);
-                else onNavigate("dashboard");
+                onNavigate("vehicleDetail", restored);
               }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 13, fontWeight: 700 }}>↩️ Sí, volver</button>
             </div>
           </div>
