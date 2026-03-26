@@ -7034,9 +7034,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const puntoVenta = getCuentaPV(config, accountId);
     
     // ── Validación: FC A requiere CUIT obligatorio ──
-    if (tipoFC === "A" && (!client?.cuit || client.cuit.replace(/[^0-9]/g, "").length < 11)) {
-      alert("⚠️ Factura A requiere CUIT del receptor (11 dígitos).\n\nCompletá el CUIT del cliente antes de emitir.");
-      return;
+    if (tipoFC === "A") {
+      const cuitClean = (client?.cuit || "").replace(/[^0-9]/g, "");
+      if (!cuitClean || cuitClean.length !== 11) {
+        alert(`⚠️ Factura A requiere CUIT del receptor (11 dígitos).\n\nEl CUIT actual tiene ${cuitClean.length} dígitos: "${client?.cuit || "(vacío)}"\n\nUn CUIT válido tiene formato: 20-12345678-9\nEditá el CUIT en los datos del cliente arriba.`);
+        return;
+      }
     }
     const totalBase = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
     const totalCobrado = (payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -7370,7 +7373,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div><label style={labelStyle}>Teléfono</label><input inputMode="numeric" value={cobroClient.phone} onChange={e => !o.factura && setCobroClient(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
                     <div><label style={labelStyle}>DNI</label><input inputMode="numeric" value={cobroClient.dni} onChange={e => !o.factura && setCobroClient(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} /></div>
                   </div>
-                  <div><label style={labelStyle}>CUIT</label><input inputMode="numeric" value={cobroClient.cuit} onChange={e => !o.factura && setCobroClient(p => ({ ...p, cuit: e.target.value }))} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined }} placeholder="Ej: 20-12345678-9" /></div>
+                  <div>
+                    <label style={labelStyle}>CUIT {(() => {
+                      const c = (cobroClient.cuit || "").replace(/[^0-9]/g, "");
+                      return c.length === 11 ? <span style={{ color: T.green, fontSize: 10 }}>✅ {c.length} dígitos</span>
+                        : c.length > 0 ? <span style={{ color: T.orange, fontSize: 10 }}>⚠ {c.length}/11 dígitos</span>
+                        : null;
+                    })()}</label>
+                    <input inputMode="numeric" value={cobroClient.cuit} onChange={e => {
+                      if (o.factura) return;
+                      // Auto-format: allow digits and hyphens
+                      let v = e.target.value.replace(/[^0-9-]/g, "");
+                      setCobroClient(p => ({ ...p, cuit: v }));
+                    }} readOnly={!!o.factura} style={{ ...inputStyle, background: o.factura ? T.bg3 : undefined, cursor: o.factura ? "not-allowed" : undefined, borderColor: (() => { const c = (cobroClient.cuit||"").replace(/[^0-9]/g,""); return c.length === 11 ? T.green : c.length > 0 ? T.orange : undefined; })() }} placeholder="Ej: 20-12345678-9" />
+                  </div>
                 </div>}
 
                 {/* ── 2. TRABAJOS REALIZADOS ── */}
@@ -7855,10 +7871,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         <button onClick={() => {
                           const cl = clients.find(c => c.id === o.clientId);
                           const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                          // Merge: cobroClient edits + fresh client data (CUIT/DNI may have been added later)
+                          // Save client edits FIRST (persist to clients array + Firestore)
                           const mergedClient = cobroClient
                             ? { ...cobroClient, cuit: cobroClient.cuit || cl?.cuit || "", dni: cobroClient.dni || cl?.dni || "" }
                             : cl;
+                          if (cobroClient && cl) {
+                            setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni || c.dni, cuit: cobroClient.cuit || c.cuit } : c));
+                          }
                           setFacturaModal({ order: o, payments: cobroPay, client: mergedClient, vehicle: vh });
                         }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
                           🧾 EMITIR FACTURA
