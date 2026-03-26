@@ -6888,6 +6888,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [showCtaPago, setShowCtaPago] = useState(false);
   const [ctaPagoOrder, setCtaPagoOrder] = useState(null);
   const [ctaPagoForm, setCtaPagoForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Efectivo" });
+  const [ctaUndoConfirm, setCtaUndoConfirm] = useState(null); // order to undo
   // PROVEEDORES — edición
   const [editProvModal, setEditProvModal] = useState(null); // proveedor obj
   const [editProvForm, setEditProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
@@ -8524,8 +8525,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const lastPago = (o.ctaPagos || []).slice(-1)[0];
             const totalPagado = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
             return (
-              <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${T.green}`, opacity: 0.85 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.green}`, opacity: 0.85 }}>
+                <div onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                   <div>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
                     <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
@@ -8538,10 +8539,53 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     {lastPago?.metodo && <div style={{ fontSize: 10, color: T.gray }}>{lastPago.metodo === "Efectivo" ? "💵" : lastPago.metodo === "Tarjeta" ? "💳" : "🔁"} {lastPago.metodo}</div>}
                   </div>
                 </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                  <button onClick={e => { e.stopPropagation(); setCtaUndoConfirm(o); }}
+                    style={{ padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: `${T.red}10`, color: T.red, border: `1px solid ${T.red}40`, cursor: "pointer" }}>
+                    ⏪ Revertir pago
+                  </button>
+                </div>
               </div>
             );
           })}
         </>)}
+
+        {/* ══ MODAL CONFIRMAR REVERTIR PAGO CTA CTE ══ */}
+        {ctaUndoConfirm && (() => {
+          const uo = ctaUndoConfirm;
+          const uc = clients.find(x => x.id === uo.clientId);
+          const lastPago = (uo.ctaPagos || []).slice(-1)[0];
+          const totalPagado = (uo.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
+              onClick={() => setCtaUndoConfirm(null)}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 420, width: "92%", border: `2px solid ${T.red}` }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 40, textAlign: "center", marginBottom: 10 }}>⏪</div>
+                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, textAlign: "center", color: T.red, marginBottom: 8 }}>Revertir pago de Cta. Cte.</div>
+                <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 16, lineHeight: 1.6 }}>
+                  Esta accion va a deshacer el pago y la orden vuelve a aparecer como pendiente en Cuenta Corriente.
+                </div>
+                <div style={{ ...card, padding: 14, marginBottom: 16, background: T.bg3 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{fmtD(uo.domain)} — {uc ? uc.name + " " + uc.lastName : "—"}</div>
+                  <div style={{ fontSize: 13, color: T.green, fontWeight: 700, marginTop: 4 }}>Pagado: {fmt(totalPagado)}</div>
+                  {lastPago && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Ultimo pago: {fmtDate(lastPago.fecha)} — {lastPago.metodo}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setCtaUndoConfirm(null)}
+                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14, padding: "14px 0" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={() => {
+                    setOrders(prev => prev.map(o => o.id === uo.id ? { ...o, ctaCobrada: false, ctaPagos: [] } : o));
+                    setCtaUndoConfirm(null);
+                  }} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 14, padding: "14px 0" }}>
+                    Confirmar reversion
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══ MODAL PAGO CTA CTE ══ */}
         {showCtaPago && ctaPagoOrder && (() => {
