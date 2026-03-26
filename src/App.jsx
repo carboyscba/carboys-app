@@ -1952,9 +1952,9 @@ const NewOrderScreen = (props) => {
           {/* Domain search */}
           {searchMode === "domain" && (
             <div>
-              <input inputMode="text" value={domainSearch} onChange={e => { setDomainSearch(e.target.value.toUpperCase()); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
+              <input inputMode="text" value={domainSearch} onChange={e => { setDomainSearch(e.target.value); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
                 onKeyDown={e => e.key === "Enter" && searchDomain()}
-                placeholder="Buscar dominio, nombre, DNI, CUIT..." style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
+                placeholder="Buscar dominio, nombre, DNI, CUIT..." style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
               {/* Predictivo por dominio Y por cliente */}
               {domainSearch.replace(/\s/g,"").length >= 1 && !historyVehicle && (() => {
