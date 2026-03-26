@@ -5289,7 +5289,13 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "working" && !order.budgetApproved && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
           }, bg: "rgba(255,152,0,.08)" }] : []),
-          ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: false, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
+          ...((order.status === "done" || order.status === "delivered") && order.serviceSheet ? [{ icon: "📋", label: "Ver Foja de Servicio", show: true, color: T.accent, action: () => {
+            const fojaType = (order.works||[]).some(w => w.type === "Service Full" || w.type === "Service Base") ? "service" : (order.works||[]).some(w => w.type === "Baterías" || w.type === "Baterias") ? "battery" : (order.works||[]).some(w => w.type === "Escape") ? "escape" : "service";
+            onNavigate("fojaClient", { ...order, _fojaType: fojaType });
+          }, bg: "rgba(30,136,229,.08)" }] : []),
+          ...((order.status === "done" || order.status === "delivered") && order.isChequeo && order.chequeoData ? [
+            { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
+          ] : []),
           { icon: "✏️", label: "Editar Orden", show: !order.isChequeo && order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
             setEditWorks((order.works || []).map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
@@ -7441,13 +7447,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // MES → week tabs (Mon-Sat)
           if (period === "mes" && sorted.length > 0) {
             const getWeekNum = (dateStr) => {
-              const d = new Date(dateStr + "T12:00:00");
-              const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
-              // Find first Monday of the month
-              let firstMon = new Date(monthStart);
-              while (firstMon.getDay() !== 1) firstMon.setDate(firstMon.getDate() + 1);
-              if (d < firstMon) return 1;
-              return Math.floor((d - firstMon) / (7 * 86400000)) + (firstMon.getDate() === 1 ? 1 : 2);
+              const day = new Date(dateStr + "T12:00:00").getDate();
+              if (day <= 7) return 1;
+              if (day <= 14) return 2;
+              if (day <= 21) return 3;
+              if (day <= 28) return 4;
+              return 5;
             };
             const weeks = {};
             sorted.forEach(o => {
@@ -7465,7 +7470,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div key={wk} onClick={() => setSelWeek_(wk)}
                       style={{ flex: 1, padding: "10px 0", textAlign: "center", fontSize: 12, fontWeight: 700, cursor: "pointer",
                         background: selWeek === wk ? T.accent : T.bg2, color: selWeek === wk ? "#fff" : T.gray }}>
-                      Sem {wk} <span style={{ fontSize: 10, opacity: 0.7 }}>({weeks[wk].length})</span>
+                      Sem {wk} <span style={{ fontSize: 10, opacity: 0.7 }}>({wk === "1" || wk === 1 ? "1-7" : wk === "2" || wk === 2 ? "8-14" : wk === "3" || wk === 3 ? "15-21" : wk === "4" || wk === 4 ? "22-28" : "29+"})</span>
                     </div>
                   ))}
                 </div>
@@ -8509,14 +8514,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const ordersToShow = monthOrders || yearOrders;
                 if (ordersToShow.length === 0) return <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin ordenes en este periodo</div>;
 
-                // Helper: get week number (Mon-Sat based)
+                // Helper: get week number by day of month (1-7=S1, 8-14=S2, 15-21=S3, 22-28=S4, 29-31=S5)
                 const getWeekLabel = (dateStr) => {
-                  const d = new Date(dateStr + "T12:00:00");
-                  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
-                  let firstMon = new Date(monthStart);
-                  while (firstMon.getDay() !== 1) firstMon.setDate(firstMon.getDate() + 1);
-                  if (d < firstMon) return 1;
-                  return Math.floor((d - firstMon) / (7 * 86400000)) + (firstMon.getDate() === 1 ? 1 : 2);
+                  const day = new Date(dateStr + "T12:00:00").getDate();
+                  if (day <= 7) return 1;
+                  if (day <= 14) return 2;
+                  if (day <= 21) return 3;
+                  if (day <= 28) return 4;
+                  return 5;
                 };
 
                 // Group by week if viewing a specific month
@@ -8569,7 +8574,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     return (
                       <div key={"wk-" + wk} style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: T.accent + "12", borderRadius: 8, marginBottom: 8, borderLeft: "4px solid " + T.accent }}>
-                          <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: T.accent }}>Semana {wk}</span>
+                          <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: T.accent }}>Semana {wk} <span style={{ fontWeight: 600, fontSize: 12, color: T.grayLight }}>({wk == 1 ? "1 al 7" : wk == 2 ? "8 al 14" : wk == 3 ? "15 al 21" : wk == 4 ? "22 al 28" : "29 al 31"})</span></span>
                           <span style={{ fontSize: 12, color: T.gray }}>{weekGroups[wk].length} orden{weekGroups[wk].length !== 1 ? "es" : ""} \u2022 {fmt(wkTotal)}</span>
                         </div>
                         {weekGroups[wk].map(renderOrder)}
