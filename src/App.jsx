@@ -6836,6 +6836,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
+  const [resWeek, setResWeek] = useState(null); // selected week in MES view
   const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [movDetail, setMovDetail] = useState(null); // selected movement for detail popup
@@ -7037,7 +7038,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     return { workStats: ws, topWorks: tw, clientStats: cs, topClients: tc };
   }, [completed, clients]);
 
-  const PB = useCallback((k, l) => <div key={k} onClick={() => setPeriod(k)} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>, [period]);
+  const PB = useCallback((k, l) => <div key={k} onClick={() => { setPeriod(k); setResWeek(null); }} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === k ? T.accent : T.bg, color: period === k ? "#fff" : T.gray, border: `1px solid ${period === k ? T.accent : T.border}` }}>{l}</div>, [period]);
 
   const _ALL_TABS = [
     { key: "resumen", icon: "📊", l: "Resumen" },
@@ -7373,47 +7374,93 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             </div>
           );
         })()}
-        <div style={{ ...card, padding: 16 }}>
-          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Últimas órdenes completadas</div>
-          {periodOrders.slice(-8).reverse().map(o => {
+        {/* ── Orders list ── */}
+        {(() => {
+          const sorted = [...allPeriodOrders].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+          // Helper: render one order row
+          const renderOrderRow = (o) => {
             const c = clients.find(x => x.id === o.clientId);
             const v = c?.vehicles?.find(x => x.domain === o.domain);
+            const totalWorks = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             const totalPaid = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
             const mainMethod = (o.payments||[]).find(p => p.method)?.method || o.paymentPref?.method || "";
             const hasFc = !!o.factura;
             const hasTicket = !!o.ticket;
-            const fcLabel = hasFc ? `FC ${o.factura.tipo}` : hasTicket ? "Ticket" : null;
+            const fcLabel = hasFc ? "FC " + o.factura.tipo : hasTicket ? "Ticket" : null;
             const isPaid = totalPaid > 0;
+            const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.cobrado ? T.green : T.grayLight;
+            const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : o.cobrado ? "COBRADO" : "PENDIENTE";
             return (
-              <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}>
+              <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid " + T.border, cursor: "pointer" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{fmtD(o.domain)}</span>
-                    {isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: `${T.green}15`, padding: "2px 6px", borderRadius: 4 }}>PAGADO</span>}
-                    {!isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: `${T.orange}15`, padding: "2px 6px", borderRadius: 4 }}>PENDIENTE</span>}
+                    <span style={{ fontSize: 9, fontWeight: 700, color: sc, background: sc + "15", padding: "2px 6px", borderRadius: 4 }}>{sl}</span>
+                    {isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: T.green + "15", padding: "2px 6px", borderRadius: 4 }}>PAGADO</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "—"} • {v ? v.brand + " " + v.model : ""}{(() => {
-                    const contrib = o.factura?.contribuyente;
-                    const doc = contrib?.cuit || c?.cuit || c?.dni || "";
-                    if (!doc) return "";
-                    const isCuit = doc.replace(/[^0-9]/g, "").length >= 11;
-                    const fmtDoc = isCuit ? doc.replace(/[^0-9]/g, "").replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3") : doc;
-                    return ` • ${isCuit ? "CUIT" : "DNI"}: ${fmtDoc}`;
-                  })()}</div>
+                  <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "\u2014"}{v ? " \u2022 " + v.brand + " " + v.model : ""}</div>
                   <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    {mainMethod && <span style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, background: T.bg3, padding: "2px 8px", borderRadius: 4 }}>{mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : "📒"} {mainMethod}{mainMethod === "Transferencia" ? (() => { const acc = (o.payments||[]).find(p => p.method === "Transferencia")?.account; return acc === "1" ? " → CARBOYS" : acc === "2" ? " → Ignacio Karqui" : ""; })() : ""}</span>}
-                    {fcLabel && <span style={{ fontSize: 10, fontWeight: 700, color: hasFc ? T.green : T.grayLight, background: hasFc ? `${T.green}15` : T.bg3, padding: "2px 8px", borderRadius: 4 }}>🧾 {fcLabel}</span>}
+                    {mainMethod && <span style={{ fontSize: 10, fontWeight: 700, color: T.grayLight, background: T.bg3, padding: "2px 8px", borderRadius: 4 }}>{mainMethod === "Efectivo" ? "\uD83D\uDCB5" : mainMethod === "Transferencia" ? "\uD83D\uDD01" : mainMethod === "Tarjeta" ? "\uD83D\uDCB3" : "\uD83D\uDCD2"} {mainMethod}</span>}
+                    {fcLabel && <span style={{ fontSize: 10, fontWeight: 700, color: hasFc ? T.green : T.grayLight, background: hasFc ? T.green + "15" : T.bg3, padding: "2px 8px", borderRadius: 4 }}>{fcLabel}</span>}
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: isPaid ? T.green : T.orange, fontFamily: fontD }}>{fmt(totalPaid || (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</div>
-                  <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.cajaDate || o.date)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: T.accent, fontFamily: fontD }}>{fmt(totalWorks)}</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                 </div>
               </div>
             );
-          })}
-          {periodOrders.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin órdenes en este período</div>}
-        </div>
+          };
+
+          // MES → week tabs (Mon-Sat)
+          if (period === "mes" && sorted.length > 0) {
+            const getWeekNum = (dateStr) => {
+              const d = new Date(dateStr + "T12:00:00");
+              const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+              // Find first Monday of the month
+              let firstMon = new Date(monthStart);
+              while (firstMon.getDay() !== 1) firstMon.setDate(firstMon.getDate() + 1);
+              if (d < firstMon) return 1;
+              return Math.floor((d - firstMon) / (7 * 86400000)) + (firstMon.getDate() === 1 ? 1 : 2);
+            };
+            const weeks = {};
+            sorted.forEach(o => {
+              const wk = getWeekNum(o.date);
+              if (!weeks[wk]) weeks[wk] = [];
+              weeks[wk].push(o);
+            });
+            const weekKeys = Object.keys(weeks).sort((a, b) => Number(a) - Number(b));
+            const [selWeek, setSelWeek_] = [resWeek || weekKeys[0], (w) => setResWeek(w)];
+            return (
+              <div style={{ ...card, padding: 16 }}>
+                <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Ordenes del mes</div>
+                <div style={{ display: "flex", gap: 0, marginBottom: 16, borderRadius: 8, overflow: "hidden", border: "1px solid " + T.border }}>
+                  {weekKeys.map(wk => (
+                    <div key={wk} onClick={() => setSelWeek_(wk)}
+                      style={{ flex: 1, padding: "10px 0", textAlign: "center", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        background: selWeek === wk ? T.accent : T.bg2, color: selWeek === wk ? "#fff" : T.gray }}>
+                      Sem {wk} <span style={{ fontSize: 10, opacity: 0.7 }}>({weeks[wk].length})</span>
+                    </div>
+                  ))}
+                </div>
+                {(weeks[selWeek] || []).map(renderOrderRow)}
+                {(!weeks[selWeek] || weeks[selWeek].length === 0) && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin ordenes esta semana</div>}
+              </div>
+            );
+          }
+
+          // HOY / SEMANA → flat list
+          return (
+            <div style={{ ...card, padding: 16 }}>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+                {period === "dia" ? "Ordenes de hoy" : "Ordenes de la semana"}
+              </div>
+              {sorted.map(renderOrderRow)}
+              {sorted.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 10 }}>Sin ordenes en este periodo</div>}
+            </div>
+          );
+        })()}
       </div>)}
 
       {/* ══════ MEDIOS DE PAGO ══════ */}
@@ -8430,44 +8477,82 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 </div>
               </div>
 
-              {/* Listado de órdenes */}
-              {(monthOrders || yearOrders).map(o => {
-                const cl = clients.find(c => c.id === o.clientId);
-                const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                const metodo = metodoLabel(o);
-                const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
-                const isChequeo = !!o.isChequeo;
-                const cardColor = isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.border;
-                return (
-                  <div key={o.id} onClick={() => setHistDetail(o)}
-                    style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${cardColor}`, opacity: isBudget ? 0.6 : 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
-                          {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#FF4081", background: "rgba(255,64,129,0.15)", padding: "2px 6px", borderRadius: 4 }}>🩺 CHEQUEO</span>}
-                          {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
+              {/* Listado de órdenes — con separadores de semana si hay mes seleccionado */}
+              {(() => {
+                const ordersToShow = monthOrders || yearOrders;
+                if (ordersToShow.length === 0) return <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin ordenes en este periodo</div>;
+
+                // Helper: get week number (Mon-Sat based)
+                const getWeekLabel = (dateStr) => {
+                  const d = new Date(dateStr + "T12:00:00");
+                  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+                  let firstMon = new Date(monthStart);
+                  while (firstMon.getDay() !== 1) firstMon.setDate(firstMon.getDate() + 1);
+                  if (d < firstMon) return 1;
+                  return Math.floor((d - firstMon) / (7 * 86400000)) + (firstMon.getDate() === 1 ? 1 : 2);
+                };
+
+                // Group by week if viewing a specific month
+                const useWeeks = histMonth !== null;
+                let weekGroups = null;
+                if (useWeeks) {
+                  weekGroups = {};
+                  ordersToShow.forEach(o => {
+                    const wk = getWeekLabel(o.date);
+                    if (!weekGroups[wk]) weekGroups[wk] = [];
+                    weekGroups[wk].push(o);
+                  });
+                }
+
+                const renderOrder = (o) => {
+                  const cl = clients.find(c => c.id === o.clientId);
+                  const vh = cl?.vehicles?.find(v => v.domain === o.domain);
+                  const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                  const metodo = metodoLabel(o);
+                  const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
+                  const isChequeo = !!o.isChequeo;
+                  const cardColor = isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.border;
+                  return (
+                    <div key={o.id} onClick={() => setHistDetail(o)}
+                      style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: "3px solid " + cardColor, opacity: isBudget ? 0.6 : 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                            {isChequeo && <span style={{ fontSize: 9, fontWeight: 700, color: "#FF4081", background: "rgba(255,64,129,0.15)", padding: "2px 6px", borderRadius: 4 }}>CHEQUEO</span>}
+                            {isBudget && <span style={{ fontSize: 9, fontWeight: 700, color: "#9C27B0", background: "rgba(156,39,176,0.15)", padding: "2px 6px", borderRadius: 4 }}>PRESUPUESTO</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>{cl ? cl.name + " " + cl.lastName : "\u2014"}{vh ? " \u2022 " + vh.brand + " " + vh.model : ""}</div>
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
+                          {metodo && <div style={{ fontSize: 10, color: T.grayLight, marginTop: 4, fontWeight: 600 }}>{metodo}</div>}
                         </div>
-                        <div style={{ fontSize: 12, color: T.grayLight, marginTop: 1 }}>
-                          {cl ? cl.name + " " + cl.lastName : "—"}{vh ? " · " + vh.brand + " " + vh.model : ""}
+                        <div style={{ textAlign: "right", marginLeft: 12 }}>
+                          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                         </div>
-                        <div style={{ fontSize: 11, color: T.gray, marginTop: 1 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
-                        {metodo && (
-                          <div style={{ fontSize: 10, color: T.grayLight, marginTop: 4, fontWeight: 600, letterSpacing: .3 }}>{metodo}</div>
-                        )}
-                      </div>
-                      <div style={{ textAlign: "right", marginLeft: 12 }}>
-                        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: isChequeo ? "#FF4081" : isBudget ? "#9C27B0" : T.accent }}>{fmt(total)}</div>
-                        <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{fmtDate(o.date)}</div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-              {(monthOrders || yearOrders).length === 0 && (
-                <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin órdenes en este período</div>
-              )}
+                  );
+                };
+
+                if (useWeeks && weekGroups) {
+                  const wks = Object.keys(weekGroups).sort((a, b) => Number(a) - Number(b));
+                  return wks.map(wk => {
+                    const wkTotal = weekGroups[wk].reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    return (
+                      <div key={"wk-" + wk} style={{ marginBottom: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: T.accent + "12", borderRadius: 8, marginBottom: 8, borderLeft: "4px solid " + T.accent }}>
+                          <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: T.accent }}>Semana {wk}</span>
+                          <span style={{ fontSize: 12, color: T.gray }}>{weekGroups[wk].length} orden{weekGroups[wk].length !== 1 ? "es" : ""} \u2022 {fmt(wkTotal)}</span>
+                        </div>
+                        {weekGroups[wk].map(renderOrder)}
+                      </div>
+                    );
+                  });
+                }
+
+                return ordersToShow.map(renderOrder);
+              })()}
             </div>
           );
         })()}
