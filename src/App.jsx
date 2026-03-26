@@ -6573,9 +6573,17 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
               <div style={{ marginTop: 12, fontSize: 12, color: "#9badc4", lineHeight: 1.6 }}>
                 <div>{entityName}</div>
                 <div>CUIT: {entityCuit}</div>
-                <div>PV: {String(entityPV).padStart(5, "0")}</div>
+                <div>{entityCondIva}</div>
                 {entityDom && <div style={{ fontSize: 10 }}>{entityDom}</div>}
-                <div style={{ fontSize: 11, color: "#7b8fad" }}>{entityCondIva}</div>
+                {(() => {
+                  const iibb = isEntity2 ? config?.cta2Iibb : config?.iibb;
+                  const inicioAct = config?.inicioAct;
+                  return <>
+                    {iibb && <div style={{ fontSize: 10 }}>IIBB: {iibb}</div>}
+                    {inicioAct && <div style={{ fontSize: 10 }}>Inicio Act.: {inicioAct.split("-").reverse().join("/")}</div>}
+                  </>;
+                })()}
+                <div style={{ fontSize: 10 }}>PV: {String(entityPV).padStart(5, "0")}</div>
               </div>
             </div>
             {/* Recuadro tipo de factura */}
@@ -6600,21 +6608,25 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
             </div>
           </div>
 
-          {/* ── CLIENTE ── */}
+          {/* ── RECEPTOR ── */}
           {(() => {
             const contrib = order.factura?.contribuyente;
+            const isLocal = contrib?._fromLocal;
             const clientName = contrib?.nombre || contrib?.razonSocial || (client ? `${client.name} ${client.lastName}` : "Consumidor Final");
             const clientCuit = contrib?.cuit || client?.cuit || "";
             const clientDni = client?.dni || "";
             const clientDom = contrib?.domicilioFiscal || "";
-            const clientCondIva = contrib?.condIva || "";
+            const clientCondIva = contrib?.condIva || (invoiceType === "A" ? "Responsable Inscripto" : invoiceType === "C" ? "Consumidor Final" : "");
             return (
               <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Datos del Cliente</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Datos del Receptor</div>
+                  {isLocal && <div style={{ fontSize: 8, color: "#f59e0b", fontWeight: 700, padding: "2px 6px", background: "#fef3c7", borderRadius: 3 }}>⚠ Datos locales — no verificados en ARCA</div>}
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{clientName}</div>
-                    {clientCuit && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>CUIT: {clientCuit.replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3")}</div>}
+                    {clientCuit && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>CUIT: {clientCuit.replace(/[^0-9]/g, "").replace(/(\d{2})(\d{8})(\d{1})/, "$1-$2-$3")}</div>}
                     {!clientCuit && clientDni && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>DNI: {clientDni}</div>}
                     {clientCondIva && <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{clientCondIva}</div>}
                     {clientDom && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{clientDom}</div>}
@@ -6703,7 +6715,12 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
               {order.factura?.caeVto && <div style={{ fontSize: 11, color: "#64748b" }}>Vencimiento CAE: {order.factura.caeVto}</div>}
             </div>
             {order.factura?.cae && (() => {
-              const qrData = JSON.stringify({ver:1,fecha:order.factura.fecha?.split("/").reverse().join("-"),cuit:entityCuit.replace(/[^0-9]/g,""),ptoVta:entityPV,tipoCmp:invoiceType==="A"?1:invoiceType==="B"?6:11,nroCmp:order.factura.cbteNro||1,importe:order.factura.importeTotal||totalFact,moneda:"PES",ctz:1,tipoDocRec:99,nroDocRec:0,tipoCodAut:"E",codAut:parseInt(order.factura.cae)});
+              const contrib = order.factura?.contribuyente;
+              const clientCuit = (contrib?.cuit || client?.cuit || "").replace(/[^0-9]/g, "");
+              const clientDni = (client?.dni || "").replace(/[^0-9]/g, "");
+              const qrDocTipo = clientCuit && clientCuit.length >= 11 ? 80 : clientDni ? 96 : 99;
+              const qrDocNro = qrDocTipo === 80 ? parseInt(clientCuit) || 0 : qrDocTipo === 96 ? parseInt(clientDni) || 0 : 0;
+              const qrData = JSON.stringify({ver:1,fecha:order.factura.fecha?.split("/").reverse().join("-"),cuit:entityCuit.replace(/[^0-9]/g,""),ptoVta:entityPV,tipoCmp:invoiceType==="A"?1:invoiceType==="B"?6:11,nroCmp:order.factura.cbteNro||1,importe:order.factura.importeTotal||totalFact,moneda:"PES",ctz:1,tipoDocRec:qrDocTipo,nroDocRec:qrDocNro,tipoCodAut:"E",codAut:parseInt(order.factura.cae)});
               const afipUrl = "https://www.afip.gob.ar/fe/qr/?p=" + btoa(qrData);
               const qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(afipUrl);
               return (
@@ -7005,8 +7022,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const now = new Date();
     const mainPay = (payments || [])[0] || {};
     const tipoFC = mainPay.invoiceType || "B";
-    const entityId = tipoFC === "C" ? "2" : "1";
-    const puntoVenta = 3; // PV RECE
+    const accountId = tipoFC === "C" ? "2" : "1";
+    const entityId = accountId;
+    const puntoVenta = getCuentaPV(config, accountId);
+    
+    // ── Validación: FC A requiere CUIT obligatorio ──
+    if (tipoFC === "A" && (!client?.cuit || client.cuit.replace(/[^0-9]/g, "").length < 11)) {
+      alert("⚠️ Factura A requiere CUIT del receptor (11 dígitos).\n\nCompletá el CUIT del cliente antes de emitir.");
+      return;
+    }
     const totalBase = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
     const totalCobrado = (payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     
@@ -7039,7 +7063,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
     if (cuitQuery && cuitQuery.length >= 7) {
       try {
-        const padronResp = await fetch(`${arcaUrl}/api/padron?cuit=${cuitQuery}`, { headers: { "x-api-key": arcaKey } });
+        const padronCtrl = new AbortController();
+        const padronTimeout = setTimeout(() => padronCtrl.abort(), 10000); // 10s timeout
+        const padronResp = await fetch(`${arcaUrl}/api/padron?cuit=${cuitQuery}&entity=${entityId}`, { headers: { "x-api-key": arcaKey }, signal: padronCtrl.signal });
+        clearTimeout(padronTimeout);
         const padronData = await padronResp.json();
         if (padronData.success) {
           contribuyente = {
@@ -7059,22 +7086,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       }
     }
 
-    // Si no se pudo obtener datos de ARCA → FC manual
+    // Si no se pudo obtener datos de ARCA → NO bloquear, emitir igual con datos locales
     if (!contribuyente && cuitQuery && cuitQuery.length >= 7) {
-      setFacturando(false);
-      // Marcar en la orden que necesita FC manual
-      const manualData = {
-        fcManual: true,
-        fcManualReason: "No se pudieron obtener datos del padrón ARCA",
-        fcManualDate: new Date().toISOString(),
-        fcManualTipo: tipoFC,
-        fcManualImporte: importeTotal,
+      console.warn("[PADRON] No se pudieron obtener datos — se emitirá con datos locales del cliente");
+      // Build contribuyente from local client data as fallback
+      contribuyente = {
+        nombre: client ? `${client.name || ""} ${client.lastName || ""}`.trim() : "",
+        razonSocial: "",
+        domicilioFiscal: "",
+        condIva: "",
+        cuit: cuitQuery,
+        tipoPersona: "",
+        _fromLocal: true, // Flag to know data is not from ARCA
       };
-      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...manualData } : o));
-      setSelCobro(prev => prev ? { ...prev, ...manualData } : prev);
-      setFcManualPopup({ order, reason: "No se pudieron obtener los datos fiscales del contribuyente desde ARCA. La factura debe realizarse manualmente." });
-      setFacturaModal(null);
-      return;
     }
 
     // ── PASO 2: Emitir FC en ARCA ──
@@ -7083,7 +7107,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       const resp = await fetch(`${arcaUrl}/api/facturar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": arcaKey },
-        body: JSON.stringify({ entityId, puntoVenta, tipoFactura: tipoFC, docTipo, docNro, importeTotal, importeNeto, importeIva, concepto: 1 })
+        body: JSON.stringify({ entityId, puntoVenta, tipoFactura: tipoFC, docTipo, docNro, importeTotal, importeNeto, importeIva, concepto: 3, fchServDesde: now.toISOString().split("T")[0].replace(/-/g, ""), fchServHasta: now.toISOString().split("T")[0].replace(/-/g, ""), fchVtoPago: now.toISOString().split("T")[0].replace(/-/g, "") })
       });
       const result = await resp.json();
       if (result.success) {
