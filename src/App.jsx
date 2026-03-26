@@ -7054,7 +7054,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     if (tipoFC === "A") {
       const cuitClean = (client?.cuit || "").replace(/[^0-9]/g, "");
       if (!cuitClean || cuitClean.length !== 11) {
-        alert(`⚠️ Factura A requiere CUIT del receptor (11 dígitos).\n\nEl CUIT actual tiene ${cuitClean.length} dígitos: "${client?.cuit || "(vacío)}"\n\nUn CUIT válido tiene formato: 20-12345678-9\nEditá el CUIT en los datos del cliente arriba.`);
+        alert("Factura A requiere CUIT del receptor (11 digitos).\n\nEl CUIT actual tiene " + cuitClean.length + " digitos.\n\nUn CUIT valido tiene formato: 20-12345678-9\nEdita el CUIT en los datos del cliente arriba.");
         return;
       }
     }
