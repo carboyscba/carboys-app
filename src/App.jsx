@@ -6952,6 +6952,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   // ALL orders in period (cobradas or not, excluding cancelled) — for resumen metrics
   const allPeriodOrders = useMemo(() => orders.filter(o => {
     if (o.status === "cancelled") return false;
+    if (["budget_sent", "budget_approved", "budget_closed"].includes(o.status)) return false;
     const d = normDate(o.date);
     return d >= startDate && d <= today;
   }), [orders, startDate, today]);
@@ -8172,8 +8173,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {tab === "historial" && (<div>
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📚 Historial de Vehículos</div>
         {(() => {
-          const allOrders = orders.filter(o => o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-          const years = [...new Set(allOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
+          const allOrders = orders.filter(o => o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status) || ["pending","working","done","delivered","inspection","inspection_done"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          // workOrders = solo órdenes de trabajo (excluye presupuestos) para vista normal
+          const workOrders = allOrders.filter(o => !["budget_sent","budget_approved","budget_closed"].includes(o.status));
+          const years = [...new Set(workOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
           const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
           // ── Helper método de pago resumido ──
@@ -8430,7 +8433,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           }
 
           // ── VISTA NORMAL POR AÑO/MES ──
-          const yearOrders = allOrders.filter(o => new Date(o.date || Date.now()).getFullYear() === histYear);
+          const yearOrders = workOrders.filter(o => new Date(o.date || Date.now()).getFullYear() === histYear);
           const monthOrders = histMonth !== null ? yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === histMonth) : null;
 
           return (
@@ -8455,7 +8458,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               {/* Grid de meses */}
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>
-                  {histYear} — {yearOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).length} orden{yearOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0))}
+                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
