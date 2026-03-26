@@ -7422,8 +7422,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     const isTarjeta = pm.method === "Tarjeta";
                     const isEfectivo = pm.method === "Efectivo";
                     // Split automático: primer pago toma el restante
-                    const otrosTotal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-                    const primerMonto = i === 0 && cobroPay.length > 1 ? Math.max(0, total - otrosTotal) : null;
+                    const ivaR = config.ivaRate || 21;
+                    const otrosBase = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => {
+                      const amt = parseFloat(p.amount) || 0;
+                      return s + (p.withIva ? Math.round(amt / (1 + ivaR / 100)) : amt);
+                    }, 0);
+                    const firstBase = Math.max(0, total - otrosBase);
+                    const firstPm = cobroPay[0] || {};
+                    const primerMonto = i === 0 && cobroPay.length > 1 ? (firstPm.withIva ? Math.round(firstBase * (1 + ivaR / 100)) : firstBase) : null;
                     return (
                     <div key={i} style={{ ...card, padding: 12, marginBottom: 8, background: T.bg }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
@@ -7482,8 +7488,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                               const ivaRate = config.ivaRate || 21;
                               setCobroPay(ps => ps.map((p, j) => {
                                 if (j !== i) return p;
-                                const newAmt = ps.length === 1 ? String(Math.round(totalBase * (1 + ivaRate / 100))) : p.amount;
-                                return { ...p, withIva: true, invoiceType: "", amount: newAmt };
+                                if (ps.length === 1) {
+                                  return { ...p, withIva: true, invoiceType: "", amount: String(Math.round(totalBase * (1 + ivaRate / 100))) };
+                                }
+                                // Mixto: recalcular monto con IVA sobre la base que ingresó el usuario
+                                const currentAmt = parseFloat(p.amount) || 0;
+                                const baseAmt = p.withIva ? Math.round(currentAmt / (1 + ivaRate / 100)) : currentAmt;
+                                return { ...p, withIva: true, invoiceType: "", amount: String(Math.round(baseAmt * (1 + ivaRate / 100))) };
                               }));
                             })()}
                             style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === true ? T.accent : T.border}`, background: pm.withIva === true ? `${T.accent}10` : T.bg, color: pm.withIva === true ? T.accent : T.gray }}>
@@ -7492,10 +7503,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           </div>
                           <div onClick={() => (() => {
                               const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                              const ivaRate = config.ivaRate || 21;
                               setCobroPay(ps => ps.map((p, j) => {
                                 if (j !== i) return p;
-                                const newAmt = ps.length === 1 ? String(totalBase) : p.amount;
-                                return { ...p, withIva: false, invoiceType: "", amount: newAmt };
+                                if (ps.length === 1) {
+                                  return { ...p, withIva: false, invoiceType: "", amount: String(totalBase) };
+                                }
+                                // Mixto: quitar IVA del monto si antes tenía IVA
+                                const currentAmt = parseFloat(p.amount) || 0;
+                                const baseAmt = p.withIva ? Math.round(currentAmt / (1 + ivaRate / 100)) : currentAmt;
+                                return { ...p, withIva: false, invoiceType: "", amount: String(baseAmt) };
                               }));
                             })()}
                             style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${pm.withIva === false ? T.gray : T.border}`, background: pm.withIva === false ? T.bg3 : T.bg, color: pm.withIva === false ? T.grayLight : T.gray }}>
@@ -7620,7 +7637,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div style={{ flex: 1, padding: "16px 0", borderRadius: 10, textAlign: "center", fontSize: 15, fontWeight: 700, background: `${T.green}15`, border: `2px solid ${T.green}`, color: T.green }}>✅ COBRADO</div>
                   ) : (() => {
                     // ── Validación exhaustiva antes de cobrar ──
-                    const otrosTotalVal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const otrosTotalVal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => {
+                      const amt = parseFloat(p.amount) || 0;
+                      return s + (p.withIva ? Math.round(amt / (1 + (config.ivaRate || 21) / 100)) : amt);
+                    }, 0);
                     const primerMontoVal = cobroPay.length > 1 ? Math.max(0, total - otrosTotalVal) : null;
                     const hasCuitVal = !!(cobroClient?.cuit);
 
@@ -7700,14 +7720,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     };
                     const confirmarCobro = () => {
                       if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
-                      // Calcular monto real — si es +IVA, el total cobrado incluye IVA
                       const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                      const firstPay = cobroPay[0] || {};
-                      const totalCobrado = firstPay.withIva ? Math.round(totalBase * (1 + (config.ivaRate || 21) / 100)) : totalBase;
+                      const ivaRate = config.ivaRate || 21;
+                      // Each payment already has IVA included in its amount (applied when toggling Con IVA)
+                      // First payment auto-adjusts: total (with its own IVA if applicable) minus sum of other payments
                       const otrosTotalFinal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                      const firstPay = cobroPay[0] || {};
+                      // Calculate what the first payment's base portion covers
+                      const otrosBase = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => {
+                        const amt = parseFloat(p.amount) || 0;
+                        return s + (p.withIva ? Math.round(amt / (1 + ivaRate / 100)) : amt);
+                      }, 0);
+                      const firstBase = totalBase - otrosBase;
+                      const firstAmt = firstPay.withIva ? Math.round(firstBase * (1 + ivaRate / 100)) : firstBase;
                       const finalPays = cobroPay.map((pp, idx) => {
                         let amt = parseFloat(pp.amount) || 0;
-                        if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, totalCobrado - otrosTotalFinal);
+                        if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, firstAmt);
                         return { ...pp, amount: amt };
                       });
                       setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0] } : o2));
