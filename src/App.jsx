@@ -6948,6 +6948,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
   const cobradas = useMemo(() => completed.filter(o => o.cobrado || o.isQuickSale || (o.status === "delivered" && o.payments && o.payments.length > 0 && o.payments.some(p => parseFloat(p.amount) > 0))), [completed]);
   const periodOrders = useMemo(() => cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
+  // ALL orders in period (cobradas or not, excluding cancelled) — for resumen metrics
+  const allPeriodOrders = useMemo(() => orders.filter(o => {
+    if (o.status === "cancelled") return false;
+    const d = normDate(o.date);
+    return d >= startDate && d <= today;
+  }), [orders, startDate, today]);
   const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0), [periodOrders]);
   const totalIngresos = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const periodEgresos = useMemo(() => egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today), [egresos, startDate, today]);
@@ -7343,20 +7349,30 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {/* ══════ RESUMEN ══════ */}
       {tab === "resumen" && (<div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
-          {[
-            { l: "Total Cobrado", v: showTotalVentas ? fmt(totalIngresos) : "• • • • •", c: T.accent, ic: "💰", tap: true },
-            { l: "Ticket Promedio", v: fmt(periodOrders.length > 0 ? totalIngresos / periodOrders.length : 0), c: "#9C27B0", ic: "🎯" },
-            { l: "Órdenes", v: periodOrders.length, c: T.green, ic: "✅" },
-            { l: "Vehículos Entregados", v: periodOrders.filter(o => o.status === "delivered").length, c: T.orange, ic: "🚗" },
-          ].map(s => (
-            <div key={s.l} onClick={() => { if (s.tap) setShowTotalVentas(!showTotalVentas); }} style={{ ...card, padding: 20, borderLeft: `4px solid ${s.c}`, cursor: s.tap ? "pointer" : "default" }}>
-              <div style={{ fontSize: 28, marginBottom: 6 }}>{s.ic}</div>
-              <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: s.c }}>{s.v}</div>
-              <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{s.l}</div>
+        {(() => {
+          const totalWorksValue = allPeriodOrders.reduce((s, o) => s + (o.works || []).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+          const orderCount = allPeriodOrders.length;
+          const entregados = allPeriodOrders.filter(o => o.status === "delivered").length;
+          const ticketProm = orderCount > 0 ? totalWorksValue / orderCount : 0;
+          const isHoy = period === "dia";
+          const cards = [
+            { l: "Total", v: showTotalVentas ? fmt(totalWorksValue) : "• • • • •", c: T.accent, ic: "💰", tap: true },
+            ...(isHoy ? [] : [{ l: "Ticket Promedio", v: fmt(ticketProm), c: "#9C27B0", ic: "🎯" }]),
+            { l: "Ordenes", v: orderCount, c: T.green, ic: "✅" },
+            { l: "Vehiculos Entregados", v: entregados, c: T.orange, ic: "🚗" },
+          ];
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 20 }}>
+              {cards.map(s => (
+                <div key={s.l} onClick={() => { if (s.tap) setShowTotalVentas(!showTotalVentas); }} style={{ ...card, padding: 20, borderLeft: `4px solid ${s.c}`, cursor: s.tap ? "pointer" : "default" }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{s.ic}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 800, color: s.c }}>{s.v}</div>
+                  <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>{s.l}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
         <div style={{ ...card, padding: 16 }}>
           <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Últimas órdenes completadas</div>
           {periodOrders.slice(-8).reverse().map(o => {
