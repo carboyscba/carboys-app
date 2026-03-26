@@ -1954,20 +1954,35 @@ const NewOrderScreen = (props) => {
             <div>
               <input inputMode="text" value={domainSearch} onChange={e => { setDomainSearch(e.target.value.toUpperCase()); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
                 onKeyDown={e => e.key === "Enter" && searchDomain()}
-                placeholder="Ej: AC 123 BD" style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
+                placeholder="Buscar dominio, nombre, DNI, CUIT..." style={{ ...inputStyle, fontSize: 18, fontFamily: fontD, letterSpacing: 1, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
-              {/* Predictivo por dominio */}
+              {/* Predictivo por dominio Y por cliente */}
               {domainSearch.replace(/\s/g,"").length >= 1 && !historyVehicle && (() => {
                 const matches = [];
                 const dsNorm = domainSearch.replace(/\s/g,"").toUpperCase();
+                const dsLower = domainSearch.trim().toLowerCase();
                 for (const c of clients) {
+                  // Match by client name/lastName/DNI/CUIT/phone
+                  const clientMatch = (
+                    (c.name && c.name.toLowerCase().includes(dsLower)) ||
+                    (c.lastName && c.lastName.toLowerCase().includes(dsLower)) ||
+                    (c.name && c.lastName && `${c.name} ${c.lastName}`.toLowerCase().includes(dsLower)) ||
+                    (c.dni && c.dni.includes(dsNorm)) ||
+                    (c.cuit && c.cuit.replace(/[^0-9]/g,"").includes(dsNorm)) ||
+                    (c.phone && c.phone.includes(dsNorm))
+                  );
                   for (const v of (c.vehicles || [])) {
                     if (!v.domain) continue;
-                    if (v.domain.replace(/\s/g,"").toUpperCase().startsWith(dsNorm)) {
+                    const domainMatch = v.domain.replace(/\s/g,"").toUpperCase().startsWith(dsNorm);
+                    if (domainMatch || clientMatch) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled","budget_closed"].includes(o.status));
                       matches.push({ c, v, vCount, activeOrder });
                     }
+                  }
+                  // If client matches but has no vehicles, still show them
+                  if (clientMatch && (!c.vehicles || c.vehicles.length === 0)) {
+                    matches.push({ c, v: null, vCount: 0, activeOrder: null });
                   }
                 }
                 if (matches.length === 0) return (
@@ -2043,21 +2058,21 @@ const NewOrderScreen = (props) => {
                 return (
                   <div style={{ marginTop: 12 }}>
                     {matches.length > 8 && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8, textAlign: "center" }}>Mostrando 8 de {matches.length} resultados — seguí escribiendo para filtrar</div>}
-                    {shown.map(({ c, v, vCount, activeOrder }) => (
-                      <div key={v.domain} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
+                    {shown.map(({ c, v, vCount, activeOrder }, idx) => (
+                      <div key={v ? v.domain : `client-${c.id}-${idx}`} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
                         {/* Fila superior: datos cliente + botones editar/eliminar */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <div style={{ flex: 1, fontSize: 13, color: T.gray }}>👤 {c.name} {c.lastName}{c.phone ? ` · ${c.phone}` : ""}</div>
+                          <div style={{ flex: 1, fontSize: 13, color: T.gray }}>👤 {c.name} {c.lastName}{c.phone ? ` · ${c.phone}` : ""}{c.cuit ? ` · CUIT: ${c.cuit}` : c.dni ? ` · DNI: ${c.dni}` : ""}</div>
                           <button onClick={e => { e.stopPropagation();
                             setFoundClient(c);
-                            setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", domain: v.domain });
+                            setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v?.brand||"", model: v?.model||"", year: v ? String(v.year) : "", km: "", domain: v?.domain||"" });
                             setIsNew(false); setEditMode(true); setAddingNewVehicle(false); setStep(2);
                           }} style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.orange }} title="Editar cliente">✏️</button>
                           <button onClick={e => { e.stopPropagation(); setDeleteClientConfirm(c); }}
                             style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.red }} title="Eliminar cliente">🗑️</button>
                         </div>
-                        {/* Card del vehículo clickeable */}
-                        <div onClick={() => {
+                        {/* Card del vehículo clickeable (solo si hay vehículo) */}
+                        {v ? <div onClick={() => {
                           const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status))).sort((a, b) => (b.date||"").localeCompare(a.date||""));
                           setHistoryVehicle({ client: c, vehicle: v, orders: vOrders });
                           setFoundClient(c);
@@ -2078,8 +2093,8 @@ const NewOrderScreen = (props) => {
                             </div>
                           </div>
                         </div>
+                        : <div style={{ padding: 10, fontSize: 13, color: T.gray, textAlign: "center" }}>Sin vehículos registrados — tocá ✏️ para editar datos</div>}
                       </div>
-                    ))}
                   </div>
                 );
               })()}
@@ -6778,6 +6793,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [selCobro, setSelCobro] = useState(_initOrder);
   const [cobroPay, setCobroPay] = useState(_initOrder ? buildInitPay(_initOrder, config, clients) : []);
   const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => c.id === _initOrder.clientId); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
+  const [cobroSearchQ, setCobroSearchQ] = useState("");
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
@@ -7958,8 +7974,24 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           }
           return (
             <div>
+              {/* Buscador */}
+              <input value={cobroSearchQ} onChange={e => setCobroSearchQ(e.target.value)} placeholder="🔍 Buscar dominio, cliente, DNI, CUIT..."
+                style={{ ...inputStyle, marginBottom: 12, padding: "12px 16px", fontSize: 14 }} />
               {inTaller.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>No hay vehículos en taller</div>}
-              {[...inTaller].sort((a, b) => {
+              {(() => {
+                const q = cobroSearchQ.trim().toLowerCase();
+                const filtered = q ? inTaller.filter(o => {
+                  const cl = clients.find(c => c.id === o.clientId);
+                  const domNorm = (o.domain || "").replace(/\s/g, "").toLowerCase();
+                  return domNorm.includes(q.replace(/\s/g, ""))
+                    || (cl?.name && cl.name.toLowerCase().includes(q))
+                    || (cl?.lastName && cl.lastName.toLowerCase().includes(q))
+                    || (cl?.name && cl?.lastName && `${cl.name} ${cl.lastName}`.toLowerCase().includes(q))
+                    || (cl?.dni && cl.dni.includes(q))
+                    || (cl?.cuit && cl.cuit.replace(/[^0-9]/g, "").includes(q.replace(/[^0-9]/g, "")))
+                    || (cl?.phone && cl.phone.includes(q));
+                }) : inTaller;
+                return [...filtered].sort((a, b) => {
                 const ta = new Date(a._createdAt || a.date || 0).getTime();
                 const tb = new Date(b._createdAt || b.date || 0).getTime();
                 return ta - tb;
@@ -8008,7 +8040,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     </div>
                   </div>
                 );
-              })}
+              }); })()}
             </div>
           );
         })()}
