@@ -3486,8 +3486,15 @@ const NewOrderScreen = (props) => {
                     {getCuentaOptions(config).map(opt => (
                       <div key={opt.acc} onClick={() => {
                         updatePayment(i, "account", opt.acc);
-                        updatePayment(i, "withIva", opt.iva);
-                        updatePayment(i, "invoiceType", opt.acc === "2" ? "C" : (hasCuit ? "A" : "B"));
+                        if (opt.acc === "2") {
+                          // Cuenta 2 → auto Sin IVA + FC C
+                          updatePayment(i, "withIva", false);
+                          updatePayment(i, "invoiceType", "C");
+                        } else {
+                          // Cuenta 1 → default Con IVA, user chooses FC
+                          updatePayment(i, "withIva", opt.iva);
+                          updatePayment(i, "invoiceType", "");
+                        }
                       }}
                         style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
                           borderColor: p.account === opt.acc ? T.accent : T.border,
@@ -3500,12 +3507,12 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* ── IVA: Efectivo, Tarjeta, Cuenta Corriente ── */}
-              {(isEfectivo || isTarjeta || isCtaCte) && (
+              {/* ── IVA: Efectivo, Tarjeta, Cuenta Corriente, Transf Cuenta 1 ── */}
+              {(isEfectivo || isTarjeta || isCtaCte || (isTransf && p.account === "1")) && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>¿Incluye IVA?</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <div onClick={() => { updatePayment(i, "withIva", true); updatePayment(i, "invoiceType", hasCuit ? "A" : "B"); }}
+                    <div onClick={() => { updatePayment(i, "withIva", true); updatePayment(i, "invoiceType", ""); }}
                       style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
                         borderColor: p.withIva === true ? T.accent : T.border,
                         background: p.withIva === true ? `${T.accent}12` : T.bg2,
@@ -3531,27 +3538,40 @@ const NewOrderScreen = (props) => {
                 </div>
               )}
 
-              {/* ── TIPO DE FACTURA: Tarjeta/Transferencia siempre, Efectivo/CTA CTE solo Con IVA ── */}
-              {p.method && (isTarjeta || (isTransf && !!p.account) || ((isEfectivo || isCtaCte) && p.withIva === true)) && (() => {
+              {/* ── TIPO DE FACTURA según reglas:
+                 - Efectivo Sin IVA → NO mostrar
+                 - Efectivo Con IVA → A o B
+                 - Transf Cuenta 1 → A o B
+                 - Transf Cuenta 2 → FC C automático (no selector)
+                 - Tarjeta → A o B
+                 - CTA CTE → A o B (opcional) ── */}
+              {isTransf && p.account === "2" && (
+                <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: `${T.gray}10`, border: `1px solid ${T.gray}30` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.gray }}>📋 Factura C — automática (Cuenta 2)</div>
+                </div>
+              )}
+              {!(isTransf && p.account === "2") && p.method && (
+                (isEfectivo && p.withIva === true) ||
+                (isTransf && p.account === "1") ||
+                isTarjeta ||
+                (isCtaCte && p.withIva !== null && p.withIva !== undefined)
+              ) && (() => {
                 const fcLabels = {
                   A: { sub: config.razonSocial || "Resp. Inscripto", color: T.orange, req: "CUIT", entity: "1" },
                   B: { sub: config.razonSocial || "Resp. Inscripto", color: T.accent, req: "DNI o CUIT", entity: "1" },
-                  C: { sub: config.cta2Nombre || "Monotributo", color: T.gray, req: "DNI", entity: "2" }
                 };
-                const availFc = p.withIva === false ? ["C"] : (config.cta2Enabled !== false ? ["A", "B", "C"] : ["A", "B"]);
+                const availFc = hasCuit ? ["A", "B"] : ["B"];
+                const isOptional = isCtaCte;
                 const needsCuit = p.invoiceType === "A" && !hasCuit;
-                const needsDni = p.invoiceType === "C" && !hasDni;
                 const needsBData = p.invoiceType === "B" && !hasDni && !hasCuit;
                 return (
                   <div style={{ marginTop: 12 }}>
-                    <label style={labelStyle}>Tipo de Factura</label>
+                    <label style={labelStyle}>Tipo de Factura {isOptional ? <span style={{ fontSize: 10, color: T.gray }}>(opcional)</span> : ""}</label>
                     <div style={{ display: "flex", gap: 8 }}>
                       {availFc.map(ft => (
                         <div key={ft} onClick={() => {
-                          updatePayment(i, "invoiceType", ft);
-                          updatePayment(i, "account", ft === "C" ? "2" : "1");
-                          if (ft === "C") updatePayment(i, "withIva", false);
-                          else if (p.withIva === false) updatePayment(i, "withIva", true);
+                          updatePayment(i, "invoiceType", p.invoiceType === ft ? "" : ft);
+                          updatePayment(i, "account", "1");
                         }}
                           style={{ ...card, padding: "10px 16px", cursor: "pointer", textAlign: "center", flex: 1,
                             borderColor: p.invoiceType === ft ? fcLabels[ft].color : T.border,
@@ -7480,8 +7500,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       )}
 
-                      {/* IVA toggle — Efectivo / Tarjeta / Cta Cte / Transferencia (after account) */}
-                      {(isEfectivo || isTarjeta || isCtaCte || (isTransf && pm.account)) && (
+                      {/* IVA toggle — NOT for Transf Cuenta 2 (auto Sin IVA + FC C) */}
+                      {(isEfectivo || isTarjeta || isCtaCte || (isTransf && pm.account === "1")) && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <div onClick={() => (() => {
                               const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
@@ -7522,16 +7542,36 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       )}
 
-                      {/* Tipo de factura — Tarjeta/Transf siempre, Efectivo/CTA CTE solo con IVA */}
-                      {(isTarjeta || (isTransf && pm.account) || ((isEfectivo || isCtaCte) && pm.withIva)) && (
+                      {/* Tipo de factura según reglas:
+                         - Efectivo Sin IVA → NO mostrar (no factura)
+                         - Efectivo Con IVA → A o B (usuario elige)
+                         - Transf Cuenta 1 → A o B (usuario elige)
+                         - Transf Cuenta 2 → FC C automático (no mostrar selector)
+                         - Tarjeta → A o B (usuario elige)
+                         - CTA CTE → A o B (opcional, si no toca nada no factura) */}
+                      {pm.account === "2" && isTransf && (
+                        <div style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 8, background: `${T.gray}10`, border: `1px solid ${T.gray}30` }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: T.gray }}>📋 Factura C — automática (Cuenta 2)</div>
+                        </div>
+                      )}
+                      {pm.account !== "2" && (
+                        (isEfectivo && pm.withIva === true) ||
+                        (isTransf && pm.account === "1") ||
+                        isTarjeta ||
+                        (isCtaCte && pm.withIva !== null && pm.withIva !== undefined)
+                      ) && (() => {
+                        const availFcTypes = hasCuit ? ["A", "B"] : ["B"];
+                        const isOptional = isCtaCte; // CTA CTE: FC is optional
+                        return (
                         <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 11, color: pm.invoiceType ? T.gray : T.orange, fontWeight: 700, marginBottom: 5, display: "flex", alignItems: "center", gap: 5 }}>
-                            {!pm.invoiceType && <span style={{ color: T.orange }}>⚠</span>}
-                            Tipo de factura {!pm.invoiceType && <span style={{ color: T.orange, fontWeight: 800 }}>— Requerido</span>}
+                          <div style={{ fontSize: 11, color: pm.invoiceType ? T.gray : (isOptional ? T.grayLight : T.orange), fontWeight: 700, marginBottom: 5, display: "flex", alignItems: "center", gap: 5 }}>
+                            {!pm.invoiceType && !isOptional && <span style={{ color: T.orange }}>⚠</span>}
+                            Tipo de factura {!pm.invoiceType && !isOptional && <span style={{ color: T.orange, fontWeight: 800 }}>— Requerido</span>}
+                            {isOptional && !pm.invoiceType && <span style={{ color: T.grayLight, fontSize: 10 }}>(opcional)</span>}
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
-                            {(hasCuit ? ["A", "B"] : ["B"]).map(ft => (
-                              <div key={ft} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, invoiceType: ft } : p))}
+                            {availFcTypes.map(ft => (
+                              <div key={ft} onClick={() => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, invoiceType: p.invoiceType === ft ? "" : ft, account: "1" } : p))}
                                 style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700,
                                   border: `2px solid ${pm.invoiceType === ft ? T.orange : T.border}`,
                                   background: pm.invoiceType === ft ? `${T.orange}15` : T.bg,
@@ -7542,7 +7582,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             ))}
                           </div>
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Desglose IVA */}
                       {pm.withIva && parseFloat(i === 0 && cobroPay.length > 1 ? primerMonto : pm.amount) > 0 && (() => {
@@ -7663,7 +7704,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           return false;
                         }
 
-                        // 3. Transferencia → cuenta obligatoria + IVA obligatorio
+                        // 3. Transferencia
                         if (pm.method === "Transferencia") {
                           if (!pm.account) {
                             const _cta1Name = getCta1(config).nombre;
@@ -7672,35 +7713,54 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             setCobroValidError(`En Transferencia${nro}: elegí la cuenta (${_ctaMsg}).`);
                             return false;
                           }
+                          // Cuenta 2 → auto Sin IVA + FC C, no validation needed
+                          if (pm.account === "1") {
+                            if (pm.withIva === null || pm.withIva === undefined) {
+                              setCobroValidError(`En Transferencia${nro} (Cuenta 1): seleccioná CON IVA o SIN IVA.`);
+                              return false;
+                            }
+                            if (!pm.invoiceType) {
+                              const opts = hasCuitVal ? "A o B" : "B";
+                              setCobroValidError(`En Transferencia${nro} (Cuenta 1): seleccioná el tipo de factura (${opts}).`);
+                              return false;
+                            }
+                          }
+                        }
+
+                        // 4. Efectivo → CON o SIN IVA obligatorio; Con IVA → FC obligatoria
+                        if (pm.method === "Efectivo") {
                           if (pm.withIva === null || pm.withIva === undefined) {
-                            setCobroValidError(`En Transferencia${nro}: seleccioná CON IVA o SIN IVA.`);
+                            setCobroValidError(`En Efectivo${nro}: seleccioná CON IVA o SIN IVA.`);
                             return false;
                           }
                           if (pm.withIva && !pm.invoiceType) {
                             const opts = hasCuitVal ? "A o B" : "B";
-                            setCobroValidError(`En Transferencia${nro} con IVA: seleccioná el tipo de factura (${opts}).`);
+                            setCobroValidError(`En Efectivo${nro} con IVA: seleccioná el tipo de factura (${opts}).`);
+                            return false;
+                          }
+                          // Sin IVA → no requiere FC ✓
+                        }
+
+                        // 5. Tarjeta → CON o SIN IVA obligatorio + FC obligatoria siempre
+                        if (pm.method === "Tarjeta") {
+                          if (pm.withIva === null || pm.withIva === undefined) {
+                            setCobroValidError(`En Tarjeta${nro}: seleccioná CON IVA o SIN IVA.`);
+                            return false;
+                          }
+                          if (!pm.invoiceType) {
+                            const opts = hasCuitVal ? "A o B" : "B";
+                            setCobroValidError(`En Tarjeta${nro}: seleccioná el tipo de factura (${opts}).`);
                             return false;
                           }
                         }
 
-                        // 4. Efectivo / Tarjeta / Cuenta Corriente → CON o SIN IVA obligatorio
-                        if (["Efectivo", "Tarjeta", "Cuenta Corriente"].includes(pm.method)) {
+                        // 6. Cuenta Corriente → CON o SIN IVA obligatorio; FC opcional
+                        if (pm.method === "Cuenta Corriente") {
                           if (pm.withIva === null || pm.withIva === undefined) {
-                            setCobroValidError(`En ${pm.method}${nro}: seleccioná CON IVA o SIN IVA.`);
+                            setCobroValidError(`En Cuenta Corriente${nro}: seleccioná CON IVA o SIN IVA.`);
                             return false;
                           }
-                          // Tarjeta → siempre requiere FC
-                          if (pm.method === "Tarjeta" && !pm.invoiceType) {
-                            const opts = hasCuitVal ? "A, B o C" : "B o C";
-                            setCobroValidError(`En Tarjeta${nro}: seleccioná el tipo de factura (${opts}).`);
-                            return false;
-                          }
-                          // Con IVA → tipo de factura obligatorio (Efectivo/CTA CTE)
-                          if (pm.method !== "Tarjeta" && pm.withIva && !pm.invoiceType) {
-                            const opts = hasCuitVal ? "A o B" : "B";
-                            setCobroValidError(`En ${pm.method}${nro} con IVA: seleccioná el tipo de factura (${opts}).`);
-                            return false;
-                          }
+                          // FC es opcional — si no selecciona, no factura ✓
                         }
 
                         // 5. Pago mixto: segundo pago en adelante → monto manual obligatorio
