@@ -6967,7 +6967,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const _mondayOffset = _dayOfWeek === 0 ? 6 : _dayOfWeek - 1; // días desde el lunes
   const weekStart = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - _mondayOffset).toISOString().split("T")[0];
   const monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().split("T")[0];
-  const startDate = period === "dia" ? today : period === "semana" ? weekStart : monthStart;
+  const yearStart = new Date(_now.getFullYear(), 0, 1).toISOString().split("T")[0];
+  const startDate = period === "dia" ? today : period === "semana" ? weekStart : period === "anual" ? yearStart : monthStart;
   // Normaliza cualquier formato de fecha a "YYYY-MM-DD"
   const normDate = (d) => {
     if (!d) return "";
@@ -10970,7 +10971,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               return (
                 <div>
                   <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📊 Reportes</div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}{PB("anual", "Anual")}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
                     {[
                       { l: "Facturación", v: fmt(repRevenue), c: T.accent, ic: "💰" },
@@ -11254,8 +11255,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             )}
             {cv === "promo" && (function() {
               var serviceGroups = {};
-              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
-              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set(); serviceGroups[w.type].add(o.clientId); }); });
+              var allComp = orders.filter(function(o) { return o.status !== "cancelled" && (o.status === "delivered" || o.status === "done" || o.cobrado); });
+              allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!serviceGroups[w.type]) serviceGroups[w.type] = new Set(); serviceGroups[w.type].add(String(o.clientId)); }); });
               var groups = Object.entries(serviceGroups).map(function(e) { return { type: e[0], clientIds: Array.from(e[1]), count: e[1].size }; }).sort(function(a, b) { return b.count - a.count; });
               return (
                 <div>
@@ -11275,7 +11276,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} clientes</div>
                       {histDetail.clientIds.map(function(cId) {
-                        var cl = clients.find(function(x) { return x.id === cId; });
+                        var cl = clients.find(function(x) { return String(x.id) === String(cId); });
                         if (!cl) return null;
                         return (
                           <div key={cId} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
@@ -11294,11 +11295,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             })()}
             {cv === "dormidos" && (function() {
               var SIX_MONTHS_AGO = new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0];
-              var allComp = orders.filter(function(o) { return o.status === "delivered" || o.status === "done"; });
+              var allComp = orders.filter(function(o) { return o.status !== "cancelled" && (o.status === "delivered" || o.status === "done" || o.cobrado); });
               var dormidosGroups = {};
               allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {}; if (!dormidosGroups[w.type][o.clientId] || o.date > dormidosGroups[w.type][o.clientId]) dormidosGroups[w.type][o.clientId] = o.date; }); });
               var groups = Object.entries(dormidosGroups).map(function(e) {
-                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO; }).map(function(d) { return { cId: parseInt(d[0]), lastDate: d[1] }; });
+                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO; }).map(function(d) { return { cId: d[0], lastDate: d[1] }; });
                 return { type: e[0], dormidos: dormidos, count: dormidos.length };
               }).filter(function(g) { return g.count > 0; }).sort(function(a, b) { return b.count - a.count; });
               return (
@@ -11322,7 +11323,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       <button onClick={function() { setHistDetail(null); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, marginBottom: 12 }}>← Volver</button>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{histDetail.type} — {histDetail.count} dormidos</div>
                       {histDetail.dormidos.sort(function(a, b) { return a.lastDate.localeCompare(b.lastDate); }).map(function(d) {
-                        var cl = clients.find(function(x) { return x.id === d.cId; });
+                        var cl = clients.find(function(x) { return String(x.id) === String(d.cId); });
                         if (!cl) return null;
                         var months = Math.round((Date.now() - new Date(d.lastDate).getTime()) / 86400000 / 30);
                         return (
