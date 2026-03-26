@@ -5146,31 +5146,55 @@ const VehicleDetailScreen = (props) => {
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
               <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(total)}</span>
             </div>
-            <div style={{ padding: "10px 12px", background: T.bg, borderRadius: 8, fontSize: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
-                <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(total * config.ivaRate / 100)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ color: T.gray }}>Total con IVA</span>
-                <span style={{ fontWeight: 700, color: T.accent }}>{fmt(total * (1 + config.ivaRate / 100))}</span>
-              </div>
-              <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3}%)</span>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge3 / 100) / 3)} c/u</span>
-                  <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge3 / 100))}</span>
+            {/* Si cobrada → mostrar pago real. Si no → mostrar opciones IVA/cuotas */}
+            {order.cobrado || order.status === "delivered" ? (
+              <div style={{ padding: "10px 12px", background: T.bg, borderRadius: 8, fontSize: 13 }}>
+                {(order.payments || []).map((pm, i) => {
+                  const pmAmt = parseFloat(pm.amount) || 0;
+                  const ivaLabel = pm.withIva ? " (Con IVA)" : "";
+                  const fcLabel = pm.invoiceType && pm.invoiceType !== "T" ? " \u2022 FC " + pm.invoiceType : pm.invoiceType === "T" ? " \u2022 Comp." : "";
+                  return (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < (order.payments||[]).length - 1 ? "1px solid " + T.border : "none" }}>
+                      <span style={{ color: T.grayLight, fontWeight: 600 }}>
+                        {pm.method === "Efectivo" ? "\uD83D\uDCB5" : pm.method === "Transferencia" ? "\uD83D\uDD01" : pm.method === "Tarjeta" ? "\uD83D\uDCB3" : "\uD83D\uDCD2"} {pm.method || "\u2014"}{ivaLabel}{fcLabel}
+                      </span>
+                      <span style={{ fontFamily: fontD, fontWeight: 700, color: T.green }}>{fmt(pmAmt)}</span>
+                    </div>
+                  );
+                })}
+                {(order.payments || []).length === 0 && <div style={{ color: T.gray }}>Sin datos de pago</div>}
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, marginTop: 8, paddingTop: 8, borderTop: "2px solid " + T.border }}>
+                  <span>ABONADO</span>
+                  <span style={{ color: T.green, fontFamily: fontD, fontSize: 18 }}>{fmt((order.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0))}</span>
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6}%)</span>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge6 / 100) / 6)} c/u</span>
-                  <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge6 / 100))}</span>
+            ) : (
+              <div style={{ padding: "10px 12px", background: T.bg, borderRadius: 8, fontSize: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
+                  <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(total * config.ivaRate / 100)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>Total con IVA</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(total * (1 + config.ivaRate / 100))}</span>
+                </div>
+                <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3}%)</span>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge3 / 100) / 3)} c/u</span>
+                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge3 / 100))}</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6}%)</span>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge6 / 100) / 6)} c/u</span>
+                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge6 / 100))}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
