@@ -1244,7 +1244,7 @@ const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessag
 const getCta1 = (cfg) => ({
   nombre: cfg?.razonSocial || "Empresa",
   cuit:   cfg?.cuit || "",
-  pv:     cfg?.puntoVenta || "0001",
+  pv:     parseInt(cfg?.puntoVenta) || 3,
   condIva: cfg?.condIva || "Responsable Inscripto",
   label:  cfg?.razonSocial || "Cuenta Principal",
   sub:    "Con IVA · Fact. A / B",
@@ -1255,7 +1255,7 @@ const getCta1 = (cfg) => ({
 const getCta2 = (cfg) => ({
   nombre:  cfg?.cta2Nombre || "",
   cuit:    cfg?.cta2Cuit || "",
-  pv:      cfg?.cta2PuntoVenta || "0002",
+  pv:      parseInt(cfg?.cta2PuntoVenta) || 3,
   condIva: cfg?.cta2CondIva || "Monotributo",
   label:   cfg?.cta2Nombre || "Cuenta Secundaria",
   sub:     "Sin IVA · Fact. C",
@@ -7068,7 +7068,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const tipoFC = mainPay.invoiceType || "B";
     const accountId = tipoFC === "C" ? "2" : "1";
     const entityId = accountId;
-    const puntoVenta = getCuentaPV(config, accountId);
+    const puntoVenta = parseInt(getCuentaPV(config, accountId)) || 3;
     
     // ── Validación: FC A requiere CUIT obligatorio ──
     if (tipoFC === "A") {
