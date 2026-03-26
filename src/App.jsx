@@ -4310,7 +4310,7 @@ const DashboardScreen = (props) => {
   );
 };
 
-const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }) => {
+const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient }) => {
   const [q, setQ] = useState("");
   const ref = useRef(null);
   const [selVehicle, setSelVehicle] = useState(() => {
@@ -4374,7 +4374,9 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
             <div>
               <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>{fmtD(selVehicle.domain)}</div>
               <div style={{ fontSize: 15, color: T.grayLight, marginTop: 4 }}>{selVehicle.brand} {selVehicle.model} {selVehicle.year}</div>
-              {cl && <div style={{ fontSize: 14, marginTop: 4 }}>Cliente: <strong>{cl.name} {cl.lastName}</strong></div>}
+              {cl && <div style={{ fontSize: 14, marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>Cliente: <strong>{cl.name} {cl.lastName}</strong>
+                {onEditClient && <span onClick={e => { e.stopPropagation(); onEditClient(cl); }} style={{ cursor: "pointer", fontSize: 14 }} title="Editar cliente">✏️</span>}
+              </div>}
               {selVehicle.km && <div style={{ fontSize: 13, color: T.grayLight, marginTop: 4 }}>KM de su última visita: <strong style={{ color: T.text }}>{Number(selVehicle.km).toLocaleString("es-AR")} km</strong></div>}
             </div>
             <div style={{ textAlign: "center" }}>
@@ -4436,10 +4438,16 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
       <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
         <button onClick={() => setSelClient(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
         <div style={{ ...card, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 6 }}>👤 Cliente</div>
-          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selClient.name} {selClient.lastName}</div>
-          <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>DNI: {selClient.dni || "—"} {selClient.cuit ? " • CUIT: " + selClient.cuit : ""}</div>
-          <div style={{ fontSize: 13, color: T.gray }}>Tel: {selClient.phone || "—"}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 6 }}>👤 Cliente</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 700 }}>{selClient.name} {selClient.lastName}</div>
+              <div style={{ fontSize: 13, color: T.gray, marginTop: 4 }}>DNI: {selClient.dni || "—"} {selClient.cuit ? " • CUIT: " + selClient.cuit : ""}</div>
+              <div style={{ fontSize: 13, color: T.gray }}>Tel: {selClient.phone || "—"}</div>
+            </div>
+            {onEditClient && <button onClick={() => onEditClient(selClient)}
+              style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.orange }}>✏️ Editar</button>}
+          </div>
         </div>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🚗 Vehículos registrados ({selClient.vehicles.length})</div>
         {selClient.vehicles.map((v, i) => {
@@ -4527,14 +4535,18 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
         return (
         <div key={c.id}>
           {isClientSearch ? (
-            <div onClick={() => setSelClient(c)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
+            <div style={{ ...card, padding: 16, marginBottom: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
+                <div onClick={() => setSelClient(c)} style={{ flex: 1, cursor: "pointer" }}>
                   <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{c.name} {c.lastName}</div>
                   <div style={{ fontSize: 13, color: T.gray }}>DNI: {c.dni || "—"}{c.cuit ? " • CUIT: " + c.cuit : ""}</div>
                   <div style={{ fontSize: 12, color: T.grayLight, marginTop: 4 }}>{(c.vehicles||[]).length} vehículo{(c.vehicles||[]).length !== 1 ? "s" : ""}: {(c.vehicles||[]).map(v => fmtD(v.domain)).join(", ")}</div>
                 </div>
-                <div style={{ fontSize: 20, color: T.gray }}>→</div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {onEditClient && <button onClick={e => { e.stopPropagation(); onEditClient(c); }}
+                    style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.orange }} title="Editar cliente">✏️</button>}
+                  <div onClick={() => setSelClient(c)} style={{ fontSize: 20, color: T.gray, cursor: "pointer", padding: "5px 10px" }}>→</div>
+                </div>
               </div>
             </div>
           ) : (
@@ -4547,7 +4559,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <div style={{ flex: 1, fontSize: 13, color: T.gray }}>👤 {c.name} {c.lastName}{c.phone ? ` · ${c.phone}` : ""}</div>
                     {setClients && <>
-                      <button onClick={e => { e.stopPropagation(); onNavigate("newOrder", { editClient: c, editVehicle: v }); }}
+                      <button onClick={e => { e.stopPropagation(); if (onEditClient) onEditClient(c); }}
                         style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.orange }} title="Editar cliente">✏️</button>
                       <button onClick={e => { e.stopPropagation(); setDeleteConfirm(c); }}
                         style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.red }} title="Eliminar cliente">🗑️</button>
@@ -6802,6 +6814,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => c.id === _initOrder.clientId); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
   const [cobroSearchQ, setCobroSearchQ] = useState("");
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
+  // ── Global client editor modal ──
+  const [editClientGlobal, setEditClientGlobal] = useState(null); // { clientId, name, lastName, phone, dni, cuit }
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
   const [showAnularConfirm, setShowAnularConfirm] = useState(false);
@@ -7264,6 +7278,38 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         </div>
       </div>
     )}
+
+    {/* ══════ MODAL EDITAR CLIENTE (global) ══════ */}
+    {editClientGlobal && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={() => setEditClientGlobal(null)}>
+        <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>✏️ Editar Cliente</span>
+            <div onClick={() => setEditClientGlobal(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>✕</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div><label style={{ fontSize: 11, color: T.gray, fontWeight: 700, display: "block", marginBottom: 4 }}>Nombre</label><input value={editClientGlobal.name} onChange={e => setEditClientGlobal(p => ({ ...p, name: e.target.value }))} style={{ ...inputStyle, fontSize: 15 }} /></div>
+            <div><label style={{ fontSize: 11, color: T.gray, fontWeight: 700, display: "block", marginBottom: 4 }}>Apellido</label><input value={editClientGlobal.lastName} onChange={e => setEditClientGlobal(p => ({ ...p, lastName: e.target.value }))} style={{ ...inputStyle, fontSize: 15 }} /></div>
+          </div>
+          <div style={{ marginBottom: 10 }}><label style={{ fontSize: 11, color: T.gray, fontWeight: 700, display: "block", marginBottom: 4 }}>Teléfono</label><input inputMode="numeric" value={editClientGlobal.phone} onChange={e => setEditClientGlobal(p => ({ ...p, phone: e.target.value.replace(/[^0-9]/g, "") }))} style={{ ...inputStyle, fontSize: 15 }} /></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div><label style={{ fontSize: 11, color: T.gray, fontWeight: 700, display: "block", marginBottom: 4 }}>DNI</label><input inputMode="numeric" value={editClientGlobal.dni || ""} onChange={e => setEditClientGlobal(p => ({ ...p, dni: e.target.value.replace(/[^0-9]/g, "") }))} style={{ ...inputStyle, fontSize: 15 }} /></div>
+            <div><label style={{ fontSize: 11, color: T.gray, fontWeight: 700, display: "block", marginBottom: 4 }}>CUIT {(() => { const c = (editClientGlobal.cuit || "").replace(/[^0-9]/g, ""); return c.length === 11 ? <span style={{ color: T.green, fontSize: 10 }}>✅</span> : c.length > 0 ? <span style={{ color: T.orange, fontSize: 10 }}>{c.length}/11</span> : null; })()}</label><input inputMode="numeric" value={editClientGlobal.cuit || ""} onChange={e => setEditClientGlobal(p => ({ ...p, cuit: e.target.value.replace(/[^0-9-]/g, "") }))} style={{ ...inputStyle, fontSize: 15 }} placeholder="20-12345678-9" /></div>
+          </div>
+          <button onClick={() => {
+            const { clientId, name, lastName, phone, dni, cuit } = editClientGlobal;
+            setClients(prev => prev.map(c => c.id === clientId ? { ...c, name, lastName, phone, dni, cuit } : c));
+            if (cobroClient && selCobro && selCobro.clientId === clientId) {
+              setCobroClient({ name, lastName, phone, dni, cuit });
+            }
+            setEditClientGlobal(null);
+          }} style={{ ...btnPrimary(T.green), width: "100%", fontSize: 15, padding: "14px 0", marginTop: 6 }}>
+            💾 Guardar
+          </button>
+        </div>
+      </div>
+    )}
+
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Administración</div>
@@ -7386,7 +7432,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 {cobroClient && <div style={{ ...card, padding: 20, marginBottom: 16, opacity: (o.factura || o.ticket) ? 0.7 : 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>👤 Datos del Cliente</div>
-                    {(o.factura || o.ticket) && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, padding: "3px 8px", background: `${T.orange}15`, borderRadius: 6 }}>🔒 {o.factura ? "Factura" : "Comprobante"} emitido</div>}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {(o.factura || o.ticket) && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, padding: "3px 8px", background: `${T.orange}15`, borderRadius: 6 }}>🔒 {o.factura ? "Factura" : "Comprobante"} emitido</div>}
+                      <button onClick={() => { const cl = clients.find(c => c.id === o.clientId); if (cl) setEditClientGlobal({ clientId: cl.id, name: cl.name, lastName: cl.lastName, phone: cl.phone || "", dni: cl.dni || "", cuit: cl.cuit || "" }); }}
+                        style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: T.orange }} title="Editar cliente">✏️</button>
+                    </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                     <div><label style={labelStyle}>Nombre</label><input inputMode="text" value={cobroClient.name} onChange={e => !(o.factura||o.ticket) && setCobroClient(p => ({ ...p, name: e.target.value }))} readOnly={!!(o.factura||o.ticket)} style={{ ...inputStyle, background: (o.factura||o.ticket) ? T.bg3 : undefined, cursor: (o.factura||o.ticket) ? "not-allowed" : undefined }} /></div>
@@ -9533,7 +9583,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         </div>
                       </div>
                       {/* Iconos de acción */}
-                      <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
+                      <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        {c && <div onClick={() => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })}
+                          style={{ padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700, background: `${T.orange}15`, color: T.orange, border: `1px solid ${T.orange}40` }}>
+                          ✏️ Cliente
+                        </div>}
                         {hasFc ? (
                           <div onClick={() => { setFacturaModal({ order: o, payments: o.payments, client: c, vehicle: vh, readonly: true }); }}
                             style={{ padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700, background: `${T.green}15`, color: T.green, border: `1px solid ${T.green}40` }}>
@@ -19275,7 +19329,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} /> : null;
+      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} /> : null;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
       case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
