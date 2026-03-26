@@ -1689,6 +1689,7 @@ const NewOrderScreen = (props) => {
   const [crossSearching, setCrossSearching] = useState(false); // buscando en otras sucursales
   const [deleteClientConfirm, setDeleteClientConfirm] = useState(null); // client to delete
   const [addingNewVehicle, setAddingNewVehicle] = useState(false);
+  const [clientSearchQ, setClientSearchQ] = useState("");
   const [foundClient, setFoundClient] = useState(null);
   const [foundVehicle, setFoundVehicle] = useState(null);
   const [isNew, setIsNew] = useState(false);
@@ -2475,6 +2476,68 @@ const NewOrderScreen = (props) => {
               )}
             </div>
           </div>
+
+          {/* ── BUSCAR CLIENTE EXISTENTE (solo para vehículos nuevos) ── */}
+          {(isNew || addingNewVehicle) && !foundClient && (() => {
+            const q = (clientSearchQ || "").trim().toLowerCase();
+            const matches = q.length >= 2 ? clients.filter(c => {
+              const full = `${c.name} ${c.lastName} ${c.dni || ""} ${c.cuit || ""} ${c.phone || ""}`.toLowerCase();
+              return full.includes(q);
+            }).slice(0, 6) : [];
+            return (
+              <div style={{ ...card, padding: 16, marginBottom: 20, borderLeft: `3px solid ${T.accent}`, background: `${T.accent}05` }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8 }}>🔍 ¿Cliente existente? Buscá por nombre, DNI o CUIT</div>
+                <input inputMode="text" value={clientSearchQ || ""} onChange={e => setClientSearchQ(e.target.value)}
+                  placeholder="Ej: Perez, 20345678, 30-12345678-9..."
+                  style={{ ...inputStyle, borderColor: T.accent, fontSize: 14 }} />
+                {matches.length > 0 && (
+                  <div style={{ marginTop: 8, maxHeight: 200, overflowY: "auto" }}>
+                    {matches.map(c => {
+                      const vCount = (c.vehicles || []).length;
+                      return (
+                        <div key={c.id} onClick={() => {
+                          // Auto-fill all client data
+                          setForm(f => ({
+                            ...f,
+                            name: c.name || "",
+                            lastName: c.lastName || "",
+                            phone: c.phone || "",
+                            dni: c.dni || "",
+                            cuit: c.cuit || "",
+                          }));
+                          // Set as found client — associate new vehicle to this client
+                          setFoundClient(c);
+                          setAddingNewVehicle(true);
+                          setClientSearchQ("");
+                        }}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 4,
+                            background: T.bg2, border: `1px solid ${T.border}`, transition: "all .15s" }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.background = T.bg3; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.background = T.bg2; }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 700 }}>{c.name} {c.lastName}</div>
+                            <div style={{ fontSize: 11, color: T.gray }}>
+                              {c.dni ? `DNI: ${c.dni}` : ""}{c.dni && c.cuit ? " · " : ""}{c.cuit ? `CUIT: ${c.cuit}` : ""}
+                              {c.phone ? ` · Tel: ${c.phone}` : ""}
+                            </div>
+                            {vCount > 0 && (
+                              <div style={{ fontSize: 10, color: T.accent, marginTop: 2 }}>
+                                {vCount} vehículo{vCount > 1 ? "s" : ""}: {(c.vehicles || []).map(v => fmtD(v.domain)).join(", ")}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 20 }}>→</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {q.length >= 2 && matches.length === 0 && (
+                  <div style={{ fontSize: 12, color: T.gray, marginTop: 8, textAlign: "center" }}>No se encontró cliente. Completá los datos manualmente.</div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Show history if exists */}
           {foundClient && clientHistory.length > 0 && (
