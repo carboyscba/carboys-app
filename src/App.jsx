@@ -7419,7 +7419,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const hasFc = !!o.factura;
             const hasTicket = !!o.ticket;
             const fcLabel = hasFc ? "FC " + o.factura.tipo : hasTicket ? "Ticket" : null;
-            const isPaid = totalPaid > 0;
+            const isPaid = !!o.cobrado;
             const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.cobrado ? T.green : T.grayLight;
             const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : o.cobrado ? "COBRADO" : "PENDIENTE";
             return (
@@ -7428,7 +7428,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, fontFamily: fontD }}>{fmtD(o.domain)}</span>
                     <span style={{ fontSize: 9, fontWeight: 700, color: sc, background: sc + "15", padding: "2px 6px", borderRadius: 4 }}>{sl}</span>
-                    {isPaid && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: T.green + "15", padding: "2px 6px", borderRadius: 4 }}>PAGADO</span>}
+                    {isPaid && sl !== "COBRADO" && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: T.green + "15", padding: "2px 6px", borderRadius: 4 }}>COBRADO</span>}
                   </div>
                   <div style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>{c ? c.name + " " + c.lastName : "\u2014"}{v ? " \u2022 " + v.brand + " " + v.model : ""}</div>
                   <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
