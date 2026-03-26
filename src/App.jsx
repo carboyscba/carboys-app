@@ -7018,7 +7018,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
   const handleEmitirFactura = async () => {
     if (!facturaModal || facturando) return;
-    const { order, payments, client } = facturaModal;
+    const { order, payments, client: _client } = facturaModal;
+    // Fallback: si el client no tiene CUIT, buscarlo fresco del array
+    const freshCl = clients.find(c => c.id === order.clientId);
+    const client = _client ? {
+      ..._client,
+      cuit: _client.cuit || freshCl?.cuit || "",
+      dni: _client.dni || freshCl?.dni || "",
+    } : freshCl;
     const now = new Date();
     const mainPay = (payments || [])[0] || {};
     const tipoFC = mainPay.invoiceType || "B";
@@ -7848,7 +7855,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         <button onClick={() => {
                           const cl = clients.find(c => c.id === o.clientId);
                           const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                          setFacturaModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
+                          // Merge: cobroClient edits + fresh client data (CUIT/DNI may have been added later)
+                          const mergedClient = cobroClient
+                            ? { ...cobroClient, cuit: cobroClient.cuit || cl?.cuit || "", dni: cobroClient.dni || cl?.dni || "" }
+                            : cl;
+                          setFacturaModal({ order: o, payments: cobroPay, client: mergedClient, vehicle: vh });
                         }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
                           🧾 EMITIR FACTURA
                         </button>
