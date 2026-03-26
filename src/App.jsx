@@ -9473,9 +9473,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // Detectar si REQUIERE factura: tarjeta, transferencia, o efectivo con IVA
           const requiereFc = (o) => {
             const pays = o.payments || [];
-            if (pays.some(p => p.method === "Tarjeta" || p.method === "Transferencia")) return true;
+            if (pays.some(p => p.method === "Tarjeta")) return true;
+            if (pays.some(p => p.method === "Transferencia")) return true;
             if (pays.some(p => p.method === "Efectivo" && p.withIva)) return true;
-            if (o.paymentPref?.withIva && pays.some(p => p.method === "Efectivo")) return true;
             return false;
           };
           const pendientesFc = allCobradas.filter(o => !o.factura && requiereFc(o));
