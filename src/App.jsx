@@ -2093,8 +2093,9 @@ const NewOrderScreen = (props) => {
                             </div>
                           </div>
                         </div>
-                        : <div style={{ padding: 10, fontSize: 13, color: T.gray, textAlign: "center" }}>Sin vehículos registrados — tocá ✏️ para editar datos</div>}
+                        : <div style={{ padding: 10, fontSize: 13, color: T.gray, textAlign: "center" }}>Sin vehículos registrados</div>}
                       </div>
+                    ))}
                   </div>
                 );
               })()}
