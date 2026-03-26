@@ -4518,9 +4518,15 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
         </div>
       )}
 
-      {results.map(c => (
+      {results.map(c => {
+        const nameMatch = !isDomainQuery && (
+          c.name.toLowerCase().includes(q.toLowerCase()) ||
+          c.lastName.toLowerCase().includes(q.toLowerCase())
+        );
+        const isClientSearch = isDniSearch || nameMatch;
+        return (
         <div key={c.id}>
-          {isDniSearch ? (
+          {isClientSearch ? (
             <div onClick={() => setSelClient(c)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -4568,7 +4574,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain }
             })
           )}
         </div>
-      ))}
+      ); })}
       </>)}
 
       {/* ── TAB HISTORIAL ── */}
