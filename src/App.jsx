@@ -1004,7 +1004,7 @@ const _makeSnapshot = (colName, cb, errCb, interval) => {
   fsListeners[colName] = iv;
   return () => clearInterval(iv);
 };
-const onSnapshot     = (col, cb, err) => _makeSnapshot(col, cb, err, 5000);  // 5s — órdenes (crítico multi-tablet)
+const onSnapshot     = (col, cb, err) => _makeSnapshot(col, cb, err, 10000); // 10s — órdenes (multi-tablet sync)
 const onSnapshotMed  = (col, cb, err) => _makeSnapshot(col, cb, err, 30000); // 30s — clientes/config
 const onSnapshotSlow = (col, cb, err) => _makeSnapshot(col, cb, err, 60000); // 60s — admin cols
 const onSnapshotDoc = (colName, docId, cb, errCb) => {
@@ -3333,7 +3333,7 @@ const NewOrderScreen = (props) => {
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setUnlinkVehicle(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => {
-                setClients(prev => prev.map(c => c.id === unlinkVehicle.client.id ? {
+                setClients(prev => prev.map(c => matchId(c.id, unlinkVehicle.client.id) ? {
                   ...c,
                   vehicles: (c.vehicles || []).filter(v => v.domain !== unlinkVehicle.vehicle.domain)
                 } : c));
@@ -7015,6 +7015,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const tarjIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTarj, [periodOrders, ingExTarj]);
   const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTransf, [periodOrders, ingExTransf]);
   const ctaCteIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
+  const inTaller = useMemo(() => orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)), [orders]);
   const saldoCajaCalculado = efIngresado - totalEgr;
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
@@ -7076,7 +7077,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const tw = Object.entries(ws).sort((a, b) => b[1] - a[1]);
     const cs = {};
     completed.forEach(o => { cs[o.clientId] = (cs[o.clientId] || 0) + 1; });
-    const tc = Object.entries(cs).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => x.id === parseInt(id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
+    const tc = Object.entries(cs).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, cnt]) => { const c = clients.find(x => matchId(x.id, id)); return { name: c ? c.name + " " + c.lastName : "—", count: cnt }; });
     return { workStats: ws, topWorks: tw, clientStats: cs, topClients: tc };
   }, [completed, clients]);
 
@@ -7528,7 +7529,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {tab === "cobros" && (<div>
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>🧾 Cobros — Vehículos en Taller</div>
         {(() => {
-          const inTaller = orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status));
           if (selCobro) {
             const o = selCobro;
             const cl = clients.find(c => matchId(c.id, o.clientId));
@@ -12038,7 +12038,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         const totalGeneral = totalProvMes + totalServMes + totalIgMes + totalSueldosMes;
 
         // ── VENTAS del mes ──
-        const completed = orders.filter(o => o.status === "delivered" || o.status === "ready");
+        const completed = orders.filter(o => o.status === "delivered" || o.status === "done" || o.cobrado);
         const ventasDelMes = completed.filter(o => (o.date || "").startsWith(ym));
         const totalVentasMes = ventasDelMes.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
         const metodosVenta = ["Efectivo","Transferencia","Tarjeta","Cuenta Corriente"];
@@ -19093,10 +19093,11 @@ export default function App() {
       if (!isLoadingRef.current) {
         const prevMap = Object.fromEntries(prev.map(o => [String(o.id), o]));
         next.forEach(o => {
-          if (JSON.stringify(o) !== JSON.stringify(prevMap[String(o.id)])) {
-            // 1. Guardar en IDB inmediatamente (synced:false = pendiente)
+          const old = prevMap[String(o.id)];
+          // Skip if same object reference (not modified) — avoids expensive JSON.stringify
+          if (o === old) return;
+          if (!old || JSON.stringify(o) !== JSON.stringify(old)) {
             idbSave('orders', o.id, o, false).catch(console.error);
-            // 2. Enviar a Firestore; si OK → marcar synced en IDB
             fsSave('orders', o.id, o)
               .then(() => idbMarkSynced('orders', String(o.id)))
               .catch(e => console.error('[FS] setOrders save:', e));
@@ -19121,7 +19122,9 @@ export default function App() {
       if (!isLoadingRef.current) {
         const prevMap = Object.fromEntries(prev.map(c => [String(c.id), c]));
         next.forEach(c => {
-          if (JSON.stringify(c) !== JSON.stringify(prevMap[String(c.id)])) {
+          const old = prevMap[String(c.id)];
+          if (c === old) return;
+          if (!old || JSON.stringify(c) !== JSON.stringify(old)) {
             idbSave('clients', c.id, c, false).catch(console.error);
             fsSave('clients', c.id, c)
               .then(() => idbMarkSynced('clients', String(c.id)))
@@ -19225,14 +19228,19 @@ export default function App() {
         const fromFs = fsDocs.map(fsDoc => {
           const local = prevMap[String(fsDoc.id)];
           if (!local) return fsDoc;
-          // Preservar campos críticos si local es más reciente (race condition)
+          // Local siempre gana para campos críticos (el usuario acaba de modificarlos)
+          // Firestore puede traer data vieja del polling anterior
+          const localHasAnulacion = !!local.anulacionCobro;
           return {
             ...fsDoc,
-            cobrado:     local.cobrado     || fsDoc.cobrado     || false,
-            payments:    (local.cobrado && !fsDoc.cobrado) ? local.payments : fsDoc.payments,
+            // Si local anuló (cobrado=false con anulacionCobro), respetar. Si local cobró, respetar también.
+            cobrado:     localHasAnulacion ? false : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado),
+            payments:    local.payments    || fsDoc.payments    || [],
+            cajaDate:    localHasAnulacion ? null : (local.cajaDate !== undefined ? local.cajaDate : fsDoc.cajaDate),
+            ...(localHasAnulacion ? { anulacionCobro: local.anulacionCobro } : {}),
             ...(local.paymentPref || fsDoc.paymentPref ? { paymentPref: local.paymentPref || fsDoc.paymentPref } : {}),
-            ...(local.factura     || fsDoc.factura     ? { factura:     local.factura     || fsDoc.factura     } : {}),
-            ...(local.ticket      || fsDoc.ticket      ? { ticket:      local.ticket      || fsDoc.ticket      } : {}),
+            ...(local.factura     !== undefined ? { factura: local.factura } : fsDoc.factura ? { factura: fsDoc.factura } : {}),
+            ...(local.ticket      !== undefined ? { ticket:  local.ticket  } : fsDoc.ticket  ? { ticket:  fsDoc.ticket  } : {}),
           };
         });
 
