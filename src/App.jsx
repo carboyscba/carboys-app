@@ -1810,20 +1810,27 @@ const NewOrderScreen = (props) => {
       setFoundVehicle(newClient.vehicles[0]);
     } else if (addingNewVehicle) {
       const newVehicle = { domain: form.domain, brand: form.brand, model: form.model, year: parseInt(form.year), km: finalKm };
-      setClients(prev => prev.map(c => c.id === foundClient.id ? { ...c, phone: form.phone || c.phone, vehicles: [...c.vehicles, newVehicle] } : c));
+      if (foundClient && foundClient.id) {
+        setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? { ...c, phone: form.phone || c.phone, vehicles: [...(c.vehicles || []), newVehicle] } : c));
+      }
       setFoundVehicle(newVehicle);
       setAddingNewVehicle(false);
     } else if (editMode) {
-      setClients(prev => prev.map(c => c.id === foundClient.id ? {
-        ...c, name: form.name, lastName: form.lastName, dni: form.dni, cuit: form.cuit, phone: form.phone,
-        vehicles: (c.vehicles || []).map(v => v.domain === foundVehicle.domain ? { ...v, brand: form.brand, model: form.model, year: parseInt(form.year), km: finalKm } : v)
-      } : c));
+      if (foundClient && foundClient.id) {
+        setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? {
+          ...c, name: form.name, lastName: form.lastName, dni: form.dni, cuit: form.cuit, phone: form.phone,
+          vehicles: (c.vehicles || []).map(v => v.domain === (foundVehicle?.domain || form.domain) ? { ...v, brand: form.brand, model: form.model, year: parseInt(form.year), km: finalKm } : v)
+        } : c));
+      }
       setEditMode(false);
     } else {
-      setClients(prev => prev.map(c => c.id === foundClient.id ? {
-        ...c,
-        vehicles: (c.vehicles || []).map(v => v.domain === foundVehicle.domain ? { ...v, km: finalKm } : v)
-      } : c));
+      // Existing client + existing vehicle → update ALL edited fields + km
+      if (foundClient && foundClient.id) {
+        setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? {
+          ...c, name: form.name || c.name, lastName: form.lastName || c.lastName, phone: form.phone || c.phone, dni: form.dni || c.dni, cuit: form.cuit || c.cuit,
+          vehicles: (c.vehicles || []).map(v => v.domain === (foundVehicle?.domain || form.domain) ? { ...v, km: finalKm } : v)
+        } : c));
+      }
     }
     setStep(3);
   };
@@ -1920,7 +1927,7 @@ const NewOrderScreen = (props) => {
     setStep(5);
   };
 
-  const clientHistory = foundClient ? orders.filter(o => o.clientId === foundClient.id) : [];
+  const clientHistory = foundClient ? orders.filter(o => matchId(o.clientId, foundClient.id)) : [];
 
   const brands = Object.keys(vehicleDB || VEHICLE_DB).sort();
   const models = form.brand ? ((vehicleDB || VEHICLE_DB)[form.brand] || []) : [];
@@ -3365,10 +3372,10 @@ const NewOrderScreen = (props) => {
                 if (form.currentKm && !kmError) {
                   setShowKmPopup(false);
                   const finalKm = parseInt(form.currentKm);
-                  if (!isNew && !addingNewVehicle && !editMode) {
-                    setClients(prev => prev.map(c => c.id === foundClient.id ? {
-                      ...c,
-                      vehicles: (c.vehicles || []).map(v => v.domain === foundVehicle.domain ? { ...v, km: finalKm } : v)
+                  if (!isNew && !addingNewVehicle && !editMode && foundClient && foundClient.id) {
+                    setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? {
+                      ...c, name: form.name || c.name, lastName: form.lastName || c.lastName, phone: form.phone || c.phone, dni: form.dni || c.dni, cuit: form.cuit || c.cuit,
+                      vehicles: (c.vehicles || []).map(v => v.domain === (foundVehicle?.domain || form.domain) ? { ...v, km: finalKm } : v)
                     } : c));
                   }
                   setStep(3);
@@ -3613,7 +3620,7 @@ const NewOrderScreen = (props) => {
                             style={{ ...inputStyle, flex: 1 }} />
                           <button onClick={() => {
                             if (form.cuit && foundClient) {
-                              setClients(prev => prev.map(c => c.id === foundClient.id ? { ...c, cuit: form.cuit } : c));
+                              setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? { ...c, cuit: form.cuit } : c));
                             }
                           }} style={{ ...btnPrimary(T.orange), fontSize: 12, padding: "8px 14px", whiteSpace: "nowrap" }}>💾 Guardar</button>
                         </div>
@@ -3635,7 +3642,7 @@ const NewOrderScreen = (props) => {
                         </div>
                         <button onClick={() => {
                           if ((form.dni || form.cuit) && foundClient) {
-                            setClients(prev => prev.map(c => c.id === foundClient.id ? { ...c, dni: form.dni || c.dni, cuit: form.cuit || c.cuit } : c));
+                            setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? { ...c, dni: form.dni || c.dni, cuit: form.cuit || c.cuit } : c));
                           }
                         }} style={{ ...btnPrimary(T.accent), fontSize: 12, padding: "8px 14px", width: "100%" }}>💾 Guardar en ficha del cliente</button>
                       </div>
@@ -3651,7 +3658,7 @@ const NewOrderScreen = (props) => {
                             style={{ ...inputStyle, flex: 1 }} />
                           <button onClick={() => {
                             if (form.dni && foundClient) {
-                              setClients(prev => prev.map(c => c.id === foundClient.id ? { ...c, dni: form.dni } : c));
+                              setClients(prev => prev.map(c => matchId(c.id, foundClient.id) ? { ...c, dni: form.dni } : c));
                             }
                           }} style={{ ...btnPrimary(T.grayLight), fontSize: 12, padding: "8px 14px", whiteSpace: "nowrap" }}>💾 Guardar</button>
                         </div>
