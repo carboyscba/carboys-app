@@ -1241,6 +1241,9 @@ const INITIAL_CONFIG = { surcharge3: 15, surcharge6: 25, ivaRate: 21, authMessag
 // ══════════════════════════════════════════════════════════════════
 
 // Obtiene los datos de la cuenta 1 (principal — con IVA)
+// Helper: compare IDs safely (handles string/number mismatch from Firestore sync)
+const matchId = (a, b) => a != null && b != null && String(a) === String(b);
+
 const getCta1 = (cfg) => ({
   nombre: cfg?.razonSocial || "Empresa",
   cuit:   cfg?.cuit || "",
@@ -1794,7 +1797,7 @@ const NewOrderScreen = (props) => {
     form.model = capModel;
     if (isNew) {
       const newClient = {
-        id: Date.now(),
+        id: "cl_" + Date.now(),
         name: form.name,
         lastName: form.lastName,
         dni: form.dni,
@@ -4162,7 +4165,7 @@ const DashboardScreen = (props) => {
   const pendingNotifs = (notifications || []).filter(n => n.status === "pending");
 
   const getVehicleInfo = (order) => {
-    const client = clients.find(c => c.id === order.clientId);
+    const client = clients.find(c => matchId(c.id, order.clientId));
     const vehicle = client?.vehicles.find(v => v.domain === order.domain);
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
@@ -4279,7 +4282,7 @@ const DashboardScreen = (props) => {
             const tb = new Date(b._createdAt || b.date || 0).getTime();
             return tb - ta;
           }).slice(0, 8).map(o => {
-            const cl = clients.find(c => c.id === o.clientId);
+            const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const isBudgetStatus = o.status === "budget_sent" || o.status === "budget_approved";
             const isInspection = o.status === "inspection" || o.status === "inspection_done";
@@ -4593,7 +4596,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
       {searchTab === "historial" && (() => {
         // Detail view
         if (histDetail) {
-          const hCl = clients.find(c => c.id === histDetail.clientId);
+          const hCl = clients.find(c => matchId(c.id, histDetail.clientId));
           const hVh = hCl?.vehicles?.find(v => v.domain === histDetail.domain);
           const isBudget = histDetail.status === "budget_closed" || histDetail.status === "budget_sent";
           const isChequeo = !!histDetail.isChequeo;
@@ -4750,7 +4753,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
                   <span style={{ fontSize: 11, color: T.gray, fontWeight: 600 }}>({g.items.length})</span>
                 </div>
                 {g.items.map(o => {
-                  const cl = clients.find(c => c.id === o.clientId);
+                  const cl = clients.find(c => matchId(c.id, o.clientId));
                   const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                   const badge = getStatusBadge(o.status);
                   const total = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
@@ -4838,7 +4841,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
   });
 
   const getVehicleInfo = (order) => {
-    const client = clients.find(c => c.id === order.clientId);
+    const client = clients.find(c => matchId(c.id, order.clientId));
     const vehicle = client?.vehicles.find(v => v.domain === order.domain);
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
@@ -4906,7 +4909,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
 
 const VehicleDetailScreen = (props) => {
   const { order, clients, setClients, user, orders, setOrders, notifications, setNotifications, config, onNavigate, navHistoryRef } = props;
-  const client = clients.find(c => c.id === order.clientId);
+  const client = clients.find(c => matchId(c.id, order.clientId));
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const canStartWork = ["dueño", "encargado", "mecánico"].includes(user.role);
   const canFinalize = ["dueño", "encargado", "mecánico"].includes(user.role);
@@ -5763,7 +5766,7 @@ const VehicleDetailScreen = (props) => {
               <button onClick={() => setShowEditOrder(false)}
                 style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => {
-                setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: editClient.name, lastName: editClient.lastName, phone: editClient.phone, dni: editClient.dni } : c));
+                setClients(prev => prev.map(c => matchId(c.id, order.clientId) ? { ...c, name: editClient.name, lastName: editClient.lastName, phone: editClient.phone, dni: editClient.dni } : c));
                 const ep0 = (editPayments || [])[0] || {};
                 const newPayPref = ep0.method ? {
                   method: ep0.method,
@@ -6841,7 +6844,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const _initOrder = initialOrder || null;
   const [selCobro, setSelCobro] = useState(_initOrder);
   const [cobroPay, setCobroPay] = useState(_initOrder ? buildInitPay(_initOrder, config, clients) : []);
-  const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => c.id === _initOrder.clientId); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
+  const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => matchId(c.id, _initOrder.clientId)); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
   const [cobroSearchQ, setCobroSearchQ] = useState("");
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
   // ── Global client editor modal ──
@@ -7033,7 +7036,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
     return (monto - pagadoParcial) > 0;
   }), [orders]);
-  const ctaFiltered = useMemo(() => ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte, [ctaCte, clients, ctaFilter]);
+  const ctaFiltered = useMemo(() => ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => matchId(x.id, o.clientId)); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte, [ctaCte, clients, ctaFilter]);
   const ctaTotal = useMemo(() => ctaCte.reduce((s, o) => {
     const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
     const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
@@ -7047,7 +7050,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const lastB = (b.ctaPagos || []).slice(-1)[0]?.fecha || b.date || "";
     return (lastB).localeCompare(lastA);
   }), [orders]);
-  const ctaPagadosFiltered = useMemo(() => ctaFilter ? ctaPagados.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaPagados, [ctaPagados, clients, ctaFilter]);
+  const ctaPagadosFiltered = useMemo(() => ctaFilter ? ctaPagados.filter(o => { const c = clients.find(x => matchId(x.id, o.clientId)); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaPagados, [ctaPagados, clients, ctaFilter]);
 
   const conFactura = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T")), [periodOrders]);
   const conTicket = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T")), [periodOrders]);
@@ -7097,7 +7100,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     if (!facturaModal || facturando) return;
     const { order, payments, client: _client } = facturaModal;
     // Fallback: si el client no tiene CUIT, buscarlo fresco del array
-    const freshCl = clients.find(c => c.id === order.clientId);
+    const freshCl = clients.find(c => matchId(c.id, order.clientId));
     const client = _client ? {
       ..._client,
       cuit: _client.cuit || freshCl?.cuit || "",
@@ -7247,7 +7250,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     
     // Guardar datos de cliente actualizados
     if (client) {
-      setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
+      setClients(prev => prev.map(c => matchId(c.id, order.clientId) ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
     }
     // Guardar factura en la orden + pagos confirmados
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, factura, payments: (payments || o.payments).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
@@ -7267,7 +7270,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       emitidaEn: now.toISOString(),
     };
     if (client) {
-      setClients(prev => prev.map(c => c.id === order.clientId ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
+      setClients(prev => prev.map(c => matchId(c.id, order.clientId) ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
     }
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ticket, factura: null, payments: (payments || o.payments).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
     setSelCobro(prev => prev ? { ...prev, ticket, factura: null, payments: (payments || prev.payments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : prev);
@@ -7412,7 +7415,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
           // Helper: render one order row
           const renderOrderRow = (o) => {
-            const c = clients.find(x => x.id === o.clientId);
+            const c = clients.find(x => matchId(x.id, o.clientId));
             const v = c?.vehicles?.find(x => x.domain === o.domain);
             const totalWorks = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             const totalPaid = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -7505,7 +7508,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const inTaller = orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status));
           if (selCobro) {
             const o = selCobro;
-            const cl = clients.find(c => c.id === o.clientId);
+            const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             const iva = config.ivaRate || 21;
@@ -7529,7 +7532,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>👤 Datos del Cliente</div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {(o.factura || o.ticket) && <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, padding: "3px 8px", background: `${T.orange}15`, borderRadius: 6 }}>🔒 {o.factura ? "Factura" : "Comprobante"} emitido</div>}
-                      <button onClick={() => { const cl = clients.find(c => c.id === o.clientId); if (cl) setEditClientGlobal({ clientId: cl.id, name: cl.name, lastName: cl.lastName, phone: cl.phone || "", dni: cl.dni || "", cuit: cl.cuit || "" }); }}
+                      <button onClick={() => { const cl = clients.find(c => matchId(c.id, o.clientId)); if (cl) setEditClientGlobal({ clientId: cl.id, name: cl.name, lastName: cl.lastName, phone: cl.phone || "", dni: cl.dni || "", cuit: cl.cuit || "" }); }}
                         style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: T.orange }} title="Editar cliente">✏️</button>
                     </div>
                   </div>
@@ -7994,7 +7997,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       return true;
                     };
                     const confirmarCobro = () => {
-                      if (cobroClient) { setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
+                      if (cobroClient) { setClients(prev => prev.map(c => matchId(c.id, o.clientId) ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
                       const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                       const ivaRate = config.ivaRate || 21;
                       // Each payment already has IVA included in its amount (applied when toggling Con IVA)
@@ -8037,14 +8040,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                       {(getPerm(user, "facturar") || (user.role === "encargado" && config.encargadoPuedeFacturar)) && (
                         <button onClick={() => {
-                          const cl = clients.find(c => c.id === o.clientId);
+                          const cl = clients.find(c => matchId(c.id, o.clientId));
                           const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                           // Save client edits FIRST (persist to clients array + Firestore)
                           const mergedClient = cobroClient
                             ? { ...cobroClient, cuit: cobroClient.cuit || cl?.cuit || "", dni: cobroClient.dni || cl?.dni || "" }
                             : cl;
                           if (cobroClient && cl) {
-                            setClients(prev => prev.map(c => c.id === o.clientId ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni || c.dni, cuit: cobroClient.cuit || c.cuit } : c));
+                            setClients(prev => prev.map(c => matchId(c.id, o.clientId) ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni || c.dni, cuit: cobroClient.cuit || c.cuit } : c));
                           }
                           setFacturaModal({ order: o, payments: cobroPay, client: mergedClient, vehicle: vh });
                         }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
@@ -8053,7 +8056,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       )}
                       {!o.ticket && (
                         <button onClick={() => {
-                          const cl = clients.find(c => c.id === o.clientId);
+                          const cl = clients.find(c => matchId(c.id, o.clientId));
                           const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                           setTicketModal({ order: o, payments: cobroPay, client: cobroClient || cl, vehicle: vh });
                         }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 14, padding: "13px 0" }}>
@@ -8062,7 +8065,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       )}
                       {o.ticket && (
                         <button onClick={() => {
-                          const cl = clients.find(c => c.id === o.clientId);
+                          const cl = clients.find(c => matchId(c.id, o.clientId));
                           const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                           setTicketModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
                         }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 14, padding: "13px 0" }}>
@@ -8074,7 +8077,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   {o.factura && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                       <button onClick={() => {
-                        const cl = clients.find(c => c.id === o.clientId);
+                        const cl = clients.find(c => matchId(c.id, o.clientId));
                         const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                         setFacturaModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
                       }} style={{ ...btnPrimary(T.green), width: "100%", fontSize: 15, padding: "16px 0" }}>
@@ -8082,7 +8085,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       </button>
                       {o.ticket && (
                         <button onClick={() => {
-                          const cl = clients.find(c => c.id === o.clientId);
+                          const cl = clients.find(c => matchId(c.id, o.clientId));
                           const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                           setTicketModal({ order: o, payments: o.payments, client: cl, vehicle: vh, readonly: true });
                         }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 13, padding: "10px 0" }}>
@@ -8133,7 +8136,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               {(() => {
                 const q = cobroSearchQ.trim().toLowerCase();
                 const filtered = q ? inTaller.filter(o => {
-                  const cl = clients.find(c => c.id === o.clientId);
+                  const cl = clients.find(c => matchId(c.id, o.clientId));
                   const domNorm = (o.domain || "").replace(/\s/g, "").toLowerCase();
                   return domNorm.includes(q.replace(/\s/g, ""))
                     || (cl?.name && cl.name.toLowerCase().includes(q))
@@ -8148,7 +8151,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const tb = new Date(b._createdAt || b.date || 0).getTime();
                 return ta - tb;
               }).map(o => {
-                const cl = clients.find(c => c.id === o.clientId);
+                const cl = clients.find(c => matchId(c.id, o.clientId));
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                 const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
                 const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : "ESPERANDO";
@@ -8158,7 +8161,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
                       setCobroPay(buildInitPay(o, config, clients));
-                      const _cl = clients.find(c => c.id === o.clientId);
+                      const _cl = clients.find(c => matchId(c.id, o.clientId));
                       setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null);
                     }}
                     style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
@@ -8221,7 +8224,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // ── DETALLE DE ORDEN ──
           if (histDetail) {
             const o = histDetail;
-            const cl = clients.find(c => c.id === o.clientId);
+            const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             return (
@@ -8359,7 +8362,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
             // Client info
             const firstOrder = matched[0];
-            const cl = firstOrder ? clients.find(c => c.id === firstOrder.clientId) : null;
+            const cl = firstOrder ? clients.find(c => matchId(c.id, firstOrder.clientId)) : null;
             const vh = cl?.vehicles?.find(v => v.domain === firstOrder?.domain);
 
             return (
@@ -8425,7 +8428,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           {mOrders.map(o => {
                             const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                             const metodo = metodoLabel(o);
-                            const oCl = clients.find(c => c.id === o.clientId);
+                            const oCl = clients.find(c => matchId(c.id, o.clientId));
                             const oVh = oCl?.vehicles?.find(v => v.domain === o.domain);
                             const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                             const isChequeo = !!o.isChequeo;
@@ -8538,7 +8541,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 }
 
                 const renderOrder = (o) => {
-                  const cl = clients.find(c => c.id === o.clientId);
+                  const cl = clients.find(c => matchId(c.id, o.clientId));
                   const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                   const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                   const metodo = metodoLabel(o);
@@ -8617,7 +8620,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {/* ── PENDIENTES ── */}
         {ctaSubTab === "pendientes" && (<>
           {ctaFiltered.map(o => {
-          const c = clients.find(x => x.id === o.clientId);
+          const c = clients.find(x => matchId(x.id, o.clientId));
           const v = c?.vehicles?.find(x => x.domain === o.domain);
           const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
           const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
@@ -8653,7 +8656,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {ctaSubTab === "pagados" && (<>
           {ctaPagadosFiltered.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin pagos de cuentas corrientes registrados{ctaFilter ? " para ese filtro" : ""}</div>}
           {ctaPagadosFiltered.map(o => {
-            const c = clients.find(x => x.id === o.clientId);
+            const c = clients.find(x => matchId(x.id, o.clientId));
             const v = c?.vehicles?.find(x => x.domain === o.domain);
             const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
             const lastPago = (o.ctaPagos || []).slice(-1)[0];
@@ -8687,7 +8690,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {/* ══ MODAL CONFIRMAR REVERTIR PAGO CTA CTE ══ */}
         {ctaUndoConfirm && (() => {
           const uo = ctaUndoConfirm;
-          const uc = clients.find(x => x.id === uo.clientId);
+          const uc = clients.find(x => matchId(x.id, uo.clientId));
           const lastPago = (uo.ctaPagos || []).slice(-1)[0];
           const totalPagado = (uo.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
           return (
@@ -8723,7 +8726,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         {/* ══ MODAL PAGO CTA CTE ══ */}
         {showCtaPago && ctaPagoOrder && (() => {
-          const cl = clients.find(x => x.id === ctaPagoOrder.clientId);
+          const cl = clients.find(x => matchId(x.id, ctaPagoOrder.clientId));
           const ctaMonto = (ctaPagoOrder.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
           return (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
@@ -8775,7 +8778,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       ctaPagos: [...(o.ctaPagos || []), { monto, metodo: ctaPagoForm.metodo, fecha: ctaPagoForm.fecha, id: Date.now() }]
                     } : o));
                     // Registrar ingreso en caja con el método REAL usado para saldar
-                    const ctaClient = clients.find(c => c.id === ctaPagoOrder.clientId);
+                    const ctaClient = clients.find(c => matchId(c.id, ctaPagoOrder.clientId));
                     const ctaClientName = ctaClient ? `${ctaClient.name} ${ctaClient.lastName}` : "";
                     const egresoEntry = { id: Date.now(), desc: `Cobro Cta. Cte. — ${ctaClientName ? ctaClientName + " — " : ""}${fmtD(ctaPagoOrder.domain)}`, monto, fecha: ctaPagoForm.fecha, categoria: "cobro_cta_cte", metodoPago: ctaPagoForm.metodo, esIngreso: true };
                     setEgresos(prev => [...prev, egresoEntry]);
@@ -8902,10 +8905,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             var movDesc = function(o) {
               if (o.isQuickSale || o.domain === "VENTA-RAPIDA") {
                 var qsDesc = o.quickSaleDesc || (o.works || []).map(function(w) { return w.desc || w.type; }).join(", ");
-                var cl = clients.find(function(c) { return c.id === o.clientId; });
+                var cl = clients.find(function(c) { return matchId(c.id, o.clientId); });
                 return "🛒 Venta Rápida — " + qsDesc + (cl ? " (" + cl.name + ")" : "");
               }
-              var cName = (clients.find(function(c) { return c.id === o.clientId; }) || {}).name || "";
+              var cName = (clients.find(function(c) { return matchId(c.id, o.clientId); }) || {}).name || "";
               return fmtD(o.domain) + (cName ? " — " + cName : "");
             };
             // Helper: robust timestamp from order — tries _createdAt (ISO), deliveredAt, startedAt, then falls back to order ID sequence
@@ -9177,7 +9180,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const isEgr = m.type === "egreso" || m.type === "egreso_virt";
           const isOrder = !!m._orderId;
           const isIngExtra = m.type === "ingreso_extra";
-          const cl = isOrder ? clients.find(c => c.id === r.clientId) : null;
+          const cl = isOrder ? clients.find(c => matchId(c.id, r.clientId)) : null;
           const vh = cl?.vehicles?.find(v => v.domain === r.domain) || null;
           return (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }}
@@ -9365,7 +9368,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   return (monto - pagadoParcial) > 0;
                 });
                 const ctaFiltradas = ctaSearchIngreso
-                  ? ctaPendientes.filter(o => { const c = clients.find(x => x.id === o.clientId); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaSearchIngreso.toLowerCase()); })
+                  ? ctaPendientes.filter(o => { const c = clients.find(x => matchId(x.id, o.clientId)); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaSearchIngreso.toLowerCase()); })
                   : ctaPendientes;
                 const totalSel = ctaSelOrders.reduce((s, id) => {
                   const o = orders.find(x => x.id === id);
@@ -9383,7 +9386,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <input inputMode="text" value={ctaSearchIngreso} onChange={e => setCtaSearchIngreso(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} placeholder="🔍 Buscar por cliente..." />
                     {ctaFiltradas.length === 0 && <div style={{ fontSize: 13, color: T.gray, padding: 12, textAlign: "center" }}>Sin cuentas corrientes pendientes</div>}
                     {ctaFiltradas.map(o => {
-                      const c = clients.find(x => x.id === o.clientId);
+                      const c = clients.find(x => matchId(x.id, o.clientId));
                       const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                       const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
                       const saldo = Math.max(0, ctaMonto - pagadoParcial);
@@ -9517,7 +9520,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           if (!canConfirm || esDemas) return;
 
                           // Registrar un egreso por cada método de pago
-                          const ctaClientNames = [...new Set(ctaSelOrders.map(oid => { const ord = orders.find(o => o.id === oid); const cl = ord ? clients.find(c => c.id === ord.clientId) : null; return cl ? `${cl.name} ${cl.lastName}` : ""; }).filter(Boolean))].join(", ");
+                          const ctaClientNames = [...new Set(ctaSelOrders.map(oid => { const ord = orders.find(o => o.id === oid); const cl = ord ? clients.find(c => matchId(c.id, ord.clientId)) : null; return cl ? `${cl.name} ${cl.lastName}` : ""; }).filter(Boolean))].join(", ");
                           ctaMetodos.forEach(m => {
                             const montoM = parseFloat(m.monto) || 0;
                             if (!montoM) return;
@@ -9712,7 +9715,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 </div>
               ) : (
                 allCobradas.map(o => {
-                  const c = clients.find(x => x.id === o.clientId);
+                  const c = clients.find(x => matchId(x.id, o.clientId));
                   const vh = c?.vehicles?.find(v => v.domain === o.domain);
                   const monto = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
                   const hasFc = !!o.factura;
@@ -12199,7 +12202,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         <span>DOMINIO / CLIENTE</span><span>MONTO</span>
                       </div>
                       {[...ordenesFiltradas].sort((a, b) => (b.date || "").localeCompare(a.date || "")).map(o => {
-                        const cl = clients.find(x => x.id === o.clientId);
+                        const cl = clients.find(x => matchId(x.id, o.clientId));
                         const tot = cmVentaMetodo
                           ? (o.payments || []).filter(p => p.method === cmVentaMetodo).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
                           : (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
@@ -12575,7 +12578,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
 const InspectionScreen = (props) => {
   var order = props.order, clients = props.clients, user = props.user, setOrders = props.setOrders, config = props.config, onNavigate = props.onNavigate;
-  var client = clients.find(function(c) { return c.id === order.clientId; });
+  var client = clients.find(function(c) { return matchId(c.id, order.clientId); });
   var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
 
   var INSP_CATS = [
@@ -12780,7 +12783,7 @@ const InspectionScreen = (props) => {
 
 const BudgetPricingScreen = (props) => {
   var order = props.order, clients = props.clients, user = props.user, setOrders = props.setOrders, config = props.config, onNavigate = props.onNavigate;
-  var client = clients.find(function(c) { return c.id === order.clientId; });
+  var client = clients.find(function(c) { return matchId(c.id, order.clientId); });
   var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
   var inspData = order.inspectionData || {};
   var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛", "Chequeo Pre-Post": "🔍" };
@@ -13445,7 +13448,7 @@ const CHEQUEO_TEMPLATE = [
 
 // ── CHEQUEO SCREEN ──
 const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }) => {
-  const client = clients.find(c => c.id === order.clientId);
+  const client = clients.find(c => matchId(c.id, order.clientId));
   const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
   const CH = "#FF4081";
   const [data, setData] = React.useState(order.chequeoData || {});
@@ -13933,7 +13936,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
 
 const ServiceSheetScreen = (props) => {
   const { order, clients, user, orders, setOrders, notifications, setNotifications, onNavigate } = props;
-  const client = clients.find(c => c.id === order.clientId);
+  const client = clients.find(c => matchId(c.id, order.clientId));
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
 
   if (!order || !order.works || order.works.length === 0) {
@@ -15680,7 +15683,7 @@ const ServiceSheetScreen = (props) => {
 
 const AuthManageScreen = ({ notification, order, clients, user, orders, setOrders, notifications, setNotifications, config, onNavigate }) => {
   const { openNumPad } = useNumPad();
-  const client = clients.find(c => c.id === order.clientId);
+  const client = clients.find(c => matchId(c.id, order.clientId));
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const notif = notifications.find(n => n.orderId === order.id && n.status === "pending");
   const [sent, setSent] = useState(false);
@@ -16446,7 +16449,7 @@ const InterventionDiagram = ({ order, sheet }) => {
 
 // ── FOJA DE CHEQUEO SCREEN (A4 printable, WA sendable) ──
 const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
-  const client = clients.find(c => c.id === order.clientId);
+  const client = clients.find(c => matchId(c.id, order.clientId));
   const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
   const cd = order.chequeoData || {};
   const price = (order.works || [])[0]?.price || 0;
@@ -16785,7 +16788,7 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
 
 
 const FojaClientScreen = ({ order, clients, notifications, config, onNavigate }) => {
-  const client = clients.find(c => c.id === order.clientId);
+  const client = clients.find(c => matchId(c.id, order.clientId));
   const vehicle = client?.vehicles.find(v => v.domain === order.domain);
   const fojaType = order._fojaType || null;
   const autoSendWA = order._autoSendWA || false;
