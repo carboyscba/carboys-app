@@ -15133,12 +15133,43 @@ const ServiceSheetScreen = (props) => {
           </div>
         )}
 
-        {item.type === "tires" && !(item.optional && !d.checked) && (
-          <div style={{ ...ml, marginBottom: 8 }}>
-            <CarTiresDiagram tires={d.tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 }}
-              onChange={t => upd(item.id, { tires: t, checked: true })} />
-          </div>
-        )}
+        {item.type === "tires" && !(item.optional && !d.checked) && (() => {
+          const tires = d.tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
+          const col = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
+          const setTire = (key, val) => upd(item.id, { tires: { ...tires, [key]: parseInt(val) || 0 }, checked: true });
+          const TIRES = [{ key: "del_izq", label: "Del. Izq." }, { key: "del_der", label: "Del. Der." }, { key: "tra_izq", label: "Tra. Izq." }, { key: "tra_der", label: "Tra. Der." }];
+          return (
+            <div style={{ ...ml, marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 40, marginBottom: 12 }}>
+                {[["DELANTERO", ["del_izq", "del_der"]], ["TRASERO", ["tra_izq", "tra_der"]]].map(([label, keys]) => (
+                  <div key={label} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: T.gray, marginBottom: 4 }}>{label}</div>
+                    <div style={{ display: "flex", gap: 20 }}>
+                      {keys.map(k => (
+                        <div key={k} style={{ textAlign: "center" }}>
+                          <div style={{ width: 28, height: 56, borderRadius: 6, border: `3px solid ${col(tires[k])}`, background: `${col(tires[k])}20`,
+                            display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fontD, fontSize: 13, fontWeight: 800, color: col(tires[k]) }}>{tires[k]}</div>
+                          <div style={{ fontSize: 8, color: T.gray, marginTop: 2 }}>{k.includes("izq") ? "IZQ" : "DER"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {TIRES.map(({ key, label }) => (
+                <div key={key} style={{ marginBottom: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
+                    <span style={{ color: T.grayLight }}>{label}</span>
+                    <span style={{ fontFamily: fontD, fontWeight: 800, color: col(tires[key]) }}>{tires[key]}%</span>
+                  </div>
+                  <input type="range" min="0" max="100" step="5" value={tires[key]}
+                    onChange={e => setTire(key, e.target.value)}
+                    style={{ width: "100%", accentColor: col(tires[key]) }} />
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         <div style={ml}>
           {item.type !== "binaryPresente" && <input inputMode="text" value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
