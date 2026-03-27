@@ -7059,14 +7059,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
     return s + Math.max(0, monto - pagadoParcial);
   }, 0), [ctaCte]);
-  const ctaPagados = useMemo(() => orders.filter(o => {
-    if (!o.ctaCobrada) return false;
-    return (o.payments || []).some(p => p.method === "Cuenta Corriente");
-  }).sort((a, b) => {
-    const lastA = (a.ctaPagos || []).slice(-1)[0]?.fecha || a.date || "";
-    const lastB = (b.ctaPagos || []).slice(-1)[0]?.fecha || b.date || "";
-    return (lastB).localeCompare(lastA);
-  }), [orders]);
+  const ctaPagados = useMemo(() => {
+    const hace30d = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+    return orders.filter(o => {
+      if (!(o.payments || []).some(p => p.method === "Cuenta Corriente")) return false;
+      const pagos = o.ctaPagos || [];
+      if (pagos.length === 0) return false; // sin pagos registrados → no mostrar
+      const lastPago = pagos.slice(-1)[0];
+      const fechaPago = lastPago?.fecha || o.cajaDate || o.date || "";
+      return fechaPago >= hace30d;
+    }).sort((a, b) => {
+      const lastA = (a.ctaPagos || []).slice(-1)[0]?.fecha || a.date || "";
+      const lastB = (b.ctaPagos || []).slice(-1)[0]?.fecha || b.date || "";
+      return (lastB).localeCompare(lastA);
+    });
+  }, [orders]);
   const ctaPagadosFiltered = useMemo(() => ctaFilter ? ctaPagados.filter(o => { const c = clients.find(x => matchId(x.id, o.clientId)); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaPagados, [ctaPagados, clients, ctaFilter]);
 
   const conFactura = useMemo(() => periodOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T")), [periodOrders]);
@@ -8748,28 +8755,45 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const c = clients.find(x => matchId(x.id, o.clientId));
             const v = c?.vehicles?.find(x => x.domain === o.domain);
             const ctaMonto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-            const lastPago = (o.ctaPagos || []).slice(-1)[0];
-            const totalPagado = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+            const pagos = o.ctaPagos || [];
+            const totalPagado = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+            const saldoPendiente = Math.max(0, ctaMonto - totalPagado);
+            const isParcial = saldoPendiente > 0;
+            const borderColor = isParcial ? T.orange : T.green;
             return (
-              <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.green}`, opacity: 0.85 }}>
+              <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: "4px solid " + borderColor }}>
                 <div onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                   <div>
-                    <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
-                    <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
-                    <div style={{ fontSize: 12, color: T.gray }}>{v ? v.brand + " " + v.model + " " + v.year : ""}</div>
-                    <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                      {isParcial && <span style={{ fontSize: 9, fontWeight: 700, color: T.orange, background: T.orange + "15", padding: "2px 6px", borderRadius: 4 }}>PARCIAL</span>}
+                      {!isParcial && <span style={{ fontSize: 9, fontWeight: 700, color: T.green, background: T.green + "15", padding: "2px 6px", borderRadius: 4 }}>SALDADO</span>}
+                    </div>
+                    <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "\u2014"}</div>
+                    <div style={{ fontSize: 12, color: T.gray }}>{v ? v.brand + " " + v.model : ""}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.green }}>{fmt(totalPagado || ctaMonto)}</div>
-                    {lastPago && <div style={{ fontSize: 11, color: T.green, fontWeight: 600, marginTop: 2 }}>✅ {fmtDate(lastPago.fecha)}</div>}
-                    {lastPago?.metodo && <div style={{ fontSize: 10, color: T.gray }}>{lastPago.metodo === "Efectivo" ? "💵" : lastPago.metodo === "Tarjeta" ? "💳" : "🔁"} {lastPago.metodo}</div>}
+                    <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: borderColor }}>{fmt(totalPagado)}</div>
+                    <div style={{ fontSize: 10, color: T.gray }}>de {fmt(ctaMonto)}</div>
+                    {isParcial && <div style={{ fontSize: 10, fontWeight: 700, color: T.orange, marginTop: 2 }}>Resta: {fmt(saldoPendiente)}</div>}
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                  <button onClick={e => { e.stopPropagation(); setCtaUndoConfirm(o); }}
-                    style={{ padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: `${T.red}10`, color: T.red, border: `1px solid ${T.red}40`, cursor: "pointer" }}>
-                    ⏪ Revertir pago
-                  </button>
+                {/* Detalle de cada pago con botón revertir */}
+                <div style={{ marginTop: 10, borderTop: "1px solid " + T.border, paddingTop: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.gray, marginBottom: 6 }}>Pagos registrados:</div>
+                  {pagos.map((pg, idx) => (
+                    <div key={pg.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: idx < pagos.length - 1 ? "1px solid " + T.border : "none" }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: T.green, fontFamily: fontD }}>{fmt(pg.monto)}</span>
+                        <span style={{ fontSize: 11, color: T.grayLight, marginLeft: 8 }}>{pg.metodo === "Efectivo" ? "\uD83D\uDCB5" : pg.metodo === "Tarjeta" ? "\uD83D\uDCB3" : "\uD83D\uDD01"} {pg.metodo}</span>
+                        <span style={{ fontSize: 10, color: T.gray, marginLeft: 8 }}>{fmtDate(pg.fecha)}</span>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); setCtaUndoConfirm({ order: o, pagoIdx: idx, pago: pg }); }}
+                        style={{ padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: T.red + "10", color: T.red, border: "1px solid " + T.red + "40", cursor: "pointer" }}>
+                        \u23EA Revertir
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -8778,31 +8802,38 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         {/* ══ MODAL CONFIRMAR REVERTIR PAGO CTA CTE ══ */}
         {ctaUndoConfirm && (() => {
-          const uo = ctaUndoConfirm;
+          const { order: uo, pagoIdx, pago } = ctaUndoConfirm;
+          if (!uo || !pago) return null;
           const uc = clients.find(x => matchId(x.id, uo.clientId));
-          const lastPago = (uo.ctaPagos || []).slice(-1)[0];
-          const totalPagado = (uo.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
           return (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
               onClick={() => setCtaUndoConfirm(null)}>
-              <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 420, width: "92%", border: `2px solid ${T.red}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 420, width: "92%", border: "2px solid " + T.red }} onClick={e => e.stopPropagation()}>
                 <div style={{ fontSize: 40, textAlign: "center", marginBottom: 10 }}>⏪</div>
-                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, textAlign: "center", color: T.red, marginBottom: 8 }}>Revertir pago de Cta. Cte.</div>
+                <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, textAlign: "center", color: T.red, marginBottom: 8 }}>Revertir pago</div>
                 <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 16, lineHeight: 1.6 }}>
-                  Esta accion va a deshacer el pago y la orden vuelve a aparecer como pendiente en Cuenta Corriente.
+                  Se va a eliminar este pago. Si quedan pagos parciales, la orden sigue pendiente.
                 </div>
                 <div style={{ ...card, padding: 14, marginBottom: 16, background: T.bg3 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{fmtD(uo.domain)} — {uc ? uc.name + " " + uc.lastName : "—"}</div>
-                  <div style={{ fontSize: 13, color: T.green, fontWeight: 700, marginTop: 4 }}>Pagado: {fmt(totalPagado)}</div>
-                  {lastPago && <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>Ultimo pago: {fmtDate(lastPago.fecha)} — {lastPago.metodo}</div>}
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{fmtD(uo.domain)} — {uc ? uc.name + " " + uc.lastName : "\u2014"}</div>
+                  <div style={{ fontSize: 13, color: T.red, fontWeight: 700, marginTop: 4 }}>Pago a revertir: {fmt(pago.monto)} — {pago.metodo} — {fmtDate(pago.fecha)}</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setCtaUndoConfirm(null)}
-                    style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 14, padding: "14px 0" }}>
+                    style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1, fontSize: 14, padding: "14px 0" }}>
                     Cancelar
                   </button>
                   <button onClick={() => {
-                    setOrders(prev => prev.map(o => o.id === uo.id ? { ...o, ctaCobrada: false, ctaPagos: [] } : o));
+                    const newPagos = (uo.ctaPagos || []).filter((_, i) => i !== pagoIdx);
+                    const ctaMontoTotal = (uo.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const newTotalPagado = newPagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                    setOrders(prev => prev.map(o => o.id === uo.id ? { ...o, ctaCobrada: newTotalPagado >= ctaMontoTotal, ctaPagos: newPagos } : o));
+                    // Revertir ingreso en caja: buscar egreso con monto y fecha coincidente
+                    setEgresos(prev => {
+                      const idx = prev.findIndex(e => e.esIngreso && e.categoria === "cobro_cta_cte" && Math.abs((parseFloat(e.monto) || 0) - (parseFloat(pago.monto) || 0)) < 1 && e.fecha === pago.fecha);
+                      if (idx >= 0) return prev.filter((_, i) => i !== idx);
+                      return prev;
+                    });
                     setCtaUndoConfirm(null);
                   }} style={{ ...btnPrimary(T.red), flex: 1, fontSize: 14, padding: "14px 0" }}>
                     Confirmar reversion
