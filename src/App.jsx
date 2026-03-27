@@ -8738,6 +8738,25 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   </div>
                 )}
               </div>
+              {/* Detalle de pagos parciales con revert */}
+              {pagadoParcial > 0 && (
+                <div style={{ marginTop: 6, padding: "8px 10px", background: T.bg, borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: T.gray, marginBottom: 4 }}>Pagos realizados:</div>
+                  {(o.ctaPagos || []).map((pg, idx) => (
+                    <div key={pg.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: idx < (o.ctaPagos||[]).length - 1 ? "1px solid " + T.border : "none" }}>
+                      <div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: T.green, fontFamily: fontD }}>{fmt(pg.monto)}</span>
+                        <span style={{ fontSize: 10, color: T.grayLight, marginLeft: 6 }}>{pg.metodo === "Efectivo" ? "\uD83D\uDCB5" : pg.metodo === "Tarjeta" ? "\uD83D\uDCB3" : "\uD83D\uDD01"} {pg.metodo}</span>
+                        <span style={{ fontSize: 9, color: T.gray, marginLeft: 6 }}>{fmtDate(pg.fecha)}</span>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); setCtaUndoConfirm({ order: o, pagoIdx: idx, pago: pg }); }}
+                        style={{ padding: "3px 8px", borderRadius: 5, fontSize: 9, fontWeight: 700, background: T.red + "10", color: T.red, border: "1px solid " + T.red + "40", cursor: "pointer" }}>
+                        ⏪ Revertir
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button onClick={e => { e.stopPropagation(); setCtaPagoOrder(o); setCtaPagoForm({ fecha: today, monto: String(saldo), metodo: "Efectivo" }); setShowCtaPago(true); }}
                 style={{ ...btnPrimary(T.green), width: "100%", marginTop: 8, fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 💰 {pagadoParcial > 0 ? "Registrar Pago Parcial" : "Registrar Pago"}
@@ -8790,7 +8809,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       </div>
                       <button onClick={e => { e.stopPropagation(); setCtaUndoConfirm({ order: o, pagoIdx: idx, pago: pg }); }}
                         style={{ padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: T.red + "10", color: T.red, border: "1px solid " + T.red + "40", cursor: "pointer" }}>
-                        \u23EA Revertir
+                        ⏪ Revertir
                       </button>
                     </div>
                   ))}
