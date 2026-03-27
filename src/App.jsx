@@ -6930,6 +6930,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [ctaPagoOrder, setCtaPagoOrder] = useState(null);
   const [ctaPagoForm, setCtaPagoForm] = useState({ fecha: new Date().toISOString().split("T")[0], monto: "", metodo: "Efectivo" });
   const [ctaUndoConfirm, setCtaUndoConfirm] = useState(null); // order to undo
+  const [cobroVencimiento, setCobroVencimiento] = useState(""); // vencimiento al crear cobro CTA CTE
+  const [ctaEditVenc, setCtaEditVenc] = useState(null); // { orderId, fecha } para editar vencimiento
   // PROVEEDORES — edición
   const [editProvModal, setEditProvModal] = useState(null); // proveedor obj
   const [editProvForm, setEditProvForm] = useState({ nombre: "", rubro: "", diasPago: "30", cuit: "", tel: "" });
@@ -7044,7 +7046,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
     return (monto - pagadoParcial) > 0;
   }), [orders]);
-  const ctaFiltered = useMemo(() => ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => matchId(x.id, o.clientId)); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte, [ctaCte, clients, ctaFilter]);
+  const ctaFiltered = useMemo(() => {
+    const list = ctaFilter ? ctaCte.filter(o => { const c = clients.find(x => matchId(x.id, o.clientId)); return c && (c.name + " " + c.lastName).toLowerCase().includes(ctaFilter.toLowerCase()); }) : ctaCte;
+    return [...list].sort((a, b) => {
+      const va = a.ctaVencimiento || "9999";
+      const vb = b.ctaVencimiento || "9999";
+      return va.localeCompare(vb);
+    });
+  }, [ctaCte, clients, ctaFilter]);
   const ctaTotal = useMemo(() => ctaCte.reduce((s, o) => {
     const monto = (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
     const pagadoParcial = (o.ctaPagos || []).reduce((sp, p) => sp + (parseFloat(p.monto) || 0), 0);
@@ -7850,6 +7859,33 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     const nuevos = [...ps, { method: "", amount: String(total), account: "", withIva: null, invoiceType: "" }];
                     return nuevos;
                   })} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, color: T.orange, marginBottom: 12 }}>+ Agregar método de pago</button>
+
+                  {/* ── Vencimiento CTA CTE ── */}
+                  {cobroPay.some(p => p.method === "Cuenta Corriente") && (
+                    <div style={{ ...card, padding: 14, marginBottom: 12, borderLeft: "3px solid " + T.orange }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, marginBottom: 8 }}>📅 Vencimiento Cuenta Corriente</div>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                        {[{ l: "7 días", d: 7 }, { l: "15 días", d: 15 }, { l: "30 días", d: 30 }, { l: "60 días", d: 60 }].map(opt => {
+                          const target = new Date(); target.setDate(target.getDate() + opt.d);
+                          const val = target.toISOString().split("T")[0];
+                          return (
+                            <div key={opt.d} onClick={() => setCobroVencimiento(val)}
+                              style={{ padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                                background: cobroVencimiento === val ? T.orange + "25" : T.bg, color: cobroVencimiento === val ? T.orange : T.gray,
+                                border: "2px solid " + (cobroVencimiento === val ? T.orange : T.border) }}>
+                              {opt.l}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input type="date" value={cobroVencimiento} onChange={e => setCobroVencimiento(e.target.value)}
+                          style={{ ...inputStyle, flex: 1, fontSize: 13 }} />
+                        {cobroVencimiento && <div onClick={() => setCobroVencimiento("")} style={{ fontSize: 11, color: T.red, cursor: "pointer", fontWeight: 700 }}>✕ Quitar</div>}
+                      </div>
+                      {cobroVencimiento && <div style={{ fontSize: 11, color: T.grayLight, marginTop: 4 }}>Vence: {fmtDate(cobroVencimiento)}</div>}
+                    </div>
+                  )}
                 </div>
                 {/* ── POPUP VALIDACIÓN ── */}
                 {showAnularConfirm && selCobro && (
@@ -8039,9 +8075,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         if (idx === 0 && cobroPay.length > 1) amt = Math.max(0, firstAmt);
                         return { ...pp, amount: amt };
                       });
-                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0] } : o2));
-                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0] }));
+                      const hasCtaCte = finalPays.some(p => p.method === "Cuenta Corriente");
+                      const vencData = hasCtaCte && cobroVencimiento ? { ctaVencimiento: cobroVencimiento } : {};
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData }));
                       setHoldProgress(0);
+                      setCobroVencimiento("");
                     };
                     return (
                     <button
@@ -8184,6 +8223,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   <div key={o.id} onClick={() => {
                       setSelCobro(o);
                       setCobroPay(buildInitPay(o, config, clients));
+                      setCobroVencimiento(o.ctaVencimiento || "");
                       const _cl = clients.find(c => matchId(c.id, o.clientId));
                       setCobroClient(_cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null);
                     }}
@@ -8649,25 +8689,51 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const pagadoParcial = (o.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
           const saldo = Math.max(0, ctaMonto - pagadoParcial);
           if (o.ctaCobrada) return null;
+          const venc = o.ctaVencimiento;
+          const hoy = new Date().toISOString().split("T")[0];
+          const diasVenc = venc ? Math.round((new Date(venc + "T12:00:00") - new Date(hoy + "T12:00:00")) / 86400000) : null;
+          const vencColor = diasVenc === null ? null : diasVenc < 0 ? T.red : diasVenc <= 7 ? T.orange : T.green;
+          const vencLabel = diasVenc === null ? null : diasVenc < 0 ? "VENCIDO hace " + Math.abs(diasVenc) + "d" : diasVenc === 0 ? "VENCE HOY" : diasVenc <= 7 ? "Vence en " + diasVenc + "d" : "Vence " + fmtDate(venc);
           return (
-            <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10 }}>
+            <div key={o.id} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: vencColor ? "4px solid " + vencColor : undefined }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => onNavigate("vehicleDetail", o)}>
                 <div>
-                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</div>
-                  <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "—"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700 }}>{fmtD(o.domain)}</span>
+                    {pagadoParcial > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: T.accent, background: T.accent + "15", padding: "2px 6px", borderRadius: 4 }}>PARCIAL</span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: T.grayLight }}>{c ? c.name + " " + c.lastName : "\u2014"}</div>
                   <div style={{ fontSize: 12, color: T.gray }}>{v ? v.brand + " " + v.model + " " + v.year : ""}</div>
                   <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{(o.works||[]).map(w => w.type).join(", ")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: T.orange }}>{fmt(saldo)}</div>
-                  {pagadoParcial > 0 && <div style={{ fontSize: 10, color: T.gray }}>De {fmt(ctaMonto)} · abonó {fmt(pagadoParcial)}</div>}
+                  {pagadoParcial > 0 && <div style={{ fontSize: 10, color: T.gray }}>De {fmt(ctaMonto)} \u2022 abonó {fmt(pagadoParcial)}</div>}
                   <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(o.date)}</div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: o.status === "delivered" ? T.green : T.orange, marginTop: 4 }}>{o.status === "delivered" ? "ENTREGADO" : "EN TALLER"}</div>
                 </div>
               </div>
+              {/* Vencimiento badge + edit */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, padding: "6px 0", borderTop: "1px solid " + T.border }}>
+                {vencLabel ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: vencColor, background: vencColor + "15", padding: "3px 8px", borderRadius: 6 }}>📅 {vencLabel}</span>
+                    <span onClick={e => { e.stopPropagation(); setCtaEditVenc({ orderId: o.id, fecha: venc }); }}
+                      style={{ fontSize: 12, cursor: "pointer", padding: "2px 6px" }}>✏️</span>
+                  </div>
+                ) : (
+                  <div onClick={e => { e.stopPropagation(); setCtaEditVenc({ orderId: o.id, fecha: "" }); }}
+                    style={{ fontSize: 11, color: T.gray, cursor: "pointer", fontWeight: 600 }}>📅 Agregar vencimiento</div>
+                )}
+                {pagadoParcial > 0 && (
+                  <div style={{ fontSize: 10, color: T.grayLight }}>
+                    {(o.ctaPagos || []).length} pago{(o.ctaPagos || []).length !== 1 ? "s" : ""} parcial{(o.ctaPagos || []).length !== 1 ? "es" : ""}
+                  </div>
+                )}
+              </div>
               <button onClick={e => { e.stopPropagation(); setCtaPagoOrder(o); setCtaPagoForm({ fecha: today, monto: String(saldo), metodo: "Efectivo" }); setShowCtaPago(true); }}
-                style={{ ...btnPrimary(T.green), width: "100%", marginTop: 10, fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                💰 Registrar Pago
+                style={{ ...btnPrimary(T.green), width: "100%", marginTop: 8, fontSize: 13, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                💰 {pagadoParcial > 0 ? "Registrar Pago Parcial" : "Registrar Pago"}
               </button>
             </div>
           );
@@ -8747,6 +8813,39 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           );
         })()}
 
+        {/* ══ MODAL EDITAR VENCIMIENTO CTA CTE ══ */}
+        {ctaEditVenc && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(6px)" }}
+            onClick={() => setCtaEditVenc(null)}>
+            <div style={{ background: T.bg2, borderRadius: 18, padding: 28, maxWidth: 360, width: "92%", border: "1px solid " + T.border }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 16 }}>📅 Fecha de Vencimiento</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                {[{ l: "7 días", d: 7 }, { l: "15 días", d: 15 }, { l: "30 días", d: 30 }, { l: "60 días", d: 60 }].map(opt => {
+                  const target = new Date(); target.setDate(target.getDate() + opt.d);
+                  const val = target.toISOString().split("T")[0];
+                  return (
+                    <div key={opt.d} onClick={() => setCtaEditVenc(p => ({ ...p, fecha: val }))}
+                      style={{ padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                        background: ctaEditVenc.fecha === val ? T.orange + "25" : T.bg, color: ctaEditVenc.fecha === val ? T.orange : T.gray,
+                        border: "2px solid " + (ctaEditVenc.fecha === val ? T.orange : T.border) }}>
+                      {opt.l}
+                    </div>
+                  );
+                })}
+              </div>
+              <input type="date" value={ctaEditVenc.fecha || ""} onChange={e => setCtaEditVenc(p => ({ ...p, fecha: e.target.value }))}
+                style={{ ...inputStyle, fontSize: 14, marginBottom: 16 }} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setCtaEditVenc(null)} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  setOrders(prev => prev.map(o => o.id === ctaEditVenc.orderId ? { ...o, ctaVencimiento: ctaEditVenc.fecha || null } : o));
+                  setCtaEditVenc(null);
+                }} style={{ ...btnPrimary(T.green), flex: 2, fontWeight: 800, fontSize: 14 }}>💾 Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ══ MODAL PAGO CTA CTE ══ */}
         {showCtaPago && ctaPagoOrder && (() => {
           const cl = clients.find(x => matchId(x.id, ctaPagoOrder.clientId));
@@ -8795,9 +8894,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   <button onClick={() => {
                     if (!ctaPagoForm.monto || !ctaPagoForm.metodo || !ctaPagoForm.fecha) return;
                     const monto = parseFloat(ctaPagoForm.monto) || 0;
-                    // NO cambiar el método original. Guardar el pago real en ctaPagos
+                    const ctaMontoTotal = (ctaPagoOrder.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const prevPagado = (ctaPagoOrder.ctaPagos || []).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+                    const newTotal = prevPagado + monto;
+                    const fullPaid = newTotal >= ctaMontoTotal;
                     setOrders(prev => prev.map(o => o.id === ctaPagoOrder.id ? {
-                      ...o, ctaCobrada: true,
+                      ...o, ctaCobrada: fullPaid,
                       ctaPagos: [...(o.ctaPagos || []), { monto, metodo: ctaPagoForm.metodo, fecha: ctaPagoForm.fecha, id: Date.now() }]
                     } : o));
                     // Registrar ingreso en caja con el método REAL usado para saldar
