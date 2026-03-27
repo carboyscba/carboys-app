@@ -7341,8 +7341,24 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           </div>
           <button onClick={() => {
             const { clientId, name, lastName, phone, dni, cuit } = editClientGlobal;
-            setClients(prev => prev.map(c => c.id === clientId ? { ...c, name, lastName, phone, dni, cuit } : c));
-            if (cobroClient && selCobro && selCobro.clientId === clientId) {
+            // Check if client exists
+            const exists = clients.some(c => matchId(c.id, clientId));
+            if (exists) {
+              setClients(prev => prev.map(c => matchId(c.id, clientId) ? { ...c, name, lastName, phone, dni, cuit } : c));
+            } else if (clientId) {
+              // Client doesn't exist (lost during sync) — create it
+              const newCl = { id: clientId, name, lastName, phone, dni, cuit, vehicles: [] };
+              // Find vehicle from the order that references this clientId
+              const relOrder = orders.find(o => matchId(o.clientId, clientId));
+              if (relOrder) {
+                const cl = clients.find(c => (c.vehicles||[]).some(v => v.domain === relOrder.domain));
+                if (!cl) {
+                  newCl.vehicles = [{ domain: relOrder.domain, brand: "", model: "", year: 0, km: relOrder.km || "" }];
+                }
+              }
+              setClients(prev => [...prev, newCl]);
+            }
+            if (cobroClient && selCobro && matchId(selCobro.clientId, clientId)) {
               setCobroClient({ name, lastName, phone, dni, cuit });
             }
             setEditClientGlobal(null);
