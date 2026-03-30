@@ -2170,10 +2170,10 @@ const NewOrderScreen = (props) => {
                     </button>
                   </div>
                 );
-                const shown = matches.slice(0, 8);
+                const shown = matches.slice(0, 30);
                 return (
                   <div style={{ marginTop: 12 }}>
-                    {matches.length > 8 && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8, textAlign: "center" }}>Mostrando 8 de {matches.length} resultados — seguí escribiendo para filtrar</div>}
+                    {matches.length > 30 && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8, textAlign: "center" }}>Mostrando 30 de {matches.length} resultados — seguí escribiendo para filtrar</div>}
                     {shown.map(({ c, v, vCount, activeOrder }, idx) => (
                       <div key={v ? v.domain : `client-${c.id}-${idx}`} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
                         {/* Fila superior: datos cliente + botones editar/eliminar */}
