@@ -6896,6 +6896,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [movDetail, setMovDetail] = useState(null); // selected movement for detail popup
   const [saldoReal, setSaldoReal] = useState("");
   const [showCierre, setShowCierre] = useState(false);
+  const [expandedWeek, setExpandedWeek] = useState(null); // week number expanded in Caja month view
   // Ingreso
   const [showIngreso, setShowIngreso] = useState(false);
   const [ingresoTipo, setIngresoTipo] = useState(""); // "otro" | "ctacte"
@@ -7036,16 +7037,28 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
   const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado - totalEgr) : saldoCajaCalculado;
-  // Cierre semanal: detectar si se debe pedir cierre
-  const todayDate = new Date(); 
-  const diaSemana = todayDate.getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
-  const esSabado = diaSemana === 6;
-  const esLunes = diaSemana === 1;
+  // Cierre semanal: semanas por día del mes (1-7=S1, 8-14=S2, 15-21=S3, 22-28=S4, 29+=S5)
+  const todayDate = new Date();
+  const todayDay = todayDate.getDate();
+  const todayMonth = todayDate.getMonth();
+  const todayYear = todayDate.getFullYear();
+  const getSemana = (day) => day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : day <= 28 ? 4 : 5;
+  const getSemanaRange = (sem, yr, mo) => {
+    const starts = [1, 8, 15, 22, 29];
+    const ends = [7, 14, 21, 28, new Date(yr, mo + 1, 0).getDate()];
+    const s = new Date(yr, mo, starts[sem - 1]);
+    const e = new Date(yr, mo, Math.min(ends[sem - 1], new Date(yr, mo + 1, 0).getDate()));
+    return { desde: s.toISOString().split("T")[0], hasta: e.toISOString().split("T")[0], label: "Sem " + sem + " (" + starts[sem - 1] + "-" + Math.min(ends[sem - 1], new Date(yr, mo + 1, 0).getDate()) + ")" };
+  };
+  const semanaActual = getSemana(todayDay);
+  // Semana anterior: si estamos en S1, la anterior es S5/S4 del mes pasado
+  const semanaAnterior = semanaActual > 1
+    ? getSemanaRange(semanaActual - 1, todayYear, todayMonth)
+    : getSemanaRange(getSemana(new Date(todayYear, todayMonth, 0).getDate()), todayYear, todayMonth - 1 < 0 ? 11 : todayMonth - 1);
   const lastCierreDate = cierres.length > 0 ? cierres[cierres.length - 1].fecha : null;
-  const lunes = new Date(todayDate); lunes.setDate(todayDate.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
-  const sabadoPasado = new Date(lunes); sabadoPasado.setDate(lunes.getDate() + 5);
-  const sabadoPasadoStr = sabadoPasado.toISOString().split("T")[0];
-  const faltaCierre = (esSabado || esLunes) && (!lastCierreDate || lastCierreDate < sabadoPasadoStr);
+  const lastCierrePeriodo = cierres.length > 0 ? cierres[cierres.length - 1].periodoHasta : null;
+  // Falta cierre si la semana anterior ya terminó y no hay cierre que la cubra
+  const faltaCierre = today > semanaAnterior.hasta && (!lastCierrePeriodo ? (!lastCierreDate || lastCierreDate < semanaAnterior.hasta) : lastCierrePeriodo < semanaAnterior.hasta);
 
   const { payTotals, payEntries } = useMemo(() => {
     const pt = {};
@@ -8983,14 +8996,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
       {/* ══════ CAJA ══════ */}
       {tab === "caja" && (<div>
-        {/* Alerta cierre semanal — lunes sin cierre */}
-        {faltaCierre && esLunes && !showCierre && config.cierreObligatorio === true && (
+        {/* Alerta cierre semanal — cualquier día sin cierre */}
+        {faltaCierre && !showCierre && config.cierreObligatorio !== false && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: T.bg2, border: `2px solid ${T.orange}`, borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
               <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.orange, marginBottom: 10 }}>Cierre de Caja Pendiente</div>
               <div style={{ fontSize: 14, color: T.grayLight, lineHeight: 1.7, marginBottom: 24 }}>
-                No se realizó el cierre de caja del sábado pasado.<br/>
+                No se realizó el cierre de caja de la semana anterior.<br/>
+                <strong style={{ color: T.accent }}>{semanaAnterior.label}</strong><br/>
                 Debés completarlo antes de continuar.
               </div>
               <button onClick={() => { setShowCierre(true); }} style={{ ...btnPrimary(T.orange), width: "100%", fontSize: 15, padding: "14px 0" }}>
@@ -9002,13 +9016,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             </div>
           </div>
         )}
-        {/* Aviso sábado — no bloqueante */}
-        {faltaCierre && esSabado && (
-          <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: T.orange, background: `${T.orange}10`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontSize: 13, color: T.orange, fontWeight: 700 }}>⚠️ Hoy es sábado — recordá realizar el cierre de caja antes de cerrar.</div>
-            <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.orange), fontSize: 12, padding: "8px 14px" }}>Cerrar Caja</button>
-          </div>
-        )}
+        {/* Reminder banner if faltaCierre but not in blocking mode */}
 
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
 
@@ -9184,44 +9192,61 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           };
 
           if (period === "mes") {
-            // Agrupar por semanas del mes actual
+            // Semanas por día del mes: S1(1-7), S2(8-14), S3(15-21), S4(22-28), S5(29+)
             var yr = new Date().getFullYear();
             var mo = new Date().getMonth();
-            var firstDay = new Date(yr, mo, 1);
-            var lastDay = new Date(yr, mo + 1, 0);
-            var weeks = [];
-            var wStart = new Date(firstDay);
-            // Ajustar al lunes de la semana del 1ro
-            var dow1 = wStart.getDay();
-            if (dow1 !== 1) wStart.setDate(wStart.getDate() - (dow1 === 0 ? 6 : dow1 - 1));
-            var weekNum = 1;
-            while (wStart <= lastDay) {
-              var wEnd = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
-              var effStart = wStart < firstDay ? firstDay : wStart;
-              var effEnd = wEnd > lastDay ? lastDay : wEnd;
-              var sStr = effStart.toISOString().split("T")[0];
-              var eStr = effEnd.toISOString().split("T")[0];
-              weeks.push({ num: weekNum, start: sStr, end: eStr, startDate: new Date(effStart), endDate: new Date(effEnd) });
-              weekNum++;
-              wStart.setDate(wStart.getDate() + 7);
-            }
+            var lastDayOfMonth = new Date(yr, mo + 1, 0).getDate();
+            var weekRanges = [
+              { num: 1, s: 1, e: 7 }, { num: 2, s: 8, e: 14 }, { num: 3, s: 15, e: 21 },
+              { num: 4, s: 22, e: 28 }, ...(lastDayOfMonth > 28 ? [{ num: 5, s: 29, e: lastDayOfMonth }] : [])
+            ];
+            var weeks = weekRanges.map(function(r) {
+              return { num: r.num, start: new Date(yr, mo, r.s).toISOString().split("T")[0], end: new Date(yr, mo, Math.min(r.e, lastDayOfMonth)).toISOString().split("T")[0], label: "Sem " + r.num + " (" + r.s + "-" + Math.min(r.e, lastDayOfMonth) + ")" };
+            });
             return weeks.map(function(w) {
               var wOrders = cobradas.filter(function(o) { var d = normDate(o.cajaDate || o.date); return d >= w.start && d <= w.end; });
               var wEgrEf = egresosEfectivo.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wEgrV = egresosVirtuales.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wIng = ingresosExtra.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
-              var wCierre = cierres.find(function(c) { return c.fecha >= w.start && c.fecha <= w.end; });
+              var wCierre = cierres.find(function(c) { return (c.periodoHasta ? c.periodoHasta === w.end : c.fecha >= w.start && c.fecha <= w.end); });
+              var wEfTotal = wOrders.reduce(function(s, o) { return s + (o.payments || []).filter(function(p) { return p.method === "Efectivo"; }).reduce(function(s2, p) { return s2 + (parseFloat(p.amount) || 0); }, 0); }, 0);
+              var wEgrTotal = wEgrEf.reduce(function(s, e) { return s + (parseFloat(e.monto) || 0); }, 0);
               return (
-                <div key={"w" + w.num} style={{ ...card, padding: 16, marginBottom: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div key={"w" + w.num} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "4px solid " + (wCierre ? T.green : w.end < today ? T.red : T.border) }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                    onClick={function() { setExpandedWeek(expandedWeek === w.num ? null : w.num); }}>
                     <div>
-                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>📋 Semana {w.num}</div>
+                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700 }}>📋 {w.label}</div>
                       <div style={{ fontSize: 11, color: T.gray }}>{fmtDate(w.start)} — {fmtDate(w.end)}</div>
                     </div>
-                    {wCierre && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: T.green + "15", color: T.green }}>✅ Cierre realizado</span>}
-                    {!wCierre && w.end < today && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: T.red + "15", color: T.red }}>⚠️ Sin cierre</span>}
+                    <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 8 }}>
+                      {wCierre && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: T.green + "15", color: T.green }}>✅ Cerrada</span>}
+                      {!wCierre && w.end < today && <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: T.red + "15", color: T.red }}>⚠️ Pendiente</span>}
+                      <span style={{ fontSize: 14, color: T.gray }}>{expandedWeek === w.num ? "▲" : "▼"}</span>
+                    </div>
                   </div>
-                  {renderMovs(wOrders, wEgrEf, wEgrV, wIng, "Semana " + w.num)}
+                  {/* Resumen compacto siempre visible */}
+                  <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 11 }}>
+                    <span style={{ color: T.green, fontWeight: 700 }}>💵 {fmt(wEfTotal)}</span>
+                    <span style={{ color: T.red, fontWeight: 700 }}>🏧 -{fmt(wEgrTotal)}</span>
+                    <span style={{ color: T.accent, fontWeight: 700 }}>📋 {wOrders.length} cobros</span>
+                  </div>
+                  {/* Expandido: detalle de movimientos */}
+                  {expandedWeek === w.num && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid " + T.border, paddingTop: 10 }}>
+                      {wCierre && (
+                        <div style={{ ...card, padding: 12, marginBottom: 10, background: T.green + "08", borderColor: T.green }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: T.green, marginBottom: 4 }}>✅ Cierre realizado el {fmtDate(wCierre.fecha)}</div>
+                          <div style={{ display: "flex", gap: 16, fontSize: 11 }}>
+                            <span style={{ color: T.gray }}>Sistema: <strong>{fmt(wCierre.saldoSistema)}</strong></span>
+                            <span style={{ color: T.gray }}>Contado: <strong>{fmt(wCierre.saldoReal)}</strong></span>
+                            <span style={{ color: Math.abs(wCierre.diferencia || 0) < 100 ? T.green : T.red, fontWeight: 700 }}>Dif: {fmt(wCierre.diferencia || 0)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {renderMovs(wOrders, wEgrEf, wEgrV, wIng, w.label)}
+                    </div>
+                  )}
                 </div>
               );
             });
@@ -9246,21 +9271,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             {cierres.slice(-10).reverse().map((c, i) => {
               const dif = c.diferencia || 0;
               const difColor = Math.abs(dif) < 100 ? T.green : dif > 0 ? T.accent : T.red;
-              const difLabel = Math.abs(dif) < 100 ? "✅ Sin diferencia" : dif > 0 ? `▲ Sobrante: ${fmt(Math.abs(dif))}` : `▼ Faltante: ${fmt(Math.abs(dif))}`;
+              const difLabel = Math.abs(dif) < 100 ? "✅ OK" : dif > 0 ? `▲ +${fmt(Math.abs(dif))}` : `▼ -${fmt(Math.abs(dif))}`;
               return (
                 <div key={i} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}` }}>
-                  {/* Fila principal */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>📋 {c.fecha}</span>
-                    <span style={{ fontWeight: 800, fontSize: 14, color: difColor, fontFamily: fontD }}>{difLabel}</span>
-                  </div>
-                  {/* Detalle */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-                    <div style={{ color: T.gray }}>Sistema: <span style={{ fontWeight: 700, color: T.grayLight }}>{fmt(c.saldoSistema)}</span></div>
-                    <div style={{ color: T.gray }}>Contado: <span style={{ fontWeight: 700, color: T.white }}>{fmt(c.saldoReal)}</span></div>
-                    <div style={{ color: difColor, fontWeight: 700 }}>
-                      {dif > 0 ? "+" : ""}{fmt(dif)}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{c.semanaLabel || "📋 " + c.fecha}</span>
+                      {c.periodoDesde && <span style={{ fontSize: 10, color: T.gray, marginLeft: 8 }}>{fmtDate(c.periodoDesde)} — {fmtDate(c.periodoHasta)}</span>}
                     </div>
+                    <span style={{ fontWeight: 800, fontSize: 13, color: difColor, fontFamily: fontD }}>{difLabel}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
+                    <span style={{ color: T.gray }}>Sistema: <strong style={{ color: T.grayLight }}>{fmt(c.saldoSistema)}</strong></span>
+                    <span style={{ color: T.gray }}>Contado: <strong style={{ color: T.white }}>{fmt(c.saldoReal)}</strong></span>
+                    <span style={{ fontSize: 10, color: T.gray }}>Cerrado: {fmtDate(c.fecha)}</span>
                   </div>
                   {/* Desglose si existe */}
                   {c.desglose && (
@@ -9772,7 +9796,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {showCierre && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📋 Cierre de Caja</div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📋 Cierre de Caja</div>
+              <div style={{ fontSize: 13, color: T.accent, fontWeight: 700, marginBottom: 16 }}>
+                {faltaCierre ? semanaAnterior.label : getSemanaRange(semanaActual, todayYear, todayMonth).label} — {faltaCierre ? fmtDate(semanaAnterior.desde) + " al " + fmtDate(semanaAnterior.hasta) : fmtDate(getSemanaRange(semanaActual, todayYear, todayMonth).desde) + " al " + fmtDate(getSemanaRange(semanaActual, todayYear, todayMonth).hasta)}
+              </div>
               <div style={{ ...card, padding: 14, marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Resumen del período</div>
                 {[
@@ -9817,9 +9844,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
+                  const cierrePeriodo = faltaCierre ? semanaAnterior : getSemanaRange(semanaActual, todayYear, todayMonth);
                   setCierres(p => [...p, {
                     id: Date.now(),
                     fecha: today,
+                    periodoDesde: cierrePeriodo.desde,
+                    periodoHasta: cierrePeriodo.hasta,
+                    semanaLabel: cierrePeriodo.label,
                     saldoSistema: saldoCaja,
                     saldoReal: parseFloat(saldoReal) || 0,
                     diferencia: (parseFloat(saldoReal) || 0) - saldoCaja,
