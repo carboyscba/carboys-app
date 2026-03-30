@@ -11729,7 +11729,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                         <button onClick={function() {
                           var msg = (config.serviceReminderMsg || "Hola {nombre}, desde CarBoys le recordamos que su vehiculo {vehiculo} ({dominio}) esta proximo al service. Los esperamos!").replace("{nombre}", a.client.name + " " + a.client.lastName).replace("{vehiculo}", a.vehicle.brand + " " + a.vehicle.model).replace("{dominio}", a.vehicle.domain);
-                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                          if (a.client.phone) sendWA(a.client.phone, msg, config.wahaUrl || "", config.wahaApiKey || "").then(function(ok) { if (ok) showWAToast("✅ Recordatorio enviado a " + a.client.name); else showWAToast("❌ No se pudo enviar", false); });
+                          // Auto-dismiss after sending
+                          setConfig(function(prev) { var dr = Object.assign({}, prev.dismissedReminders || {}); dr[a.vehicle.domain] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedReminders: dr }); });
                         }} style={{ ...btnPrimary(T.green), fontSize: 12, padding: "8px 14px", flex: 1 }}>📱 Enviar recordatorio</button>
                         <button onClick={function() { setConfig(function(prev) { var dr = Object.assign({}, prev.dismissedReminders || {}); dr[a.vehicle.domain] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedReminders: dr }); }); }} style={{ ...btnPrimary(T.bg3), border: "1px solid " + T.border, fontSize: 12, padding: "8px 14px" }}>✕</button>
                       </div>
@@ -11783,8 +11785,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var allComp = orders.filter(function(o) { return o.status !== "cancelled" && (o.status === "delivered" || o.status === "done" || o.cobrado); });
               var dormidosGroups = {};
               allComp.forEach(function(o) { (o.works || []).forEach(function(w) { if (!dormidosGroups[w.type]) dormidosGroups[w.type] = {}; if (!dormidosGroups[w.type][o.clientId] || o.date > dormidosGroups[w.type][o.clientId]) dormidosGroups[w.type][o.clientId] = o.date; }); });
+              var dismissedP = config.dismissedPromos || {};
               var groups = Object.entries(dormidosGroups).map(function(e) {
-                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO; }).map(function(d) { return { cId: d[0], lastDate: d[1] }; });
+                var dormidos = Object.entries(e[1]).filter(function(d) { return d[1] < SIX_MONTHS_AGO && !dismissedP[String(d[0])]; }).map(function(d) { return { cId: d[0], lastDate: d[1] }; });
                 return { type: e[0], dormidos: dormidos, count: dormidos.length };
               }).filter(function(g) { return g.count > 0; }).sort(function(a, b) { return b.count - a.count; });
               return (
@@ -11819,7 +11822,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             </div>
                             <button onClick={function() {
                               var msg = (config.dormidoMsg || "Hola {nombre}! Hace tiempo que no nos visitas. Te esperamos en CarBoys!").replace("{nombre}", cl.name);
-                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "");
+                              if (cl.phone) sendWA(cl.phone, msg, config.wahaUrl || "", config.wahaApiKey || "").then(function(ok) { if (ok) showWAToast("✅ Promo enviada a " + cl.name); else showWAToast("❌ No se pudo enviar", false); });
+                              // Auto-dismiss after sending
+                              setConfig(function(prev) { var dp = Object.assign({}, prev.dismissedPromos || {}); dp[String(d.cId)] = new Date().toISOString().split("T")[0]; return Object.assign({}, prev, { dismissedPromos: dp }); });
                             }} style={{ ...btnPrimary(T.accent), fontSize: 11, padding: "6px 12px" }}>📱 Enviar</button>
                           </div>
                         );
