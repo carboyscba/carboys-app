@@ -19413,9 +19413,9 @@ export default function App() {
         // Pendientes locales (IDB _synced:false) que Firestore todavía no tiene
         const pending = prev.filter(o => !fsMap[String(o.id)]);
 
-        // Actualizar IDB: marcar synced los que Firestore confirmó
-        fsDocs.forEach(fsDoc => {
-          idbSave('orders', fsDoc.id, fsDoc, true).catch(console.error);
+        // Actualizar IDB: guardar la versión MERGEADA (respeta cambios locales)
+        fromFs.forEach(merged => {
+          idbSave('orders', merged.id, merged, true).catch(console.error);
         });
 
         return [...fromFs, ...pending].sort(cmpId);
@@ -19432,7 +19432,7 @@ export default function App() {
         });
         const fsMap   = Object.fromEntries(fsDocs.map(d => [String(d.id), d]));
         const pending = prev.filter(c => !fsMap[String(c.id)]);
-        fsDocs.forEach(c => idbSave('clients', c.id, c, true).catch(console.error));
+        fromFs.forEach(merged => idbSave('clients', merged.id, merged, true).catch(console.error));
         return [...fromFs, ...pending];
       });
     };
