@@ -1823,6 +1823,28 @@ const NewOrderScreen = (props) => {
     setStep(2);
   };
 
+  // Auto-fill when coming from "Nueva Visita" in Buscar / En Taller
+  React.useEffect(() => {
+    const init = props.initialData;
+    if (!init?.domain) return;
+    const d = init.domain.toUpperCase().trim();
+    for (const c of clients) {
+      const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
+      if (v) {
+        setFoundClient(c); setFoundVehicle(v);
+        setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", currentKm: "", lastKm: String(v.km||""), domain: v.domain });
+        setDomainSearch(v.domain);
+        setStep(2);
+        return;
+      }
+    }
+    // Domain not found — new vehicle
+    setIsNew(true);
+    setDomainSearch(d);
+    setForm(f => ({ ...f, domain: d }));
+    setStep(2);
+  }, []);
+
   const searchDni = () => {
     const d = dniSearch.trim();
     if (!d) return;
@@ -2228,7 +2250,12 @@ const NewOrderScreen = (props) => {
                             ⚠️ Este vehículo ya tiene una orden activa en taller
                           </div>
                         )}
-                        <button onClick={() => { setHistoryVehicle(null); setHistoryOrderDetail(null); setStep(2); }}
+                        <button onClick={() => {
+                          const { client: hc, vehicle: hv } = historyVehicle;
+                          setFoundClient(hc); setFoundVehicle(hv);
+                          setForm({ name: hc.name, lastName: hc.lastName, dni: hc.dni||"", cuit: hc.cuit||"", phone: hc.phone||"", brand: hv.brand, model: hv.model, year: String(hv.year), km: "", currentKm: "", lastKm: String(hv.km || ""), domain: hv.domain });
+                          setHistoryVehicle(null); setHistoryOrderDetail(null); setStep(2);
+                        }}
                           style={{ ...btnPrimary(), width: "100%", padding: "14px 0", fontSize: 15, fontWeight: 700 }}>
                           ➕ Nueva Visita
                         </button>
@@ -4466,7 +4493,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
         <button onClick={() => { setSelVehicle(null); setSelClient(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
 
         {/* Nueva Visita button */}
-        <div onClick={() => onNavigate("newOrder", { domain: selVehicle.domain })}
+        <div onClick={() => onNavigate("newOrder", { domain: selVehicle.domain, clientId: selClient?.id })}
           style={{ ...card, padding: 16, marginBottom: 16, cursor: "pointer", background: `${T.green}08`, borderColor: T.green, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
           onMouseEnter={e => { e.currentTarget.style.background = `${T.green}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.green}08`; }}>
           <span style={{ fontSize: 22 }}>🔧</span>
@@ -4886,7 +4913,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
                         </div>
                       </div>
                       {/* Quick Nueva Visita button */}
-                      <div onClick={e => { e.stopPropagation(); onNavigate("newOrder", { domain: o.domain }); }}
+                      <div onClick={e => { e.stopPropagation(); onNavigate("newOrder", { domain: o.domain, clientId: o.clientId }); }}
                         style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderTop: `1px solid ${T.border}`, cursor: "pointer", background: `${T.green}06`, transition: "background .15s" }}
                         onMouseEnter={e => { e.currentTarget.style.background = `${T.green}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.green}06`; }}>
                         <span style={{ fontSize: 12 }}>🔧</span>
@@ -19337,6 +19364,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
+  const [newOrderInit, setNewOrderInit] = useState(null); // { domain, clientId } for pre-filling NewOrderScreen
   const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
   const [adminInitialTab, setAdminInitialTab] = useState(null);
   const [cierreDismissed, setCierreDismissed] = useState(() => sessionStorage.getItem("cierreDismissed") === "1");
@@ -19799,6 +19827,7 @@ export default function App() {
   const nav = useCallback((target, data = null) => {
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
     if (target === "search" && !data) setSelOrder(null);
+    if (target === "newOrder") setNewOrderInit(data); // { domain, clientId } or null
     if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
     if (target === "admin" && data?.initialOrder) setAdminInitialOrder(data.initialOrder);
     else if (target !== "admin") { setAdminInitialTab(null); setAdminInitialOrder(null); }
@@ -19996,7 +20025,7 @@ export default function App() {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
       case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} /> : null;
-      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} />;
+      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} />;
       case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
