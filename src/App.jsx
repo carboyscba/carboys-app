@@ -1795,6 +1795,7 @@ const NewOrderScreen = (props) => {
 
   const [payments, setPayments] = useState([{ method: "", amount: "", account: "", installments: 3 }]);
   const [showBrakePopup, setShowBrakePopup] = useState(false);
+  const [showClientHistory, setShowClientHistory] = useState(false);
   const [brakeEjes, setBrakeEjes] = useState({ del: false, tra: false, delPrice: "", traPrice: "" });
   const [showEscapePopup, setShowEscapePopup] = useState(false);
   const [showKmPopup, setShowKmPopup] = useState(false);
@@ -2608,7 +2609,7 @@ const NewOrderScreen = (props) => {
                 <button onClick={() => setEditMode(true)} style={{ ...btnPrimary(T.orange), padding: "8px 16px", fontSize: 12 }}>✏️ Editar</button>
               )}
               {foundClient && clientHistory.length > 0 && (
-                <button onClick={() => {}} style={{ ...btnPrimary(T.bg3), padding: "8px 16px", fontSize: 12, border: `1px solid ${T.border}` }}>📋 Historial ({clientHistory.length})</button>
+                <button onClick={() => setShowClientHistory(p => !p)} style={{ ...btnPrimary(showClientHistory ? T.accent : T.bg3), padding: "8px 16px", fontSize: 12, border: `1px solid ${showClientHistory ? T.accent : T.border}` }}>📋 Historial ({clientHistory.length})</button>
               )}
             </div>
           </div>
@@ -2676,7 +2677,7 @@ const NewOrderScreen = (props) => {
           })()}
 
           {/* Show history if exists */}
-          {foundClient && clientHistory.length > 0 && (
+          {foundClient && clientHistory.length > 0 && showClientHistory && (
             <div style={{ ...card, padding: 16, marginBottom: 20, borderLeft: `3px solid ${T.accent}` }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 10, textTransform: "uppercase" }}>📋 Historial de visitas</div>
               {clientHistory.map((h, i) => (
