@@ -11201,6 +11201,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         const STAT_ITEMS = [
           { key: "reportes", icon: "📊", label: "Reportes" },
           { key: "pagos", icon: "💳", label: "Medios de Pago" },
+          { key: "egresos", icon: "💰", label: "Egresos" },
           { key: "trabajos", icon: "🔧", label: "Trabajos Realizados" },
           { key: "productividad", icon: "⚡", label: "Productividad" },
           { key: "retencion", icon: "📈", label: "Retención" },
@@ -11435,6 +11436,193 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 ))}
               </div>
             </div>)}
+
+            {statView === "egresos" && (() => {
+              const [egPeriod, setEgPeriod] = React.useState("mes");
+              const [egYear, setEgYear] = React.useState(new Date().getFullYear());
+              const [egMonth, setEgMonth] = React.useState(new Date().getMonth());
+              const [egExpandCat, setEgExpandCat] = React.useState(null);
+              const [egExpandMonth, setEgExpandMonth] = React.useState(null);
+              const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+              const EG_CATS = [
+                { key: "proveedor", label: "Proveedores", icon: "📦", color: "#1E88E5" },
+                { key: "sueldo", label: "Sueldos", icon: "👤", color: "#43a047" },
+                { key: "servicios", label: "Servicios", icon: "🏪", color: "#9C27B0" },
+                { key: "ignacio", label: "Ignacio", icon: "📋", color: "#FF9800" },
+                { key: "comida", label: "Comida", icon: "🍔", color: "#FF5722" },
+                { key: "uber", label: "Uber/Flete", icon: "🚕", color: "#00BCD4" },
+                { key: "alquiler", label: "Alquiler", icon: "🏠", color: "#795548" },
+                { key: "repuesto", label: "Repuestos", icon: "🔩", color: "#607D8B" },
+                { key: "otro", label: "Otros", icon: "📝", color: "#78909C" },
+              ];
+              const allEg = egresos.filter(e => !e.esIngreso && (parseFloat(e.monto) || 0) > 0);
+
+              if (egPeriod === "mes") {
+                const ym = `${egYear}-${String(egMonth + 1).padStart(2, "0")}`;
+                const mesEg = allEg.filter(e => (e.fecha || "").startsWith(ym));
+                const totalMes = mesEg.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+                const byCat = {};
+                mesEg.forEach(e => { const cat = e.categoria || "otro"; if (!byCat[cat]) byCat[cat] = { items: [], total: 0 }; byCat[cat].items.push(e); byCat[cat].total += parseFloat(e.monto) || 0; });
+                const sortedCats = EG_CATS.filter(c => byCat[c.key]).sort((a, b) => (byCat[b.key]?.total || 0) - (byCat[a.key]?.total || 0));
+                const maxCat = sortedCats.length > 0 ? byCat[sortedCats[0].key].total : 1;
+                const mesOrders = orders.filter(o => o.cobrado && (o.cajaDate || o.date || "").startsWith(ym) && o.status !== "cancelled");
+                const totalIng = mesOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+                return (
+                  <div>
+                    <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 12 }}>💰 Análisis de Egresos</div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                      {["mes", "anual"].map(p => (
+                        <div key={p} onClick={() => setEgPeriod(p)} style={{ padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                          background: egPeriod === p ? T.accent : T.bg, border: `2px solid ${egPeriod === p ? T.accent : T.border}`, color: egPeriod === p ? "#fff" : T.gray }}>
+                          {p === "mes" ? "Mensual" : "Anual"}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+                      <div onClick={() => { if (egMonth === 0) { setEgMonth(11); setEgYear(egYear - 1); } else setEgMonth(egMonth - 1); }}
+                        style={{ padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: T.bg3, border: `1px solid ${T.border}`, fontWeight: 700, color: T.gray }}>◀</div>
+                      <div style={{ flex: 1, textAlign: "center", fontFamily: fontD, fontSize: 18, fontWeight: 700 }}>{monthNames[egMonth]} {egYear}</div>
+                      <div onClick={() => { if (egMonth === 11) { setEgMonth(0); setEgYear(egYear + 1); } else setEgMonth(egMonth + 1); }}
+                        style={{ padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: T.bg3, border: `1px solid ${T.border}`, fontWeight: 700, color: T.gray }}>▶</div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                      {[{ l: "INGRESOS", v: totalIng, c: T.green }, { l: "EGRESOS", v: totalMes, c: T.red }, { l: "MARGEN", v: totalIng - totalMes, c: totalIng - totalMes >= 0 ? T.green : T.red }].map(s => (
+                        <div key={s.l} style={{ ...card, padding: 14, textAlign: "center" }}>
+                          <div style={{ fontSize: 10, color: s.c, fontWeight: 700 }}>{s.l}</div>
+                          <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: s.c }}>{fmt(s.v)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {sortedCats.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin egresos en {monthNames[egMonth]}</div>}
+                    {sortedCats.map(cat => {
+                      const data = byCat[cat.key]; const pct = maxCat > 0 ? Math.round(data.total * 100 / maxCat) : 0; const pctOfTotal = totalMes > 0 ? Math.round(data.total * 100 / totalMes) : 0; const expanded = egExpandCat === cat.key;
+                      return (
+                        <div key={cat.key} style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `4px solid ${cat.color}` }} onClick={() => setEgExpandCat(expanded ? null : cat.key)}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                              <span style={{ fontWeight: 700, fontSize: 14 }}>{cat.label}</span>
+                              <span style={{ fontSize: 11, color: T.gray }}>({data.items.length})</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: cat.color }}>{fmt(data.total)}</span>
+                              <span style={{ fontSize: 11, color: T.gray }}>{pctOfTotal}%</span>
+                              <span style={{ fontSize: 12, color: T.gray }}>{expanded ? "▲" : "▼"}</span>
+                            </div>
+                          </div>
+                          <div style={{ height: 6, borderRadius: 3, background: T.bg }}><div style={{ height: "100%", borderRadius: 3, background: cat.color, width: pct + "%", transition: "width .3s" }} /></div>
+                          {expanded && (
+                            <div style={{ marginTop: 10, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
+                              {data.items.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map((e, idx) => (
+                                <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderBottom: idx < data.items.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                                  <div style={{ flex: 1 }}>
+                                    <span style={{ color: T.grayLight }}>{fmtDate(e.fecha)}</span>
+                                    <span style={{ color: T.gray, marginLeft: 8 }}>{e.detalle && e.detalle !== "__nuevo__" ? e.detalle : e.desc || "—"}</span>
+                                    {e.descCompra && <span style={{ color: T.accent, marginLeft: 6, fontSize: 11 }}>· {e.descCompra}</span>}
+                                  </div>
+                                  <span style={{ fontWeight: 700, color: T.red, fontFamily: fontD, whiteSpace: "nowrap" }}>{fmt(parseFloat(e.monto) || 0)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              /* ── ANUAL ── */
+              const yearEg = allEg.filter(e => (e.fecha || "").startsWith(String(egYear)));
+              const totalAnual = yearEg.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+              const yearOrders = orders.filter(o => o.cobrado && (o.cajaDate || o.date || "").startsWith(String(egYear)) && o.status !== "cancelled");
+              const totalIngAnual = yearOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+              const monthData = Array.from({ length: 12 }, (_, m) => {
+                const ym = `${egYear}-${String(m + 1).padStart(2, "0")}`;
+                const mEg = yearEg.filter(e => (e.fecha || "").startsWith(ym));
+                const mOrd = yearOrders.filter(o => (o.cajaDate || o.date || "").startsWith(ym));
+                const ing = mOrd.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+                const egr = mEg.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+                const cats = {}; mEg.forEach(e => { const c = e.categoria || "otro"; cats[c] = (cats[c] || 0) + (parseFloat(e.monto) || 0); });
+                return { month: m, ing, egr, margen: ing - egr, cats };
+              });
+              const maxVal = Math.max(1, ...monthData.map(d => Math.max(d.ing, d.egr)));
+              return (
+                <div>
+                  <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 12 }}>💰 Análisis de Egresos</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    {["mes", "anual"].map(p => (
+                      <div key={p} onClick={() => setEgPeriod(p)} style={{ padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                        background: egPeriod === p ? T.accent : T.bg, border: `2px solid ${egPeriod === p ? T.accent : T.border}`, color: egPeriod === p ? "#fff" : T.gray }}>
+                        {p === "mes" ? "Mensual" : "Anual"}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+                    <div onClick={() => setEgYear(egYear - 1)} style={{ padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: T.bg3, border: `1px solid ${T.border}`, fontWeight: 700, color: T.gray }}>◀</div>
+                    <div style={{ flex: 1, textAlign: "center", fontFamily: fontD, fontSize: 22, fontWeight: 800 }}>{egYear}</div>
+                    <div onClick={() => setEgYear(egYear + 1)} style={{ padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: T.bg3, border: `1px solid ${T.border}`, fontWeight: 700, color: T.gray }}>▶</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                    {[{ l: "INGRESOS", v: totalIngAnual, c: T.green }, { l: "EGRESOS", v: totalAnual, c: T.red }, { l: "MARGEN", v: totalIngAnual - totalAnual, c: totalIngAnual - totalAnual >= 0 ? T.green : T.red }].map(s => (
+                      <div key={s.l} style={{ ...card, padding: 14, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: s.c, fontWeight: 700 }}>{s.l}</div>
+                        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: s.c }}>{fmt(s.v)}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ ...card, padding: 16, marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 12 }}>Ingresos vs Egresos por mes</div>
+                    <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 140 }}>
+                      {monthData.map((d, m) => (
+                        <div key={m} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%" }}>
+                          <div style={{ flex: 1, width: "100%", display: "flex", gap: 2, alignItems: "flex-end", justifyContent: "center" }}>
+                            <div style={{ width: "40%", background: T.green, borderRadius: "3px 3px 0 0", height: Math.max(2, d.ing * 120 / maxVal) }} />
+                            <div style={{ width: "40%", background: T.red, borderRadius: "3px 3px 0 0", height: Math.max(2, d.egr * 120 / maxVal) }} />
+                          </div>
+                          <div style={{ fontSize: 9, color: T.gray, marginTop: 4 }}>{monthNames[m].substring(0, 3)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 8, fontSize: 11 }}>
+                      <span style={{ color: T.green }}>■ Ingresos</span><span style={{ color: T.red }}>■ Egresos</span>
+                    </div>
+                  </div>
+                  {monthData.map((d, m) => {
+                    const expanded = egExpandMonth === m; const hasData = d.ing > 0 || d.egr > 0;
+                    if (!hasData && m > new Date().getMonth() && egYear >= new Date().getFullYear()) return null;
+                    const catEntries = EG_CATS.filter(c => d.cats[c.key] > 0).sort((a, b) => (d.cats[b.key] || 0) - (d.cats[a.key] || 0));
+                    const maxCatVal = catEntries.length > 0 ? d.cats[catEntries[0].key] : 1;
+                    return (
+                      <div key={m} style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `4px solid ${d.margen >= 0 ? T.green : T.red}` }} onClick={() => setEgExpandMonth(expanded ? null : m)}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ fontWeight: 700, fontSize: 14 }}>{monthNames[m]}</div>
+                          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                            <span style={{ fontSize: 12, color: T.green, fontWeight: 700 }}>+{fmt(d.ing)}</span>
+                            <span style={{ fontSize: 12, color: T.red, fontWeight: 700 }}>-{fmt(d.egr)}</span>
+                            <span style={{ fontSize: 12, color: d.margen >= 0 ? T.green : T.red, fontWeight: 800, fontFamily: fontD }}>{fmt(d.margen)}</span>
+                            <span style={{ fontSize: 12, color: T.gray }}>{expanded ? "▲" : "▼"}</span>
+                          </div>
+                        </div>
+                        {expanded && catEntries.length > 0 && (
+                          <div style={{ marginTop: 10, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
+                            {catEntries.map(cat => (
+                              <div key={cat.key} style={{ marginBottom: 8 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+                                  <span>{cat.icon} {cat.label}</span>
+                                  <span style={{ fontWeight: 700, color: cat.color, fontFamily: fontD }}>{fmt(d.cats[cat.key])}</span>
+                                </div>
+                                <div style={{ height: 5, borderRadius: 3, background: T.bg }}><div style={{ height: "100%", borderRadius: 3, background: cat.color, width: Math.round(d.cats[cat.key] * 100 / maxCatVal) + "%" }} /></div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {expanded && catEntries.length === 0 && <div style={{ marginTop: 8, fontSize: 12, color: T.gray }}>Sin egresos</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
           </div>
         );
