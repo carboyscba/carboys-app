@@ -1022,7 +1022,7 @@ const onSnapshotDoc = (colName, docId, cb, errCb) => {
 const T = {
   bg: "#080e1a", bg2: "#0d1526", bg3: "#131d33", border: "#1a2744",
   accent: "#1e88e5", red: "#e53935", green: "#43a047", orange: "#ff9800",
-  white: "#f0f4f8", gray: "#7b8fad", grayLight: "#9badc4",
+  white: "#f0f4f8", gray: "#7b8fad", grayLight: "#9badc4", text: "#f0f4f8",
 };
 
 const font = "'Outfit', sans-serif";
@@ -3590,6 +3590,7 @@ const NewOrderScreen = (props) => {
                 const isOptional = isCtaCte;
                 const needsCuit = p.invoiceType === "A" && !hasCuit;
                 const needsBData = p.invoiceType === "B" && !hasDni && !hasCuit;
+                const needsDni = p.invoiceType === "C" && !hasDni;
                 return (
                   <div style={{ marginTop: 12 }}>
                     <label style={labelStyle}>Tipo de Factura {isOptional ? <span style={{ fontSize: 10, color: T.gray }}>(opcional)</span> : ""}</label>
