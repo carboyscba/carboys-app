@@ -2156,8 +2156,8 @@ const NewOrderScreen = (props) => {
 
                     {hOrders.map(o => {
                       const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : o.status === "inspection" ? "#E91E63" : o.status === "inspection_done" ? "#FF6F00" : T.red;
-                      const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "INSP. FINALIZADA" : "PENDIENTE";
+                      const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_closed" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : o.status === "inspection" ? "#E91E63" : o.status === "inspection_done" ? "#E91E63" : T.red;
+                      const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : o.status === "budget_closed" ? "PRESUPUESTO" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "ESP. COTIZACIÓN" : "PENDIENTE";
                       return (
                         <div key={o.id} onClick={() => setHistoryOrderDetail(o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
                           {/* KM en blanco, centrado, arriba */}
@@ -2203,7 +2203,7 @@ const NewOrderScreen = (props) => {
                 const hv = historyVehicle?.vehicle;
                 const hc = historyVehicle?.client;
                 const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : T.red;
+                const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_closed" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : T.red;
                 return (
                   <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
                     <button onClick={() => setHistoryOrderDetail(null)}
@@ -2220,7 +2220,7 @@ const NewOrderScreen = (props) => {
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(total)}</div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginTop: 3 }}>
-                            {o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : "PENDIENTE"}
+                            {o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : o.status === "budget_closed" ? "PRESUPUESTO" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : "PENDIENTE"}
                           </div>
                           <div style={{ fontSize: 12, color: T.gray, marginTop: 3 }}>{fmtDate(o.date)}</div>
                           {o.km && <div style={{ fontSize: 15, fontWeight: 800, color: "#FFFFFF", marginTop: 6, fontFamily: fontD }}>{Number(o.km).toLocaleString("es-AR")} km</div>}
@@ -4191,8 +4191,8 @@ const DashboardScreen = (props) => {
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
-  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#E91E63" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#9C27B0" : s === "budget_approved" ? "#9C27B0" : T.red;
-  const getStatusLabel = (s) => s === "done" ? "LISTO" : s === "working" ? "EN CURSO" : s === "inspection" ? "EN INSPECCIÓN" : s === "inspection_done" ? "INSP. FINALIZADA" : s === "budget_sent" ? "PRESUP. ENVIADO" : s === "budget_approved" ? "APROBADO" : "ESPERANDO";
+  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#E91E63" : s === "inspection_done" ? "#E91E63" : s === "budget_sent" ? "#E91E63" : s === "budget_approved" ? "#9C27B0" : T.red;
+  const getStatusLabel = (s) => s === "done" ? "LISTO" : s === "working" ? "EN CURSO" : s === "inspection" ? "EN INSPECCIÓN" : s === "inspection_done" ? "ESP. COTIZACIÓN" : s === "budget_sent" ? "ESP. CONFIRMACIÓN" : s === "budget_approved" ? "APROBADO" : "ESPERANDO";
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .4s ease" }}>
@@ -4412,8 +4412,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
         {vOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
         {vOrders.map(o => {
           const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-          const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : (o.status === "budget_closed" || o.status === "budget_sent") ? "#9C27B0" : T.red;
-          const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : (o.status === "budget_closed" || o.status === "budget_sent") ? "PRESUPUESTO" : "PENDIENTE";
+          const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_closed" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : T.red;
+          const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : o.status === "budget_closed" ? "PRESUPUESTO" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : "PENDIENTE";
           return (
             <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer", borderLeft: `4px solid ${sc}` }}>
               {/* KM en blanco, centrado, arriba */}
@@ -4757,8 +4757,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
           if (s === "done") return { label: "FINALIZADO", color: T.green, bg: `${T.green}18` };
           if (s === "working") return { label: "EN CURSO", color: T.orange, bg: `${T.orange}18` };
           if (s === "pending") return { label: "ESPERANDO", color: T.red, bg: `${T.red}18` };
-          if (s === "budget_closed" || s === "budget_sent") return { label: "PRESUPUESTO", color: "#9C27B0", bg: "#9C27B018" };
-          if (s === "inspection" || s === "inspection_done") return { label: "INSPECCIÓN", color: "#E91E63", bg: "#E91E6318" };
+          if (s === "budget_closed") return { label: "PRESUPUESTO", color: "#9C27B0", bg: "#9C27B018" }; if (s === "budget_sent") return { label: "ESP. CONFIRMACIÓN", color: "#E91E63", bg: "#E91E6318" };
+          if (s === "inspection") return { label: "INSPECCIÓN", color: "#E91E63", bg: "#E91E6318" }; if (s === "inspection_done") return { label: "ESP. COTIZACIÓN", color: "#E91E63", bg: "#E91E6318" };
           return { label: s?.toUpperCase() || "—", color: T.gray, bg: `${T.gray}18` };
         };
 
@@ -4867,7 +4867,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
-  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#E91E63" : s === "inspection_done" ? "#FF6F00" : s === "budget_sent" ? "#9C27B0" : s === "budget_approved" ? "#9C27B0" : T.red;
+  const getStatusColor = (s) => s === "done" ? T.green : s === "working" ? T.orange : s === "inspection" ? "#E91E63" : s === "inspection_done" ? "#E91E63" : s === "budget_sent" ? "#E91E63" : s === "budget_approved" ? "#9C27B0" : T.red;
   const getStatusLabel = (s) => s === "done" ? "FINALIZADO" : s === "working" ? "EN CURSO" : "ESPERANDO";
 
   return (
@@ -4970,8 +4970,8 @@ const VehicleDetailScreen = (props) => {
   const [showBudgetStartPopup, setShowBudgetStartPopup] = useState(false);
   const [budgetPayPref, setBudgetPayPref] = useState({ method: "", withIva: null });
   const [budgetSelWorks, setBudgetSelWorks] = useState([]);
-  const sc = order.isChequeo ? "#FF4081" : order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#FF6F00" : order.status === "budget_sent" ? "#9C27B0" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
-  const statusLabel = order.isChequeo ? "🩺 CHEQUEO" : order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 INSP. FINALIZADA" : order.status === "budget_sent" ? "📩 PRESUP. ENVIADO" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
+  const sc = order.isChequeo ? "#FF4081" : order.status === "delivered" ? "#00C853" : order.status === "done" ? T.green : order.status === "working" ? T.orange : order.status === "inspection" ? "#E91E63" : order.status === "inspection_done" ? "#E91E63" : order.status === "budget_sent" ? "#E91E63" : order.status === "budget_approved" ? "#9C27B0" : order.status === "budget_closed" ? "#9C27B0" : T.red;
+  const statusLabel = order.isChequeo ? "🩺 CHEQUEO" : order.status === "delivered" ? "🚗 ENTREGADO" : order.status === "done" ? "✅ FINALIZADO" : order.status === "working" ? "🟡 EN CURSO" : order.status === "inspection" ? "🔍 EN INSPECCIÓN" : order.status === "inspection_done" ? "📋 ESP. COTIZACIÓN" : order.status === "budget_sent" ? "📩 ESP. CONFIRMACIÓN" : order.status === "budget_approved" ? "✅ APROBADO" : order.status === "budget_closed" ? "📋 PRESUPUESTO" : "🔴 ESPERANDO INICIO";
 
   const startWork = () => {
     setOrders(prev => prev.map(o => o.id === order.id ? {
@@ -5273,7 +5273,7 @@ const VehicleDetailScreen = (props) => {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
           ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
-          ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#FF6F00", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
+          ...(order.status === "inspection_done" ? "#E91E63", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
           ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "budget_sent" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
