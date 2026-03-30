@@ -6891,7 +6891,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const holdRef = useRef(null);
   const [period, setPeriod] = useState("dia");
   const [resWeek, setResWeek] = useState(null); // selected week in MES view
-  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "" });
+  const [egresoForm, setEgresoForm] = useState({ desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], categoria: "", categoriaLabel: "", detalle: "", descCompra: "" });
   const [showEgreso, setShowEgreso] = useState(false);
   const [movDetail, setMovDetail] = useState(null); // selected movement for detail popup
   const [saldoReal, setSaldoReal] = useState("");
@@ -9141,8 +9141,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var cleanDesc = e.desc || "";
               if (e.categoriaLabel && cleanDesc.startsWith(e.categoriaLabel + " — ")) cleanDesc = cleanDesc.slice(e.categoriaLabel.length + 3);
               var parts = [e.categoriaLabel || e.categoria];
-              if (e.detalle) parts.push(e.detalle);
+              if (e.detalle && e.detalle !== "__nuevo__") parts.push(e.detalle);
               if (cleanDesc && parts.indexOf(cleanDesc) < 0) parts.push(cleanDesc);
+              if (e.descCompra) parts.push(e.descCompra);
               items.push({ key: "egef-" + e.id, type: "egreso", label: "EGRESO", desc: parts.join(" — "), date: e.fecha, amount: parseFloat(e.monto) || 0, color: T.red, _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id, _raw: e });
             });
             // Egresos virtuales
@@ -9150,8 +9151,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               var cleanDesc = e.desc || "";
               if (e.categoriaLabel && cleanDesc.startsWith(e.categoriaLabel + " — ")) cleanDesc = cleanDesc.slice(e.categoriaLabel.length + 3);
               var parts = [e.categoriaLabel || e.categoria];
-              if (e.detalle) parts.push(e.detalle);
+              if (e.detalle && e.detalle !== "__nuevo__") parts.push(e.detalle);
               if (cleanDesc && parts.indexOf(cleanDesc) < 0) parts.push(cleanDesc);
+              if (e.descCompra) parts.push(e.descCompra);
               items.push({ key: "egvirt-" + e.id, type: "egreso_virt", label: "EGRESO " + e.metodoPago, desc: parts.join(" — "), date: e.fecha, amount: parseFloat(e.monto) || 0, color: "#FF6B6B", _ts: typeof e.id === "number" ? e.id : 0, _egresoId: e.id, _raw: e });
             });
             // Ingresos extra (cobros CTA CTE, saldo inicial, etc)
@@ -9337,6 +9339,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   {egresoForm.detalle === "__nuevo__" && (
                     <input inputMode="text" value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Nombre del proveedor..." />
                   )}
+                  {egresoForm.detalle && (
+                    <input inputMode="text" value={egresoForm.descCompra || ""} onChange={e => setEgresoForm(f => ({ ...f, descCompra: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} placeholder="Detalle de compra (ej: 4 bujías NGK, filtro aceite...)" />
+                  )}
                 </div>
               )}
               {egresoForm.categoria === "sueldo" && (
@@ -9376,8 +9381,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 <button onClick={() => setShowEgreso(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   if (egresoForm.categoria && egresoForm.monto) {
-                    setEgresos(p => [...p, { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0, metodoPago: egresoForm.metodoPago || "Efectivo" }]);
-                    setEgresoForm({ desc: "", monto: "", fecha: today, categoria: "", categoriaLabel: "", detalle: "", metodoPago: "Efectivo" });
+                    const saveData = { ...egresoForm, id: Date.now(), monto: parseFloat(egresoForm.monto) || 0, metodoPago: egresoForm.metodoPago || "Efectivo" };
+                    // Si proveedor esporádico: poner nombre en detalle
+                    if (saveData.detalle === "__nuevo__" && saveData.desc) { saveData.detalle = saveData.desc; saveData.desc = ""; }
+                    setEgresos(p => [...p, saveData]);
+                    setEgresoForm({ desc: "", monto: "", fecha: today, categoria: "", categoriaLabel: "", detalle: "", descCompra: "", metodoPago: "Efectivo" });
                     setShowEgreso(false);
                   }
                 }} style={{ ...btnPrimary(T.red), flex: 1 }}>Registrar</button>
