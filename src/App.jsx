@@ -5273,7 +5273,7 @@ const VehicleDetailScreen = (props) => {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         {[
           ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
-          ...(order.status === "inspection_done" ? "#E91E63", action: () => onNavigate("budgetPricing", order), bg: "rgba(255,111,0,.08)" }] : []),
+          ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#E91E63", action: () => onNavigate("budgetPricing", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "budget_sent" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
