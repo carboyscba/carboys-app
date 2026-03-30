@@ -3538,15 +3538,28 @@ const NewOrderScreen = (props) => {
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>¿Incluye IVA?</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <div onClick={() => { updatePayment(i, "withIva", true); updatePayment(i, "invoiceType", ""); }}
+                    <div onClick={() => {
+                        setPayments(prev => prev.map((x, j) => {
+                          if (j !== i) return x;
+                          const newAmt = prev.length === 1 ? String(computeAmount(totalWorks, true)) : x.amount;
+                          return { ...x, withIva: true, invoiceType: "", amount: newAmt };
+                        }));
+                      }}
                       style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
                         borderColor: p.withIva === true ? T.accent : T.border,
                         background: p.withIva === true ? `${T.accent}12` : T.bg2,
                         fontWeight: 800, fontSize: 13, color: p.withIva === true ? T.accent : T.text }}>
                       CON IVA
-                      <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{config.ivaRate}% · Fact. A/B</div>
+                      <div style={{ fontSize: 10, fontWeight: 400, color: T.gray, marginTop: 2 }}>+{config.ivaRate || 21}% · Fact. A/B</div>
                     </div>
-                    <div onClick={() => { updatePayment(i, "withIva", false); updatePayment(i, "invoiceType", ""); }}
+                    <div onClick={() => {
+                        setPayments(prev => prev.map((x, j) => {
+                          if (j !== i) return x;
+                          const base = x.withIva ? Math.round((parseFloat(x.amount) || 0) / (1 + (config.ivaRate || 21) / 100)) : (parseFloat(x.amount) || 0);
+                          const newAmt = prev.length === 1 ? String(totalWorks) : String(base);
+                          return { ...x, withIva: false, invoiceType: "", amount: newAmt };
+                        }));
+                      }}
                       style={{ ...card, padding: "12px 16px", cursor: "pointer", textAlign: "center", flex: 1,
                         borderColor: p.withIva === false ? T.gray : T.border,
                         background: p.withIva === false ? T.bg3 : T.bg2,
