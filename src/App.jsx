@@ -6956,6 +6956,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [histSearch, setHistSearch] = useState("");
   const [histDetail, setHistDetail] = useState(null);
   const [statView, setStatView] = useState(null);
+  const [egPeriod, setEgPeriod] = useState("mes");
+  const [egYear, setEgYear] = useState(new Date().getFullYear());
+  const [egMonth, setEgMonth] = useState(new Date().getMonth());
+  const [egExpandCat, setEgExpandCat] = useState(null);
+  const [egExpandMonth, setEgExpandMonth] = useState(null);
   const [holdProgress, setHoldProgress] = useState(0);
   const [selProv, setSelProv] = useState(null);
   const [selServ, setSelServ] = useState(null);
@@ -11450,11 +11455,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             </div>)}
 
             {statView === "egresos" && (() => {
-              const [egPeriod, setEgPeriod] = React.useState("mes");
-              const [egYear, setEgYear] = React.useState(new Date().getFullYear());
-              const [egMonth, setEgMonth] = React.useState(new Date().getMonth());
-              const [egExpandCat, setEgExpandCat] = React.useState(null);
-              const [egExpandMonth, setEgExpandMonth] = React.useState(null);
               const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
               const EG_CATS = [
                 { key: "proveedor", label: "Proveedores", icon: "📦", color: "#1E88E5" },
