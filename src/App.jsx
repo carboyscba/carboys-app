@@ -9316,9 +9316,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   { key: "proveedor", icon: "📦", label: "Proveedor" },
                   { key: "uber", icon: "🚕", label: "Uber/Flete" },
                   { key: "comida", icon: "🍔", label: "Comida" },
-                  { key: "sueldo", icon: "👤", label: "Sueldo" },
-                  { key: "repuesto", icon: "🔩", label: "Repuesto" },
-                  { key: "alquiler", icon: "🏠", label: "Alquiler" },
                   { key: "otro", icon: "📝", label: "Otro" },
                 ].map(cat => (
                   <div key={cat.key} onClick={() => setEgresoForm(f => ({ ...f, categoria: cat.key, categoriaLabel: cat.label, detalle: "" }))}
@@ -9344,15 +9341,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   )}
                 </div>
               )}
-              {egresoForm.categoria === "sueldo" && (
-                <div style={{ marginBottom: 12 }}><label style={labelStyle}>Empleado</label>
-                  <select value={egresoForm.detalle || ""} onChange={e => setEgresoForm(f => ({ ...f, detalle: e.target.value }))} style={inputStyle}>
-                    <option value="">Seleccionar empleado</option>
-                    {users.filter(u => u.role !== "dueño").map(u => <option key={u.id} value={u.name}>{u.name} — {u.role}</option>)}
-                  </select>
-                </div>
-              )}
-              {(egresoForm.categoria === "otro" || egresoForm.categoria === "repuesto" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida" || egresoForm.categoria === "alquiler") && (
+              {(egresoForm.categoria === "otro" || egresoForm.categoria === "uber" || egresoForm.categoria === "comida") && (
                 <div style={{ marginBottom: 12 }}><label style={labelStyle}>Descripción</label><input inputMode="text" value={egresoForm.desc || ""} onChange={e => setEgresoForm(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Detalle del gasto..." /></div>
               )}
               <div style={{ marginBottom: 12 }}><label style={labelStyle}>Monto *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={egresoForm.monto ? Number(egresoForm.monto).toLocaleString("es-AR") : ""} onChange={e => setEgresoForm(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} placeholder="0" /></div></div>
