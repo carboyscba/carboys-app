@@ -673,6 +673,89 @@ const sendWAImage = async (phone, base64Data, caption, wahaUrl, wahaApiKey, sess
   } catch (e) { console.warn("[WAHA] sendImage error:", e); return false; }
 };
 
+// ── jsPDF: carga dinámica ──
+const loadJsPDF = () => new Promise((resolve, reject) => {
+  if (window.jspdf) return resolve(window.jspdf);
+  const s = document.createElement("script");
+  s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  s.onload = () => resolve(window.jspdf);
+  s.onerror = () => reject(new Error("No se pudo cargar jsPDF"));
+  document.head.appendChild(s);
+});
+
+// ── HTML element → PDF base64 (A4, multi-page) ──
+const htmlToPdfBase64 = async (el, filename) => {
+  if (!el) throw new Error("Elemento no encontrado");
+  // Load libraries
+  if (!window.html2canvas) {
+    await new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  }
+  const jspdfLib = await loadJsPDF();
+  const { jsPDF } = jspdfLib;
+  // Capture element
+  const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+  // A4 dimensions in mm
+  const pageW = 210, pageH = 297, margin = 8;
+  const contentW = pageW - margin * 2;
+  const contentH = pageH - margin * 2;
+  // Calculate how the image fits
+  const imgW = canvas.width;
+  const imgH = canvas.height;
+  const ratio = contentW / imgW;
+  const scaledH = imgH * ratio; // total height in mm
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const imgData = canvas.toDataURL("image/jpeg", 0.92);
+  if (scaledH <= contentH) {
+    // Single page — center vertically
+    const yOffset = margin + (contentH - scaledH) / 2;
+    pdf.addImage(imgData, "JPEG", margin, yOffset, contentW, scaledH);
+  } else {
+    // Multi-page
+    let yRemaining = scaledH;
+    let srcY = 0;
+    let pageNum = 0;
+    while (yRemaining > 0) {
+      if (pageNum > 0) pdf.addPage();
+      const sliceH = Math.min(contentH, yRemaining);
+      // Create a slice of the canvas for this page
+      const sliceCanvas = document.createElement("canvas");
+      const srcSliceH = Math.round(sliceH / ratio);
+      sliceCanvas.width = imgW;
+      sliceCanvas.height = srcSliceH;
+      const ctx = sliceCanvas.getContext("2d");
+      ctx.drawImage(canvas, 0, Math.round(srcY), imgW, srcSliceH, 0, 0, imgW, srcSliceH);
+      const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+      pdf.addImage(sliceData, "JPEG", margin, margin, contentW, sliceH);
+      srcY += srcSliceH;
+      yRemaining -= sliceH;
+      pageNum++;
+    }
+  }
+  // Return base64 without data:... prefix
+  return pdf.output("datauristring").split(",")[1];
+};
+
+// ── Enviar PDF por WAHA (se ve como documento con miniatura en WhatsApp) ──
+const sendWAFile = async (phone, base64Data, filename, caption, wahaUrl, wahaApiKey, session) => {
+  var normalPhone = normalizePhone(phone);
+  if (!normalPhone || !wahaUrl) return false;
+  try {
+    var base = cleanWahaUrl(wahaUrl);
+    var headers = { "Content-Type": "application/json" };
+    if (wahaApiKey) headers["X-Api-Key"] = wahaApiKey;
+    var chatId = normalPhone + "@c.us";
+    console.log("[WAHA] sendFile PDF to:", chatId, "size:", Math.round(base64Data.length * 3 / 4 / 1024) + "KB");
+    var res = await fetch(base + "/api/sendFile", {
+      method: "POST", headers: headers,
+      body: JSON.stringify({ chatId: chatId, file: { mimetype: "application/pdf", filename: filename || "documento.pdf", data: base64Data }, caption: caption || "", session: session || "default" }),
+    });
+    if (res.ok) { console.log("[WAHA] sendFile PDF OK"); return true; }
+    var errText = await res.text().catch(function() { return ""; });
+    console.warn("[WAHA] sendFile failed:", res.status, errText);
+    return false;
+  } catch (e) { console.warn("[WAHA] sendFile error:", e); return false; }
+};
+
 // Inicia sesión WAHA
 const wahaStartSession = async (wahaUrl, wahaApiKey = "", session = "default") => {
   const headers = { "Content-Type": "application/json" };
@@ -6390,20 +6473,11 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
                 const phone = client?.phone;
                 if (!phone) return;
                 try {
-                  if (!window.html2canvas) {
-                    await new Promise((resolve, reject) => {
-                      var s = document.createElement("script");
-                      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-                      s.onload = resolve; s.onerror = reject;
-                      document.head.appendChild(s);
-                    });
-                  }
                   var el = document.getElementById("ticket-print");
                   if (!el) throw new Error("No ticket element");
-                  var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-                  var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+                  var base64 = await htmlToPdfBase64(el, "comprobante.pdf");
                   var caption = "Comprobante " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
-                  var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+                  var sent = await sendWAFile(phone, base64, "Comprobante_" + (order.domain || "") + ".pdf", caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
                   if (sent) { showWAToast("✅ Comprobante enviado por WhatsApp"); }
                   else { showWAToast("❌ No se pudo enviar el comprobante", false); }
                 } catch(e) { console.warn("Error enviando comprobante:", e); showWAToast("❌ Error al enviar comprobante", false); }
@@ -6621,20 +6695,11 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
                 const phone = client?.phone;
                 if (!phone) return;
                 try {
-                  if (!window.html2canvas) {
-                    await new Promise((resolve, reject) => {
-                      var s = document.createElement("script");
-                      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-                      s.onload = resolve; s.onerror = reject;
-                      document.head.appendChild(s);
-                    });
-                  }
                   var el = document.getElementById("factura-print");
                   if (!el) throw new Error("No factura element");
-                  var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-                  var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+                  var base64 = await htmlToPdfBase64(el, "factura.pdf");
                   var caption = "Factura " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nGracias por confiar en CarBoys!";
-                  var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+                  var sent = await sendWAFile(phone, base64, "Factura_" + (order.domain || "") + ".pdf", caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
                   if (sent) { showWAToast("✅ Factura enviada por WhatsApp"); }
                   else { showWAToast("❌ No se pudo enviar la factura", false); }
                 } catch(e) { console.warn("Error enviando factura:", e); showWAToast("❌ Error al enviar factura", false); }
@@ -13103,24 +13168,11 @@ const BudgetPricingScreen = (props) => {
     if (!phone) { showWAToast("❌ El cliente no tiene teléfono", false); return; }
     setSendingWA(true);
     try {
-      // Load html2canvas dynamically
-      if (!window.html2canvas) {
-        await new Promise(function(resolve, reject) {
-          var script = document.createElement("script");
-          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-          script.onload = resolve;
-          script.onerror = function() { reject(new Error("No se pudo cargar html2canvas")); };
-          document.head.appendChild(script);
-        });
-      }
       var el = document.getElementById("budget-pdf-content");
-      if (!el || !window.html2canvas) throw new Error("No se pudo capturar el presupuesto");
-      var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-      var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
-      var sizeKB = Math.round(base64.length * 3 / 4 / 1024);
-      console.log("[WAHA] Imagen capturada: " + sizeKB + "KB");
+      if (!el) throw new Error("No se pudo capturar el presupuesto");
+      var base64 = await htmlToPdfBase64(el, "presupuesto.pdf");
       var caption = "Presupuesto " + fmtD(order.domain) + " — " + (client ? client.name + " " + client.lastName : "") + "\nTotal: " + fmt(grandTotalIva) + " (IVA inc.)\n\nPresupuesto valido por 15 dias.\nCarBoys — Servicio Integral del Automotor";
-      var sent = await sendWAImage(phone, base64, caption, config.wahaUrl || "", config.wahaApiKey || "", config.wahaSession || "default");
+      var sent = await sendWAFile(phone, base64, "Presupuesto_" + fmtD(order.domain) + ".pdf", caption, config.wahaUrl || "", config.wahaApiKey || "", config.wahaSession || "default");
       if (sent) {
         showWAToast("✅ Presupuesto enviado por WhatsApp");
       } else {
@@ -16708,13 +16760,11 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
     const phone = client?.phone;
     if (!phone) { showWAToast("❌ El cliente no tiene teléfono", false); return; }
     try {
-      if (!window.html2canvas) { await new Promise((res, rej) => { var s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
       var el = document.getElementById("foja-chequeo-print");
       if (!el) throw new Error("No foja element");
-      var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-      var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      var base64 = await htmlToPdfBase64(el, "foja_chequeo.pdf");
       var caption = `Foja de Chequeo — ${order.domain || ""} — ${client?.name || ""} ${client?.lastName || ""}\nCarBoys — Servicio Integral del Automotor`;
-      var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+      var sent = await sendWAFile(phone, base64, "FojaChequeo_" + (order.domain || "") + ".pdf", caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
       if (sent) showWAToast("✅ Foja de Chequeo enviada"); else showWAToast("❌ No se pudo enviar", false);
     } catch(e) { showWAToast("❌ Error al enviar foja", false); }
   };
@@ -17045,20 +17095,11 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
     const phone = client?.phone;
     if (!phone) { showWAToast("❌ El cliente no tiene teléfono", false); return; }
     try {
-      if (!window.html2canvas) {
-        await new Promise((resolve, reject) => {
-          var s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-          s.onload = resolve; s.onerror = reject;
-          document.head.appendChild(s);
-        });
-      }
       var el = document.getElementById("foja-print");
       if (!el) throw new Error("No foja element");
-      var canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-      var base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      var base64 = await htmlToPdfBase64(el, "foja.pdf");
       var caption = fojaLabel + " — " + (order.domain || "") + " — " + (client?.name || "") + " " + (client?.lastName || "") + "\nCarBoys — Servicio Integral del Automotor";
-      var sent = await sendWAImage(phone, base64, caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
+      var sent = await sendWAFile(phone, base64, fojaLabel.replace(/\s/g, "_") + "_" + (order.domain || "") + ".pdf", caption, config?.wahaUrl || "", config?.wahaApiKey || "", config?.wahaSession || "default");
       if (sent) { showWAToast("✅ " + fojaLabel + " enviada por WhatsApp"); }
       else { showWAToast("❌ No se pudo enviar " + fojaLabel, false); }
     } catch(e) { console.warn("Error enviando foja:", e); showWAToast("❌ Error al enviar " + fojaLabel, false); }
