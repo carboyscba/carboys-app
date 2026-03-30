@@ -4307,8 +4307,8 @@ const DashboardScreen = (props) => {
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const isBudgetStatus = o.status === "budget_sent" || o.status === "budget_approved";
             const isInspection = o.status === "inspection" || o.status === "inspection_done";
-            const sc = o.isChequeo ? "#FF4081" : o.status === "done" ? T.green : o.status === "working" ? T.orange : isBudgetStatus ? "#9C27B0" : isInspection ? "#E91E63" : T.red;
-            const sl = o.isChequeo ? "🩺 CHEQUEO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : isBudgetStatus ? "PRESUPUESTO" : isInspection ? "INSPECCIÓN" : "ESPERANDO";
+            const sc = o.isChequeo ? "#FF4081" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_approved" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : isInspection ? "#E91E63" : T.red;
+            const sl = o.isChequeo ? "🩺 CHEQUEO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : o.status === "budget_approved" ? "APROBADO" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : o.status === "inspection_done" ? "ESP. COTIZACIÓN" : o.status === "inspection" ? "INSPECCIÓN" : "ESPERANDO";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
                 style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${sc}` }}>
@@ -7491,8 +7491,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const hasTicket = !!o.ticket;
             const fcLabel = hasFc ? "FC " + o.factura.tipo : hasTicket ? "Ticket" : null;
             const isPaid = !!o.cobrado;
-            const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.cobrado ? T.green : T.grayLight;
-            const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : o.cobrado ? "COBRADO" : "PENDIENTE";
+            const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "inspection" || o.status === "inspection_done" || o.status === "budget_sent" ? "#E91E63" : o.cobrado ? T.green : T.grayLight;
+            const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "LISTO" : o.status === "working" ? "EN CURSO" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "ESP. COTIZACIÓN" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : o.cobrado ? "COBRADO" : "PENDIENTE";
             return (
               <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid " + T.border, cursor: "pointer" }}>
                 <div style={{ flex: 1 }}>
@@ -8249,8 +8249,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               }).map(o => {
                 const cl = clients.find(c => matchId(c.id, o.clientId));
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : T.red;
-                const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : "ESPERANDO";
+                const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "inspection" ? "#E91E63" : o.status === "inspection_done" ? "#E91E63" : o.status === "budget_sent" ? "#E91E63" : T.red;
+                const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "ESP. COTIZACIÓN" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : "ESPERANDO";
                 const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                 const displayTotal = o.paymentPref?.withIva ? Math.round(total * (1 + (config.ivaRate || 21) / 100)) : total;
                 return (
