@@ -2033,7 +2033,7 @@ const NewOrderScreen = (props) => {
     setStep(5);
   };
 
-  const clientHistory = foundClient ? orders.filter(o => matchId(o.clientId, foundClient.id)) : [];
+  const clientHistory = foundVehicle ? orders.filter(o => o.domain === foundVehicle.domain && o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || "")) : [];
 
   const brands = Object.keys(vehicleDB || VEHICLE_DB).sort();
   const models = form.brand ? ((vehicleDB || VEHICLE_DB)[form.brand] || []) : [];
@@ -2684,9 +2684,9 @@ const NewOrderScreen = (props) => {
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < clientHistory.length - 1 ? `1px solid ${T.border}` : "none", fontSize: 13 }}>
                   <div>
                     <span style={{ color: T.grayLight }}>{fmtDate(h.date)}</span>
-                    <span style={{ marginLeft: 10 }}>{h.works.map(w => w.type).join(", ")}</span>
+                    <span style={{ marginLeft: 10 }}>{(h.works||[]).map(w => w.type).join(", ")}</span>
                   </div>
-                  <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(h.works.reduce((s, w) => s + w.price, 0))}</span>
+                  <span style={{ color: T.accent, fontWeight: 700 }}>{fmt((h.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</span>
                 </div>
               ))}
             </div>
@@ -3110,11 +3110,11 @@ const NewOrderScreen = (props) => {
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
-                  {w.type !== "Tren Delantero" && w.type !== "Tren Trasero" && w.type !== "Mecánica" && w.type !== "Escape" && w.type !== "Arreglo" && w.type !== "Repro" && w.type !== "Otros" && <div>
+                  <div>
                     <label style={labelStyle}>Descripción</label>
-                    <input inputMode="text" value={w.desc} onChange={e => updateWork(i, "desc", e.target.value)}
+                    <input inputMode="text" value={w.desc || ""} onChange={e => updateWork(i, "desc", e.target.value)}
                       placeholder="Detalles del trabajo..." style={inputStyle} />
-                  </div>}
+                  </div>
                   {w.type !== "Tren Delantero" && w.type !== "Tren Trasero" && w.type !== "Mecánica" && w.type !== "Escape" && w.type !== "Arreglo" && w.type !== "Repro" && w.type !== "Otros" && <div>
                     <label style={labelStyle}>Precio *</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -5243,7 +5243,7 @@ const VehicleDetailScreen = (props) => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{w.type}{w.escapeType ? (w.escapeType === "deportivo" ? " — Deportivo" : " — Original") : ""}</div>
-                {w.desc && !w.trenItems && <div style={{ fontSize: 12, color: T.gray }}>{w.desc}</div>}
+                {w.desc && <div style={{ fontSize: 12, color: T.gray }}>{w.desc}</div>}
               </div>
               {canSeePrices && <div style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price)}</div>}
             </div>
@@ -5796,7 +5796,7 @@ const VehicleDetailScreen = (props) => {
             {editWorks.map((w, i) => (
               <div key={i} style={{ ...card, padding: 12, marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{w.type}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
@@ -5809,6 +5809,8 @@ const VehicleDetailScreen = (props) => {
                     )}
                   </div>
                 </div>
+                <input inputMode="text" value={w.desc || ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, desc: e.target.value } : x))}
+                  placeholder="Descripción (ej: x2 unidades orden #123)" style={{ ...inputStyle, fontSize: 12, marginBottom: 4 }} />
                 {w.trenItems && w.trenItems.filter(ti => ti.selected).length > 0 && (
                   <div style={{ paddingLeft: 10 }}>
                     {w.trenItems.filter(ti => ti.selected).map((ti, j) => (
