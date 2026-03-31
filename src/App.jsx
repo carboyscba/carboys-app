@@ -4070,7 +4070,7 @@ const QuickSaleScreen = ({ config, orders, setOrders, clients, setClients, user,
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
+        <button onClick={() => onNavigate("back")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
         <button onClick={() => {
           // ── Generate order ID ──
           const maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
@@ -5107,12 +5107,7 @@ const VehicleDetailScreen = (props) => {
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
-      <button onClick={() => {
-        const hist = navHistoryRef?.current || [];
-        const prev = hist.length > 0 ? hist[hist.length - 1] : "dashboard";
-        if (navHistoryRef) navHistoryRef.current = hist.slice(0, -1);
-        onNavigate(prev, prev === "admin" || prev === "workshop" || prev === "dashboard" ? null : order);
-      }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
+      <button onClick={() => onNavigate("back")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
       {/* Header */}
       <div style={{ ...card, padding: 24, marginBottom: 20, borderLeft: `4px solid ${sc}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -7519,7 +7514,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 800 }}>📊 Administración</div>
-        <button onClick={() => onNavigate("dashboard")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
+        <button onClick={() => onNavigate("back")} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13 }}>← Volver</button>
       </div>
 
       {/* Alertas */}
@@ -18623,7 +18618,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
   if (!section) return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <span onClick={() => onNavigate("dashboard")} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <span onClick={() => onNavigate("back")} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
         <div>
           <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>⚙️ Configuración</div>
           <div style={{ fontSize: 12, color: T.gray }}>Administrá tu taller</div>
@@ -19829,19 +19824,34 @@ export default function App() {
   }, []);
 
   const nav = useCallback((target, data = null) => {
+    // "back" = pop from history stack
+    if (target === "back") {
+      const hist = navHistoryRef.current;
+      if (hist.length > 0) {
+        const prev = hist[hist.length - 1];
+        navHistoryRef.current = hist.slice(0, -1);
+        setScreen(prev);
+      } else {
+        setScreen("dashboard");
+      }
+      window.scrollTo?.(0, 0);
+      return;
+    }
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
     if (target === "search" && !data) setSelOrder(null);
-    if (target === "newOrder") setNewOrderInit(data); // { domain, clientId } or null
+    if (target === "newOrder") setNewOrderInit(data);
     if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
     if (target === "admin" && data?.initialOrder) setAdminInitialOrder(data.initialOrder);
     else if (target !== "admin") { setAdminInitialTab(null); setAdminInitialOrder(null); }
-    // Historial de navegación para botón Volver
-    if (target === "vehicleDetail" || target === "serviceSheet" || target === "authManage") {
+    if (target !== screen) {
       navHistoryRef.current = [...navHistoryRef.current, screen];
+      if (navHistoryRef.current.length > 20) navHistoryRef.current = navHistoryRef.current.slice(-20);
     }
     setScreen(target);
     window.scrollTo?.(0, 0);
   }, [screen]);
+
+  const goBack = useCallback(() => nav("back"), [nav]);
 
 
   // ── Monitor de sync + retry automático ──────────────────────
@@ -20054,7 +20064,7 @@ export default function App() {
         <div style={{ background: "rgba(6,10,22,.95)", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${T.border}`, backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {screen !== "dashboard" && (
-              <div onClick={() => nav("dashboard")}
+              <div onClick={goBack}
                 style={{ width: 36, height: 36, borderRadius: 10, background: T.bg2, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, transition: "all .15s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>←</div>
