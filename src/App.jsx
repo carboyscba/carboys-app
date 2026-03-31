@@ -7263,22 +7263,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     
     let importeTotal, importeNeto, importeIva;
     const ivaRate = config.ivaRate || 21;
-    if (tipoFC === "A") {
-      // FC A: ARCA espera neto SIN IVA + IVA separado
-      // Si el pago tiene IVA incluido, reverse-calcular la base neta
+    if (tipoFC === "A" || tipoFC === "B") {
+      // FC A y FC B: ARCA espera neto + IVA 21%
+      // FC A: IVA discriminado en factura
+      // FC B: IVA no discriminado al cliente, pero ARCA necesita alícuota 21%
       const mainHasIva = mainPay.withIva === true;
       if (mainHasIva && totalCobrado > totalBase) {
-        // El pago ya incluye IVA → derivar neto desde totalCobrado
+        // El pago ya incluye IVA → reverse-calcular base neta
         importeNeto = Math.round(totalCobrado / (1 + ivaRate / 100) * 100) / 100;
       } else {
-        // El pago es la base → usar totalBase directo
         importeNeto = totalBase;
       }
       importeIva = Math.round(importeNeto * ivaRate / 100 * 100) / 100;
       importeTotal = Math.round((importeNeto + importeIva) * 100) / 100;
     } else {
-      // FC B: total con IVA incluido en ImpTotConc
-      // FC C: total en ImpNeto (monotributo, sin IVA)
+      // FC C: Monotributo, sin IVA → total en ImpNeto
       importeTotal = totalCobrado || totalBase;
       importeNeto = 0;
       importeIva = 0;
