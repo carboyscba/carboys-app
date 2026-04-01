@@ -19809,6 +19809,25 @@ export default function App() {
       if (ordersReady && clientsReady && configReady) {
         isLoadingRef.current = false;
         setDbLoading(false);
+        // ── ONE-TIME DATA PATCH: fix orders with factura but missing cajaDate ──
+        _setOrders(prev => {
+          let patched = false;
+          const next = prev.map(o => {
+            if (o.factura && o.cobrado !== false && !o.cajaDate) {
+              patched = true;
+              const fixDate = o.factura.emitidaEn ? o.factura.emitidaEn.split('T')[0] : new Date().toISOString().split('T')[0];
+              return { ...o, cobrado: true, cajaDate: fixDate };
+            }
+            return o;
+          });
+          if (patched) {
+            next.filter(o => o.factura && !prev.find(p => p.id === o.id && p.cajaDate === o.cajaDate)).forEach(o => {
+              idbSave('orders', o.id, o, false).catch(console.error);
+              fsSave('orders', o.id, o).then(() => idbMarkSynced('orders', String(o.id))).catch(console.error);
+            });
+          }
+          return patched ? next : prev;
+        });
       }
     };
 
