@@ -7086,7 +7086,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
   const cobradas = useMemo(() => completed.filter(o => o.cobrado === true || o.isQuickSale), [completed]);
-  const periodOrders = useMemo(() => cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
+  const periodOrders = useMemo(() => cobradas.filter(o => { if (!o.cajaDate) return false; const d = normDate(o.cajaDate); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
   // ALL orders in period (cobradas or not, excluding cancelled) — for resumen metrics
   const allPeriodOrders = useMemo(() => orders.filter(o => {
     if (o.status === "cancelled") return false;
@@ -7117,18 +7117,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
   const saldoCaja = useMemo(() => {
     const sinceDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
-    // Efectivo cobrado desde último cierre
-    const efSinceCierre = cobradas.filter(o => normDate(o.cajaDate || o.date) > sinceDate)
+    const hasCobradaIds = ultimoCierre?.cobradaIds?.length > 0;
+    const excludeIds = new Set(hasCobradaIds ? ultimoCierre.cobradaIds : []);
+    // Si el cierre tiene cobradaIds: usar >= y excluir por ID (preciso)
+    // Si NO tiene cobradaIds (cierre viejo): usar > para evitar doble conteo del mismo día
+    const efSinceCierre = cobradas
+      .filter(o => o.cajaDate && o.cajaDate <= today && (hasCobradaIds ? (o.cajaDate >= sinceDate && !excludeIds.has(o.id)) : o.cajaDate > sinceDate))
       .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-    // Ingresos extra en efectivo desde último cierre
-    const ingExSince = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate)
+    const ingExSince = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate && normDate(e.fecha) <= today)
       .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
-    // Egresos efectivo desde último cierre
-    const egrSince = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate)
+    const egrSince = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate && normDate(e.fecha) <= today)
       .reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
     const base = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
     return base + efSinceCierre + ingExSince - egrSince;
-  }, [cobradas, egresos, ultimoCierre]);
+  }, [cobradas, egresos, ultimoCierre, today]);
   // Cierre semanal: semanas por día del mes (1-7=S1, 8-14=S2, 15-21=S3, 22-28=S4, 29+=S5)
   const todayDate = new Date();
   const todayDay = todayDate.getDate();
@@ -9313,7 +9315,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               return { num: r.num, start: new Date(yr, mo, r.s).toISOString().split("T")[0], end: new Date(yr, mo, Math.min(r.e, lastDayOfMonth)).toISOString().split("T")[0], label: "Sem " + r.num + " (" + r.s + "-" + Math.min(r.e, lastDayOfMonth) + ")" };
             });
             return weeks.map(function(w) {
-              var wOrders = cobradas.filter(function(o) { var d = normDate(o.cajaDate || o.date); return d >= w.start && d <= w.end; });
+              var wOrders = cobradas.filter(function(o) { if (!o.cajaDate) return false; var d = normDate(o.cajaDate); return d >= w.start && d <= w.end; });
               var wEgrEf = egresosEfectivo.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wEgrV = egresosVirtuales.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
               var wIng = ingresosExtra.filter(function(e) { var d = normDate(e.fecha); return d >= w.start && d <= w.end; });
@@ -9925,7 +9927,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const cpDesde = cierrePeriodo.desde;
           const cpHasta = cierrePeriodo.hasta;
           // Totals for THIS week (what was cobrado/egresado in the period)
-          const cpOrders = cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= cpDesde && d <= cpHasta; });
+          const cpOrders = cobradas.filter(o => { if (!o.cajaDate) return false; const d = normDate(o.cajaDate); return d >= cpDesde && d <= cpHasta; });
           const cpEgrEf = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo")).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
           const cpEgrVirt = egresos.filter(e => e.esIngreso !== true && e.metodoPago && e.metodoPago !== "Efectivo").filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
           const cpIngExtra = egresos.filter(e => e.esIngreso === true).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
@@ -9939,7 +9941,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           // SALDO ACUMULADO: último cierre saldoReal + todo efectivo desde ese cierre hasta cpHasta - todo egreso efectivo desde ese cierre hasta cpHasta
           const prevCierreDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
           const prevSaldo = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
-          const efSincePrev = cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d > prevCierreDate && d <= cpHasta; })
+          const prevHasIds = ultimoCierre?.cobradaIds?.length > 0;
+          const prevExcludeIds = new Set(prevHasIds ? ultimoCierre.cobradaIds : []);
+          const efSincePrev = cobradas
+            .filter(o => o.cajaDate && o.cajaDate <= cpHasta && (prevHasIds ? (o.cajaDate >= prevCierreDate && !prevExcludeIds.has(o.id)) : o.cajaDate > prevCierreDate))
             .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const ingExSincePrev = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > prevCierreDate && normDate(e.fecha) <= cpHasta)
             .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
@@ -10000,12 +10005,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   setCierres(p => [...p, {
                     id: Date.now(),
                     fecha: today,
+                    closedAt: new Date().toISOString(),
                     periodoDesde: cpDesde,
                     periodoHasta: cpHasta,
                     semanaLabel: cierrePeriodo.label,
                     saldoSistema: cpSaldo,
                     saldoReal: parseFloat(saldoReal) || 0,
                     diferencia: (parseFloat(saldoReal) || 0) - cpSaldo,
+                    cobradaIds: cpOrders.map(o => o.id),
                     desglose: { efectivo: cpEf, tarjeta: cpTarj, transferencia: cpTransf, ctaCte: cpCta, egresosEf: cpTotalEgr, egresosVirt: cpTotalEgrVirt }
                   }]);
                   setSaldoReal(""); setShowCierre(false);
