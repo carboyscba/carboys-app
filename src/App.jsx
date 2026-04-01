@@ -12682,13 +12682,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         // ── TOTAL GENERAL ──
         const totalGeneral = totalProvMes + totalServMes + totalIgMes + totalSueldosMes;
         const totalSinIgnacio = totalProvMes + totalServMes + totalSueldosMes;
-        const netoGanancia = totalVentasMes - totalSinIgnacio;
-        const rentabilidad = totalVentasMes > 0 ? Math.round((netoGanancia / totalVentasMes) * 100) : 0;
 
         // ── VENTAS del mes ──
         const completed = orders.filter(o => o.status === "delivered" || o.status === "done" || o.cobrado);
         const ventasDelMes = completed.filter(o => (o.date || "").startsWith(ym));
         const totalVentasMes = ventasDelMes.reduce((s, o) => s + getOrderTotal(o), 0);
+
+        // ── NETO GANANCIA (sin Ignacio) + RENTABILIDAD ──
+        const netoGanancia = totalVentasMes - totalSinIgnacio;
+        const rentabilidad = totalVentasMes > 0 ? Math.round((netoGanancia / totalVentasMes) * 100) : 0;
         const metodosVenta = ["Efectivo","Transferencia","Tarjeta","Cuenta Corriente"];
         const ventasPorMetodo = Object.fromEntries(metodosVenta.map(m => [
           m,
