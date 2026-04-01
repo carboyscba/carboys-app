@@ -17544,16 +17544,26 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+                {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
+                {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
               </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
-              <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
-              <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-              {config.tallerIG && <div>{config.tallerIG}</div>}
-            </div>
+            {(config.tallerCel || config.tallerTel) && (() => {
+              const _waP = (config.tallerCel || config.tallerTel || "").replace(/[^0-9]/g, "");
+              const _waUrl = "https://wa.me/" + (_waP.startsWith("54") ? _waP : "54" + _waP);
+              const _qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(_waUrl);
+              return (
+                <div style={{ textAlign: "center", position: "relative" }}>
+                  <img src={_qrUrl} alt="QR WhatsApp" crossOrigin="anonymous" style={{ width: 72, height: 72, borderRadius: 6, background: "#fff", padding: 4 }} />
+                  <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
+                  </div>
+                  <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Title + Date */}
@@ -17688,16 +17698,26 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+                {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
+                {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
               </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
-              <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
-              <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-              {config.tallerIG && <div>{config.tallerIG}</div>}
-            </div>
+            {(config.tallerCel || config.tallerTel) && (() => {
+              const _waP = (config.tallerCel || config.tallerTel || "").replace(/[^0-9]/g, "");
+              const _waUrl = "https://wa.me/" + (_waP.startsWith("54") ? _waP : "54" + _waP);
+              const _qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(_waUrl);
+              return (
+                <div style={{ textAlign: "center", position: "relative" }}>
+                  <img src={_qrUrl} alt="QR WhatsApp" crossOrigin="anonymous" style={{ width: 72, height: 72, borderRadius: 6, background: "#fff", padding: 4 }} />
+                  <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
+                  </div>
+                  <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Title */}
@@ -17959,16 +17979,26 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+                {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
+                {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
               </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
-              <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
-              <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-              {config.tallerIG && <div>{config.tallerIG}</div>}
-            </div>
+            {(config.tallerCel || config.tallerTel) && (() => {
+              const _waP = (config.tallerCel || config.tallerTel || "").replace(/[^0-9]/g, "");
+              const _waUrl = "https://wa.me/" + (_waP.startsWith("54") ? _waP : "54" + _waP);
+              const _qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(_waUrl);
+              return (
+                <div style={{ textAlign: "center", position: "relative" }}>
+                  <img src={_qrUrl} alt="QR WhatsApp" crossOrigin="anonymous" style={{ width: 72, height: 72, borderRadius: 6, background: "#fff", padding: 4 }} />
+                  <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
+                  </div>
+                  <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                </div>
+              );
+            })()}
           </div>
           {/* Title */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -18312,16 +18342,26 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
             <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-            <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+            <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+              {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
+              {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
               {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
             </div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
-            <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
-            <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-            {config.tallerIG && <div>{config.tallerIG}</div>}
-          </div>
+          {(config.tallerCel || config.tallerTel) && (() => {
+            const _waP = (config.tallerCel || config.tallerTel || "").replace(/[^0-9]/g, "");
+            const _waUrl = "https://wa.me/" + (_waP.startsWith("54") ? _waP : "54" + _waP);
+            const _qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(_waUrl);
+            return (
+              <div style={{ textAlign: "center", position: "relative" }}>
+                <img src={_qrUrl} alt="QR WhatsApp" crossOrigin="anonymous" style={{ width: 72, height: 72, borderRadius: 6, background: "#fff", padding: 4 }} />
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
+                </div>
+                <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+              </div>
+            );
+          })()}
         </div>
         <div style={{ background: "#F7F9FC", padding: "6px 22px", borderBottom: "1px solid #E8ECF2", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: "#1B2D45", letterSpacing: 1 }}>{isPF ? "INFORME DE INTERVENCIÓN" : `FOJA DE SERVICIO — ${isBase ? "Service Base" : "Service Full"}`}</div>
