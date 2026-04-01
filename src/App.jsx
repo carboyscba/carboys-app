@@ -2266,7 +2266,7 @@ const NewOrderScreen = (props) => {
                     {hOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
 
                     {hOrders.map(o => {
-                      const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                      const total = getOrderTotal(o);
                       const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_closed" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : o.status === "inspection" ? "#E91E63" : o.status === "inspection_done" ? "#E91E63" : T.red;
                       const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : o.status === "budget_closed" ? "PRESUPUESTO" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "ESP. COTIZACIÓN" : "PENDIENTE";
                       return (
@@ -2313,7 +2313,7 @@ const NewOrderScreen = (props) => {
                 const o = historyOrderDetail;
                 const hv = historyVehicle?.vehicle;
                 const hc = historyVehicle?.client;
-                const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                const total = getOrderTotal(o);
                 const statusColor = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_closed" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : T.red;
                 return (
                   <div style={{ marginTop: 20, animation: "fadeUp .25s ease" }}>
@@ -2686,7 +2686,7 @@ const NewOrderScreen = (props) => {
                     <span style={{ color: T.grayLight }}>{fmtDate(h.date)}</span>
                     <span style={{ marginLeft: 10 }}>{(h.works||[]).map(w => w.type).join(", ")}</span>
                   </div>
-                  <span style={{ color: T.accent, fontWeight: 700 }}>{fmt((h.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</span>
+                  <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(getOrderTotal(h))}</span>
                 </div>
               ))}
             </div>
@@ -4522,7 +4522,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
         </div>
         {vOrders.length === 0 && <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin registros para este vehículo</div>}
         {vOrders.map(o => {
-          const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+          const total = getOrderTotal(o);
           const sc = o.status === "delivered" ? "#00C853" : o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "budget_closed" ? "#9C27B0" : o.status === "budget_sent" ? "#E91E63" : T.red;
           const sl = o.status === "delivered" ? "ENTREGADO" : o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN CURSO" : o.status === "budget_closed" ? "PRESUPUESTO" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : "PENDIENTE";
           return (
@@ -6321,7 +6321,7 @@ const VehicleDetailScreen = (props) => {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                   <span style={{ color: T.gray }}>Total</span>
-                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt((fo.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(getOrderTotal(fo))}</span>
                 </div>
               </div>
               {/* Acciones */}
@@ -7089,6 +7089,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     return "";
   };
 
+  // ── Helper: precio base sin IVA (suma de works.price) ──
+  const getBaseTotal = (o) => (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+
+  // ── Helper: precio REAL de la orden (con IVA si corresponde) ──
+  // Prioridad: payments cobrados > factura emitida > base+IVA > base
+  const _ivaR = config.ivaRate || 21;
+  const getOrderTotal = (o) => {
+    const paid = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    if (paid > 0) return paid;
+    if (o.factura?.importeTotal) return o.factura.importeTotal;
+    const base = getBaseTotal(o);
+    const hasIva = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
+    return hasIva ? Math.round(base * (1 + _ivaR / 100)) : base;
+  };
+
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
   const cobradas = useMemo(() => completed.filter(o => o.cobrado === true || o.isQuickSale), [completed]);
   const periodOrders = useMemo(() => cobradas.filter(o => { if (!o.cajaDate) return false; const d = normDate(o.cajaDate); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
@@ -7099,7 +7114,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     const d = normDate(o.date);
     return d >= startDate && d <= today;
   }), [orders, startDate, today]);
-  const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0), [periodOrders]);
+  const totalVentas = useMemo(() => periodOrders.reduce((s, o) => s + getOrderTotal(o), 0), [periodOrders]);
   const totalIngresos = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const periodEgresos = useMemo(() => egresos.filter(e => normDate(e.fecha) >= startDate && normDate(e.fecha) <= today), [egresos, startDate, today]);
   // Egresos separados: efectivo (afecta caja) vs virtuales (tarjeta/transferencia)
@@ -7588,7 +7603,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const renderOrderRow = (o) => {
             const c = clients.find(x => matchId(x.id, o.clientId));
             const v = c?.vehicles?.find(x => x.domain === o.domain);
-            const totalWorks = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const totalWorks = getOrderTotal(o);
             const totalPaid = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
             const mainMethod = (o.payments||[]).find(p => p.method)?.method || o.paymentPref?.method || "";
             const hasFc = !!o.factura;
@@ -7680,7 +7695,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const o = selCobro;
             const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const total = getOrderTotal(o);
             const iva = config.ivaRate || 21;
             return (
               <div>
@@ -8041,7 +8056,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             </div>
             <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg3 }}>
               <div style={{ fontSize: 11, color: T.gray }}>Orden: <strong>{selCobro.id}</strong> · {fmtD(selCobro.domain)}</div>
-              <div style={{ fontSize: 11, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt((selCobro.works||[]).reduce((s,w) => s + (parseFloat(w.price)||0), 0))}</strong></div>
+              <div style={{ fontSize: 11, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt(getOrderTotal(selCobro))}</strong></div>
               {selCobro.factura && <div style={{ fontSize: 11, color: T.green }}>📄 FC {selCobro.factura.tipo} — #{selCobro.factura.numero}</div>}
               {selCobro.ticket && <div style={{ fontSize: 11, color: T.orange }}>🧾 Comprobante</div>}
             </div>
@@ -8355,7 +8370,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                 const sc = o.status === "done" ? T.green : o.status === "working" ? T.orange : o.status === "inspection" ? "#E91E63" : o.status === "inspection_done" ? "#E91E63" : o.status === "budget_sent" ? "#E91E63" : T.red;
                 const sl = o.status === "done" ? "FINALIZADO" : o.status === "working" ? "EN PROCESO" : o.status === "inspection" ? "INSPECCIÓN" : o.status === "inspection_done" ? "ESP. COTIZACIÓN" : o.status === "budget_sent" ? "ESP. CONFIRMACIÓN" : "ESPERANDO";
-                const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                const total = getOrderTotal(o);
                 const displayTotal = o.paymentPref?.withIva ? Math.round(total * (1 + (config.ivaRate || 21) / 100)) : total;
                 return (
                   <div key={o.id} onClick={() => {
@@ -8430,7 +8445,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const o = histDetail;
             const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const total = getOrderTotal(o);
             return (
               <div>
                 <button onClick={() => setHistDetail(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver</button>
@@ -8558,7 +8573,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               if (!byYear[y]) byYear[y] = { orders: [], total: 0 };
               byYear[y].orders.push(o);
               if (!["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)) {
-                byYear[y].total += (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                byYear[y].total += getOrderTotal(o);
               }
             });
             const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
@@ -8616,7 +8631,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       const [y, m] = ym.split("-");
                       const monthName = months[parseInt(m) - 1];
                       const mOrders = byMonth[ym];
-                      const mTotal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                      const mTotal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)).reduce((s, o) => s + getOrderTotal(o), 0);
                       return (
                         <div key={ym} style={{ marginBottom: 10 }}>
                           <div style={{ ...card, padding: "12px 16px", marginBottom: 1, background: T.bg3, borderLeft: `3px solid ${T.accent}` }}>
@@ -8629,7 +8644,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             </div>
                           </div>
                           {mOrders.map(o => {
-                            const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                            const total = getOrderTotal(o);
                             const metodo = metodoLabel(o);
                             const oCl = clients.find(c => matchId(c.id, o.clientId));
                             const oVh = oCl?.vehicles?.find(v => v.domain === o.domain);
@@ -8694,21 +8709,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               {/* Grid de meses */}
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>
-                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => { const paid = (o.payments||[]).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0); if (paid > 0) return s + paid; const base = (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0); const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva; return s + (o.factura?.importeTotal || (hasIva ? Math.round(base * (1 + (config.ivaRate||21) / 100)) : base)); }, 0))}
+                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + getOrderTotal(o), 0))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
                     const mOrders = yearOrders.filter(o => dateMo(o.date) === mi);
                     const mReal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status));
                     const cnt = mReal.length;
-                    const mIvaR = config.ivaRate || 21;
-                    const mTotal = mReal.reduce((s, o) => {
-                      const paid = (o.payments||[]).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
-                      if (paid > 0) return s + paid;
-                      const base = (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0);
-                      const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
-                      return s + (o.factura?.importeTotal || (hasIva ? Math.round(base * (1 + mIvaR / 100)) : base));
-                    }, 0);
+                    const mTotal = mReal.reduce((s, o) => s + getOrderTotal(o), 0);
                     return (
                       <div key={mi} onClick={() => { setHistMonth(histMonth === mi ? null : mi); setHistWeekExp(null); }}
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
@@ -8753,12 +8761,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const renderOrder = (o) => {
                   const cl = clients.find(c => matchId(c.id, o.clientId));
                   const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                  const baseTotal = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                  // Show actual paid amount: payments > factura > base+IVA > base
-                  const paidTotal = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-                  const ivaR = config.ivaRate || 21;
-                  const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
-                  const total = paidTotal > 0 ? paidTotal : (o.factura?.importeTotal || (hasIva ? Math.round(baseTotal * (1 + ivaR / 100)) : baseTotal));
+                  const total = getOrderTotal(o);
                   const metodo = metodoLabel(o);
                   const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                   const isChequeo = !!o.isChequeo;
@@ -8792,13 +8795,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   return wks.map(wk => {
                     const wkOrders = weekGroups[wk];
                     const wkIvaR = config.ivaRate || 21;
-                    const wkTotal = wkOrders.reduce((s, o) => {
-                      const paid = (o.payments||[]).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
-                      if (paid > 0) return s + paid;
-                      const base = (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0);
-                      const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
-                      return s + (o.factura?.importeTotal || (hasIva ? Math.round(base * (1 + wkIvaR / 100)) : base));
-                    }, 0);
+                    const wkTotal = wkOrders.reduce((s, o) => s + getOrderTotal(o), 0);
                     const wkStart = wk == 1 ? 1 : wk == 2 ? 8 : wk == 3 ? 15 : wk == 4 ? 22 : 29;
                     const wkEnd = wk == 1 ? 7 : wk == 2 ? 14 : wk == 3 ? 21 : wk == 4 ? 28 : Math.min(31, lastDay);
                     const isExpanded = histWeekExp === Number(wk);
@@ -10216,10 +10213,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 allCobradas.map(o => {
                   const c = clients.find(x => matchId(x.id, o.clientId));
                   const vh = c?.vehicles?.find(v => v.domain === o.domain);
-                  const paidAmt = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-                  const baseAmt = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-                  const hasIvaFlag = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
-                  const monto = paidAmt > 0 ? paidAmt : (o.factura?.importeTotal || (hasIvaFlag ? Math.round(baseAmt * (1 + (config.ivaRate || 21) / 100)) : baseAmt));
+                  const monto = getOrderTotal(o);
                   const hasFc = !!o.factura;
                   const hasTicket = !!o.ticket;
                   const tipoFc = hasFc ? o.factura.tipo : null;
@@ -11631,7 +11625,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 {(() => {
                   const ms = {}; completed.forEach(o => { const m = o.assignedTo || "Sin asignar"; ms[m] = (ms[m] || 0) + 1; });
                   return Object.entries(ms).sort((a, b) => b[1] - a[1]).map(([name, cnt]) => {
-                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const rev = completed.filter(o => o.assignedTo === name).reduce((s, o) => s + getOrderTotal(o), 0);
                     return (<div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
                       <div><div style={{ fontSize: 14, fontWeight: 700 }}>{name}</div><div style={{ fontSize: 11, color: T.gray }}>{cnt} órdenes</div></div>
                       <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: T.accent }}>{fmt(rev)}</div>
@@ -12707,7 +12701,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         // ── VENTAS del mes ──
         const completed = orders.filter(o => o.status === "delivered" || o.status === "done" || o.cobrado);
         const ventasDelMes = completed.filter(o => (o.date || "").startsWith(ym));
-        const totalVentasMes = ventasDelMes.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+        const totalVentasMes = ventasDelMes.reduce((s, o) => s + getOrderTotal(o), 0);
         const metodosVenta = ["Efectivo","Transferencia","Tarjeta","Cuenta Corriente"];
         const ventasPorMetodo = Object.fromEntries(metodosVenta.map(m => [
           m,
@@ -12895,7 +12889,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         const cl = clients.find(x => matchId(x.id, o.clientId));
                         const tot = cmVentaMetodo
                           ? (o.payments || []).filter(p => p.method === cmVentaMetodo).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
-                          : (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                          : getOrderTotal(o);
                         const mets = [...new Set((o.payments || []).map(p => p.method).filter(Boolean))];
                         return (
                           <div key={o.id} onClick={() => onNavigate("vehicleDetail", o)}
@@ -13184,7 +13178,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       o.startedBy === emp.name ||
                       (o.works || []).some(w => w.tech === emp.name)
                     );
-                    const facturadoEmp = ordsTrabajadas.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const facturadoEmp = ordsTrabajadas.reduce((s, o) => s + getOrderTotal(o), 0);
 
                     return (
                       <div key={emp.id} style={{ ...card, padding: 0, marginBottom: 14, overflow: "hidden",
