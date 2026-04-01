@@ -12681,6 +12681,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         // ── TOTAL GENERAL ──
         const totalGeneral = totalProvMes + totalServMes + totalIgMes + totalSueldosMes;
+        const totalSinIgnacio = totalProvMes + totalServMes + totalSueldosMes;
+        const netoGanancia = totalVentasMes - totalSinIgnacio;
+        const rentabilidad = totalVentasMes > 0 ? Math.round((netoGanancia / totalVentasMes) * 100) : 0;
 
         // ── VENTAS del mes ──
         const completed = orders.filter(o => o.status === "delivered" || o.status === "done" || o.cobrado);
@@ -12760,12 +12763,17 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   </div>
                 </div>
 
-                {/* Ganancia neta */}
+                {/* Neto Ganancia + Rentabilidad */}
                 {totalVentasMes > 0 && (
-                  <div style={{ ...card, padding: 14, marginBottom: 16, borderLeft: `4px solid ${(totalVentasMes - totalGeneral) >= 0 ? T.green : T.red}`, background: `${(totalVentasMes - totalGeneral) >= 0 ? T.green : T.red}08` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{(totalVentasMes - totalGeneral) >= 0 ? "📈" : "📉"} Resultado Neto</div>
-                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: (totalVentasMes - totalGeneral) >= 0 ? T.green : T.red }}>{fmt(totalVentasMes - totalGeneral)}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 16 }}>
+                    <div style={{ ...card, padding: 14, borderLeft: `4px solid ${netoGanancia >= 0 ? T.green : T.red}`, background: `${netoGanancia >= 0 ? T.green : T.red}08` }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{netoGanancia >= 0 ? "📈" : "📉"} Neto Ganancia</div>
+                      <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: netoGanancia >= 0 ? T.green : T.red }}>{fmt(netoGanancia)}</div>
+                      <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>Ventas - Gastos (sin retiros Ignacio)</div>
+                    </div>
+                    <div style={{ ...card, padding: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 100, borderLeft: `4px solid ${rentabilidad >= 0 ? T.accent : T.red}` }}>
+                      <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Rentabilidad</div>
+                      <div style={{ fontFamily: fontD, fontSize: 28, fontWeight: 900, color: rentabilidad >= 30 ? T.green : rentabilidad >= 15 ? T.accent : rentabilidad >= 0 ? T.orange : T.red }}>{rentabilidad}%</div>
                     </div>
                   </div>
                 )}
@@ -12776,7 +12784,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   { key: "proveedores", label: "📦 Proveedores", total: totalProvMes, sub: `${factsDelMes.length} factura${factsDelMes.length !== 1 ? "s" : ""}`, color: T.orange },
                   { key: "servicios", label: "🔧 Servicios", total: totalServMes, sub: `${servPagosDelMes.length} pago${servPagosDelMes.length !== 1 ? "s" : ""}`, color: T.accent },
                   // Multi-tenant: Ignacio solo si módulo habilitado
-                  ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", label: "👑 Gastos Ignacio", total: totalIgMes, sub: `${igDelMes.length} movimiento${igDelMes.length !== 1 ? "s" : ""}`, color: "#9C27B0" }] : []),
+                  ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", label: "👑 Retiros Ignacio", total: totalIgMes, sub: `${igDelMes.length} movimiento${igDelMes.length !== 1 ? "s" : ""} · No afecta rentabilidad`, color: "#9C27B0" }] : []),
                   { key: "sueldos", label: "👤 Sueldos", total: totalSueldosMes, sub: `${sueldosDelMes.length} pago${sueldosDelMes.length !== 1 ? "s" : ""}`, color: T.green },
                 ].map(row => (
                   <div key={row.key} onClick={() => setCmSub(row.key)}
