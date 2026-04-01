@@ -19885,10 +19885,6 @@ export default function App() {
             ...(local.factura     !== undefined ? { factura: local.factura } : fsDoc.factura ? { factura: fsDoc.factura } : {}),
             ...(local.ticket      !== undefined ? { ticket:  local.ticket  } : fsDoc.ticket  ? { ticket:  fsDoc.ticket  } : {}),
           };
-          // If local had different data than Firestore → push merged to Firestore
-          if (local.cobrado !== fsDoc.cobrado || JSON.stringify(local.payments) !== JSON.stringify(fsDoc.payments) || local.cajaDate !== fsDoc.cajaDate || local.factura !== fsDoc.factura) {
-            fsSave('orders', merged.id, merged).catch(e => console.error('[MERGE→FS]', e));
-          }
           return merged;
         });
 
