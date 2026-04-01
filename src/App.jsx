@@ -7112,10 +7112,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const transfIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + ingExTransf, [periodOrders, ingExTransf]);
   const ctaCteIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const inTaller = useMemo(() => orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)), [orders]);
-  const saldoCajaCalculado = efIngresado - totalEgr;
-  // Si hay un cierre previo, el saldo arranca desde el valor real contado en ese cierre
+  // ── SALDO CAJA: independiente del periodo, siempre desde último cierre hasta hoy ──
   const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
-  const saldoCaja = ultimoCierre ? ultimoCierre.saldoReal + (efIngresado - totalEgr) : saldoCajaCalculado;
+  const saldoCaja = useMemo(() => {
+    const sinceDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
+    // Efectivo cobrado desde último cierre
+    const efSinceCierre = cobradas.filter(o => normDate(o.cajaDate || o.date) > sinceDate)
+      .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+    // Ingresos extra en efectivo desde último cierre
+    const ingExSince = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate)
+      .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
+    // Egresos efectivo desde último cierre
+    const egrSince = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate)
+      .reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+    const base = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
+    return base + efSinceCierre + ingExSince - egrSince;
+  }, [cobradas, egresos, ultimoCierre]);
   // Cierre semanal: semanas por día del mes (1-7=S1, 8-14=S2, 15-21=S3, 22-28=S4, 29+=S5)
   const todayDate = new Date();
   const todayDay = todayDate.getDate();
@@ -9125,8 +9137,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           ))}
         </div>
 
-        {/* ── SALDO CAJA + EGRESOS ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+        {/* ── EGRESOS + SALDO CAJA (solo Hoy) ── */}
+        <div style={{ display: "grid", gridTemplateColumns: period === "dia" ? "repeat(3, 1fr)" : "repeat(2, 1fr)", gap: 10, marginBottom: 20 }}>
           <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.red}` }}>
             <div style={{ fontSize: 11, color: T.gray }}>🏧 Egresos Efectivo</div>
             <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.red }}>{fmt(totalEgr)}</div>
@@ -9135,11 +9147,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             <div style={{ fontSize: 11, color: T.gray }}>💸 Egresos Virtuales</div>
             <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: "#FF6B6B" }}>{fmt(totalEgrVirtual)}</div>
           </div>
+          {period === "dia" && (
           <div style={{ ...card, padding: 14, borderLeft: `4px solid ${saldoCaja >= 0 ? T.green : T.red}`, background: `${saldoCaja >= 0 ? T.green : T.red}08` }}>
             <div style={{ fontSize: 11, color: T.gray }}>💰 Saldo en Caja</div>
             <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: saldoCaja >= 0 ? T.green : T.red }}>{fmt(saldoCaja)}</div>
-            <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>Solo efectivo</div>
+            <div style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>Solo efectivo{ultimoCierre ? ` (desde cierre ${fmtDate(ultimoCierre.fecha)})` : ""}</div>
           </div>
+          )}
         </div>
 
         {/* ── BOTONES ACCIÓN ── */}
@@ -9885,18 +9899,28 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const cierrePeriodo = faltaCierre ? semanaAnterior : getSemanaRange(semanaActual, todayYear, todayMonth);
           const cpDesde = cierrePeriodo.desde;
           const cpHasta = cierrePeriodo.hasta;
+          // Totals for THIS week (what was cobrado/egresado in the period)
           const cpOrders = cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= cpDesde && d <= cpHasta; });
-          const cpEgrEf = egresos.filter(e => e.esIngreso !== true && e.metodo !== "Transferencia" && e.metodo !== "Tarjeta").filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
-          const cpEgrVirt = egresos.filter(e => e.esIngreso !== true && (e.metodo === "Transferencia" || e.metodo === "Tarjeta")).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
+          const cpEgrEf = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo")).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
+          const cpEgrVirt = egresos.filter(e => e.esIngreso !== true && e.metodoPago && e.metodoPago !== "Efectivo").filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
           const cpIngExtra = egresos.filter(e => e.esIngreso === true).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
-          const cpIngExEf = cpIngExtra.filter(e => !e.metodo || e.metodo === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+          const cpIngExEf = cpIngExtra.filter(e => !e.metodoPago || e.metodoPago === "Efectivo").reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
           const cpEf = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + cpIngExEf;
           const cpTarj = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const cpTransf = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const cpCta = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const cpTotalEgr = cpEgrEf.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
           const cpTotalEgrVirt = cpEgrVirt.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-          const cpSaldo = cpEf - cpTotalEgr;
+          // SALDO ACUMULADO: último cierre saldoReal + todo efectivo desde ese cierre hasta cpHasta - todo egreso efectivo desde ese cierre hasta cpHasta
+          const prevCierreDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
+          const prevSaldo = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
+          const efSincePrev = cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d > prevCierreDate && d <= cpHasta; })
+            .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+          const ingExSincePrev = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > prevCierreDate && normDate(e.fecha) <= cpHasta)
+            .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
+          const egrSincePrev = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > prevCierreDate && normDate(e.fecha) <= cpHasta)
+            .reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+          const cpSaldo = prevSaldo + efSincePrev + ingExSincePrev - egrSincePrev;
           return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
