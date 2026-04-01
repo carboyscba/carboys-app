@@ -6942,6 +6942,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => matchId(c.id, _initOrder.clientId)); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
   const [cobroSearchQ, setCobroSearchQ] = useState("");
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
+  const [fcFilter, setFcFilter] = useState(null); // null, "A", "B", "C", "T"
+  const [fcExpandPeriod, setFcExpandPeriod] = useState(null); // null, "mes", "semana"
+  const [fcSelMonth, setFcSelMonth] = useState(null); // 0-11
+  const [fcSelWeek, setFcSelWeek] = useState(null); // 1-5
   // ── Global client editor modal ──
   const [editClientGlobal, setEditClientGlobal] = useState(null); // { clientId, name, lastName, phone, dni, cuit }
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
@@ -10025,22 +10029,86 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       </div>)}
 
             {tab === "facturas" && (<div>
-        {/* ── Filtro de período ── */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{PB("dia", "Hoy")}{PB("semana", "Semana")}{PB("mes", "Mes")}</div>
+        {/* ── Filtro de período con doble-toque ── */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          {[{ k: "dia", l: "Hoy" }, { k: "semana", l: "Semana" }, { k: "mes", l: "Mes" }].map(btn => (
+            <div key={btn.k} onClick={() => {
+              if (period === btn.k && (btn.k === "mes" || btn.k === "semana")) {
+                // Double tap: toggle expanded
+                setFcExpandPeriod(fcExpandPeriod === btn.k ? null : btn.k);
+              } else {
+                setPeriod(btn.k); setFcExpandPeriod(null); setFcSelMonth(null); setFcSelWeek(null); setResWeek(null);
+              }
+            }} style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, background: period === btn.k ? T.accent : T.bg, color: period === btn.k ? "#fff" : T.gray, border: `1px solid ${period === btn.k ? T.accent : T.border}` }}>
+              {btn.l}{period === btn.k && (btn.k === "mes" || btn.k === "semana") ? (fcExpandPeriod === btn.k ? " ▼" : " ▶") : ""}
+            </div>
+          ))}
+        </div>
+        {/* ── Tabs expandidos: meses ── */}
+        {fcExpandPeriod === "mes" && (() => {
+          const mNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+          const curMonth = new Date().getMonth();
+          return (
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+              {mNames.slice(0, curMonth + 1).map((m, i) => (
+                <div key={i} onClick={() => setFcSelMonth(fcSelMonth === i ? null : i)}
+                  style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: fcSelMonth === i ? T.accent : T.bg, color: fcSelMonth === i ? "#fff" : T.gray, border: `1px solid ${fcSelMonth === i ? T.accent : T.border}` }}>{m}</div>
+              ))}
+            </div>
+          );
+        })()}
+        {/* ── Tabs expandidos: semanas ── */}
+        {fcExpandPeriod === "semana" && (() => {
+          const dom = new Date().getDate();
+          const curSem = dom <= 7 ? 1 : dom <= 14 ? 2 : dom <= 21 ? 3 : dom <= 28 ? 4 : 5;
+          return (
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+              {Array.from({ length: curSem }, (_, i) => i + 1).map(s => (
+                <div key={s} onClick={() => setFcSelWeek(fcSelWeek === s ? null : s)}
+                  style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: fcSelWeek === s ? T.accent : T.bg, color: fcSelWeek === s ? "#fff" : T.gray, border: `1px solid ${fcSelWeek === s ? T.accent : T.border}` }}>Sem {s}</div>
+              ))}
+            </div>
+          );
+        })()}
 
         {(() => {
-          const allCobradas = periodOrders.sort((a, b) => (b.cajaDate || b.date || "").localeCompare(a.cajaDate || a.date || ""));
-          const cntA = factA.length, cntB = factB.length, cntC = factC.length;
-          // Detectar si REQUIERE factura: tarjeta, transferencia, o efectivo con IVA
+          // Compute custom period for facturas based on expanded selectors
+          let fcOrders = periodOrders;
+          if (fcExpandPeriod === "mes" && fcSelMonth !== null) {
+            const yr = new Date().getFullYear();
+            const mStart = `${yr}-${String(fcSelMonth + 1).padStart(2, "0")}-01`;
+            const mEnd = new Date(yr, fcSelMonth + 1, 0).toISOString().split("T")[0];
+            fcOrders = cobradas.filter(o => { if (!o.cajaDate) return false; return o.cajaDate >= mStart && o.cajaDate <= mEnd; });
+          } else if (fcExpandPeriod === "semana" && fcSelWeek !== null) {
+            const yr = new Date().getFullYear();
+            const mo = new Date().getMonth();
+            const starts = [1, 8, 15, 22, 29];
+            const ends = [7, 14, 21, 28, new Date(yr, mo + 1, 0).getDate()];
+            const wStart = new Date(yr, mo, starts[fcSelWeek - 1]).toISOString().split("T")[0];
+            const wEnd = new Date(yr, mo, Math.min(ends[fcSelWeek - 1], new Date(yr, mo + 1, 0).getDate())).toISOString().split("T")[0];
+            fcOrders = cobradas.filter(o => { if (!o.cajaDate) return false; return o.cajaDate >= wStart && o.cajaDate <= wEnd; });
+          }
+          // Recalculate FC counts for this period
+          const fcConFactura = fcOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T"));
+          const fcConTicket = fcOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T"));
+          const fcFactA = fcConFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "A"));
+          const fcFactB = fcConFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B"));
+          const fcFactC = fcConFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "C"));
+          const cntA = fcFactA.length, cntB = fcFactB.length, cntC = fcFactC.length;
+
+          // Apply FC type filter
+          let allCobradas = fcOrders.sort((a, b) => (b.cajaDate || b.date || "").localeCompare(a.cajaDate || a.date || ""));
+          if (fcFilter === "A") allCobradas = fcFactA;
+          else if (fcFilter === "B") allCobradas = fcFactB;
+          else if (fcFilter === "C") allCobradas = fcFactC;
+          else if (fcFilter === "T") allCobradas = fcConTicket;
+
           const requiereFc = (o) => {
             const pays = o.payments || [];
-            if (pays.some(p => p.method === "Tarjeta")) return true;
-            if (pays.some(p => p.method === "Transferencia")) return true;
-            if (pays.some(p => p.method === "Efectivo" && p.withIva)) return true;
-            return false;
+            return pays.some(p => p.method === "Tarjeta") || pays.some(p => p.method === "Transferencia") || pays.some(p => p.method === "Efectivo" && p.withIva);
           };
-          const pendientesFc = allCobradas.filter(o => !o.factura && requiereFc(o));
-          const fcManuales = allCobradas.filter(o => o.fcManual && !o.factura);
+          const pendientesFc = fcOrders.filter(o => !o.factura && requiereFc(o));
+          const fcManuales = fcOrders.filter(o => o.fcManual && !o.factura);
           const canFact = getPerm(user, "facturar") || (user.role === "encargado" && config.encargadoPuedeFacturar);
 
           return (
@@ -10063,7 +10131,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div style={{ ...card, padding: 16, borderLeft: `4px solid ${T.green}` }}>
                   <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Con factura</div>
-                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.green }}>{conFactura.length}</div>
+                  <div style={{ fontFamily: fontD, fontSize: 32, fontWeight: 900, color: T.green }}>{fcConFactura.length}</div>
                 </div>
                 <div style={{ ...card, padding: 16, borderLeft: `4px solid ${pendientesFc.length > 0 ? T.red : T.gray}` }}>
                   <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Pendientes FC</div>
@@ -10072,20 +10140,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 </div>
               </div>
 
-              {/* ── Desglose A / B / C / Comprobantes ── */}
+              {/* ── Filtros FC A / B / C / Comp ── */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
                 {[
-                  { l: "FC A", v: cntA, c: T.accent },
-                  { l: "FC B", v: cntB, c: "#9C27B0" },
-                  { l: "FC C", v: cntC, c: T.orange },
-                  { l: "Comp.", v: conTicket.length, c: T.gray },
-                ].map(s => (
-                  <div key={s.l} style={{ ...card, padding: 14, textAlign: "center", borderTop: `3px solid ${s.c}` }}>
+                  { l: "FC A", k: "A", v: cntA, c: T.accent },
+                  { l: "FC B", k: "B", v: cntB, c: "#9C27B0" },
+                  { l: "FC C", k: "C", v: cntC, c: T.orange },
+                  { l: "Comp.", k: "T", v: fcConTicket.length, c: T.gray },
+                ].map(s => {
+                  const active = fcFilter === s.k;
+                  return (
+                  <div key={s.l} onClick={() => setFcFilter(active ? null : s.k)}
+                    style={{ ...card, padding: 14, textAlign: "center", borderTop: `3px solid ${s.c}`, cursor: "pointer", background: active ? `${s.c}15` : T.bg2, boxShadow: active ? `0 0 0 2px ${s.c}` : "none", transition: "all .15s" }}>
                     <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 900, color: s.c }}>{s.v}</div>
-                    <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{s.l}</div>
+                    <div style={{ fontSize: 11, color: active ? s.c : T.gray, marginTop: 2, fontWeight: active ? 800 : 400 }}>{s.l}{active ? " ✓" : ""}</div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
+
+              {/* ── Filtro activo indicator ── */}
+              {fcFilter && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: T.bg, border: `1px solid ${T.border}` }}>
+                  <span style={{ fontSize: 12, color: T.grayLight, fontWeight: 600 }}>Mostrando: <strong style={{ color: T.white }}>{fcFilter === "T" ? "Comprobantes" : "Factura " + fcFilter}</strong> ({allCobradas.length})</span>
+                  <span onClick={() => setFcFilter(null)} style={{ fontSize: 11, color: T.accent, cursor: "pointer", fontWeight: 700 }}>✕ Ver todo</span>
+                </div>
+              )}
 
               {/* ── Listado ── */}
               {allCobradas.length === 0 ? (
