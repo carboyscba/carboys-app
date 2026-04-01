@@ -7069,9 +7069,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   }, []);
 
   const _now = new Date();
-  const _dayOfWeek = _now.getDay(); // 0=dom, 1=lun, ..., 6=sab
-  const _mondayOffset = _dayOfWeek === 0 ? 6 : _dayOfWeek - 1; // días desde el lunes
-  const weekStart = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - _mondayOffset).toISOString().split("T")[0];
+  // Semana por día del mes: S1(1-7), S2(8-14), S3(15-21), S4(22-28), S5(29+) — igual que cierre
+  const _todayDom = _now.getDate();
+  const _semStart = _todayDom <= 7 ? 1 : _todayDom <= 14 ? 8 : _todayDom <= 21 ? 15 : _todayDom <= 28 ? 22 : 29;
+  const weekStart = new Date(_now.getFullYear(), _now.getMonth(), _semStart).toISOString().split("T")[0];
   const monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().split("T")[0];
   const yearStart = new Date(_now.getFullYear(), 0, 1).toISOString().split("T")[0];
   const startDate = period === "dia" ? today : period === "semana" ? weekStart : period === "anual" ? yearStart : monthStart;
@@ -8408,7 +8409,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const allOrders = orders.filter(o => o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status) || ["pending","working","done","delivered","inspection","inspection_done"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
           // workOrders = solo órdenes de trabajo (excluye presupuestos) para vista normal
           const workOrders = allOrders.filter(o => !["budget_sent","budget_approved","budget_closed"].includes(o.status));
-          const years = [...new Set(workOrders.map(o => new Date(o.date || Date.now()).getFullYear()))].sort((a, b) => b - a);
+          // Parse year/month from string directly to avoid timezone bugs (new Date("2026-04-01") = March 31 in UTC-3)
+          const dateYr = (d) => parseInt((d || "").slice(0, 4)) || new Date().getFullYear();
+          const dateMo = (d) => parseInt((d || "").slice(5, 7)) - 1; // 0-indexed
+          const years = [...new Set(workOrders.map(o => dateYr(o.date)))].sort((a, b) => b - a);
           const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
           // ── Helper método de pago resumido ──
@@ -8540,8 +8544,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             // Group by year+month
             const byMonth = {};
             matched.forEach(o => {
-              const d = new Date(o.date || Date.now());
-              const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+              const key = `${dateYr(o.date)}-${String(dateMo(o.date)+1).padStart(2,"0")}`;
               if (!byMonth[key]) byMonth[key] = [];
               byMonth[key].push(o);
             });
@@ -8550,7 +8553,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             // Aggregate per year for summary
             const byYear = {};
             matched.forEach(o => {
-              const y = new Date(o.date || Date.now()).getFullYear();
+              const y = dateYr(o.date);
               if (!byYear[y]) byYear[y] = { orders: [], total: 0 };
               byYear[y].orders.push(o);
               if (!["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status)) {
@@ -8665,8 +8668,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           }
 
           // ── VISTA NORMAL POR AÑO/MES ──
-          const yearOrders = workOrders.filter(o => new Date(o.date || Date.now()).getFullYear() === histYear);
-          const monthOrders = histMonth !== null ? yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === histMonth) : null;
+          const yearOrders = workOrders.filter(o => dateYr(o.date) === histYear);
+          const monthOrders = histMonth !== null ? yearOrders.filter(o => dateMo(o.date) === histMonth) : null;
 
           return (
             <div>
@@ -8694,7 +8697,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
-                    const mOrders = yearOrders.filter(o => new Date(o.date || Date.now()).getMonth() === mi);
+                    const mOrders = yearOrders.filter(o => dateMo(o.date) === mi);
                     const mReal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status));
                     const cnt = mReal.length;
                     const mTotal = mReal.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
@@ -9371,43 +9374,65 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           <button onClick={() => setShowCierre(true)} style={{ ...btnPrimary(T.accent), fontSize: 13, flex: 1 }}>📋 Cierre de Caja</button>
         </div>
 
-        {cierres.length > 0 && (
+        {cierres.length > 0 && (() => {
+          // Group cierres by year → month
+          const cierresByMonth = {};
+          cierres.forEach(c => {
+            const d = c.periodoDesde || c.fecha || "";
+            const yr = d.slice(0, 4);
+            const mo = parseInt(d.slice(5, 7)) - 1;
+            const key = `${yr}-${String(mo).padStart(2, "0")}`;
+            if (!cierresByMonth[key]) cierresByMonth[key] = { yr: parseInt(yr), mo, cierres: [] };
+            cierresByMonth[key].cierres.push(c);
+          });
+          const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+          const sortedMonths = Object.entries(cierresByMonth).sort((a, b) => b[0].localeCompare(a[0])); // newest first
+          return (
           <div style={{ ...card, padding: 16 }}>
             <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📜 Historial de cierres</div>
-            {cierres.slice(-10).reverse().map((c, i) => {
-              const dif = c.diferencia || 0;
-              const difColor = Math.abs(dif) < 100 ? T.green : dif > 0 ? T.accent : T.red;
-              const difLabel = Math.abs(dif) < 100 ? "✅ OK" : dif > 0 ? `▲ +${fmt(Math.abs(dif))}` : `▼ -${fmt(Math.abs(dif))}`;
-              return (
-                <div key={i} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div>
-                      <span style={{ fontWeight: 700, fontSize: 13 }}>{c.semanaLabel || "📋 " + c.fecha}</span>
-                      {c.periodoDesde && <span style={{ fontSize: 10, color: T.gray, marginLeft: 8 }}>{fmtDate(c.periodoDesde)} — {fmtDate(c.periodoHasta)}</span>}
-                    </div>
-                    <span style={{ fontWeight: 800, fontSize: 13, color: difColor, fontFamily: fontD }}>{difLabel}</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
-                    <span style={{ color: T.gray }}>Sistema: <strong style={{ color: T.grayLight }}>{fmt(c.saldoSistema)}</strong></span>
-                    <span style={{ color: T.gray }}>Contado: <strong style={{ color: T.white }}>{fmt(c.saldoReal)}</strong></span>
-                    <span style={{ fontSize: 10, color: T.gray }}>Cerrado: {fmtDate(c.fecha)}</span>
-                  </div>
-                  {/* Desglose si existe */}
-                  {c.desglose && (
-                    <div style={{ marginTop: 6, padding: "6px 10px", borderRadius: 8, background: T.bg, fontSize: 11, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {c.desglose.efectivo > 0 && <span style={{ color: T.green }}>💵 {fmt(c.desglose.efectivo)}</span>}
-                      {c.desglose.tarjeta > 0 && <span style={{ color: "#9C27B0" }}>💳 {fmt(c.desglose.tarjeta)}</span>}
-                      {c.desglose.transferencia > 0 && <span style={{ color: T.accent }}>🔁 {fmt(c.desglose.transferencia)}</span>}
-                      {c.desglose.ctaCte > 0 && <span style={{ color: T.orange }}>📒 {fmt(c.desglose.ctaCte)}</span>}
-                      {c.desglose.egresosEf > 0 && <span style={{ color: T.red }}>🏧 -{fmt(c.desglose.egresosEf)}</span>}
-                      {c.desglose.egresosVirt > 0 && <span style={{ color: "#FF6B6B" }}>💸 -{fmt(c.desglose.egresosVirt)}</span>}
-                    </div>
-                  )}
+            {sortedMonths.map(([key, group]) => (
+              <div key={key} style={{ marginBottom: 8 }}>
+                <div onClick={() => setExpandedWeek(expandedWeek === key ? null : key)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: T.bg, borderRadius: 8, cursor: "pointer", border: `1px solid ${T.border}` }}>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>{monthNames[group.mo]} {group.yr}</span>
+                  <span style={{ fontSize: 12, color: T.gray }}>{group.cierres.length} cierre{group.cierres.length > 1 ? "s" : ""} {expandedWeek === key ? "▼" : "▶"}</span>
                 </div>
-              );
-            })}
+                {expandedWeek === key && group.cierres.sort((a, b) => (a.periodoDesde || a.fecha || "").localeCompare(b.periodoDesde || b.fecha || "")).map((c, i) => {
+                  const dif = c.diferencia || 0;
+                  const difColor = Math.abs(dif) < 100 ? T.green : dif > 0 ? T.accent : T.red;
+                  const difLabel = Math.abs(dif) < 100 ? "✅ OK" : dif > 0 ? `▲ +${fmt(Math.abs(dif))}` : `▼ -${fmt(Math.abs(dif))}`;
+                  return (
+                    <div key={i} style={{ padding: "12px 12px", borderBottom: `1px solid ${T.border}`, marginLeft: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontWeight: 700, fontSize: 13 }}>{c.semanaLabel || "📋 Cierre"}</span>
+                          {c.periodoDesde && <span style={{ fontSize: 10, color: T.gray, marginLeft: 8 }}>{fmtDate(c.periodoDesde)} — {fmtDate(c.periodoHasta)}</span>}
+                        </div>
+                        <span style={{ fontWeight: 800, fontSize: 13, color: difColor, fontFamily: fontD }}>{difLabel}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
+                        <span style={{ color: T.gray }}>Sistema: <strong style={{ color: T.grayLight }}>{fmt(c.saldoSistema)}</strong></span>
+                        <span style={{ color: T.gray }}>Contado: <strong style={{ color: T.white }}>{fmt(c.saldoReal)}</strong></span>
+                        <span style={{ fontSize: 10, color: T.gray }}>Cerrado: {fmtDate(c.fecha)}</span>
+                      </div>
+                      {c.desglose && (
+                        <div style={{ marginTop: 6, padding: "6px 10px", borderRadius: 8, background: T.bg, fontSize: 11, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          {c.desglose.efectivo > 0 && <span style={{ color: T.green }}>💵 {fmt(c.desglose.efectivo)}</span>}
+                          {c.desglose.tarjeta > 0 && <span style={{ color: "#9C27B0" }}>💳 {fmt(c.desglose.tarjeta)}</span>}
+                          {c.desglose.transferencia > 0 && <span style={{ color: T.accent }}>🔁 {fmt(c.desglose.transferencia)}</span>}
+                          {c.desglose.ctaCte > 0 && <span style={{ color: T.orange }}>📒 {fmt(c.desglose.ctaCte)}</span>}
+                          {c.desglose.egresosEf > 0 && <span style={{ color: T.red }}>🏧 -{fmt(c.desglose.egresosEf)}</span>}
+                          {c.desglose.egresosVirt > 0 && <span style={{ color: "#FF6B6B" }}>💸 -{fmt(c.desglose.egresosVirt)}</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-        )}
+          );
+        })()}
 
         {/* ══ POPUP REGISTRAR EGRESO ══ */}
         {showEgreso && (
