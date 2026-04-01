@@ -19564,6 +19564,7 @@ export default function App() {
 
   // ── Force sync: re-fetch all collections from Firestore immediately ──
   const forceSyncRef = useRef(null);
+  const mergeOrdersRef = useRef(null);
   const forceSync = useCallback(async () => {
     if (syncState === 'syncing') return;
     setSyncState('syncing');
@@ -19572,11 +19573,23 @@ export default function App() {
         fsGetCol('orders'), fsGetCol('clients'), fsGetDoc('meta', 'config')
       ]);
       if (fsOrders.length > 0) {
+        // USE mergeOrders instead of raw replacement — protects local cobro data
+        mergeOrdersRef.current(fsOrders);
+        // Push any locally-modified orders that Firestore doesn't have yet
         _setOrders(prev => {
           const fsMap = Object.fromEntries(fsOrders.map(d => [String(d.id), d]));
-          const pending = prev.filter(o => !fsMap[String(o.id)]);
-          fsOrders.forEach(d => idbSave('orders', d.id, d, true).catch(() => {}));
-          return [...fsOrders, ...pending].sort(cmpId);
+          prev.forEach(o => {
+            const fs = fsMap[String(o.id)];
+            // If local has cobrado/cajaDate/payments that Firestore doesn't → push to Firestore
+            if (fs && (
+              (o.cobrado === true && fs.cobrado !== true) ||
+              (o.cajaDate && !fs.cajaDate) ||
+              (o.payments && o.payments.length > 0 && (!fs.payments || fs.payments.length === 0))
+            )) {
+              fsSave('orders', o.id, o).then(() => idbMarkSynced('orders', String(o.id))).catch(console.error);
+            }
+          });
+          return prev; // no state change, just push pending data
         });
       }
       if (fsClients.length > 0) {
@@ -19911,6 +19924,8 @@ export default function App() {
         return [...fromFs, ...pending].sort(cmpId);
       });
     };
+
+    mergeOrdersRef.current = mergeOrders;
 
     const mergeClients = (fsDocs) => {
       if (fsDocs.length === 0) return;
