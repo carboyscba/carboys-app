@@ -7284,18 +7284,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     let importeTotal, importeNeto, importeIva;
     const ivaRate = config.ivaRate || 21;
     if (tipoFC === "A" || tipoFC === "B") {
-      // FC A y FC B: ARCA espera neto + IVA 21%
-      // FC A: IVA discriminado en factura
-      // FC B: IVA no discriminado al cliente, pero ARCA necesita alícuota 21%
-      const mainHasIva = mainPay.withIva === true;
-      if (mainHasIva && totalCobrado > totalBase) {
-        // El pago ya incluye IVA → reverse-calcular base neta
-        importeNeto = Math.round(totalCobrado / (1 + ivaRate / 100) * 100) / 100;
-      } else {
-        importeNeto = totalBase;
-      }
-      importeIva = Math.round(importeNeto * ivaRate / 100 * 100) / 100;
-      importeTotal = Math.round((importeNeto + importeIva) * 100) / 100;
+      // FC A y FC B: ARCA espera neto + IVA 21%, alícuota siempre 21%
+      // importeTotal = lo que el cliente REALMENTE pagó (sea con o sin IVA)
+      // Luego reverse-calculamos neto = total / 1.21 para ARCA
+      importeTotal = totalCobrado || totalBase;
+      importeNeto = Math.round(importeTotal / (1 + ivaRate / 100) * 100) / 100;
+      importeIva = Math.round((importeTotal - importeNeto) * 100) / 100;
     } else {
       // FC C: Monotributo, sin IVA → total en ImpNeto
       importeTotal = totalCobrado || totalBase;
@@ -8700,14 +8694,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               {/* Grid de meses */}
               <div style={{ ...card, padding: 16, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>
-                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0))}
+                  {histYear} — {yearOrders.length} orden{yearOrders.length !== 1 ? "es" : ""} — Total: {fmt(yearOrders.reduce((s, o) => { const paid = (o.payments||[]).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0); if (paid > 0) return s + paid; const base = (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0); const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva; return s + (o.factura?.importeTotal || (hasIva ? Math.round(base * (1 + (config.ivaRate||21) / 100)) : base)); }, 0))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {months.map((m, mi) => {
                     const mOrders = yearOrders.filter(o => dateMo(o.date) === mi);
                     const mReal = mOrders.filter(o => !["budget_sent","budget_approved","budget_closed","cancelled"].includes(o.status));
                     const cnt = mReal.length;
-                    const mTotal = mReal.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const mIvaR = config.ivaRate || 21;
+                    const mTotal = mReal.reduce((s, o) => {
+                      const paid = (o.payments||[]).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
+                      if (paid > 0) return s + paid;
+                      const base = (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0);
+                      const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
+                      return s + (o.factura?.importeTotal || (hasIva ? Math.round(base * (1 + mIvaR / 100)) : base));
+                    }, 0);
                     return (
                       <div key={mi} onClick={() => { setHistMonth(histMonth === mi ? null : mi); setHistWeekExp(null); }}
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
@@ -8752,7 +8753,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const renderOrder = (o) => {
                   const cl = clients.find(c => matchId(c.id, o.clientId));
                   const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-                  const total = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                  const baseTotal = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                  // Show actual paid amount: payments > factura > base+IVA > base
+                  const paidTotal = (o.payments||[]).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                  const ivaR = config.ivaRate || 21;
+                  const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
+                  const total = paidTotal > 0 ? paidTotal : (o.factura?.importeTotal || (hasIva ? Math.round(baseTotal * (1 + ivaR / 100)) : baseTotal));
                   const metodo = metodoLabel(o);
                   const isBudget = ["budget_sent","budget_approved","budget_closed"].includes(o.status);
                   const isChequeo = !!o.isChequeo;
@@ -8785,7 +8791,14 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   const lastDay = new Date(histYear, histMonth + 1, 0).getDate();
                   return wks.map(wk => {
                     const wkOrders = weekGroups[wk];
-                    const wkTotal = wkOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const wkIvaR = config.ivaRate || 21;
+                    const wkTotal = wkOrders.reduce((s, o) => {
+                      const paid = (o.payments||[]).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0);
+                      if (paid > 0) return s + paid;
+                      const base = (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0);
+                      const hasIva = (o.payments||[]).some(p => p.withIva) || o.paymentPref?.withIva;
+                      return s + (o.factura?.importeTotal || (hasIva ? Math.round(base * (1 + wkIvaR / 100)) : base));
+                    }, 0);
                     const wkStart = wk == 1 ? 1 : wk == 2 ? 8 : wk == 3 ? 15 : wk == 4 ? 22 : 29;
                     const wkEnd = wk == 1 ? 7 : wk == 2 ? 14 : wk == 3 ? 21 : wk == 4 ? 28 : Math.min(31, lastDay);
                     const isExpanded = histWeekExp === Number(wk);
@@ -10090,12 +10103,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         {(() => {
           // Compute custom period for facturas based on expanded selectors
-          let fcOrders = periodOrders;
+          // Also include orders with factura that may not have cajaDate (emitted before cobro)
+          const completed2 = orders.filter(o => o.status === "done" || o.status === "delivered");
+          const getOrderDate = (o) => o.cajaDate || (o.factura?.emitidaEn ? o.factura.emitidaEn.split("T")[0] : null) || o.date || "";
+          let fcOrders;
           if (fcExpandPeriod === "mes" && fcSelMonth !== null) {
             const yr = new Date().getFullYear();
             const mStart = `${yr}-${String(fcSelMonth + 1).padStart(2, "0")}-01`;
             const mEnd = new Date(yr, fcSelMonth + 1, 0).toISOString().split("T")[0];
-            fcOrders = cobradas.filter(o => { if (!o.cajaDate) return false; return o.cajaDate >= mStart && o.cajaDate <= mEnd; });
+            fcOrders = completed2.filter(o => (o.cobrado || o.isQuickSale || o.factura) && getOrderDate(o) >= mStart && getOrderDate(o) <= mEnd);
           } else if (fcExpandPeriod === "semana" && fcSelWeek !== null) {
             const yr = new Date().getFullYear();
             const mo = new Date().getMonth();
@@ -10103,14 +10119,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const ends = [7, 14, 21, 28, new Date(yr, mo + 1, 0).getDate()];
             const wStart = new Date(yr, mo, starts[fcSelWeek - 1]).toISOString().split("T")[0];
             const wEnd = new Date(yr, mo, Math.min(ends[fcSelWeek - 1], new Date(yr, mo + 1, 0).getDate())).toISOString().split("T")[0];
-            fcOrders = cobradas.filter(o => { if (!o.cajaDate) return false; return o.cajaDate >= wStart && o.cajaDate <= wEnd; });
+            fcOrders = completed2.filter(o => (o.cobrado || o.isQuickSale || o.factura) && getOrderDate(o) >= wStart && getOrderDate(o) <= wEnd);
+          } else {
+            // Default period: merge periodOrders + orders with factura in same date range
+            const extraFc = completed2.filter(o => o.factura && !o.cajaDate && getOrderDate(o) >= startDate && getOrderDate(o) <= today);
+            fcOrders = [...periodOrders, ...extraFc.filter(o => !periodOrders.some(po => po.id === o.id))];
           }
-          // Recalculate FC counts for this period
-          const fcConFactura = fcOrders.filter(o => (o.payments || []).some(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T"));
-          const fcConTicket = fcOrders.filter(o => (o.payments || []).some(p => p.invoiceType === "T"));
-          const fcFactA = fcConFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "A"));
-          const fcFactB = fcConFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "B"));
-          const fcFactC = fcConFactura.filter(o => (o.payments || []).some(p => p.invoiceType === "C"));
+          // Detect FC type from o.factura.tipo OR from payments.invoiceType
+          const getFcTipo = (o) => o.factura?.tipo || (o.payments || []).find(p => p.invoiceType && p.invoiceType !== "" && p.invoiceType !== "T")?.invoiceType || null;
+          const hasTicket = (o) => !!o.ticket || (o.payments || []).some(p => p.invoiceType === "T");
+          const fcConFactura = fcOrders.filter(o => getFcTipo(o));
+          const fcConTicket = fcOrders.filter(o => hasTicket(o) && !getFcTipo(o));
+          const fcFactA = fcConFactura.filter(o => getFcTipo(o) === "A");
+          const fcFactB = fcConFactura.filter(o => getFcTipo(o) === "B");
+          const fcFactC = fcConFactura.filter(o => getFcTipo(o) === "C");
           const cntA = fcFactA.length, cntB = fcFactB.length, cntC = fcFactC.length;
 
           // Apply FC type filter
@@ -10194,7 +10216,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 allCobradas.map(o => {
                   const c = clients.find(x => matchId(x.id, o.clientId));
                   const vh = c?.vehicles?.find(v => v.domain === o.domain);
-                  const monto = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                  const paidAmt = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                  const baseAmt = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                  const hasIvaFlag = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
+                  const monto = paidAmt > 0 ? paidAmt : (o.factura?.importeTotal || (hasIvaFlag ? Math.round(baseAmt * (1 + (config.ivaRate || 21) / 100)) : baseAmt));
                   const hasFc = !!o.factura;
                   const hasTicket = !!o.ticket;
                   const tipoFc = hasFc ? o.factura.tipo : null;
@@ -10202,7 +10227,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   const nroTicket = o.ticket?.numero || null;
                   const mustFc = requiereFc(o);
                   const urgente = mustFc && !hasFc;
-                  const mainMethod = (o.payments || []).find(p => p.method)?.method || "";
+                  const mainMethod = (o.payments || []).find(p => p.method)?.method || o.paymentPref?.method || "";
                   const methodIcon = mainMethod === "Efectivo" ? "💵" : mainMethod === "Transferencia" ? "🔁" : mainMethod === "Tarjeta" ? "💳" : mainMethod === "Cuenta Corriente" ? "📒" : "";
                   const withIva = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
                   const borderColor = urgente ? T.red : hasFc ? T.green : hasTicket ? T.orange : T.border;
