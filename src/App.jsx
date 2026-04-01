@@ -19809,28 +19809,6 @@ export default function App() {
       if (ordersReady && clientsReady && configReady) {
         isLoadingRef.current = false;
         setDbLoading(false);
-        // ── ONE-TIME DATA PATCH: fix orders with factura but missing cajaDate ──
-        // Delay to ensure Firestore initial sync has completed
-        setTimeout(() => {
-          _setOrders(prev => {
-            let patched = false;
-            const next = prev.map(o => {
-              if (o.factura && o.cobrado !== false && !o.cajaDate) {
-                patched = true;
-                const fixDate = o.factura.emitidaEn ? o.factura.emitidaEn.split('T')[0] : new Date().toISOString().split('T')[0];
-                return { ...o, cobrado: true, cajaDate: fixDate };
-              }
-              return o;
-            });
-            if (patched) {
-              next.filter((o, i) => o !== prev[i]).forEach(o => {
-                idbSave('orders', o.id, o, false).catch(console.error);
-                fsSave('orders', o.id, o).then(() => idbMarkSynced('orders', String(o.id))).catch(console.error);
-              });
-            }
-            return patched ? next : prev;
-          });
-        }, 5000);
       }
     };
 
@@ -19907,15 +19885,27 @@ export default function App() {
             ...(local.factura     !== undefined ? { factura: local.factura } : fsDoc.factura ? { factura: fsDoc.factura } : {}),
             ...(local.ticket      !== undefined ? { ticket:  local.ticket  } : fsDoc.ticket  ? { ticket:  fsDoc.ticket  } : {}),
           };
+          // AUTO-FIX: order has factura but lost cajaDate → recover from factura.emitidaEn
+          const mergedFc = merged.factura || local.factura || fsDoc.factura;
+          if (mergedFc && !merged.cajaDate && merged.cobrado !== false) {
+            merged.cajaDate = mergedFc.emitidaEn ? mergedFc.emitidaEn.split('T')[0] : (mergedFc.fecha ? String(mergedFc.fecha).slice(0, 10) : new Date().toISOString().split('T')[0]);
+            merged.cobrado = true;
+          }
           return merged;
         });
 
         // Pendientes locales (IDB _synced:false) que Firestore todavía no tiene
         const pending = prev.filter(o => !fsMap[String(o.id)]);
 
-        // Actualizar IDB con versión mergeada
+        // Actualizar IDB con versión mergeada + push auto-fixed orders to Firestore
         fromFs.forEach(merged => {
-          idbSave('orders', merged.id, merged, true).catch(console.error);
+          const fsOriginal = fsMap[String(merged.id)];
+          const wasAutoFixed = merged.cajaDate && !fsOriginal.cajaDate;
+          idbSave('orders', merged.id, merged, !wasAutoFixed).catch(console.error);
+          // Push auto-fixed orders to Firestore so all tablets get the fix
+          if (wasAutoFixed) {
+            fsSave('orders', merged.id, merged).then(() => idbMarkSynced('orders', String(merged.id))).catch(console.error);
+          }
         });
 
         return [...fromFs, ...pending].sort(cmpId);
