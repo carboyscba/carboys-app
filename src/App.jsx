@@ -6518,6 +6518,12 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
                 <span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span>
               </div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 10, fontSize: 11, color: "#9badc4", lineHeight: 1.6 }}>
+                <div>{config.tallerNombre || "CarBoys"}</div>
+                {config.tallerDir && <div style={{ fontSize: 10 }}>{config.tallerDir}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>}
+                {(config.tallerTel || config.tallerCel) && <div style={{ fontSize: 10 }}>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? (config.tallerTel ? " · " : "") + "Cel: " + config.tallerCel : ""}</div>}
+                {config.tallerIG && <div style={{ fontSize: 10 }}>{config.tallerIG}</div>}
+              </div>
             </div>
             {/* Sello Comprobante */}
             <div style={{ textAlign: "center" }}>
@@ -6587,51 +6593,54 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
             })}
           </div>
 
-          {/* Totales */}
-          <div style={{ padding: "16px 28px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <div style={{ minWidth: 260 }}>
-                {withIva && (
-                  <>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
-                      <span>Subtotal</span>
-                      <span style={{ fontWeight: 600, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(total)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
-                      <span>IVA {iva}%</span>
-                      <span style={{ fontWeight: 600, color: "#1e88e5" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(ivaAmt)}</span>
-                    </div>
-                  </>
-                )}
-                <div style={{ height: 2, background: "#e2e8f0", margin: "8px 0" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800 }}>
-                  <span style={{ color: "#0d1526" }}>TOTAL</span>
-                  <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(totalFinal)}</span>
+          {/* Bloque inferior: Total + Forma de pago + Disclaimer + Footer — se empuja al fondo de la página */}
+          <div style={{ marginTop: "auto" }}>
+            {/* Totales */}
+            <div style={{ padding: "16px 28px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <div style={{ minWidth: 260 }}>
+                  {withIva && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
+                        <span>Subtotal</span>
+                        <span style={{ fontWeight: 600, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(total)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
+                        <span>IVA {iva}%</span>
+                        <span style={{ fontWeight: 600, color: "#1e88e5" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(ivaAmt)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div style={{ height: 2, background: "#e2e8f0", margin: "8px 0" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800 }}>
+                    <span style={{ color: "#0d1526" }}>TOTAL</span>
+                    <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 22, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(totalFinal)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Forma de pago */}
-          <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Forma de Pago</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {(payments || order.payments || []).map((pm, i) => (
-                <div key={i} style={{ padding: "6px 14px", borderRadius: 20, background: "#e2e8f0", fontSize: 12, fontWeight: 600, color: "#0d1526" }}>
-                  {pm.method}
-                </div>
-              ))}
+            {/* Forma de pago */}
+            <div style={{ padding: "16px 28px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Forma de Pago</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {(payments || order.payments || []).map((pm, i) => (
+                  <div key={i} style={{ padding: "6px 14px", borderRadius: 20, background: "#e2e8f0", fontSize: 12, fontWeight: 600, color: "#0d1526" }}>
+                    {pm.method}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Disclaimer */}
-          <div style={{ padding: "14px 28px", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>
-            <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Este comprobante no tiene validez fiscal. No es factura ni ticket fiscal.</div>
-          </div>
+            {/* Disclaimer */}
+            <div style={{ padding: "14px 28px", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Este comprobante no tiene validez fiscal. No es factura ni ticket fiscal.</div>
+            </div>
 
-          {/* Footer */}
-          <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
-            <div style={{ fontSize: 11, color: "#7b8fad" }}>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor • Gracias por su confianza"}</div>
+            {/* Footer */}
+            <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#7b8fad" }}>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor • Gracias por su confianza"}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -6821,6 +6830,8 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
             })}
           </div>
 
+          {/* Bloque inferior: Total + Forma de pago + CAE + Footer — se empuja al fondo de la página */}
+          <div style={{ marginTop: "auto" }}>
           {/* ── TOTALES ── */}
           <div style={{ padding: "16px 28px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -6894,6 +6905,7 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
           <div style={{ padding: "12px 28px", background: "#0d1526", textAlign: "center" }}>
             <div style={{ fontSize: 11, color: "#7b8fad" }}>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor • Este comprobante es válido como factura"}</div>
           </div>
+          </div>{/* cierre bloque inferior marginTop auto */}
         </div>
       </div>
     </div>
