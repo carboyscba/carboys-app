@@ -6953,9 +6953,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [showAnularConfirm, setShowAnularConfirm] = useState(false);
   const [anularMotivoAdmin, setAnularMotivoAdmin] = useState("");
   const [histYear, setHistYear] = useState(new Date().getFullYear());
-  const [histMonth, setHistMonth] = useState(null);
+  const [histMonth, setHistMonth] = useState(new Date().getMonth());
   const [histSearch, setHistSearch] = useState("");
   const [histDetail, setHistDetail] = useState(null);
+  const [histWeekExp, setHistWeekExp] = useState(null); // expanded week number in historial
   const [statView, setStatView] = useState(null);
   const [egPeriod, setEgPeriod] = useState("mes");
   const [egYear, setEgYear] = useState(new Date().getFullYear());
@@ -8708,7 +8709,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     const cnt = mReal.length;
                     const mTotal = mReal.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
                     return (
-                      <div key={mi} onClick={() => setHistMonth(histMonth === mi ? null : mi)}
+                      <div key={mi} onClick={() => { setHistMonth(histMonth === mi ? null : mi); setHistWeekExp(null); }}
                         style={{ padding: "10px 6px", borderRadius: 8, cursor: "pointer", textAlign: "center",
                           border: `1px solid ${histMonth === mi ? T.accent : T.border}`,
                           background: histMonth === mi ? `${T.accent}15` : cnt > 0 ? T.bg : T.bg2 }}>
@@ -8780,16 +8781,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 };
 
                 if (useWeeks && weekGroups) {
-                  const wks = Object.keys(weekGroups).sort((a, b) => Number(a) - Number(b));
+                  const wks = Object.keys(weekGroups).sort((a, b) => Number(b) - Number(a)); // newest first
+                  const lastDay = new Date(histYear, histMonth + 1, 0).getDate();
                   return wks.map(wk => {
-                    const wkTotal = weekGroups[wk].reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const wkOrders = weekGroups[wk];
+                    const wkTotal = wkOrders.reduce((s, o) => s + (o.works||[]).reduce((s2, w) => s2 + (parseFloat(w.price) || 0), 0), 0);
+                    const wkStart = wk == 1 ? 1 : wk == 2 ? 8 : wk == 3 ? 15 : wk == 4 ? 22 : 29;
+                    const wkEnd = wk == 1 ? 7 : wk == 2 ? 14 : wk == 3 ? 21 : wk == 4 ? 28 : Math.min(31, lastDay);
+                    const isExpanded = histWeekExp === Number(wk);
                     return (
-                      <div key={"wk-" + wk} style={{ marginBottom: 16 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: T.accent + "12", borderRadius: 8, marginBottom: 8, borderLeft: "4px solid " + T.accent }}>
-                          <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: T.accent }}>Semana {wk} <span style={{ fontWeight: 600, fontSize: 12, color: T.grayLight }}>({wk == 1 ? "1 al 7" : wk == 2 ? "8 al 14" : wk == 3 ? "15 al 21" : wk == 4 ? "22 al 28" : "29 al 31"})</span></span>
-                          <span style={{ fontSize: 12, color: T.gray }}>{weekGroups[wk].length} orden{weekGroups[wk].length !== 1 ? "es" : ""} \u2022 {fmt(wkTotal)}</span>
+                      <div key={"wk-" + wk} style={{ marginBottom: 10 }}>
+                        <div onClick={() => setHistWeekExp(isExpanded ? null : Number(wk))}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: isExpanded ? T.accent + "18" : T.bg2, borderRadius: 10, cursor: "pointer", borderLeft: "4px solid " + (isExpanded ? T.accent : T.border), border: `1px solid ${isExpanded ? T.accent : T.border}`, transition: "all .15s" }}>
+                          <div>
+                            <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: isExpanded ? T.accent : T.white }}>Semana {wk}</span>
+                            <span style={{ fontSize: 11, color: T.gray, marginLeft: 8 }}>{wkStart} al {wkEnd}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 12, color: T.green, fontWeight: 700, fontFamily: fontD }}>{fmt(wkTotal)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: isExpanded ? T.accent : T.gray, background: isExpanded ? T.accent + "20" : T.bg, padding: "3px 10px", borderRadius: 6 }}>{wkOrders.length} {isExpanded ? "▼" : "▶"}</span>
+                          </div>
                         </div>
-                        {weekGroups[wk].map(renderOrder)}
+                        {isExpanded && (
+                          <div style={{ marginTop: 6, marginLeft: 4 }}>
+                            {wkOrders.map(renderOrder)}
+                          </div>
+                        )}
                       </div>
                     );
                   });
