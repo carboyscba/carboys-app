@@ -17540,15 +17540,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
         </div>
         <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+                {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
+              </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
               <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
               <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-              <div>{config.tallerIG || ""}</div>
+              {config.tallerIG && <div>{config.tallerIG}</div>}
             </div>
           </div>
 
@@ -17620,6 +17624,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             </div>
           </div>
 
+          {/* Bloque inferior — se empuja al fondo */}
+          <div style={{ marginTop: "auto" }}>
           {/* Work details */}
           <div style={{ padding: "8px 22px 16px" }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJO REALIZADO</div>
@@ -17641,6 +17647,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
+          </div>{/* cierre bloque inferior */}
         </div>
       </div>
     );
@@ -17677,15 +17684,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
         </div>
         <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+                {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
+              </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
               <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
               <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-              <div>{config.tallerIG || ""}</div>
+              {config.tallerIG && <div>{config.tallerIG}</div>}
             </div>
           </div>
 
@@ -17852,6 +17863,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             </div>
           </div>
 
+          {/* Bloque inferior — se empuja al fondo */}
+          <div style={{ marginTop: "auto" }}>
           {/* Work details */}
           <div style={{ padding: "4px 22px 16px" }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
@@ -17919,6 +17932,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
+          </div>{/* cierre bloque inferior */}
         </div>
       </div>
     );
@@ -17941,15 +17955,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
         </div>
         <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
               <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+                {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
+              </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
               <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
               <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-              <div>{config.tallerIG || ""}</div>
+              {config.tallerIG && <div>{config.tallerIG}</div>}
             </div>
           </div>
           {/* Title */}
@@ -17975,6 +17993,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ padding: "8px 22px" }}>
             <InterventionDiagram order={order} sheet={sheet} />
           </div>
+          {/* Bloque inferior — se empuja al fondo */}
+          <div style={{ marginTop: "auto" }}>
           {/* Trabajos */}
           <div style={{ padding: "8px 22px 16px" }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
@@ -18051,6 +18071,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
+          </div>{/* cierre bloque inferior */}
         </div>
       </div>
     );
@@ -18287,15 +18308,19 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <button onClick={() => sendFojaWA(isPF ? "Informe de Intervencion" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
       </div>
       <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
-        <div style={{ background: "#0d1526", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
             <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+            <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 600 }}>{config.tallerNombre || "CarBoys"}</div>
+              {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
+            </div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 10, color: "#7b8fad", lineHeight: 1.6 }}>
+          <div style={{ textAlign: "right", fontSize: 10, color: "#9badc4", lineHeight: 1.6 }}>
             <div>{(config.tallerDir || "")}{config.tallerCiudad ? ", " + config.tallerCiudad : ""}</div>
             <div>{config.tallerTel ? "Tel: " + config.tallerTel : ""}{config.tallerCel ? " · Cel: " + config.tallerCel : ""}</div>
-            <div>{config.tallerIG || ""}</div>
+            {config.tallerIG && <div>{config.tallerIG}</div>}
           </div>
         </div>
         <div style={{ background: "#F7F9FC", padding: "6px 22px", borderBottom: "1px solid #E8ECF2", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -18401,7 +18426,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             })()}
           </div>
           </>)}
-                    {/* TRABAJOS Y TOTAL */}
+                    {/* BLOQUE INFERIOR — se empuja al fondo de la página */}
+          <div style={{ marginTop: "auto" }}>
           <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "8px 12px", border: "1px solid #EDF0F5", marginBottom: 10 }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#1B2D45", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>TRABAJOS REALIZADOS</div>
             {(order.works || []).map((w, i) => (
@@ -18442,6 +18468,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
             </div>
           </div>}
+          </div>{/* cierre bloque inferior marginTop auto */}
         </div>
         <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 7, color: "#A0AEC0" }}>
           <span>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</span>
