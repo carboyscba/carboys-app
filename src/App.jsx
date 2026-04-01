@@ -19866,26 +19866,36 @@ export default function App() {
         const fromFs = fsDocs.map(fsDoc => {
           const local = prevMap[String(fsDoc.id)];
           if (!local) return fsDoc;
-          // Local siempre gana para campos críticos (el usuario acaba de modificarlos)
-          // Firestore puede traer data vieja del polling anterior
           const localHasAnulacion = !!local.anulacionCobro;
-          return {
+          // CRITICAL: never downgrade cobrado true → null/false unless explicit anulación
+          const localCobrado = localHasAnulacion ? false
+            : (local.cobrado === true ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
+          // CRITICAL: never empty payments that exist locally
+          const localPayments = (local.payments && local.payments.length > 0) ? local.payments : (fsDoc.payments || []);
+          // CRITICAL: never clear cajaDate that exists locally
+          const localCajaDate = localHasAnulacion ? null
+            : (local.cajaDate || fsDoc.cajaDate || null);
+          const merged = {
             ...fsDoc,
-            // Si local anuló (cobrado=false con anulacionCobro), respetar. Si local cobró, respetar también.
-            cobrado:     localHasAnulacion ? false : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado),
-            payments:    local.payments    || fsDoc.payments    || [],
-            cajaDate:    localHasAnulacion ? null : (local.cajaDate !== undefined ? local.cajaDate : fsDoc.cajaDate),
+            cobrado: localCobrado,
+            payments: localPayments,
+            cajaDate: localCajaDate,
             ...(localHasAnulacion ? { anulacionCobro: local.anulacionCobro } : {}),
             ...(local.paymentPref || fsDoc.paymentPref ? { paymentPref: local.paymentPref || fsDoc.paymentPref } : {}),
             ...(local.factura     !== undefined ? { factura: local.factura } : fsDoc.factura ? { factura: fsDoc.factura } : {}),
             ...(local.ticket      !== undefined ? { ticket:  local.ticket  } : fsDoc.ticket  ? { ticket:  fsDoc.ticket  } : {}),
           };
+          // If local had different data than Firestore → push merged to Firestore
+          if (local.cobrado !== fsDoc.cobrado || JSON.stringify(local.payments) !== JSON.stringify(fsDoc.payments) || local.cajaDate !== fsDoc.cajaDate || local.factura !== fsDoc.factura) {
+            fsSave('orders', merged.id, merged).catch(e => console.error('[MERGE→FS]', e));
+          }
+          return merged;
         });
 
         // Pendientes locales (IDB _synced:false) que Firestore todavía no tiene
         const pending = prev.filter(o => !fsMap[String(o.id)]);
 
-        // Actualizar IDB: guardar la versión MERGEADA (respeta cambios locales)
+        // Actualizar IDB con versión mergeada
         fromFs.forEach(merged => {
           idbSave('orders', merged.id, merged, true).catch(console.error);
         });
