@@ -7084,7 +7084,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   };
 
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
-  const cobradas = useMemo(() => completed.filter(o => o.cobrado || o.isQuickSale || (o.status === "delivered" && o.payments && o.payments.length > 0 && o.payments.some(p => parseFloat(p.amount) > 0))), [completed]);
+  const cobradas = useMemo(() => completed.filter(o => o.cobrado === true || o.isQuickSale), [completed]);
   const periodOrders = useMemo(() => cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= startDate && d <= today; }), [cobradas, startDate, today]);
   // ALL orders in period (cobradas or not, excluding cancelled) — for resumen metrics
   const allPeriodOrders = useMemo(() => orders.filter(o => {
@@ -9880,20 +9880,37 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         )}
 
         {/* ══ POPUP CIERRE DE CAJA ══ */}
-        {showCierre && (
+        {showCierre && (() => {
+          // Calculate data for the CIERRE period (may be different from current view period)
+          const cierrePeriodo = faltaCierre ? semanaAnterior : getSemanaRange(semanaActual, todayYear, todayMonth);
+          const cpDesde = cierrePeriodo.desde;
+          const cpHasta = cierrePeriodo.hasta;
+          const cpOrders = cobradas.filter(o => { const d = normDate(o.cajaDate || o.date); return d >= cpDesde && d <= cpHasta; });
+          const cpEgrEf = egresos.filter(e => e.esIngreso !== true && e.metodo !== "Transferencia" && e.metodo !== "Tarjeta").filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
+          const cpEgrVirt = egresos.filter(e => e.esIngreso !== true && (e.metodo === "Transferencia" || e.metodo === "Tarjeta")).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
+          const cpIngExtra = egresos.filter(e => e.esIngreso === true).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
+          const cpIngExEf = cpIngExtra.filter(e => !e.metodo || e.metodo === "Efectivo").reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+          const cpEf = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0) + cpIngExEf;
+          const cpTarj = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Tarjeta" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+          const cpTransf = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Transferencia" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+          const cpCta = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
+          const cpTotalEgr = cpEgrEf.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+          const cpTotalEgrVirt = cpEgrVirt.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
+          const cpSaldo = cpEf - cpTotalEgr;
+          return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📋 Cierre de Caja</div>
               <div style={{ fontSize: 13, color: T.accent, fontWeight: 700, marginBottom: 16 }}>
-                {faltaCierre ? semanaAnterior.label : getSemanaRange(semanaActual, todayYear, todayMonth).label} — {faltaCierre ? fmtDate(semanaAnterior.desde) + " al " + fmtDate(semanaAnterior.hasta) : fmtDate(getSemanaRange(semanaActual, todayYear, todayMonth).desde) + " al " + fmtDate(getSemanaRange(semanaActual, todayYear, todayMonth).hasta)}
+                {cierrePeriodo.label} — {fmtDate(cpDesde)} al {fmtDate(cpHasta)}
               </div>
               <div style={{ ...card, padding: 14, marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Resumen del período</div>
                 {[
-                  { label: "💵 Efectivo cobrado", v: efIngresado, c: T.green },
-                  { label: "💳 Tarjeta cobrado", v: tarjIngresado, c: "#9C27B0" },
-                  { label: "🔁 Transferencias cobradas", v: transfIngresado, c: T.accent },
-                  { label: "📒 Cuenta Corriente", v: ctaCteIngresado, c: T.orange },
+                  { label: "💵 Efectivo cobrado", v: cpEf, c: T.green },
+                  { label: "💳 Tarjeta cobrado", v: cpTarj, c: "#9C27B0" },
+                  { label: "🔁 Transferencias cobradas", v: cpTransf, c: T.accent },
+                  { label: "📒 Cuenta Corriente", v: cpCta, c: T.orange },
                 ].map(s => (
                   <div key={s.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${T.border}` }}>
                     <span style={{ color: T.grayLight }}>{s.label}</span>
@@ -9903,21 +9920,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${T.border}` }}>
                   <span style={{ color: T.red }}>🏧 Egresos efectivo</span>
-                  <span style={{ fontWeight: 700, color: T.red, fontFamily: fontD }}>-{fmt(totalEgr)}</span>
+                  <span style={{ fontWeight: 700, color: T.red, fontFamily: fontD }}>-{fmt(cpTotalEgr)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: `1px solid ${T.border}` }}>
                   <span style={{ color: "#FF6B6B" }}>💸 Egresos virtuales</span>
-                  <span style={{ fontWeight: 700, color: "#FF6B6B", fontFamily: fontD }}>-{fmt(totalEgrVirtual)}</span>
+                  <span style={{ fontWeight: 700, color: "#FF6B6B", fontFamily: fontD }}>-{fmt(cpTotalEgrVirt)}</span>
                 </div>
                 <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800 }}>
                   <span>💰 Saldo en Caja</span>
-                  <span style={{ color: saldoCaja >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt(saldoCaja)}</span>
+                  <span style={{ color: cpSaldo >= 0 ? T.green : T.red, fontFamily: fontD }}>{fmt(cpSaldo)}</span>
                 </div>
               </div>
               <div style={{ marginBottom: 16 }}><label style={labelStyle}>Saldo real en caja *</label><div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>$</span><input inputMode="numeric" value={saldoReal} onChange={e => setSaldoReal(e.target.value.replace(/[^0-9]/g, ""))} style={inputStyle} placeholder="Contá el efectivo..." /></div></div>
               {saldoReal && (() => {
-                const dif = (parseFloat(saldoReal) || 0) - saldoCaja;
+                const dif = (parseFloat(saldoReal) || 0) - cpSaldo;
                 return (
                   <div style={{ ...card, padding: 14, marginBottom: 16, borderColor: Math.abs(dif) < 100 ? T.green : T.red }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700 }}>
@@ -9931,24 +9948,24 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
-                  const cierrePeriodo = faltaCierre ? semanaAnterior : getSemanaRange(semanaActual, todayYear, todayMonth);
                   setCierres(p => [...p, {
                     id: Date.now(),
                     fecha: today,
-                    periodoDesde: cierrePeriodo.desde,
-                    periodoHasta: cierrePeriodo.hasta,
+                    periodoDesde: cpDesde,
+                    periodoHasta: cpHasta,
                     semanaLabel: cierrePeriodo.label,
-                    saldoSistema: saldoCaja,
+                    saldoSistema: cpSaldo,
                     saldoReal: parseFloat(saldoReal) || 0,
-                    diferencia: (parseFloat(saldoReal) || 0) - saldoCaja,
-                    desglose: { efectivo: efIngresado, tarjeta: tarjIngresado, transferencia: transfIngresado, ctaCte: ctaCteIngresado, egresosEf: totalEgr, egresosVirt: totalEgrVirtual }
+                    diferencia: (parseFloat(saldoReal) || 0) - cpSaldo,
+                    desglose: { efectivo: cpEf, tarjeta: cpTarj, transferencia: cpTransf, ctaCte: cpCta, egresosEf: cpTotalEgr, egresosVirt: cpTotalEgrVirt }
                   }]);
                   setSaldoReal(""); setShowCierre(false);
                 }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>)}
 
             {tab === "facturas" && (<div>
