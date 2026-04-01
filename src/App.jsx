@@ -20320,7 +20320,7 @@ export default function App() {
                 },
                 syncing: {
                   bg: 'rgba(255,152,0,.12)', border: 'rgba(255,152,0,.3)', color: T.orange,
-                  icon: '⟳', label: `${syncActive > 1 ? syncActive + ' ' : ''}Sync...`, title: `Guardando ${syncActive} cambio${syncActive > 1 ? 's' : ''}...`
+                  icon: '⟳', label: 'Sync', title: 'Sincronizando...'
                 },
                 ok: {
                   bg: 'rgba(67,160,71,.10)', border: 'rgba(67,160,71,.25)', color: T.green,
