@@ -12129,25 +12129,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         {!selSueldoEmp && (() => {
           const empleados = users.filter(u => u.role !== "dueño" && u.name !== "Gerente General");
           const allSueldos = egresos.filter(e => e.categoria === "sueldo");
-          const mesActual = new Date().toISOString().slice(0, 7);
-          const totalMesActual = allSueldos.filter(e => (e.fecha || "").startsWith(mesActual)).reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-          const totalHistorico = allSueldos.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
 
           return (
             <div>
-              {/* KPI cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.green}` }}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Este mes</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.green }}>{fmt(totalMesActual)}</div>
-                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{allSueldos.filter(e => (e.fecha || "").startsWith(mesActual)).length} pagos</div>
-                </div>
-                <div style={{ ...card, padding: 14, borderLeft: `4px solid ${T.accent}` }}>
-                  <div style={{ fontSize: 10, color: T.gray, textTransform: "uppercase", letterSpacing: .5 }}>Total histórico</div>
-                  <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 800, color: T.accent }}>{fmt(totalHistorico)}</div>
-                  <div style={{ fontSize: 11, color: T.gray, marginTop: 2 }}>{allSueldos.length} pagos</div>
-                </div>
-              </div>
 
               {empleados.length === 0 && <div style={{ ...card, padding: 24, textAlign: "center", color: T.gray }}>Sin empleados configurados</div>}
 
