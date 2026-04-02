@@ -12137,6 +12137,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
               {empleados.map(emp => {
                 const empPagos = allSueldos.filter(e => e.detalle === emp.name);
+                const mesActual = new Date().toISOString().slice(0, 7);
                 const empMesActual = empPagos.filter(e => (e.fecha || "").startsWith(mesActual));
                 const empTotalMes = empMesActual.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
                 const empTotal = empPagos.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
