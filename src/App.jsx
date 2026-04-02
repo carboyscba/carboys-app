@@ -1594,6 +1594,16 @@ const btnPrimary = (c = T.accent) => ({
 const fmt = (n) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 const fmtD = (d) => d ? d.replace(/\s/g, "") : "";
 const fmtDate = (d) => { if (!d) return "—"; const p = String(d).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
+const getBaseTotal = (o) => (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+const getOrderTotal = (o, ivaRate) => {
+  const paid = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  if (paid > 0) return paid;
+  if (o.factura?.importeTotal) return o.factura.importeTotal;
+  const base = getBaseTotal(o);
+  const _iva = ivaRate || 21;
+  const hasIva = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
+  return hasIva ? Math.round(base * (1 + _iva / 100)) : base;
+};
 
 
 // ── NUMPAD COMPONENT ──
@@ -7090,20 +7100,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     return "";
   };
 
-  // ── Helper: precio base sin IVA (suma de works.price) ──
-  const getBaseTotal = (o) => (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
-
-  // ── Helper: precio REAL de la orden (con IVA si corresponde) ──
-  // Prioridad: payments cobrados > factura emitida > base+IVA > base
-  const _ivaR = config.ivaRate || 21;
-  const getOrderTotal = (o) => {
-    const paid = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-    if (paid > 0) return paid;
-    if (o.factura?.importeTotal) return o.factura.importeTotal;
-    const base = getBaseTotal(o);
-    const hasIva = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
-    return hasIva ? Math.round(base * (1 + _ivaR / 100)) : base;
-  };
+  // ── Helper: getOrderTotal y getBaseTotal ahora son globales ──
+  // Se usan directamente sin redefinir. config.ivaRate se pasa donde sea necesario.
 
   const completed = useMemo(() => orders.filter(o => o.status === "done" || o.status === "delivered"), [orders]);
   const cobradas = useMemo(() => completed.filter(o => o.cobrado === true || o.isQuickSale), [completed]);
