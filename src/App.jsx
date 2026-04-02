@@ -1830,7 +1830,7 @@ const NewOrderScreen = (props) => {
     const d = domainSearch.replace(/[^a-z0-9]/gi, "").toUpperCase();
     if (!d) return;
     for (const c of clients) {
-      const v = (c.vehicles || []).find(v => v.domain.replace(/[^a-z0-9]/gi, "").toUpperCase() === d);
+      const v = (c.vehicles || []).find(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toUpperCase() === d);
       if (v) {
         // Vehicle found — show history panel first
         const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled")
@@ -1856,7 +1856,7 @@ const NewOrderScreen = (props) => {
     if (!init?.domain) return;
     const d = init.domain.toUpperCase().trim();
     for (const c of clients) {
-      const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === d.replace(/\s/g, ""));
+      const v = (c.vehicles || []).find(v => (v.domain || "").replace(/\s/g, "") === d.replace(/\s/g, ""));
       if (v) {
         setFoundClient(c); setFoundVehicle(v);
         setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", currentKm: "", lastKm: String(v.km||""), domain: v.domain });
@@ -4477,7 +4477,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
   const [selVehicle, setSelVehicle] = useState(() => {
     if (!initialDomain) return null;
     for (const c of clients) {
-      const v = (c.vehicles || []).find(v => v.domain.replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
+      const v = (c.vehicles || []).find(v => (v.domain || "").replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
       if (v) return v;
     }
     return null;
@@ -4502,7 +4502,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
   const isDomainQuery = /[a-zA-Z]/.test(q) && /[0-9]/.test(q);
 
   const results = q.length > 0 ? clients.filter(c => {
-    const domainMatch = (c.vehicles || []).some(v => v.domain.replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ));
+    const domainMatch = (c.vehicles || []).some(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ));
     if (isDomainQuery) return domainMatch;
     return domainMatch ||
       c.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -4690,7 +4690,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
       {results.map(c => {
         const matchingVehicles = (c.vehicles || []).filter(v => {
           if (!q) return false;
-          return v.domain.replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ);
+          return (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ);
         });
         // If domain search matched specific vehicles, show those. Otherwise show all vehicles for this client.
         const vehiclesToShow = matchingVehicles.length > 0 ? matchingVehicles : (c.vehicles || []);
