@@ -1424,7 +1424,7 @@ const _crossSearchInSucursal = async (suc, searchType, searchValue) => {
 
     for (const c of clients) {
       if (searchType === "domain") {
-        const found = (c.vehicles || []).find(v => (v.domain || "").replace(/\s/g, "").toUpperCase() === sv);
+        const found = (c.vehicles || []).filter(Boolean).find(v => (v.domain || "").replace(/\s/g, "").toUpperCase() === sv);
         if (found) {
           // Traer órdenes de ese dominio
           const rOrd = await fetch(`${base}/orders?pageSize=500`, { headers: h });
@@ -1830,7 +1830,7 @@ const NewOrderScreen = (props) => {
     const d = domainSearch.replace(/[^a-z0-9]/gi, "").toUpperCase();
     if (!d) return;
     for (const c of clients) {
-      const v = (c.vehicles || []).find(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toUpperCase() === d);
+      const v = (c.vehicles || []).filter(Boolean).find(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toUpperCase() === d);
       if (v) {
         // Vehicle found — show history panel first
         const vOrders = orders.filter(o => o.domain === v.domain && o.status !== "cancelled")
@@ -1856,7 +1856,7 @@ const NewOrderScreen = (props) => {
     if (!init?.domain) return;
     const d = init.domain.toUpperCase().trim();
     for (const c of clients) {
-      const v = (c.vehicles || []).find(v => (v.domain || "").replace(/\s/g, "") === d.replace(/\s/g, ""));
+      const v = (c.vehicles || []).filter(Boolean).find(v => (v.domain || "").replace(/\s/g, "") === d.replace(/\s/g, ""));
       if (v) {
         setFoundClient(c); setFoundVehicle(v);
         setForm({ name: c.name, lastName: c.lastName, dni: c.dni||"", cuit: c.cuit||"", phone: c.phone||"", brand: v.brand, model: v.model, year: String(v.year), km: "", currentKm: "", lastKm: String(v.km||""), domain: v.domain });
@@ -2113,7 +2113,7 @@ const NewOrderScreen = (props) => {
                     (c.cuit && c.cuit.replace(/[^0-9]/g,"").includes(dsNorm)) ||
                     (c.phone && c.phone.includes(dsNorm))
                   );
-                  for (const v of (c.vehicles || [])) {
+                  for (const v of (c.vehicles || []).filter(Boolean)) {
                     if (!v.domain) continue;
                     const domainMatch = v.domain.replace(/[^a-z0-9]/gi, "").toUpperCase().includes(dsNorm);
                     if (domainMatch || clientMatch) {
@@ -2560,7 +2560,7 @@ const NewOrderScreen = (props) => {
                               style={{ background: `${T.red}18`, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 15, color: T.red }} title="Eliminar cliente">🗑️</button>
                           </div>
                         </div>
-                        {(c.vehicles || []).map((v, i) => {
+                        {(c.vehicles || []).filter(Boolean).map((v, i) => {
                           const activeOrder = orders.find(o => o.domain === v.domain && ["pending","working","done","inspection","inspection_done","budget_sent","budget_approved"].includes(o.status));
                           const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                           return (
@@ -2685,7 +2685,7 @@ const NewOrderScreen = (props) => {
                             </div>
                             {vCount > 0 && (
                               <div style={{ fontSize: 10, color: T.accent, marginTop: 2 }}>
-                                {vCount} vehículo{vCount > 1 ? "s" : ""}: {(c.vehicles || []).map(v => fmtD(v.domain)).join(", ")}
+                                {vCount} vehículo{vCount > 1 ? "s" : ""}: {(c.vehicles || []).filter(Boolean).map(v => fmtD(v.domain)).join(", ")}
                               </div>
                             )}
                           </div>
@@ -4324,7 +4324,7 @@ const DashboardScreen = (props) => {
 
   const getVehicleInfo = (order) => {
     const client = clients.find(c => matchId(c.id, order.clientId));
-    const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+    const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
@@ -4477,7 +4477,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
   const [selVehicle, setSelVehicle] = useState(() => {
     if (!initialDomain) return null;
     for (const c of clients) {
-      const v = (c.vehicles || []).find(v => (v.domain || "").replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
+      const v = (c.vehicles || []).filter(Boolean).find(v => (v.domain || "").replace(/\s/g, "") === initialDomain.replace(/\s/g, ""));
       if (v) return v;
     }
     return null;
@@ -4502,7 +4502,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
   const isDomainQuery = /[a-zA-Z]/.test(q) && /[0-9]/.test(q);
 
   const results = q.length > 0 ? clients.filter(c => {
-    const domainMatch = (c.vehicles || []).some(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ));
+    const domainMatch = (c.vehicles || []).filter(Boolean).some(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ));
     if (isDomainQuery) return domainMatch;
     return domainMatch ||
       c.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -4610,8 +4610,8 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
               style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}40`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.orange }}>✏️ Editar</button>}
           </div>
         </div>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🚗 Vehículos registrados ({selClient.vehicles.length})</div>
-        {selClient.vehicles.map((v, i) => {
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🚗 Vehículos registrados ({(selClient.vehicles || []).length})</div>
+        {(selClient.vehicles || []).map((v, i) => {
           const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
           return (
             <div key={i} onClick={() => setSelVehicle(v)} style={{ ...card, padding: 16, marginBottom: 10, cursor: "pointer" }}>
@@ -4688,7 +4688,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
       )}
 
       {results.map(c => {
-        const matchingVehicles = (c.vehicles || []).filter(v => {
+        const matchingVehicles = (c.vehicles || []).filter(Boolean).filter(v => {
           if (!q) return false;
           return (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ);
         });
@@ -4984,7 +4984,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
 
   const getVehicleInfo = (order) => {
     const client = clients.find(c => matchId(c.id, order.clientId));
-    const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+    const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
     return { clientName: client ? `${client.name} ${client.lastName}` : "—", brand: vehicle?.brand || "", model: vehicle?.model || "", year: vehicle?.year || "" };
   };
 
@@ -5052,7 +5052,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
 const VehicleDetailScreen = (props) => {
   const { order, clients, setClients, user, orders, setOrders, notifications, setNotifications, config, onNavigate, navHistoryRef } = props;
   const client = clients.find(c => matchId(c.id, order.clientId));
-  const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+  const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
   const canStartWork = ["dueño", "encargado", "mecánico"].includes(user.role);
   const canFinalize = ["dueño", "encargado", "mecánico"].includes(user.role);
   const canBill = getPerm(user, "admin");
@@ -11847,7 +11847,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         const serviceAlerts = [];
         var serviceTypes = ["Service Full", "Service Base"];
         clients.forEach(function(c) {
-          (c.vehicles || []).forEach(function(v) {
+          (c.vehicles || []).filter(Boolean).forEach(function(v) {
+            if (!v.domain) return;
             var vOrders = orders.filter(function(o) { return o.domain === v.domain && o.status !== "cancelled" && (o.works || []).some(function(w) { return serviceTypes.indexOf(w.type) >= 0; }); }).sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
             if (vOrders.length === 0) return;
             var lastService = vOrders[0];
@@ -13258,7 +13259,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 const InspectionScreen = (props) => {
   var order = props.order, clients = props.clients, user = props.user, setOrders = props.setOrders, config = props.config, onNavigate = props.onNavigate;
   var client = clients.find(function(c) { return matchId(c.id, order.clientId); });
-  var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
+  var vehicle = client ? (client.vehicles || []).find(function(v) { return v.domain === order.domain; }) : null;
 
   var INSP_CATS = [
     { key: "Tren Delantero", icon: "⚙️", hasItems: true },
@@ -13463,7 +13464,7 @@ const InspectionScreen = (props) => {
 const BudgetPricingScreen = (props) => {
   var order = props.order, clients = props.clients, user = props.user, setOrders = props.setOrders, config = props.config, onNavigate = props.onNavigate;
   var client = clients.find(function(c) { return matchId(c.id, order.clientId); });
-  var vehicle = client ? client.vehicles.find(function(v) { return v.domain === order.domain; }) : null;
+  var vehicle = client ? (client.vehicles || []).find(function(v) { return v.domain === order.domain; }) : null;
   var inspData = order.inspectionData || {};
   var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛", "Chequeo Pre-Post": "🔍" };
 
@@ -14597,7 +14598,7 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
 const ServiceSheetScreen = (props) => {
   const { order, clients, user, orders, setOrders, notifications, setNotifications, onNavigate } = props;
   const client = clients.find(c => matchId(c.id, order.clientId));
-  const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+  const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
 
   if (!order || !order.works || order.works.length === 0) {
     return <div style={{ padding: 24, textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Sin trabajos asignados</div><button onClick={() => onNavigate("vehicleDetail", order)} style={{ padding: "10px 20px", borderRadius: 8, background: T.accent, color: "#fff", border: "none", cursor: "pointer" }}>← Volver</button></div>;
@@ -16375,7 +16376,7 @@ const ServiceSheetScreen = (props) => {
 const AuthManageScreen = ({ notification, order, clients, user, orders, setOrders, notifications, setNotifications, config, onNavigate }) => {
   const { openNumPad } = useNumPad();
   const client = clients.find(c => matchId(c.id, order.clientId));
-  const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+  const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
   const notif = notifications.find(n => n.orderId === order.id && n.status === "pending");
   const [sent, setSent] = useState(false);
   const [showDenyPopup, setShowDenyPopup] = useState(false);
@@ -17474,7 +17475,7 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
 
 const FojaClientScreen = ({ order, clients, notifications, config, onNavigate }) => {
   const client = clients.find(c => matchId(c.id, order.clientId));
-  const vehicle = client?.vehicles.find(v => v.domain === order.domain);
+  const vehicle = client?.vehicles?.find(v => v.domain === order.domain);
   const fojaType = order._fojaType || null;
   const autoSendWA = order._autoSendWA || false;
 
