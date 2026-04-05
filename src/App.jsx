@@ -683,7 +683,7 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
   document.head.appendChild(s);
 });
 
-// ── HTML element → PDF base64 (A4, multi-page) ──
+// ── HTML element → PDF base64 (A4, single page auto-fit) ──
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   // Load libraries
@@ -692,44 +692,30 @@ const htmlToPdfBase64 = async (el, filename) => {
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
-  // Capture element
+  // Capture element at high resolution
   const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
   // A4 dimensions in mm
   const pageW = 210, pageH = 297, margin = 8;
   const contentW = pageW - margin * 2;
   const contentH = pageH - margin * 2;
-  // Calculate how the image fits
+  // Calculate scale to fit EVERYTHING on ONE page
   const imgW = canvas.width;
   const imgH = canvas.height;
-  const ratio = contentW / imgW;
-  const scaledH = imgH * ratio; // total height in mm
+  const ratioW = contentW / imgW;
+  const scaledH = imgH * ratioW;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/jpeg", 0.92);
   if (scaledH <= contentH) {
-    // Single page — center vertically
+    // Content fits naturally — center vertically
     const yOffset = margin + (contentH - scaledH) / 2;
     pdf.addImage(imgData, "JPEG", margin, yOffset, contentW, scaledH);
   } else {
-    // Multi-page
-    let yRemaining = scaledH;
-    let srcY = 0;
-    let pageNum = 0;
-    while (yRemaining > 0) {
-      if (pageNum > 0) pdf.addPage();
-      const sliceH = Math.min(contentH, yRemaining);
-      // Create a slice of the canvas for this page
-      const sliceCanvas = document.createElement("canvas");
-      const srcSliceH = Math.round(sliceH / ratio);
-      sliceCanvas.width = imgW;
-      sliceCanvas.height = srcSliceH;
-      const ctx = sliceCanvas.getContext("2d");
-      ctx.drawImage(canvas, 0, Math.round(srcY), imgW, srcSliceH, 0, 0, imgW, srcSliceH);
-      const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-      pdf.addImage(sliceData, "JPEG", margin, margin, contentW, sliceH);
-      srcY += srcSliceH;
-      yRemaining -= sliceH;
-      pageNum++;
-    }
+    // Content too tall → scale down to fit on single page
+    const fitRatio = contentH / scaledH;
+    const finalW = contentW * fitRatio;
+    const finalH = contentH;
+    const xOffset = margin + (contentW - finalW) / 2; // center horizontally
+    pdf.addImage(imgData, "JPEG", xOffset, margin, finalW, finalH);
   }
   // Return base64 without data:... prefix
   return pdf.output("datauristring").split(",")[1];
