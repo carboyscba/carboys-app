@@ -8392,7 +8392,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       {tab === "historial" && (<div>
         <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>📚 Historial de Vehículos</div>
         {(() => {
-          const allOrders = orders.filter(o => o.status !== "cancelled" && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status) || ["pending","working","done","delivered","inspection","inspection_done"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          const _todayHist = new Date().toISOString().split("T")[0];
+          const allOrders = orders.filter(o => o.status !== "cancelled" && (o.date || "") <= _todayHist && (o.cobrado || ["budget_sent","budget_approved","budget_closed"].includes(o.status) || ["pending","working","done","delivered","inspection","inspection_done"].includes(o.status))).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
           // workOrders = solo órdenes de trabajo (excluye presupuestos) para vista normal
           const workOrders = allOrders.filter(o => !["budget_sent","budget_approved","budget_closed"].includes(o.status));
           // Parse year/month from string directly to avoid timezone bugs (new Date("2026-04-01") = March 31 in UTC-3)
@@ -8706,14 +8707,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 const ordersToShow = monthOrders || yearOrders;
                 if (ordersToShow.length === 0) return <div style={{ ...card, padding: 20, textAlign: "center", color: T.gray }}>Sin ordenes en este periodo</div>;
 
-                // Helper: get week number by day of month (1-7=S1, 8-14=S2, 15-21=S3, 22-28=S4, 29-31=S5)
+                // Helper: build real calendar weeks for a given month/year
+                // Week 1: day 1 → first Sunday. Then Mon→Sun for each subsequent week.
+                const buildCalendarWeeks = (year, month) => {
+                  const firstDay = new Date(year, month, 1);
+                  const lastDate = new Date(year, month + 1, 0).getDate();
+                  const firstDow = firstDay.getDay(); // 0=Sun, 1=Mon, ...
+                  const weeks = [];
+                  // Week 1: day 1 → first Sunday (or end of month if no Sunday)
+                  const firstSunday = firstDow === 0 ? 1 : (7 - firstDow + 1);
+                  weeks.push({ start: 1, end: Math.min(firstSunday, lastDate) });
+                  // Subsequent weeks: Monday → Sunday
+                  let d = firstSunday + 1;
+                  while (d <= lastDate) {
+                    const end = Math.min(d + 6, lastDate);
+                    weeks.push({ start: d, end });
+                    d = end + 1;
+                  }
+                  return weeks;
+                };
+                const calWeeks = buildCalendarWeeks(histYear, histMonth);
+                const dayNames = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+                const getDayName = (year, month, day) => dayNames[new Date(year, month, day).getDay()];
+
                 const getWeekLabel = (dateStr) => {
                   const day = new Date(dateStr + "T12:00:00").getDate();
-                  if (day <= 7) return 1;
-                  if (day <= 14) return 2;
-                  if (day <= 21) return 3;
-                  if (day <= 28) return 4;
-                  return 5;
+                  for (let i = 0; i < calWeeks.length; i++) {
+                    if (day >= calWeeks[i].start && day <= calWeeks[i].end) return i + 1;
+                  }
+                  return calWeeks.length;
                 };
 
                 // Group by week if viewing a specific month
@@ -8761,13 +8783,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
                 if (useWeeks && weekGroups) {
                   const wks = Object.keys(weekGroups).sort((a, b) => Number(b) - Number(a)); // newest first
-                  const lastDay = new Date(histYear, histMonth + 1, 0).getDate();
                   return wks.map(wk => {
                     const wkOrders = weekGroups[wk];
-                    const wkIvaR = config.ivaRate || 21;
                     const wkTotal = wkOrders.reduce((s, o) => s + getOrderTotal(o), 0);
-                    const wkStart = wk == 1 ? 1 : wk == 2 ? 8 : wk == 3 ? 15 : wk == 4 ? 22 : 29;
-                    const wkEnd = wk == 1 ? 7 : wk == 2 ? 14 : wk == 3 ? 21 : wk == 4 ? 28 : Math.min(31, lastDay);
+                    const wkIdx = Number(wk) - 1;
+                    const wkInfo = calWeeks[wkIdx] || { start: 1, end: 1 };
+                    const wkStartName = getDayName(histYear, histMonth, wkInfo.start);
+                    const wkEndName = getDayName(histYear, histMonth, wkInfo.end);
+                    const wkLabel = wkInfo.start === wkInfo.end
+                      ? `${wkStartName} ${wkInfo.start}`
+                      : `${wkStartName} ${wkInfo.start} al ${wkEndName} ${wkInfo.end}`;
                     const isExpanded = histWeekExp === Number(wk);
                     return (
                       <div key={"wk-" + wk} style={{ marginBottom: 10 }}>
@@ -8775,7 +8800,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: isExpanded ? T.accent + "18" : T.bg2, borderRadius: 10, cursor: "pointer", borderLeft: "4px solid " + (isExpanded ? T.accent : T.border), border: `1px solid ${isExpanded ? T.accent : T.border}`, transition: "all .15s" }}>
                           <div>
                             <span style={{ fontFamily: fontD, fontSize: 14, fontWeight: 800, color: isExpanded ? T.accent : T.white }}>Semana {wk}</span>
-                            <span style={{ fontSize: 11, color: T.gray, marginLeft: 8 }}>{wkStart} al {wkEnd}</span>
+                            <span style={{ fontSize: 11, color: T.gray, marginLeft: 8 }}>{wkLabel}</span>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <span style={{ fontSize: 12, color: T.green, fontWeight: 700, fontFamily: fontD }}>{fmt(wkTotal)}</span>
