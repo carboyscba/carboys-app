@@ -7069,21 +7069,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Cleanup: remove cajaDate incorrectly set on historical orders by a bad migration
-  useEffect(() => {
-    const bad = orders.some(o => o.cajaDate && o.cajaDate === today && o.date && o.date.slice(0, 10) !== today && !o.isQuickSale);
-    if (bad) {
-      setOrders(prev => prev.map(o => {
-        if (o.cajaDate && o.cajaDate === today && o.date && o.date.slice(0, 10) !== today && !o.isQuickSale) {
-          const copy = { ...o };
-          delete copy.cajaDate;
-          return copy;
-        }
-        return o;
-      }));
-    }
-  }, []);
-
   const _now = new Date();
   // Semana por día del mes: S1(1-7), S2(8-14), S3(15-21), S4(22-28), S5(29+) — igual que cierre
   const _todayDom = _now.getDate();
