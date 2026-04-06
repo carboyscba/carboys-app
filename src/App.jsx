@@ -7056,10 +7056,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const today = new Date().toISOString().split("T")[0];
 
   const _now = new Date();
-  // Semana por día del mes: S1(1-7), S2(8-14), S3(15-21), S4(22-28), S5(29+) — igual que cierre
+  // Semana real del calendario: día 1 → primer domingo = S1, luego lunes → domingo
   const _todayDom = _now.getDate();
-  const _semStart = _todayDom <= 7 ? 1 : _todayDom <= 14 ? 8 : _todayDom <= 21 ? 15 : _todayDom <= 28 ? 22 : 29;
-  const weekStart = new Date(_now.getFullYear(), _now.getMonth(), _semStart).toISOString().split("T")[0];
+  const _yr = _now.getFullYear();
+  const _mo = _now.getMonth();
+  const _firstDow = new Date(_yr, _mo, 1).getDay(); // 0=Dom
+  const _firstSunday = _firstDow === 0 ? 1 : (7 - _firstDow + 1);
+  let _semStart = 1;
+  if (_todayDom > _firstSunday) {
+    // After first week — find which Mon-Sun block we're in
+    _semStart = _firstSunday + 1 + Math.floor((_todayDom - _firstSunday - 1) / 7) * 7;
+  }
+  const weekStart = new Date(_yr, _mo, _semStart).toISOString().split("T")[0];
   const monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().split("T")[0];
   const yearStart = new Date(_now.getFullYear(), 0, 1).toISOString().split("T")[0];
   const startDate = period === "dia" ? today : period === "semana" ? weekStart : period === "anual" ? yearStart : monthStart;
@@ -7126,13 +7134,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const todayDay = todayDate.getDate();
   const todayMonth = todayDate.getMonth();
   const todayYear = todayDate.getFullYear();
-  const getSemana = (day) => day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : day <= 28 ? 4 : 5;
+  // Calendar-based weeks: day 1 → first Sunday = S1, then Mon→Sun
+  const _buildWeeks = (yr, mo) => {
+    const lastDate = new Date(yr, mo + 1, 0).getDate();
+    const firstDow = new Date(yr, mo, 1).getDay();
+    const firstSun = firstDow === 0 ? 1 : (7 - firstDow + 1);
+    const wks = [{ start: 1, end: Math.min(firstSun, lastDate) }];
+    let d = firstSun + 1;
+    while (d <= lastDate) { const end = Math.min(d + 6, lastDate); wks.push({ start: d, end }); d = end + 1; }
+    return wks;
+  };
+  const _currentWeeks = _buildWeeks(todayYear, todayMonth);
+  const getSemana = (day) => {
+    for (let i = 0; i < _currentWeeks.length; i++) {
+      if (day >= _currentWeeks[i].start && day <= _currentWeeks[i].end) return i + 1;
+    }
+    return _currentWeeks.length;
+  };
   const getSemanaRange = (sem, yr, mo) => {
-    const starts = [1, 8, 15, 22, 29];
-    const ends = [7, 14, 21, 28, new Date(yr, mo + 1, 0).getDate()];
-    const s = new Date(yr, mo, starts[sem - 1]);
-    const e = new Date(yr, mo, Math.min(ends[sem - 1], new Date(yr, mo + 1, 0).getDate()));
-    return { desde: s.toISOString().split("T")[0], hasta: e.toISOString().split("T")[0], label: "Sem " + sem + " (" + starts[sem - 1] + "-" + Math.min(ends[sem - 1], new Date(yr, mo + 1, 0).getDate()) + ")" };
+    const wks = (yr === todayYear && mo === todayMonth) ? _currentWeeks : _buildWeeks(yr, mo);
+    const idx = Math.max(0, Math.min(sem - 1, wks.length - 1));
+    const w = wks[idx];
+    const dayNames = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+    const sName = dayNames[new Date(yr, mo, w.start).getDay()];
+    const eName = dayNames[new Date(yr, mo, w.end).getDay()];
+    return {
+      desde: new Date(yr, mo, w.start).toISOString().split("T")[0],
+      hasta: new Date(yr, mo, w.end).toISOString().split("T")[0],
+      label: "Sem " + sem + " (" + sName + " " + w.start + " - " + eName + " " + w.end + ")"
+    };
   };
   const semanaActual = getSemana(todayDay);
   // Semana anterior: si estamos en S1, la anterior es S5/S4 del mes pasado
@@ -10081,8 +10111,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         })()}
         {/* ── Tabs expandidos: semanas ── */}
         {fcExpandPeriod === "semana" && (() => {
-          const dom = new Date().getDate();
-          const curSem = dom <= 7 ? 1 : dom <= 14 ? 2 : dom <= 21 ? 3 : dom <= 28 ? 4 : 5;
+          const curSem = getSemana(new Date().getDate());
           return (
             <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
               {Array.from({ length: curSem }, (_, i) => i + 1).map(s => (
@@ -10107,10 +10136,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           } else if (fcExpandPeriod === "semana" && fcSelWeek !== null) {
             const yr = new Date().getFullYear();
             const mo = new Date().getMonth();
-            const starts = [1, 8, 15, 22, 29];
-            const ends = [7, 14, 21, 28, new Date(yr, mo + 1, 0).getDate()];
-            const wStart = new Date(yr, mo, starts[fcSelWeek - 1]).toISOString().split("T")[0];
-            const wEnd = new Date(yr, mo, Math.min(ends[fcSelWeek - 1], new Date(yr, mo + 1, 0).getDate())).toISOString().split("T")[0];
+            const fcWks = _buildWeeks(yr, mo);
+            const fcWkIdx = Math.max(0, Math.min(fcSelWeek - 1, fcWks.length - 1));
+            const fcWk = fcWks[fcWkIdx];
+            const wStart = new Date(yr, mo, fcWk.start).toISOString().split("T")[0];
+            const wEnd = new Date(yr, mo, fcWk.end).toISOString().split("T")[0];
             fcOrders = completed2.filter(o => (o.cobrado || o.isQuickSale || o.factura) && getOrderDate(o) >= wStart && getOrderDate(o) <= wEnd);
           } else {
             // Default period: merge periodOrders + orders with factura in same date range
