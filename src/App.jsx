@@ -729,22 +729,38 @@ const openPrintA4 = (elementId, title) => {
   pw.document.write('<!DOCTYPE html><html><head><title>' + title + '</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">' +
     '<style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}' +
-    'body{font-family:Outfit,sans-serif;background:#fff}' +
-    '@page{size:A4;margin:0}@media print{body{margin:0}}' +
-    '#' + elementId + '{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;min-height:100vh;display:flex;flex-direction:column}' +
+    'body{font-family:Outfit,sans-serif;background:#fff;margin:0;padding:0;overflow:hidden}' +
+    '@page{size:A4;margin:5mm}' +
+    '@media print{body{margin:0;padding:0}html{overflow:hidden}}' +
+    '#print-wrapper{width:210mm;min-height:auto;margin:0 auto;overflow:hidden}' +
+    '#' + elementId + '{max-width:100%!important;width:100%!important;border-radius:0!important;box-shadow:none!important;margin:0!important;display:flex;flex-direction:column}' +
     '#' + elementId + '>div:last-child{margin-top:auto}' +
-    '</style></head><body>' + el.outerHTML +
+    '</style></head><body><div id="print-wrapper">' + el.outerHTML + '</div>' +
     '<scr' + 'ipt>function autoFitA4(){' +
     'var el=document.getElementById("' + elementId + '");if(!el)return;' +
-    'var m=document.createElement("div");m.style.cssText="position:absolute;visibility:hidden;height:297mm";' +
+    'var wrapper=document.getElementById("print-wrapper");' +
+    // Measure A4 page height (297mm minus 10mm margins = 287mm usable)
+    'var m=document.createElement("div");m.style.cssText="position:absolute;visibility:hidden;height:287mm";' +
     'document.body.appendChild(m);var pageH=m.offsetHeight;document.body.removeChild(m);' +
-    'el.style.minHeight="auto";void el.offsetHeight;var h=el.scrollHeight;' +
-    'if(h>pageH){el.style.zoom=""+(pageH/h);el.style.minHeight="auto";}' +
-    'else{el.style.minHeight="100vh";}' +
+    // Measure A4 page width (210mm minus 10mm margins = 200mm usable)
+    'var mW=document.createElement("div");mW.style.cssText="position:absolute;visibility:hidden;width:200mm";' +
+    'document.body.appendChild(mW);var pageW=mW.offsetWidth;document.body.removeChild(mW);' +
+    // Set wrapper to A4 width and measure content
+    'wrapper.style.width=pageW+"px";' +
+    'el.style.minHeight="auto";void el.offsetHeight;' +
+    'var h=el.scrollHeight;' +
+    // If content too tall, scale down using transform
+    'if(h>pageH){' +
+    'var scale=pageH/h;' +
+    'el.style.transformOrigin="top left";' +
+    'el.style.transform="scale("+scale+")";' +
+    'wrapper.style.height=pageH+"px";' +
+    'wrapper.style.overflow="hidden";' +
+    '}' +
     '}<\/scr' + 'ipt></body></html>');
   pw.document.close();
-  pw.onload = function() { try { pw.autoFitA4(); } catch(e) {} setTimeout(function(){ pw.focus(); pw.print(); pw.close(); }, 400); };
-  setTimeout(() => { try { pw.autoFitA4(); pw.focus(); pw.print(); } catch(e) {} }, 1200);
+  pw.onload = function() { try { pw.autoFitA4(); } catch(e) {} setTimeout(function(){ pw.focus(); pw.print(); pw.close(); }, 600); };
+  setTimeout(() => { try { pw.autoFitA4(); pw.focus(); pw.print(); } catch(e) {} }, 1500);
 };
 
 // ── Enviar PDF por WAHA (se ve como documento con miniatura en WhatsApp) ──
