@@ -18584,76 +18584,97 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
     return h;
   };
 
+  const wahaStatusRef = React.useRef(null);
+
   const checkStatus = React.useCallback(async () => {
-    if (!wahaUrl) { setWahaStatus(null); return; }
+    if (!wahaUrl) { setWahaStatus(null); wahaStatusRef.current = null; return null; }
     setChecking(true); setErrMsg("");
     try {
       const r = await fetch(`${wahaUrl}/api/sessions/${wahaSession}`, { headers: getHeaders() });
-      if (!r.ok) { setWahaStatus("disconnected"); setChecking(false); return; }
+      if (!r.ok) { setWahaStatus("disconnected"); wahaStatusRef.current = "disconnected"; setChecking(false); return "disconnected"; }
       const d = await r.json();
       const st = d.status || d.state || "";
       if (st === "WORKING" || st === "AUTHENTICATED" || st === "CONNECTED") {
-        setWahaStatus("connected");
-        setQrImg(null);
+        setWahaStatus("connected"); wahaStatusRef.current = "connected";
+        setQrImg(null); setChecking(false);
+        return "connected";
       } else if (st === "SCAN_QR_CODE" || st === "QR") {
-        setWahaStatus("scan_qr");
-        fetchQR();
+        setWahaStatus("scan_qr"); wahaStatusRef.current = "scan_qr";
+        setChecking(false);
+        return "scan_qr";
       } else {
-        setWahaStatus("disconnected");
+        setWahaStatus("disconnected"); wahaStatusRef.current = "disconnected";
+        setChecking(false);
+        return "disconnected";
       }
-    } catch (e) { setErrMsg("No se pudo conectar con WAHA: " + e.message); setWahaStatus("error"); }
-    setChecking(false);
+    } catch (e) { setErrMsg("No se pudo conectar con WAHA: " + e.message); setWahaStatus("error"); wahaStatusRef.current = "error"; setChecking(false); return "error"; }
   }, [wahaUrl, wahaKey, wahaSession]);
 
   const fetchQR = async () => {
     try {
+      // Try WAHA v2 endpoint first
       const r = await fetch(`${wahaUrl}/api/${wahaSession}/auth/qr?format=image`, { headers: getHeaders() });
-      if (r.ok) {
-        const blob = await r.blob();
-        setQrImg(URL.createObjectURL(blob));
-        return;
-      }
+      if (r.ok) { const blob = await r.blob(); setQrImg(URL.createObjectURL(blob)); return; }
     } catch {}
-    // Fallback: screenshot
     try {
-      const r2 = await fetch(`${wahaUrl}/api/screenshot`, { headers: getHeaders() });
-      if (r2.ok) { const blob = await r2.blob(); setQrImg(URL.createObjectURL(blob)); }
+      // Fallback: WAHA v1 endpoint
+      const r2 = await fetch(`${wahaUrl}/api/sessions/${wahaSession}/auth/qr?format=image`, { headers: getHeaders() });
+      if (r2.ok) { const blob = await r2.blob(); setQrImg(URL.createObjectURL(blob)); return; }
+    } catch {}
+    try {
+      // Last fallback: screenshot
+      const r3 = await fetch(`${wahaUrl}/api/screenshot`, { headers: getHeaders() });
+      if (r3.ok) { const blob = await r3.blob(); setQrImg(URL.createObjectURL(blob)); }
     } catch {}
   };
 
+  const pollRef = React.useRef(null);
   const startSession = async () => {
     if (!wahaUrl) { setErrMsg("Primero guardá la URL de WAHA"); return; }
-    setStarting(true); setErrMsg("");
+    setStarting(true); setErrMsg(""); setQrImg(null);
     try {
+      // Stop existing session first, then start fresh
+      await fetch(`${wahaUrl}/api/sessions/stop`, { method: "POST", headers: getHeaders(), body: JSON.stringify({ name: wahaSession }) }).catch(() => {});
+      await new Promise(r => setTimeout(r, 1000));
       const r = await fetch(`${wahaUrl}/api/sessions/start`, {
         method: "POST", headers: getHeaders(),
         body: JSON.stringify({ name: wahaSession }),
       });
-      const d = await r.json().catch(() => ({}));
-      // 422 = already started → treat as success
-      if (r.ok || r.status === 422 || d.status || d.statusCode) {
-        // Session exists, check its actual status
-        await checkStatus();
-        if (wahaStatus !== "connected") {
-          setWahaStatus("scan_qr");
-          setTimeout(() => { fetchQR(); }, 2000);
-          const poll = setInterval(async () => { await checkStatus(); }, 4000);
-          setTimeout(() => clearInterval(poll), 120000);
-        }
-      } else {
-        setErrMsg("Error al iniciar: " + (d.message || r.status));
+      await r.json().catch(() => ({}));
+      // Wait a moment for session to initialize
+      await new Promise(r => setTimeout(r, 2000));
+      const st = await checkStatus();
+      if (st === "connected") {
+        setStarting(false);
+        return;
       }
+      // Not connected → enter QR scan mode
+      setWahaStatus("scan_qr"); wahaStatusRef.current = "scan_qr";
+      await fetchQR();
+      // Poll every 5s to check if QR was scanned
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        const polledSt = await checkStatus();
+        if (polledSt === "connected") {
+          clearInterval(pollRef.current); pollRef.current = null;
+        } else if (polledSt === "scan_qr") {
+          await fetchQR(); // Refresh QR
+        }
+      }, 5000);
+      // Auto-stop polling after 2 minutes
+      setTimeout(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, 120000);
     } catch (e) { setErrMsg("Error: " + e.message); }
     setStarting(false);
   };
 
   const stopSession = async () => {
     if (!wahaUrl) return;
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     await fetch(`${wahaUrl}/api/sessions/stop`, {
       method: "POST", headers: getHeaders(),
       body: JSON.stringify({ name: wahaSession }),
     }).catch(() => {});
-    setWahaStatus("disconnected"); setQrImg(null);
+    setWahaStatus("disconnected"); wahaStatusRef.current = "disconnected"; setQrImg(null);
   };
 
   React.useEffect(() => { if (wahaUrl) checkStatus(); }, [wahaUrl]);
@@ -18692,7 +18713,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => { setConfig(prev => prev); checkStatus(); }} disabled={checking}
+          <button onClick={checkStatus} disabled={checking}
             style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, flex: 1 }}>
             {checking ? "⏳ Verificando..." : "🔍 Verificar estado"}
           </button>
