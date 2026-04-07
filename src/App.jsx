@@ -722,11 +722,16 @@ const htmlToPdfBase64 = async (el, filename) => {
 };
 
 // ── Abrir ventana de impresión con auto-ajuste A4 ──
-// Genera PDF single-page (mismo motor que WhatsApp) y lo abre para imprimir
-// Funciona en TODOS los dispositivos incluido iOS Safari
+// Abre ventana SYNC (evita bloqueador iOS), genera PDF, navega a él
 const openPrintA4 = async (elementId, title) => {
   const el = document.getElementById(elementId);
   if (!el) return;
+  // Open window IMMEDIATELY from user click — iOS blocks window.open after await
+  const pw = window.open("about:blank", "_blank");
+  if (pw) {
+    pw.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666"><div style="text-align:center"><div style="font-size:24px;margin-bottom:10px">⏳</div>Generando PDF...</div></body></html>');
+    pw.document.close();
+  }
   try {
     const base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
     const byteChars = atob(base64);
@@ -734,18 +739,21 @@ const openPrintA4 = async (elementId, title) => {
     for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
     const blob = new Blob([byteArray], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
-    const pw = window.open(url, "_blank");
-    if (pw) setTimeout(() => { try { pw.print(); } catch(e) {} }, 1200);
+    if (pw && !pw.closed) {
+      pw.location.href = url;
+      setTimeout(() => { try { pw.print(); } catch(e) {} }, 1500);
+    }
   } catch(e) {
-    console.error("[PRINT] PDF failed, fallback HTML:", e);
-    const pw = window.open("", "_blank", "width=800,height=1100");
-    if (!pw) return;
-    pw.document.write('<!DOCTYPE html><html><head><title>' + (title||"") + '</title>' +
-      '<style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
-      'body{font-family:sans-serif;background:#fff}@page{size:A4;margin:5mm}' +
-      '</style></head><body>' + el.outerHTML + '</body></html>');
-    pw.document.close();
-    setTimeout(() => { try { pw.focus(); pw.print(); } catch(e2) {} }, 1000);
+    console.error("[PRINT] PDF error:", e);
+    if (pw && !pw.closed) {
+      pw.document.open();
+      pw.document.write('<!DOCTYPE html><html><head><title>' + (title||"") + '</title>' +
+        '<style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
+        'body{font-family:sans-serif;background:#fff}@page{size:A4;margin:5mm}' +
+        '</style></head><body>' + el.outerHTML + '</body></html>');
+      pw.document.close();
+      setTimeout(() => { try { pw.focus(); pw.print(); } catch(e2) {} }, 1000);
+    }
   }
 };
 
