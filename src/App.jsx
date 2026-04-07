@@ -5809,22 +5809,27 @@ const VehicleDetailScreen = (props) => {
             </div>
 
             {/* Works */}
-            <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 10 }}>🔧 Trabajos</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>🔧 Trabajos</div>
+              <div onClick={() => setEditWorks(ws => [...ws, { type: "", price: "", desc: "" }])}
+                style={{ fontSize: 12, fontWeight: 700, color: T.green, cursor: "pointer", padding: "4px 10px", borderRadius: 6, background: `${T.green}15`, border: `1px solid ${T.green}40` }}>+ Agregar trabajo</div>
+            </div>
             {editWorks.map((w, i) => (
               <div key={i} style={{ ...card, padding: 12, marginBottom: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{w.type}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
-                      <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, price: e.target.value.replace(/[^0-9]/g, "") } : x))}
-                        style={{ ...inputStyle, width: 90, fontSize: 14, fontWeight: 700, fontFamily: fontD, textAlign: "right", padding: "8px 10px" }} />
-                    </div>
-                    {editWorks.length > 1 && (
-                      <div onClick={() => setEditWorks(ws => ws.filter((_, j) => j !== i))}
-                        style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.red, fontSize: 16, borderRadius: 6, background: "rgba(229,57,53,0.08)", border: `1px solid ${T.red}30` }}>✕</div>
-                    )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
+                  <select value={w.type || ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, type: e.target.value } : x))}
+                    style={{ ...inputStyle, flex: 1, fontSize: 13, fontWeight: 700, padding: "8px 10px" }}>
+                    <option value="">— Seleccionar trabajo —</option>
+                    {WORK_TYPES.filter(t => !t.isGroup).map(t => <option key={t.name} value={t.name}>{t.icon} {t.name}</option>)}
+                    {WORK_TYPES.filter(t => t.isGroup).flatMap(t => t.subItems).map(t => <option key={t.name} value={t.name}>{t.icon} {t.name}</option>)}
+                  </select>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={w.price ? Number(w.price).toLocaleString("es-AR") : ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, price: e.target.value.replace(/[^0-9]/g, "") } : x))}
+                      style={{ ...inputStyle, width: 100, fontSize: 14, fontWeight: 700, fontFamily: fontD, textAlign: "right", padding: "8px 10px" }} />
                   </div>
+                  <div onClick={() => setEditWorks(ws => ws.filter((_, j) => j !== i))}
+                    style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.red, fontSize: 16, borderRadius: 6, background: "rgba(229,57,53,0.08)", border: `1px solid ${T.red}30`, flexShrink: 0 }}>✕</div>
                 </div>
                 <input inputMode="text" value={w.desc || ""} onChange={e => setEditWorks(ws => ws.map((x, j) => j === i ? { ...x, desc: e.target.value } : x))}
                   placeholder="Descripción (ej: x2 unidades orden #123)" style={{ ...inputStyle, fontSize: 12, marginBottom: 4 }} />
@@ -5911,7 +5916,7 @@ const VehicleDetailScreen = (props) => {
                 } : order.paymentPref;
                 setOrders(prev => prev.map(o => o.id === order.id ? {
                   ...o,
-                  works: editWorks.map(w => ({ ...w, price: parseFloat(w.price) || 0 })),
+                  works: editWorks.filter(w => w.type).map(w => ({ ...w, price: parseFloat(w.price) || 0 })),
                   payments: (editPayments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })),
                   paymentPref: newPayPref,
                 } : o));
