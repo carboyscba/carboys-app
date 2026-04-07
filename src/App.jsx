@@ -5908,17 +5908,23 @@ const VehicleDetailScreen = (props) => {
               <button onClick={() => {
                 setClients(prev => prev.map(c => matchId(c.id, order.clientId) ? { ...c, name: editClient.name, lastName: editClient.lastName, phone: editClient.phone, dni: editClient.dni } : c));
                 const ep0 = (editPayments || [])[0] || {};
+                const newWorksTotal = editWorks.filter(w => w.type).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                const ivaR = config.ivaRate || 21;
                 const newPayPref = ep0.method ? {
                   method: ep0.method,
                   withIva: ep0.withIva ?? false,
                   account: ep0.account || "1",
                   invoiceType: ep0.invoiceType || (ep0.account === "2" ? "C" : "B"),
-                } : order.paymentPref;
+                  amount: ep0.withIva ? Math.round(newWorksTotal * (1 + ivaR / 100)) : newWorksTotal,
+                } : order.paymentPref ? {
+                  ...order.paymentPref,
+                  amount: order.paymentPref.withIva ? Math.round(newWorksTotal * (1 + ivaR / 100)) : newWorksTotal,
+                } : undefined;
                 setOrders(prev => prev.map(o => o.id === order.id ? {
                   ...o,
                   works: editWorks.filter(w => w.type).map(w => ({ ...w, price: parseFloat(w.price) || 0 })),
                   payments: (editPayments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })),
-                  paymentPref: newPayPref,
+                  ...(newPayPref ? { paymentPref: newPayPref } : {}),
                 } : o));
                 setShowEditOrder(false);
               }} style={{ ...btnPrimary(T.accent), flex: 1, fontSize: 13 }}>💾 Guardar Cambios</button>
