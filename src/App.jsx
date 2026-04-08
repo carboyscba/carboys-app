@@ -691,17 +691,26 @@ const htmlToPdfBase64 = async (el, filename) => {
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
-  // Save and override styles for full-bleed capture
-  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width };
+  // Save original styles
+  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight };
+  // A4 proportional min-height at 800px width: 800 * (297/210) = 1131px
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
   el.style.width = "800px";
+  el.style.display = "flex";
+  el.style.flexDirection = "column";
+  el.style.minHeight = "1131px";
+  // Push footer to bottom (last child margin-top:auto)
+  const lastChild = el.lastElementChild;
+  const origLastMT = lastChild ? lastChild.style.marginTop : "";
+  if (lastChild) lastChild.style.marginTop = "auto";
   void el.offsetHeight;
   const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-  // Restore
+  // Restore all styles
   Object.assign(el.style, orig);
+  if (lastChild) lastChild.style.marginTop = origLastMT;
   // A4 full bleed
   const pageW = 210, pageH = 297;
   const imgW = canvas.width, imgH = canvas.height;
@@ -710,8 +719,10 @@ const htmlToPdfBase64 = async (el, filename) => {
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/jpeg", 0.92);
   if (scaledH <= pageH) {
+    // Content fits or exactly fills page
     pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
   } else {
+    // Content taller than A4 → scale down to fit
     const fitRatio = pageH / scaledH;
     const finalW = pageW * fitRatio;
     const xOffset = (pageW - finalW) / 2;
