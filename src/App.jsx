@@ -7393,12 +7393,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     }
 
     // ── PASO 2: Emitir FC en ARCA ──
+    // Actividad asociada: solo Baterías = 453220, cualquier otro trabajo = 452990
+    const workTypes = (order.works || []).map(w => w.type);
+    const solosBaterias = workTypes.length > 0 && workTypes.every(t => t === "Baterías");
+    const actividad = solosBaterias ? 453220 : 452990;
     let factura;
     try {
       const resp = await fetch(`${arcaUrl}/api/facturar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": arcaKey },
-        body: JSON.stringify({ entityId, puntoVenta, tipoFactura: tipoFC, docTipo, docNro, importeTotal, importeNeto, importeIva, concepto: 3, fchServDesde: now.toISOString().split("T")[0].replace(/-/g, ""), fchServHasta: now.toISOString().split("T")[0].replace(/-/g, ""), fchVtoPago: now.toISOString().split("T")[0].replace(/-/g, "") })
+        body: JSON.stringify({ entityId, puntoVenta, tipoFactura: tipoFC, docTipo, docNro, importeTotal, importeNeto, importeIva, concepto: 3, actividad, fchServDesde: now.toISOString().split("T")[0].replace(/-/g, ""), fchServHasta: now.toISOString().split("T")[0].replace(/-/g, ""), fchVtoPago: now.toISOString().split("T")[0].replace(/-/g, "") })
       });
       const result = await resp.json();
       if (result.success) {
