@@ -686,53 +686,36 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
 // ── HTML element → PDF base64 (A4, single page auto-fit, full bleed) ──
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
-  // Load libraries
   if (!window.html2canvas) {
     await new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
-  // Save original styles
-  const origMaxWidth = el.style.maxWidth;
-  const origMargin = el.style.margin;
-  const origBorderRadius = el.style.borderRadius;
-  const origBoxShadow = el.style.boxShadow;
-  const origWidth = el.style.width;
-  // Temporarily make element full-width for capture
-  // 650px capture width → text is ~23% bigger than 800px on A4
+  // Save and override styles for full-bleed capture
+  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width };
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "650px";
+  el.style.width = "800px";
   void el.offsetHeight;
-  // Capture at high resolution
   const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-  // Restore original styles
-  el.style.maxWidth = origMaxWidth;
-  el.style.margin = origMargin;
-  el.style.borderRadius = origBorderRadius;
-  el.style.boxShadow = origBoxShadow;
-  el.style.width = origWidth;
-  // A4 with 3mm margin (prevents iOS edge cropping)
-  const pageW = 210, pageH = 297, margin = 3;
-  const contentW = pageW - margin * 2;
-  const contentH = pageH - margin * 2;
-  const imgW = canvas.width;
-  const imgH = canvas.height;
-  const ratioW = contentW / imgW;
+  // Restore
+  Object.assign(el.style, orig);
+  // A4 full bleed
+  const pageW = 210, pageH = 297;
+  const imgW = canvas.width, imgH = canvas.height;
+  const ratioW = pageW / imgW;
   const scaledH = imgH * ratioW;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/jpeg", 0.92);
-  if (scaledH <= contentH) {
-    pdf.addImage(imgData, "JPEG", margin, margin, contentW, scaledH);
+  if (scaledH <= pageH) {
+    pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
   } else {
-    // Scale down to fit single page
-    const fitRatio = contentH / scaledH;
-    const finalW = contentW * fitRatio;
-    const finalH = contentH;
-    const xOffset = margin + (contentW - finalW) / 2;
-    pdf.addImage(imgData, "JPEG", xOffset, margin, finalW, finalH);
+    const fitRatio = pageH / scaledH;
+    const finalW = pageW * fitRatio;
+    const xOffset = (pageW - finalW) / 2;
+    pdf.addImage(imgData, "JPEG", xOffset, 0, finalW, pageH);
   }
   return pdf.output("datauristring").split(",")[1];
 };
