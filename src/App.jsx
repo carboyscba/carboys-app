@@ -699,14 +699,14 @@ const htmlToPdfBase64 = async (el, filename) => {
   const origBoxShadow = el.style.boxShadow;
   const origWidth = el.style.width;
   // Temporarily make element full-width for capture
+  // 650px capture width → text is ~23% bigger than 800px on A4
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "800px"; // fixed width for consistent capture
-  // Force reflow
+  el.style.width = "650px";
   void el.offsetHeight;
-  // Capture element at high resolution
+  // Capture at high resolution
   const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
   // Restore original styles
   el.style.maxWidth = origMaxWidth;
@@ -714,24 +714,25 @@ const htmlToPdfBase64 = async (el, filename) => {
   el.style.borderRadius = origBorderRadius;
   el.style.boxShadow = origBoxShadow;
   el.style.width = origWidth;
-  // A4 full page — no margins, edge to edge
-  const pageW = 210, pageH = 297;
+  // A4 with 3mm margin (prevents iOS edge cropping)
+  const pageW = 210, pageH = 297, margin = 3;
+  const contentW = pageW - margin * 2;
+  const contentH = pageH - margin * 2;
   const imgW = canvas.width;
   const imgH = canvas.height;
-  const ratioW = pageW / imgW;
+  const ratioW = contentW / imgW;
   const scaledH = imgH * ratioW;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/jpeg", 0.92);
-  if (scaledH <= pageH) {
-    // Content fits — place at top, full width
-    pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
+  if (scaledH <= contentH) {
+    pdf.addImage(imgData, "JPEG", margin, margin, contentW, scaledH);
   } else {
-    // Content too tall → scale down to fit on single page, full width
-    const fitRatio = pageH / scaledH;
-    const finalW = pageW * fitRatio;
-    const finalH = pageH;
-    const xOffset = (pageW - finalW) / 2;
-    pdf.addImage(imgData, "JPEG", xOffset, 0, finalW, finalH);
+    // Scale down to fit single page
+    const fitRatio = contentH / scaledH;
+    const finalW = contentW * fitRatio;
+    const finalH = contentH;
+    const xOffset = margin + (contentW - finalW) / 2;
+    pdf.addImage(imgData, "JPEG", xOffset, margin, finalW, finalH);
   }
   return pdf.output("datauristring").split(",")[1];
 };
