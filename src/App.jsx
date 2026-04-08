@@ -683,7 +683,7 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
   document.head.appendChild(s);
 });
 
-// ── HTML element → PDF base64 (A4, single page auto-fit) ──
+// ── HTML element → PDF base64 (A4, single page auto-fit, full bleed) ──
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   // Load libraries
@@ -694,30 +694,25 @@ const htmlToPdfBase64 = async (el, filename) => {
   const { jsPDF } = jspdfLib;
   // Capture element at high resolution
   const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
-  // A4 dimensions in mm
-  const pageW = 210, pageH = 297, margin = 8;
-  const contentW = pageW - margin * 2;
-  const contentH = pageH - margin * 2;
-  // Calculate scale to fit EVERYTHING on ONE page
+  // A4 full page — no margins, edge to edge
+  const pageW = 210, pageH = 297;
   const imgW = canvas.width;
   const imgH = canvas.height;
-  const ratioW = contentW / imgW;
+  const ratioW = pageW / imgW;
   const scaledH = imgH * ratioW;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/jpeg", 0.92);
-  if (scaledH <= contentH) {
-    // Content fits naturally — center vertically
-    const yOffset = margin + (contentH - scaledH) / 2;
-    pdf.addImage(imgData, "JPEG", margin, yOffset, contentW, scaledH);
+  if (scaledH <= pageH) {
+    // Content fits — place at top, full width
+    pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
   } else {
-    // Content too tall → scale down to fit on single page
-    const fitRatio = contentH / scaledH;
-    const finalW = contentW * fitRatio;
-    const finalH = contentH;
-    const xOffset = margin + (contentW - finalW) / 2; // center horizontally
-    pdf.addImage(imgData, "JPEG", xOffset, margin, finalW, finalH);
+    // Content too tall → scale down to fit on single page, full width
+    const fitRatio = pageH / scaledH;
+    const finalW = pageW * fitRatio;
+    const finalH = pageH;
+    const xOffset = (pageW - finalW) / 2;
+    pdf.addImage(imgData, "JPEG", xOffset, 0, finalW, finalH);
   }
-  // Return base64 without data:... prefix
   return pdf.output("datauristring").split(",")[1];
 };
 
