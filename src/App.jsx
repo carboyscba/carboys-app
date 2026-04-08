@@ -692,8 +692,28 @@ const htmlToPdfBase64 = async (el, filename) => {
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
+  // Save original styles
+  const origMaxWidth = el.style.maxWidth;
+  const origMargin = el.style.margin;
+  const origBorderRadius = el.style.borderRadius;
+  const origBoxShadow = el.style.boxShadow;
+  const origWidth = el.style.width;
+  // Temporarily make element full-width for capture
+  el.style.maxWidth = "none";
+  el.style.margin = "0";
+  el.style.borderRadius = "0";
+  el.style.boxShadow = "none";
+  el.style.width = "800px"; // fixed width for consistent capture
+  // Force reflow
+  void el.offsetHeight;
   // Capture element at high resolution
   const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+  // Restore original styles
+  el.style.maxWidth = origMaxWidth;
+  el.style.margin = origMargin;
+  el.style.borderRadius = origBorderRadius;
+  el.style.boxShadow = origBoxShadow;
+  el.style.width = origWidth;
   // A4 full page — no margins, edge to edge
   const pageW = 210, pageH = 297;
   const imgW = canvas.width;
