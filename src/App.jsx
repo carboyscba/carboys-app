@@ -5793,7 +5793,13 @@ const VehicleDetailScreen = (props) => {
                         updatedWorks.push({ ...nw, price: parseFloat(nw.price) || 0 });
                       }
                     });
-                    return { ...o, works: updatedWorks };
+                    const newTotal = updatedWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                    const ivaR = config.ivaRate || 21;
+                    const updatedPref = o.paymentPref ? {
+                      ...o.paymentPref,
+                      amount: o.paymentPref.withIva ? Math.round(newTotal * (1 + ivaR / 100)) : newTotal,
+                    } : o.paymentPref;
+                    return { ...o, works: updatedWorks, ...(updatedPref ? { paymentPref: updatedPref } : {}) };
                   }));
                 }
                 setShowAddWork(false);
