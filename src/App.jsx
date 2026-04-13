@@ -6695,9 +6695,14 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   const puntoVenta = getCuentaPV(config, mainPayment.account);
 
   const withIva = mainPayment.withIva;
-  const neto = withIva ? total : total;
-  const ivaAmt = withIva ? Math.round(total * iva / 100) : 0;
-  const totalFact = withIva ? total + ivaAmt : total;
+  // For FC A: always use factura importeTotal and discriminate IVA
+  const isFacturaA = invoiceType === "A";
+  const factTotal = order.factura?.importeTotal || (withIva ? Math.round(total * (1 + iva / 100)) : total);
+  const neto = isFacturaA ? Math.round(factTotal / (1 + iva / 100) * 100) / 100 : total;
+  const ivaAmt = isFacturaA ? Math.round(factTotal - neto) : (withIva ? Math.round(total * iva / 100) : 0);
+  const totalFact = isFacturaA ? factTotal : (withIva ? total + ivaAmt : total);
+  // For FC A: ratio to convert work base prices to neto prices
+  const netoRatio = isFacturaA && total > 0 ? neto / total : 1;
 
   // Entity info based on invoice type
   const isEntity2 = invoiceType === "C";
@@ -6838,24 +6843,26 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
           <div style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Detalle de Servicios</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
-              <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>IMPORTE</span>
+              <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>{isFacturaA ? "PRECIO NETO" : "IMPORTE"}</span>
             </div>
             {(order.works || []).map((w, i) => {
               const isBat = w.type === "Baterías" || w.type === "Baterias";
               const selTren = (w.trenItems || []).filter(ti => ti.selected);
               const showDesc = isBat ? (w.desc || selTren[0]?.label || "") : (w.desc || "");
               const showSubs = !isBat && selTren.length > 0;
+              const workPrice = parseFloat(w.price) || 0;
+              const displayPrice = isFacturaA ? Math.round(workPrice * netoRatio) : workPrice;
               return (
               <div key={i} style={{ marginBottom: 8 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>{w.type}{showDesc ? ` — ${showDesc}` : ""}</div>
                     {showSubs && selTren.map((ti, j) => (
-                      <div key={j} style={{ fontSize: 11, color: "#64748b", paddingLeft: 10 }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.price ? ` — ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(ti.price) || 0)}` : ""}</div>
+                      <div key={j} style={{ fontSize: 11, color: "#64748b", paddingLeft: 10 }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.price ? ` — ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(isFacturaA ? Math.round((parseFloat(ti.price) || 0) * netoRatio) : (parseFloat(ti.price) || 0))}` : ""}</div>
                     ))}
                   </div>
                   <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right", whiteSpace: "nowrap" }}>
-                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(parseFloat(w.price) || 0)}
+                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(displayPrice)}
                   </div>
                 </div>
               </div>
@@ -6869,11 +6876,13 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
           <div style={{ padding: "16px 28px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <div style={{ minWidth: 260 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
-                  <span>Subtotal (neto)</span>
-                  <span style={{ fontWeight: 600, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(neto)}</span>
-                </div>
-                {withIva && (
+                {(isFacturaA || withIva) && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
+                    <span>Subtotal (neto)</span>
+                    <span style={{ fontWeight: 600, color: "#0d1526" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(neto)}</span>
+                  </div>
+                )}
+                {(isFacturaA || withIva) && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: "#64748b" }}>
                     <span>IVA {iva}%</span>
                     <span style={{ fontWeight: 600, color: "#1e88e5" }}>{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(ivaAmt)}</span>
@@ -7423,6 +7432,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           puntoVenta,
           cbteNro: result.cbteNro,
           importeTotal,
+          importeNeto,
+          importeIva,
           contribuyente, // Datos de ARCA ya obtenidos
         };
       } else {
