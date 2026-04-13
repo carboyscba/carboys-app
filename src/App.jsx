@@ -7907,12 +7907,16 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             <option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Cuenta Corriente</option>
                           </select>
                         </div>
-                        <div><label style={labelStyle}>{i === 0 && cobroPay.length > 1 ? "Monto (restante)" : "Monto"}</label>
+                        <div><label style={labelStyle}>{i === 0 && cobroPay.length > 1 ? "Monto (restante)" : "Total a cobrar"}</label>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>$</span>
                             {i === 0 && cobroPay.length > 1 ? (
                               <div style={{ ...inputStyle, flex: 1, background: `${T.accent}10`, borderColor: T.accent, fontWeight: 800, color: T.accent, fontFamily: fontD, fontSize: 15, display: "flex", alignItems: "center", padding: "10px 12px" }}>
                                 {Number(primerMonto || 0).toLocaleString("es-AR")}
+                              </div>
+                            ) : i === 0 && cobroPay.length === 1 ? (
+                              <div style={{ ...inputStyle, flex: 1, background: `${T.accent}08`, borderColor: T.accent, fontWeight: 800, color: T.accent, fontFamily: fontD, fontSize: 16, display: "flex", alignItems: "center", padding: "10px 12px" }}>
+                                {Number(pm.amount || 0).toLocaleString("es-AR")}
                               </div>
                             ) : (
                               <input inputMode="numeric" value={pm.amount ? Number(pm.amount).toLocaleString("es-AR") : ""} onChange={e => setCobroPay(ps => ps.map((p, j) => j === i ? { ...p, amount: e.target.value.replace(/[^0-9]/g, "") } : p))} style={{ ...inputStyle, fontWeight: 700, fontFamily: fontD }} />
