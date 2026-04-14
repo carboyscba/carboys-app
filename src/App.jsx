@@ -684,8 +684,7 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
 });
 
 // ── HTML element → PDF base64 (A4, single page, max content) ──
-// Standard A4 + 0 margins + edge-to-edge content
-// iOS prints PDFs respecting the PDF's own layout (no added margins for PDFs)
+// Standard A4 + 0 margins + squeezed padding for maximum content area
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   if (!window.html2canvas) {
@@ -693,24 +692,37 @@ const htmlToPdfBase64 = async (el, filename) => {
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
-  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight, padding: el.style.padding };
-  // 660px capture → text ~21% bigger than 800px on A4
+  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight };
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "660px";
+  el.style.width = "620px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "660px";
+  el.style.minHeight = "620px";
+  // Squeeze horizontal padding: reduce all padding-left/right > 10px to 6px
+  const _padSaved = [];
+  try { el.querySelectorAll("*").forEach(function(child) {
+    var cs = window.getComputedStyle(child);
+    var pl = parseFloat(cs.paddingLeft) || 0;
+    var pr = parseFloat(cs.paddingRight) || 0;
+    if (pl > 10 || pr > 10) {
+      _padSaved.push({ el: child, pl: child.style.paddingLeft, pr: child.style.paddingRight });
+      child.style.paddingLeft = Math.max(6, Math.round(pl * 0.35)) + "px";
+      child.style.paddingRight = Math.max(6, Math.round(pr * 0.35)) + "px";
+    }
+  }); } catch(e) {}
   const lastChild = el.lastElementChild;
   const origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
   void el.offsetHeight;
   const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
+  // Restore everything
   Object.assign(el.style, orig);
   if (lastChild) lastChild.style.marginTop = origLastMT;
-  // Standard A4, zero margins — content fills entire page
+  _padSaved.forEach(function(s) { s.el.style.paddingLeft = s.pl; s.el.style.paddingRight = s.pr; });
+  // A4 zero margins
   const pageW = 210, pageH = 297;
   const imgW = canvas.width, imgH = canvas.height;
   const ratioW = pageW / imgW;
