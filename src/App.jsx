@@ -5354,25 +5354,25 @@ const VehicleDetailScreen = (props) => {
               <div style={{ padding: "10px 12px", background: T.bg, borderRadius: 8, fontSize: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ color: T.gray }}>+ IVA {config.ivaRate}%</span>
-                  <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(total * config.ivaRate / 100)}</span>
+                  <span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(getBaseTotal(order) * config.ivaRate / 100)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ color: T.gray }}>Total con IVA</span>
-                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(total * (1 + config.ivaRate / 100))}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(Math.round(getBaseTotal(order) * (1 + config.ivaRate / 100)))}</span>
                 </div>
                 <div style={{ height: 1, background: T.border, margin: "6px 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3}%)</span>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge3 / 100) / 3)} c/u</span>
-                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge3 / 100))}</span>
+                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(getBaseTotal(order) * (1 + config.surcharge3 / 100) / 3)} c/u</span>
+                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(getBaseTotal(order) * (1 + config.surcharge3 / 100))}</span>
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6}%)</span>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(total * (1 + config.surcharge6 / 100) / 6)} c/u</span>
-                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(total * (1 + config.surcharge6 / 100))}</span>
+                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(getBaseTotal(order) * (1 + config.surcharge6 / 100) / 6)} c/u</span>
+                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(getBaseTotal(order) * (1 + config.surcharge6 / 100))}</span>
                   </div>
                 </div>
               </div>
@@ -7775,6 +7775,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
             const total = getOrderTotal(o);
+            const baseTotal = getBaseTotal(o);
             const iva = config.ivaRate || 21;
             return (
               <div>
@@ -7831,7 +7832,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div key={i} style={{ marginBottom: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                         <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(getWorkPrice(o, w.price))}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
                       </div>
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
                         <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, padding: "2px 0 2px 14px" }}>
@@ -7843,15 +7844,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   ))}
                   <div style={{ height: 2, background: T.border, margin: "12px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-                    <span>TOTAL BASE</span>
-                    <span style={{ color: T.accent }}>{fmt(total)}</span>
+                    <span>{(cobroPay[0]?.withIva || o.paymentPref?.withIva) ? "SUBTOTAL" : "TOTAL"}</span>
+                    <span style={{ color: T.accent }}>{fmt(baseTotal)}</span>
                   </div>
                   {(cobroPay[0]?.withIva || o.paymentPref?.withIva) && (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.gray }}><span>+ IVA {iva}%</span><span style={{ fontWeight: 700, color: T.orange }}>{fmt(Math.round(total * iva / 100))}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.gray }}><span>+ IVA {iva}%</span><span style={{ fontWeight: 700, color: T.orange }}>{fmt(Math.round(baseTotal * iva / 100))}</span></div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, marginTop: 6, paddingTop: 8, borderTop: `2px solid ${T.accent}` }}>
                         <span>TOTAL A COBRAR</span>
-                        <span style={{ color: T.green }}>{fmt(Math.round(total * (1 + iva / 100)))}</span>
+                        <span style={{ color: T.green }}>{fmt(total)}</span>
                       </div>
                     </div>
                   )}
