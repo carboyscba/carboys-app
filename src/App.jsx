@@ -1191,13 +1191,11 @@ const WORK_TYPES = [
   { name: "Service Base", icon: "🔧" },
   { name: "Tren Delantero", icon: "⚙️" },
   { name: "Tren Trasero", icon: "⚙️" },
-  { name: "Pastillas de Freno", icon: "🛞" },
   { name: "Mecánica", icon: "🔩" },
   { name: "Escape", icon: "💨" },
   { name: "Repro", icon: "⚡" },
   { name: "Arreglo", icon: "🪛" },
   { name: "Baterías", icon: "🔋" },
-  { name: "Chequeo Pre-Post", icon: "🔍" },
   { name: "Accesorios", icon: "🧰", isGroup: true, subItems: [
     { name: "Escobillas", icon: "🧹" },
     { name: "Aditivo", icon: "🧪" },
@@ -1216,6 +1214,7 @@ const BUDGET_CATEGORIES = {
     { key: "rotulas", label: "Rótulas", hasSide: true },
     { key: "bujes", label: "Bujes", hasSide: true },
     { key: "rulemanes", label: "Rulemanes", hasSide: true },
+    { key: "pastillas_del", label: "Pastillas de freno", hasSide: true },
     { key: "discos", label: "Discos de freno", hasSide: true },
     { key: "alineado", label: "Alineado" },
     { key: "balanceado", label: "Balanceado" },
@@ -1225,6 +1224,8 @@ const BUDGET_CATEGORIES = {
     { key: "amortiguadores_t", label: "Amortiguadores", hasSide: true },
     { key: "bujes_t", label: "Bujes", hasSide: true },
     { key: "rulemanes_t", label: "Rulemanes", hasSide: true },
+    { key: "freno_pastilla_t", label: "Freno — Pastilla", hasSide: true },
+    { key: "freno_cinta_t", label: "Freno — Cinta", hasSide: true },
   ],
   "Mecánica": [
     { key: "kit_distribucion", label: "Kit de distribución" },
@@ -1258,7 +1259,7 @@ const BUDGET_CATEGORIES = {
     { key: "bat_110", label: "Batería 110 Amp" },
   ],
 };
-const FREE_CATEGORIES = ["Arreglo", "Repro", "Otros"];
+const FREE_CATEGORIES = [];
 const SIMPLE_WORK_TYPES = ["Escobillas", "Aditivo", "Lámpara"];
 
 const findWorkType = (name) => {
@@ -3163,7 +3164,7 @@ const NewOrderScreen = (props) => {
                     <input inputMode="text" value={w.desc || ""} onChange={e => updateWork(i, "desc", e.target.value)}
                       placeholder="Detalles del trabajo..." style={inputStyle} />
                   </div>
-                  {w.type !== "Tren Delantero" && w.type !== "Tren Trasero" && w.type !== "Mecánica" && w.type !== "Escape" && w.type !== "Arreglo" && w.type !== "Repro" && w.type !== "Otros" && <div>
+                  {w.type !== "Tren Delantero" && w.type !== "Tren Trasero" && w.type !== "Mecánica" && w.type !== "Escape" && <div>
                     <label style={labelStyle}>Precio *</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                       <span style={{ fontSize: 16, color: T.accent, fontWeight: 700 }}>$</span>
