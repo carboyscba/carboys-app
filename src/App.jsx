@@ -1596,8 +1596,11 @@ const fmtD = (d) => d ? d.replace(/\s/g, "") : "";
 const fmtDate = (d) => { if (!d) return "—"; const p = String(d).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
 const getBaseTotal = (o) => (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
 const getOrderTotal = (o, ivaRate) => {
-  const paid = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-  if (paid > 0) return paid;
+  // Only use payments if order was actually cobrado (not just payment preference from creation)
+  if (o.cobrado) {
+    const paid = (o.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    if (paid > 0) return paid;
+  }
   if (o.factura?.importeTotal) return o.factura.importeTotal;
   const base = getBaseTotal(o);
   const _iva = ivaRate || 21;
