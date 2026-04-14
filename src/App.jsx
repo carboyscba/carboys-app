@@ -17626,7 +17626,17 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
         {/* Footer */}
         <div style={{ padding: "6px 20px", background: "#F8F9FA", borderTop: "1.5px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 6.5, color: "#A0AEC0" }}>CarBoys · {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
-          {price > 0 && <div style={{ fontSize: 9, fontWeight: 800, color: "#0D1B2A", fontFamily: "Rajdhani, sans-serif" }}>Total: ${Number(price).toLocaleString("es-AR")}</div>}
+          {price > 0 && (() => {
+            const _batIva = (order.payments || []).some(p => p.withIva) || order.paymentPref?.withIva;
+            return _batIva ? (
+              <div style={{ textAlign: "right" }}>
+                <span style={{ fontSize: 7, color: "#718096" }}>Neto: ${Number(price).toLocaleString("es-AR")} + IVA 21%: ${Math.round(price * 0.21).toLocaleString("es-AR")} · </span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "#0D1B2A", fontFamily: "Rajdhani, sans-serif" }}>Total: ${Math.round(price * 1.21).toLocaleString("es-AR")}</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 9, fontWeight: 800, color: "#0D1B2A", fontFamily: "Rajdhani, sans-serif" }}>Total: ${Number(price).toLocaleString("es-AR")}</div>
+            );
+          })()}
         </div>
       </div>
     </div>
