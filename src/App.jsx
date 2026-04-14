@@ -699,10 +699,10 @@ const htmlToPdfBase64 = async (el, filename) => {
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "775px";
+  el.style.width = "900px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "775px";
+  el.style.minHeight = "900px";
   var lastChild = el.lastElementChild;
   var origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
@@ -18223,8 +18223,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
-              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 14, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "#9badc4", lineHeight: 1.7 }}>
                 {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
                 {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
@@ -18243,28 +18243,28 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
                   </div>
-                  <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                  <div style={{ fontSize: 9, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
                 </div>
               );
             })()}
           </div>
           {/* Title */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>INFORME DE INTERVENCIÓN</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {fmtDate(order.date)}</div>
+            <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: "#0D1B2A" }}>INFORME DE INTERVENCIÓN</div>
+            <div style={{ fontSize: 10, color: "#718096" }}>Fecha: {fmtDate(order.date)}</div>
           </div>
           {/* Vehicle + Client */}
           <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
             <div style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 8, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-              <div style={{ fontSize: 7.5, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
+              <div style={{ fontSize: 10, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              <div style={{ fontSize: 10, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
             </div>
             <div style={{ flex: 1.2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
-              <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
-              <div style={{ fontSize: 8, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
+              <div style={{ fontSize: 10, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
             </div>
           </div>
           {/* Intervention Diagram */}
@@ -18275,7 +18275,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ marginTop: "auto" }}>
           {/* Trabajos */}
           <div style={{ padding: "8px 22px 16px" }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
               {(() => {
                 const authNotif = (order._notifications || notifications || []).find(n => n.orderId === order.id && (n.status === "approved" || n.status === "denied"));
@@ -18301,7 +18301,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                       </div>
                       {isDenied && (
                         <div style={{ padding: "1px 0 2px 20px" }}>
-                          <span style={{ fontSize: 7.5, color: "#C62828", fontStyle: "italic" }}>
+                          <span style={{ fontSize: 10, color: "#C62828", fontStyle: "italic" }}>
                             ⚠ Cambio no autorizado por el cliente
                           </span>
                         </div>
@@ -18322,8 +18322,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   return (
                     <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
                       </div>
                       {/* Items originales de la orden */}
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
@@ -18344,17 +18344,17 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 return (<>
                 {_trenIva && (<>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 4 }}>
-                    <span style={{ fontSize: 10, color: "#718096" }}>Subtotal (neto)</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_trenBase.toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 13, color: "#718096" }}>Subtotal (neto)</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_trenBase.toLocaleString("es-AR")}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
-                    <span style={{ fontSize: 10, color: "#718096" }}>IVA 21%</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_trenBase * 21 / 100).toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 13, color: "#718096" }}>IVA 21%</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_trenBase * 21 / 100).toLocaleString("es-AR")}</span>
                   </div>
                 </>)}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: _trenIva ? 4 : 6, paddingTop: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_trenIva ? Math.round(_trenBase * 1.21) : _trenBase).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_trenIva ? Math.round(_trenBase * 1.21) : _trenBase).toLocaleString("es-AR")}</span>
                 </div>
                 </>);
               })()}
@@ -18362,7 +18362,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           </div>
           {/* Footer */}
           <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
+            <div style={{ fontSize: 10, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
@@ -18601,23 +18601,23 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   const scoreColor = score >= 80 ? "#2E7D32" : score >= 60 ? "#E65100" : "#C62828";
   const isUltraCompact = totalItems > 50;
   const isCompact = totalItems > 35;
-  const itemFs = isUltraCompact ? 8 : isCompact ? 9 : 10;
-  const secPad = isUltraCompact ? "5px 8px" : isCompact ? "7px 10px" : "8px 12px";
-  const gapSize = isUltraCompact ? 4 : isCompact ? 5 : 7;
+  const itemFs = isUltraCompact ? 10 : isCompact ? 12 : 13;
+  const secPad = isUltraCompact ? "6px 10px" : isCompact ? "8px 12px" : "10px 14px";
+  const gapSize = isUltraCompact ? 5 : isCompact ? 6 : 8;
 
   return (
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
       <div className="no-print" style={{ maxWidth: 680, margin: "0 auto 12px", display: "flex", gap: 10 }}>
-        <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, padding: "10px 20px" }}>← Volver</button>
-        <button onClick={() => openPrintA4("foja-print", isPF ? "Informe de Intervención" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#1E88E5"), fontSize: 13, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
-          <button onClick={() => sendFojaWA(isPF ? "Informe de Intervencion" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#25D366"), fontSize: 13, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
+        <button onClick={() => onNavigate("vehicleDetail", order)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 16, padding: "10px 20px" }}>← Volver</button>
+        <button onClick={() => openPrintA4("foja-print", isPF ? "Informe de Intervención" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#1E88E5"), fontSize: 16, padding: "10px 20px", flex: 1 }}>🖨️ Imprimir</button>
+          <button onClick={() => sendFojaWA(isPF ? "Informe de Intervencion" : isBase ? "Foja de Service Base" : "Foja de Service Full")} style={{ ...btnPrimary("#25D366"), fontSize: 16, padding: "10px 20px", flex: 1 }}>📱 WhatsApp</button>
       </div>
       <div id="foja-print" style={{ maxWidth: 680, margin: "0 auto", background: "#FFF", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
         <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
-            <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-            <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 14, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: "#9badc4", lineHeight: 1.7 }}>
               {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
               {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
               {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
@@ -18636,30 +18636,30 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
                 </div>
-                <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                <div style={{ fontSize: 9, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
               </div>
             );
           })()}
         </div>
         <div style={{ background: "#F7F9FC", padding: "6px 22px", borderBottom: "1px solid #E8ECF2", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: "#1B2D45", letterSpacing: 1 }}>{isPF ? "INFORME DE INTERVENCIÓN" : "FOJA DE SERVICIO"}</div>
-          <div style={{ fontSize: 9, color: "#718096" }}>Fecha: {new Date().toLocaleDateString("es-AR")}</div>
+          <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#1B2D45", letterSpacing: 1 }}>{isPF ? "INFORME DE INTERVENCIÓN" : "FOJA DE SERVICIO"}</div>
+          <div style={{ fontSize: 12, color: "#718096" }}>Fecha: {new Date().toLocaleDateString("es-AR")}</div>
         </div>
         <div style={{ padding: "12px 18px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 10 }}>
             <div style={{ background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1.5px solid #E8ECF2" }}>
-              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>VEHÍCULO</div>
+              <div style={{ fontSize: 9, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>VEHÍCULO</div>
               <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: "#1B2D45", letterSpacing: 0 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 10, color: "#4A5568", fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
-              <div style={{ fontSize: 10, color: "#4A5568", fontWeight: 700 }}>Kilometraje: {(vehicle?.km || 0).toLocaleString("es-AR")} km</div>
+              <div style={{ fontSize: 13, color: "#4A5568", fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
+              <div style={{ fontSize: 13, color: "#4A5568", fontWeight: 700 }}>Kilometraje: {(vehicle?.km || 0).toLocaleString("es-AR")} km</div>
             </div>
             <div style={{ background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1.5px solid #E8ECF2" }}>
-              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>CLIENTE</div>
+              <div style={{ fontSize: 9, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>CLIENTE</div>
               <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: "#1B2D45" }}>{client?.name} {client?.lastName}</div>
-              <div style={{ fontSize: 9, color: "#4A5568" }}>Tel: {client?.phone || "—"}</div>
+              <div style={{ fontSize: 12, color: "#4A5568" }}>Tel: {client?.phone || "—"}</div>
             </div>
             {!isBase && !isPF && (<div style={{ minWidth: 72, background: "#F7F9FC", borderRadius: 8, padding: 8, border: "1.5px solid #E8ECF2", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1 }}>SCORE</div>
+              <div style={{ fontSize: 9, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1 }}>SCORE</div>
               <div style={{ position: "relative", width: 46, height: 46, margin: "3px 0" }}>
                 <svg viewBox="0 0 46 46" width="46" height="46">
                   <circle cx="23" cy="23" r="19" fill="none" stroke="#E8ECF2" strokeWidth="3.5" />
@@ -18667,13 +18667,13 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 </svg>
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fontD, fontSize: 18, fontWeight: 800, color: scoreColor }}>{score}</div>
               </div>
-              <div style={{ fontSize: 7, color: scoreColor, fontWeight: 700 }}>/ 100</div>
+              <div style={{ fontSize: 9, color: scoreColor, fontWeight: 700 }}>/ 100</div>
             </div>)}
           </div>
           {(isPF || forceIntervention) && hasTrenWorks ? (
             <InterventionDiagram order={order} sheet={sheet} />
           ) : (forceIntervention && !hasTrenWorks) ? (
-            <div style={{ padding: 20, textAlign: "center", color: "#718096", fontSize: 10 }}>No hay trabajos de tren/pastillas en esta orden</div>
+            <div style={{ padding: 20, textAlign: "center", color: "#718096", fontSize: 13 }}>No hay trabajos de tren/pastillas en esta orden</div>
           ) : (<>
           {/* Helper to render a section box */}
           {(() => {
@@ -18682,7 +18682,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               if (!sec) return <div style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5", ...extraStyle }} />;
               return (
                 <div style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5", ...extraStyle }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
                   {sec.items.map((it, j) => (
                     <div key={j} style={{ marginBottom: 2 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -18691,30 +18691,30 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                         {it.pct !== null ? (
                           <div style={{ width: 40, display: "flex", alignItems: "center", gap: 3 }}>
                             <FojaProgressBar pct={it.pct} color={it.color} h={3} />
-                            <span style={{ fontSize: 7, color: "#718096", width: 18, textAlign: "right" }}>{it.pct}%</span>
+                            <span style={{ fontSize: 9, color: "#718096", width: 18, textAlign: "right" }}>{it.pct}%</span>
                           </div>
                         ) : (
                           it.wasChanged ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                            {it.prevText && <><span style={{ fontSize: 6, fontWeight: 700, color: it.prevColor, textDecoration: "line-through", whiteSpace: "nowrap" }}>{it.prevText}</span><span style={{ fontSize: 5.5, color: "#718096", margin: "0 1px" }}>→</span></>}
-                            <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>{it.text}</span>
-                            {it.pctChanged && <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>Sustituida</span>}
+                            {it.prevText && <><span style={{ fontSize: 8, fontWeight: 700, color: it.prevColor, textDecoration: "line-through", whiteSpace: "nowrap" }}>{it.prevText}</span><span style={{ fontSize: 7, color: "#718096", margin: "0 1px" }}>→</span></>}
+                            <span style={{ fontSize: 8, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>{it.text}</span>
+                            {it.pctChanged && <span style={{ fontSize: 8, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>Sustituida</span>}
                           </span>
                         ) : (
-                          <span style={{ fontSize: 8, fontWeight: 700, color: it.color }}>{it.text}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: it.color }}>{it.text}</span>
                         )
                         )}
                       </div>
                       {it.brakePct !== null && (
                         <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 8, marginTop: 1 }}>
-                          <span style={{ fontSize: 6, color: "#718096" }}>Agua:</span>
+                          <span style={{ fontSize: 8, color: "#718096" }}>Agua:</span>
                           <div style={{ width: 30, height: 3, background: "#E2E8F0", borderRadius: 2, overflow: "hidden" }}>
                             <div style={{ width: `${it.brakePct * 25}%`, height: "100%", background: it.brakePctColor, borderRadius: 2 }} />
                           </div>
-                          <span style={{ fontSize: 6, fontWeight: 700, color: it.brakePctColor }}>{it.brakePct}% — {it.brakePctLabel}</span>
+                          <span style={{ fontSize: 8, fontWeight: 700, color: it.brakePctColor }}>{it.brakePct}% — {it.brakePctLabel}</span>
                         </div>
                       )}
-                      {it.subText && <div style={{ fontSize: 5.5, color: it.subColor || "#1565C0", fontWeight: 600, paddingLeft: 8, marginTop: 0 }}>{it.subText}</div>}
+                      {it.subText && <div style={{ fontSize: 7, color: it.subColor || "#1565C0", fontWeight: 600, paddingLeft: 8, marginTop: 0 }}>{it.subText}</div>}
                     </div>
                   ))}
                 </div>
@@ -18751,11 +18751,11 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             {/* LEFT: CUBIERTAS */}
             <div style={{ background: "#F0F7FF", border: "1.5px solid #BBDEFB", borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#1E88E5" }}>Cubiertas</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1E88E5" }}>Cubiertas</div>
                 {(() => {
                   const rotData = sheet.escobillas_cubiertas || sheet.cubiertas_bateria || {};
                   const rotRealizada = rotData.rotacion === "realizada";
-                  return <div style={{ fontSize: 8, fontWeight: 600, padding: "2px 10px", borderRadius: 12, background: rotRealizada ? "#C8E6C9" : "#FFECB3", color: rotRealizada ? "#1B5E20" : "#E65100" }}>Rotación: {rotRealizada ? "Realizada" : "No realizada"}</div>;
+                  return <div style={{ fontSize: 10, fontWeight: 600, padding: "2px 10px", borderRadius: 12, background: rotRealizada ? "#C8E6C9" : "#FFECB3", color: rotRealizada ? "#1B5E20" : "#E65100" }}>Rotación: {rotRealizada ? "Realizada" : "No realizada"}</div>;
                 })()}
               </div>
               {hasTires ? (
@@ -18768,16 +18768,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                     const style = { position: "absolute", width: 34, height: 48, borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, background: bg, boxShadow: "0 2px 6px rgba(0,0,0,.15)" };
                     if (top !== null) style.top = top; else style.bottom = 8;
                     if (left !== null) style.left = left; else style.right = 0;
-                    return <div key={idx} style={style}><div style={{ fontSize: 12, lineHeight: 1 }}>{pct}%</div><div style={{ fontSize: 5.5, opacity: .85, marginTop: 1 }}>{label}</div></div>;
+                    return <div key={idx} style={style}><div style={{ fontSize: 15, lineHeight: 1 }}>{pct}%</div><div style={{ fontSize: 7, opacity: .85, marginTop: 1 }}>{label}</div></div>;
                   })}
                 </div>
               ) : (
-                <div style={{ padding: 20, color: "#A0AEC0", fontSize: 9, textAlign: "center" }}>Sin datos de cubiertas</div>
+                <div style={{ padding: 20, color: "#A0AEC0", fontSize: 12, textAlign: "center" }}>Sin datos de cubiertas</div>
               )}
             </div>
             {/* RIGHT: OBSERVACIONES */}
             <div style={{ border: "1.5px solid #E2E8F0", borderRadius: 8, padding: "10px 14px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#F9A825", marginBottom: 8 }}>Observaciones</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F9A825", marginBottom: 8 }}>Observaciones</div>
               {(() => {
                 const _obs = [];
                 // Collect techNotes
@@ -18812,17 +18812,17 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 const _dtcPresent = _dtcData.dtc_fallos === "con_fallos" || _dtcData.dtc_codigos;
                 const _dtcCodes = (_dtcData.dtc_codigos || "").split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
                 return (<>
-                  {_obs.length === 0 && !_dtcPresent && <div style={{ color: "#A0AEC0", fontSize: 9, padding: 8, textAlign: "center" }}>Sin observaciones</div>}
+                  {_obs.length === 0 && !_dtcPresent && <div style={{ color: "#A0AEC0", fontSize: 12, padding: 8, textAlign: "center" }}>Sin observaciones</div>}
                   {_obs.map((o, i) => (
-                    <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 9, color: o.type === "warn" ? "#C62828" : o.type === "item" ? "#E65100" : "#4A5568", lineHeight: 1.4 }}>
+                    <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 12, color: o.type === "warn" ? "#C62828" : o.type === "item" ? "#E65100" : "#4A5568", lineHeight: 1.4 }}>
                       <span style={{ fontWeight: 700, color: "#F9A825", minWidth: 14 }}>{i + 1}.</span>
                       <span>{o.text}</span>
                     </div>
                   ))}
                   {_dtcPresent && _dtcCodes.length > 0 && (<>
-                    <div style={{ fontSize: 8, fontWeight: 700, color: "#C62828", letterSpacing: .5, marginTop: 8, marginBottom: 4 }}>CÓDIGOS DTC DETECTADOS</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#C62828", letterSpacing: .5, marginTop: 8, marginBottom: 4 }}>CÓDIGOS DTC DETECTADOS</div>
                     {_dtcCodes.map((code, i) => (
-                      <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 9, color: "#C62828", fontWeight: 600, lineHeight: 1.4 }}>
+                      <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 12, color: "#C62828", fontWeight: 600, lineHeight: 1.4 }}>
                         <span style={{ fontWeight: 700, minWidth: 18 }}>D{i + 1}.</span>
                         <span>{code}</span>
                       </div>
@@ -18836,7 +18836,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                     {/* BLOQUE INFERIOR — se empuja al fondo de la página */}
           <div style={{ marginTop: "auto" }}>
           <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "8px 12px", border: "1px solid #EDF0F5", marginBottom: 10 }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#1B2D45", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#1B2D45", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>TRABAJOS REALIZADOS</div>
             {(() => {
               const _hasIvaFoja = (order.payments || []).some(p => p.withIva) || order.paymentPref?.withIva;
               const _ivaRFoja = 21;
@@ -18845,21 +18845,21 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             {(order.works || []).map((w, i) => (
               <div key={i} style={{ padding: "3px 0", borderBottom: i < (order.works||[]).length - 1 ? "1px solid #F0F2F5" : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, color: "#1B2D45", fontWeight: 700 }}>{w.type}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+(parseFloat(w.price)||0).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 12, color: "#1B2D45", fontWeight: 700 }}>{w.type}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+(parseFloat(w.price)||0).toLocaleString("es-AR")}</span>
                 </div>
                 {w.trenItems && w.trenItems.filter(ti => ti.isCustom ? ti.label : ti.selected).length > 0 ? (
                   <div style={{ paddingLeft: 8, marginTop: 1 }}>
                     {w.trenItems.filter(ti => ti.isCustom ? ti.label : ti.selected).map((ti, j) => (
                       <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1px 0" }}>
-                        <span style={{ fontSize: 7.5, color: "#4A5568" }}>• {ti.isCustom ? ti.label : ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.otroDesc ? ` — ${ti.otroDesc}` : ""}</span>
-                        {ti.price && <span style={{ fontSize: 7.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+                        <span style={{ fontSize: 10, color: "#4A5568" }}>• {ti.isCustom ? ti.label : ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}{ti.otroDesc ? ` — ${ti.otroDesc}` : ""}</span>
+                        {ti.price && <span style={{ fontSize: 10, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
                       </div>
                     ))}
                   </div>
                 ) : w.desc ? (
                   <div style={{ paddingLeft: 8, marginTop: 1 }}>
-                    <span style={{ fontSize: 7.5, color: "#4A5568" }}>• {w.desc}</span>
+                    <span style={{ fontSize: 10, color: "#4A5568" }}>• {w.desc}</span>
                   </div>
                 ) : null}
               </div>
@@ -18867,21 +18867,21 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             <div style={{ borderTop: "2px solid #1E88E5", marginTop: 4, paddingTop: 4 }}>
               {_hasIvaFoja ? (<>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: 9, color: "#718096" }}>Subtotal (neto)</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+_baseTotal.toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 12, color: "#718096" }}>Subtotal (neto)</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+_baseTotal.toLocaleString("es-AR")}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: 9, color: "#718096" }}>IVA {_ivaRFoja}%</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>{"$"+Math.round(_baseTotal * _ivaRFoja / 100).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 12, color: "#718096" }}>IVA {_ivaRFoja}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>{"$"+Math.round(_baseTotal * _ivaRFoja / 100).toLocaleString("es-AR")}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #E2E8F0", paddingTop: 3 }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+Math.round(_baseTotal * (1 + _ivaRFoja / 100)).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+Math.round(_baseTotal * (1 + _ivaRFoja / 100)).toLocaleString("es-AR")}</span>
                 </div>
               </>) : (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+_baseTotal.toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+_baseTotal.toLocaleString("es-AR")}</span>
                 </div>
               )}
             </div>
@@ -18891,17 +18891,17 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
           {!isPF && <div style={{ background: "linear-gradient(135deg, #1E88E5, #0D47A1)", borderRadius: 8, padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 8, letterSpacing: 2, color: "#90CAF9" }}>PRÓXIMO SERVICE RECOMENDADO</div>
+              <div style={{ fontSize: 10, letterSpacing: 2, color: "#90CAF9" }}>PRÓXIMO SERVICE RECOMENDADO</div>
               <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800, color: "#FFF", letterSpacing: 1 }}>{nextKm.toLocaleString("es-AR")} km</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 8, color: "#90CAF9" }}>Gracias por confiar en</div>
+              <div style={{ fontSize: 10, color: "#90CAF9" }}>Gracias por confiar en</div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
             </div>
           </div>}
           </div>{/* cierre bloque inferior marginTop auto */}
         </div>
-        <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 7, color: "#A0AEC0" }}>
+        <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#A0AEC0" }}>
           <span>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</span>
           <span>{(config.tallerDir || "") + (config.tallerCiudad ? ", " + config.tallerCiudad : "") + (config.tallerTel ? " · " + config.tallerTel : "") + (config.tallerIG ? " · " + config.tallerIG : "")}</span>
         </div>
