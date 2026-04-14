@@ -14066,6 +14066,62 @@ const BudgetPricingScreen = (props) => {
 
 
 
+// ── SCORE WEIGHTS: peso ponderado por item (w=peso, on=afecta score) ──
+// ×3=crítico(seguridad), ×2=importante(funcionamiento), ×1=normal(confort), 0=no afecta
+const SCORE_WEIGHTS = {
+  "aceite": { w: 0, on: false },
+  "filtro_aceite": { w: 0, on: false },
+  "filtro_aire": { w: 0, on: false },
+  "filtro_habitaculo": { w: 0, on: false },
+  "filtro_combustible": { w: 0, on: false },
+  "td_amortiguadores": { w: 3, on: true },
+  "td_extremos": { w: 3, on: true },
+  "td_axiales": { w: 3, on: true },
+  "td_bieletas": { w: 2, on: true },
+  "td_parrilla": { w: 3, on: true },
+  "td_rotulas": { w: 3, on: true },
+  "td_bujes": { w: 3, on: true },
+  "td_rulemanes": { w: 3, on: true },
+  "td_discos": { w: 3, on: true },
+  "td_pastillas": { w: 3, on: true },
+  "tt_amortiguadores": { w: 3, on: true },
+  "tt_freno": { w: 3, on: true },
+  "tt_bujes": { w: 2, on: true },
+  "tt_rulemanes": { w: 3, on: true },
+  "liq_frenos": { w: 3, on: true },
+  "liq_direccion": { w: 1, on: true },
+  "liq_refrigerante": { w: 3, on: true },
+  "aceite_caja": { w: 3, on: true },
+  "agua_lavaparabrisas": { w: 1, on: true },
+  "cuatrox4": { w: 2, on: true },
+  "correa_distribucion": { w: 3, on: true },
+  "bomba_agua": { w: 3, on: true },
+  "correa_poliv": { w: 3, on: true },
+  "tensores_poliv": { w: 3, on: true },
+  "mangueras_refrig": { w: 2, on: true },
+  "perdidas_aceite": { w: 2, on: true },
+  "luz_baja": { w: 1, on: true },
+  "luz_alta": { w: 1, on: true },
+  "luz_pos_del": { w: 1, on: true },
+  "luz_pos_tra": { w: 1, on: true },
+  "luz_stop": { w: 1, on: true },
+  "guinos": { w: 1, on: true },
+  "silenciador_trasero": { w: 2, on: true },
+  "silenciador_intermedio": { w: 2, on: true },
+  "multiple_escape": { w: 2, on: true },
+  "cano_escape": { w: 2, on: true },
+  "soporte_escape": { w: 1, on: true },
+  "catalizador": { w: 2, on: true },
+  "reinicio_service": { w: 0, on: false },
+  "dtc_fallos": { w: 2, on: true },
+  "bujias_estado": { w: 2, on: true },
+  "escobillas_estado": { w: 1, on: true },
+  "rotacion_cubiertas": { w: 0, on: false },
+  "estado_cubiertas": { w: 2, on: true },
+  "bateria_control": { w: 3, on: true },
+  "carga_alternador": { w: 3, on: true },
+};
+
 // ── SERVICE TEMPLATES (shared between ServiceSheetScreen and FojaClientScreen) ──
 const SF_TEMPLATE = [
   { section: "MOTOR", icon: "🛢️", items: [
@@ -18506,6 +18562,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       let pctChanged = false;
       if (hasPct && d.status === "cambiado") pctChanged = true;
       return {
+        itemId: it.id,
         label: it.type === "freno_trasero" ? `Freno (${d.toggle || ""})` : it.label,
         color: isSustituida ? "#1565C0" : (info ? info.color : fojaColor(it, d)),
         text: info ? info.text : null,
@@ -18529,8 +18586,18 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   const hasTires = tires.some(t => t > 0);
   const techNotes = (order.techNotes || []).filter(n => n && n.trim());
   const totalItems = sections.reduce((s, sec) => s + sec.items.length, 0);
-  const goodItems = sections.reduce((s, sec) => s + sec.items.filter(it => it.color === "#2E7D32" || it.color === "#1565C0" || it.wasChanged).length, 0);
-  const score = totalItems > 0 ? Math.round((goodItems / totalItems) * 100) : 0;
+  // Weighted score: each item contributes its weight (×3, ×2, ×1) only if on=true
+  let _scoreTotalW = 0, _scoreGoodW = 0;
+  sections.forEach(sec => {
+    sec.items.forEach(it => {
+      const sw = SCORE_WEIGHTS[it.itemId];
+      if (!sw || !sw.on) return; // skip items that don't affect score
+      _scoreTotalW += sw.w;
+      const isGood = it.color === "#2E7D32" || it.color === "#1565C0" || it.wasChanged;
+      if (isGood) _scoreGoodW += sw.w;
+    });
+  });
+  const score = _scoreTotalW > 0 ? Math.round((_scoreGoodW / _scoreTotalW) * 100) : 0;
   const scoreColor = score >= 80 ? "#2E7D32" : score >= 60 ? "#E65100" : "#C62828";
   const isUltraCompact = totalItems > 50;
   const isCompact = totalItems > 35;
@@ -18694,9 +18761,11 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 // Skip "No equipado" items — means the car doesn't have that feature
                 sections.forEach(sec => {
                   sec.items.forEach(it => {
-                    const valText = (it.value || "").toLowerCase();
+                    const valText = ((it.text || "") + " " + (it.label || "")).toLowerCase();
                     const isNoEquipado = valText.includes("no equipado") || valText.includes("no equip");
-                    if (isNoEquipado) return; // Not a problem, skip
+                    if (isNoEquipado) return;
+                    // Also skip reinicio_service entirely — it's an action not a state
+                    if (it.itemId === "reinicio_service") return;
                     if (it.color === "#E65100" && it.label && !it.wasChanged) {
                       const existing = _obs.some(o => o.text.toLowerCase().includes(it.label.toLowerCase()));
                       if (!existing) _obs.push({ text: it.label + ": Regular — revisar en próximo service", type: "item" });
