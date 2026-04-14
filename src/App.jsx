@@ -18691,8 +18691,12 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   });
                 });
                 // Collect items with Regular/Bad status as observations
+                // Skip "No equipado" items — means the car doesn't have that feature
                 sections.forEach(sec => {
                   sec.items.forEach(it => {
+                    const valText = (it.value || "").toLowerCase();
+                    const isNoEquipado = valText.includes("no equipado") || valText.includes("no equip");
+                    if (isNoEquipado) return; // Not a problem, skip
                     if (it.color === "#E65100" && it.label && !it.wasChanged) {
                       const existing = _obs.some(o => o.text.toLowerCase().includes(it.label.toLowerCase()));
                       if (!existing) _obs.push({ text: it.label + ": Regular — revisar en próximo service", type: "item" });
