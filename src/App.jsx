@@ -699,10 +699,10 @@ const htmlToPdfBase64 = async (el, filename) => {
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "850px";
+  el.style.width = "775px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "850px";
+  el.style.minHeight = "775px";
   var lastChild = el.lastElementChild;
   var origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
@@ -18601,9 +18601,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   const scoreColor = score >= 80 ? "#2E7D32" : score >= 60 ? "#E65100" : "#C62828";
   const isUltraCompact = totalItems > 50;
   const isCompact = totalItems > 35;
-  const itemFs = isUltraCompact ? 7 : isCompact ? 8 : 9;
-  const secPad = isUltraCompact ? "4px 6px" : isCompact ? "6px 8px" : "8px 10px";
-  const gapSize = isUltraCompact ? 3 : isCompact ? 4 : 6;
+  const itemFs = isUltraCompact ? 8 : isCompact ? 9 : 10;
+  const secPad = isUltraCompact ? "5px 8px" : isCompact ? "7px 10px" : "8px 12px";
+  const gapSize = isUltraCompact ? 4 : isCompact ? 5 : 7;
 
   return (
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
@@ -18682,7 +18682,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               if (!sec) return <div style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5", ...extraStyle }} />;
               return (
                 <div style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5", ...extraStyle }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
                   {sec.items.map((it, j) => (
                     <div key={j} style={{ marginBottom: 2 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -18701,7 +18701,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                             {it.pctChanged && <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>Sustituida</span>}
                           </span>
                         ) : (
-                          <span style={{ fontSize: 7, fontWeight: 700, color: it.color }}>{it.text}</span>
+                          <span style={{ fontSize: 8, fontWeight: 700, color: it.color }}>{it.text}</span>
                         )
                         )}
                       </div>
