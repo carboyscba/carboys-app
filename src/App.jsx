@@ -1611,6 +1611,13 @@ const getOrderTotal = (o, ivaRate) => {
   return hasIva ? Math.round(base * (1 + _iva / 100)) : base;
 };
 
+// ── Helper: precio de un trabajo con IVA incluido si la orden tiene IVA ──
+const getWorkPrice = (o, workPrice, ivaRate) => {
+  const price = parseFloat(workPrice) || 0;
+  const hasIva = (o.payments || []).some(p => p.withIva) || o.paymentPref?.withIva;
+  return hasIva ? Math.round(price * (1 + (ivaRate || 21) / 100)) : price;
+};
+
 
 // ── NUMPAD COMPONENT ──
 const NumPadContext = React.createContext();
@@ -2334,7 +2341,7 @@ const NewOrderScreen = (props) => {
                           {(o.works||[]).map((w, i) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", paddingLeft: 10, borderBottom: i < o.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
                               <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                              <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price) || 0)}</span>
+                              <span style={{ fontWeight: 700, color: T.accent }}>{fmt(getWorkPrice(o, w.price))}</span>
                             </div>
                           ))}
                           {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
@@ -2388,7 +2395,7 @@ const NewOrderScreen = (props) => {
                         <div key={i} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}>
                             <span>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                            <span style={{ color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
+                            <span style={{ color: T.accent, fontFamily: fontD }}>{fmt(getWorkPrice(o, w.price))}</span>
                           </div>
                           {w.trenItems?.filter(ti => ti.selected).map((ti, j) => (
                             <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14, marginTop: 3 }}>
@@ -3919,15 +3926,28 @@ const NewOrderScreen = (props) => {
               <span style={{ color: T.gray }}>Vehículo</span><span style={{ fontWeight: 600 }}>{form.brand} {form.model} {form.year}</span>
             </div>
             <div style={{ height: 1, background: T.border, margin: "10px 0" }} />
-            {works.map((w, i) => (
+            {works.map((w, i) => {
+              const _ivaR5 = config.ivaRate || 21;
+              const _hasIva5 = (payments[0] || {}).withIva === true;
+              const _wprice = parseFloat(w.price) || 0;
+              const _wdisp = _hasIva5 ? Math.round(_wprice * (1 + _ivaR5 / 100)) : _wprice;
+              return (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                <span>{w.type}</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price))}</span>
+                <span>{w.type}</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(_wdisp)}</span>
               </div>
-            ))}
+              );
+            })}
             <div style={{ height: 1, background: T.border, margin: "10px 0" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, fontFamily: fontD }}>
-              <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(totalWorks)}</span>
-            </div>
+            {(() => {
+              const _ivaR5b = config.ivaRate || 21;
+              const _hasIva5b = (payments[0] || {}).withIva === true;
+              const _dispTotal = _hasIva5b ? Math.round(totalWorks * (1 + _ivaR5b / 100)) : totalWorks;
+              return (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, fontFamily: fontD }}>
+                <span>TOTAL{_hasIva5b ? " (IVA incl.)" : ""}</span><span style={{ color: T.accent }}>{fmt(_dispTotal)}</span>
+              </div>
+              );
+            })()}
           </div>
           {(() => {
             const phone = form.phone ? form.phone.replace(/\D/g, "") : "";
@@ -3936,8 +3956,14 @@ const NewOrderScreen = (props) => {
             const dominio = fmtD(form.domain);
             const ordId = lastCreatedOrderId || "";
             const fecha = new Date().toLocaleDateString("es-AR");
-            const trabajosList = works.map(w => "• " + w.type + (w.desc ? " — " + w.desc : "") + " — " + fmt(parseFloat(w.price) || 0)).join("\n");
-            const total = works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+            const _ivaRwa = config.ivaRate || 21;
+            const _hasIvaWa = (payments[0] || {}).withIva === true;
+            const trabajosList = works.map(w => {
+              const _wp = parseFloat(w.price) || 0;
+              const _wdp = _hasIvaWa ? Math.round(_wp * (1 + _ivaRwa / 100)) : _wp;
+              return "• " + w.type + (w.desc ? " — " + w.desc : "") + " — " + fmt(_wdp);
+            }).join("\n");
+            const total = _hasIvaWa ? Math.round(works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0) * (1 + _ivaRwa / 100)) : works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
             const template = config.welcomeMessage || "¡Bienvenido/a *{nombre}* a *CarBoys*! 🔧\n\nTu *{vehiculo}* ({dominio}) ya está en proceso.\n\n📋 *Orden:* #{orden}\n📅 *Fecha:* {fecha}\n\n🔧 *Trabajos:*\n{trabajos}\n\n💰 *Total: {total}*\n\nTe mantendremos informado/a por este medio sobre el estado de tu vehículo.\n\n_Gracias por confiar en nosotros!_\n*CarBoys* — Servicio Integral del Automotor";
             const msg = template.replace(/{nombre}/g, nombre).replace(/{vehiculo}/g, vehiculo).replace(/{dominio}/g, dominio).replace(/{orden}/g, ordId).replace(/{fecha}/g, fecha).replace(/{trabajos}/g, trabajosList).replace(/{total}/g, fmt(total));
             return phone ? (
@@ -4593,7 +4619,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
               {(o.works||[]).map((w, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", paddingLeft: 10, borderBottom: i < o.works.length - 1 ? `1px solid ${T.border}` : "none" }}>
                   <span style={{ color: T.grayLight }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price) || 0)}</span>
+                  <span style={{ fontWeight: 700, color: T.accent }}>{fmt(getWorkPrice(o, w.price))}</span>
                 </div>
               ))}
               {o.techNotes && o.techNotes.filter(n => n).length > 0 && (
@@ -4785,7 +4811,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{w.type}</div>
                       {w.desc && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
                     </div>
-                    <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(parseFloat(w.price) || 0)}</div>
+                    <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: isBudget ? "#9C27B0" : T.accent }}>{fmt(getWorkPrice(histDetail, w.price))}</div>
                   </div>
                 ))}
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", marginTop: 8, borderTop: `2px solid ${T.border}`, fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
@@ -4914,7 +4940,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
                   const cl = clients.find(c => matchId(c.id, o.clientId));
                   const vh = cl?.vehicles?.find(v => v.domain === o.domain);
                   const badge = getStatusBadge(o.status);
-                  const total = (o.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                  const total = getOrderTotal(o);
                   const trabajos = (o.works || []).map(w => w.type).join(", ");
                   return (
                     <div key={o.id} style={{ ...card, padding: 0, marginBottom: 8, overflow: "hidden", transition: "all .15s" }}>
@@ -5055,7 +5081,7 @@ const WorkshopScreen = ({ orders, clients, user, onNavigate }) => {
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
             {(o.works||[]).map((w, j) => (
-              <span key={j} style={{ background: T.bg3, padding: "4px 10px", borderRadius: 6, fontSize: 11, color: T.grayLight, border: `1px solid ${T.border}` }}>{w.type}{user.role !== "mecánico" ? ` — ${fmt(w.price)}` : ""}</span>
+              <span key={j} style={{ background: T.bg3, padding: "4px 10px", borderRadius: 6, fontSize: 11, color: T.grayLight, border: `1px solid ${T.border}` }}>{w.type}{user.role !== "mecánico" ? ` — ${fmt(getWorkPrice(o, w.price))}` : ""}</span>
             ))}
           </div>
         </div>
@@ -5080,7 +5106,7 @@ const VehicleDetailScreen = (props) => {
   // Foja: solo aparece si hay trabajos con foja correspondiente
   const FOJA_TYPES = ["Service Full", "Service Base", "Baterías", "Escape", "Pastillas de Freno", "Tren Delantero", "Tren Trasero"];
   const hasFojaWork = (order.works || []).some(w => FOJA_TYPES.includes(w.type));
-  const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+  const total = getOrderTotal(order);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [showFojaMenu, setShowFojaMenu] = useState(false);
   const [showFacturaMenu, setShowFacturaMenu] = useState(false);
@@ -5282,7 +5308,7 @@ const VehicleDetailScreen = (props) => {
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{w.type}{w.escapeType ? (w.escapeType === "deportivo" ? " — Deportivo" : " — Original") : ""}</div>
                 {w.desc && <div style={{ fontSize: 12, color: T.gray }}>{w.desc}</div>}
               </div>
-              {canSeePrices && <div style={{ fontWeight: 700, color: T.accent }}>{fmt(w.price)}</div>}
+              {canSeePrices && <div style={{ fontWeight: 700, color: T.accent }}>{fmt(getWorkPrice(order, w.price))}</div>}
             </div>
             {w.trenItems && w.trenItems.filter(ti => ti.isCustom ? ti.label : ti.selected).length > 0 && (
               <div style={{ paddingLeft: 12, marginTop: 6 }}>
@@ -7805,7 +7831,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div key={i} style={{ marginBottom: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                         <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(getWorkPrice(o, w.price))}</span>
                       </div>
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
                         <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, padding: "2px 0 2px 14px" }}>
@@ -8527,7 +8553,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     <div key={i} style={{ marginBottom: 6 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                         <span style={{ fontWeight: 700 }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(parseFloat(w.price) || 0)}</span>
+                        <span style={{ fontWeight: 700, color: T.accent, fontFamily: fontD }}>{fmt(getWorkPrice(o, w.price))}</span>
                       </div>
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
                         <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.grayLight, paddingLeft: 14 }}>
@@ -9721,7 +9747,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         {(r.works || []).map(function(w, i) {
                           return <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
                             <span style={{ color: T.text }}>{w.type}{w.desc ? " — " + w.desc : ""}</span>
-                            <span style={{ fontWeight: 700, color: T.accent }}>{fmt(parseFloat(w.price) || 0)}</span>
+                            <span style={{ fontWeight: 700, color: T.accent }}>{fmt(getWorkPrice(r, w.price))}</span>
                           </div>;
                         })}
                       </div>
