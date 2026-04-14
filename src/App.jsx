@@ -18675,47 +18675,78 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           ) : (forceIntervention && !hasTrenWorks) ? (
             <div style={{ padding: 20, textAlign: "center", color: "#718096", fontSize: 10 }}>No hay trabajos de tren/pastillas en esta orden</div>
           ) : (<>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: gapSize, marginBottom: 8 }}>
-            {sections.map((sec, i) => (
-              <div key={i} style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
-                {sec.items.map((it, j) => (
-                  <div key={j} style={{ marginBottom: 2 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: it.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: itemFs, color: "#4A5568", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</span>
-                      {it.pct !== null ? (
-                        <div style={{ width: 40, display: "flex", alignItems: "center", gap: 3 }}>
-                          <FojaProgressBar pct={it.pct} color={it.color} h={3} />
-                          <span style={{ fontSize: 7, color: "#718096", width: 18, textAlign: "right" }}>{it.pct}%</span>
-                        </div>
-                      ) : (
-                        it.wasChanged ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                          {it.prevText && <><span style={{ fontSize: 6, fontWeight: 700, color: it.prevColor, textDecoration: "line-through", whiteSpace: "nowrap" }}>{it.prevText}</span><span style={{ fontSize: 5.5, color: "#718096", margin: "0 1px" }}>→</span></>}
-                          <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>{it.text}</span>
-                          {it.pctChanged && <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>Sustituida</span>}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 7, fontWeight: 700, color: it.color }}>{it.text}</span>
-                      )
-                      )}
-                    </div>
-                    {it.brakePct !== null && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 8, marginTop: 1 }}>
-                        <span style={{ fontSize: 6, color: "#718096" }}>Agua:</span>
-                        <div style={{ width: 30, height: 3, background: "#E2E8F0", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ width: `${it.brakePct * 25}%`, height: "100%", background: it.brakePctColor, borderRadius: 2 }} />
-                        </div>
-                        <span style={{ fontSize: 6, fontWeight: 700, color: it.brakePctColor }}>{it.brakePct}% — {it.brakePctLabel}</span>
+          {/* Helper to render a section box */}
+          {(() => {
+            const renderSec = (name, extraStyle) => {
+              const sec = sections.find(s => s.section === name);
+              if (!sec) return <div style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5", ...extraStyle }} />;
+              return (
+                <div style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5", ...extraStyle }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
+                  {sec.items.map((it, j) => (
+                    <div key={j} style={{ marginBottom: 2 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <div style={{ width: 4, height: 4, borderRadius: "50%", background: it.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: itemFs, color: "#4A5568", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</span>
+                        {it.pct !== null ? (
+                          <div style={{ width: 40, display: "flex", alignItems: "center", gap: 3 }}>
+                            <FojaProgressBar pct={it.pct} color={it.color} h={3} />
+                            <span style={{ fontSize: 7, color: "#718096", width: 18, textAlign: "right" }}>{it.pct}%</span>
+                          </div>
+                        ) : (
+                          it.wasChanged ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                            {it.prevText && <><span style={{ fontSize: 6, fontWeight: 700, color: it.prevColor, textDecoration: "line-through", whiteSpace: "nowrap" }}>{it.prevText}</span><span style={{ fontSize: 5.5, color: "#718096", margin: "0 1px" }}>→</span></>}
+                            <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>{it.text}</span>
+                            {it.pctChanged && <span style={{ fontSize: 6, fontWeight: 700, color: "#1565C0", whiteSpace: "nowrap" }}>Sustituida</span>}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 7, fontWeight: 700, color: it.color }}>{it.text}</span>
+                        )
+                        )}
                       </div>
-                    )}
-                    {it.subText && <div style={{ fontSize: 5.5, color: it.subColor || "#1565C0", fontWeight: 600, paddingLeft: 8, marginTop: 0 }}>{it.subText}</div>}
-                  </div>
-                ))}
-              </div>
-            ))}
+                      {it.brakePct !== null && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 8, marginTop: 1 }}>
+                          <span style={{ fontSize: 6, color: "#718096" }}>Agua:</span>
+                          <div style={{ width: 30, height: 3, background: "#E2E8F0", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ width: `${it.brakePct * 25}%`, height: "100%", background: it.brakePctColor, borderRadius: 2 }} />
+                          </div>
+                          <span style={{ fontSize: 6, fontWeight: 700, color: it.brakePctColor }}>{it.brakePct}% — {it.brakePctLabel}</span>
+                        </div>
+                      )}
+                      {it.subText && <div style={{ fontSize: 5.5, color: it.subColor || "#1565C0", fontWeight: 600, paddingLeft: 8, marginTop: 0 }}>{it.subText}</div>}
+                    </div>
+                  ))}
+                </div>
+              );
+            };
+            return (<>
+          {/* ROW 1: Motor | Tren Delantero | Tren Trasero */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: gapSize, marginBottom: 8 }}>
+            {renderSec("MOTOR")}
+            {renderSec("TREN DELANTERO")}
+            {renderSec("TREN TRASERO")}
           </div>
+          {/* ROW 2: Fluidos | Luces | Control Visual */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: gapSize, marginBottom: 8 }}>
+            {renderSec("FLUIDOS")}
+            {renderSec("LUCES")}
+            {renderSec("CONTROL VISUAL")}
+          </div>
+          {/* ROW 3: Escape | Diagnóstico+Bujías | Batería+Escobillas */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: gapSize, marginBottom: 8 }}>
+            {renderSec("ESCAPE")}
+            <div style={{ display: "flex", flexDirection: "column", gap: gapSize }}>
+              {renderSec("DIAGNÓSTICO COMPUTARIZADO", { flex: 1 })}
+              {renderSec("BUJÍAS", { flex: 1 })}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: gapSize }}>
+              {renderSec("BATERÍA", { flex: 1 })}
+              {renderSec("ESCOBILLAS", { flex: 1 })}
+            </div>
+          </div>
+            </>);
+          })()}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
             {/* LEFT: CUBIERTAS */}
             <div style={{ background: "#F0F7FF", border: "1.5px solid #BBDEFB", borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", alignItems: "center" }}>
