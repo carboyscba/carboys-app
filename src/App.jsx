@@ -693,40 +693,42 @@ const htmlToPdfBase64 = async (el, filename) => {
   const { jsPDF } = jspdfLib;
   // Save original styles
   const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight };
-  // A4 proportional min-height at 800px width: 800 * (297/210) = 1131px
+  // 740px capture = text ~8% bigger than 800px, still fits A4 height
+  // A4 proportional min-height at 740px: 740 * (297/210) = 1046px
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "800px";
+  el.style.width = "740px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "1131px";
-  // Push footer to bottom (last child margin-top:auto)
+  el.style.minHeight = "1046px";
+  // Push footer to bottom
   const lastChild = el.lastElementChild;
   const origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
   void el.offsetHeight;
-  const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+  // Scale 3 = much sharper text on print (higher DPI)
+  const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
   // Restore all styles
   Object.assign(el.style, orig);
   if (lastChild) lastChild.style.marginTop = origLastMT;
-  // A4 full bleed
-  const pageW = 210, pageH = 297;
+  // A4 with 5mm margin (prevents iOS printer from adding its own margins and shrinking)
+  const pageW = 210, pageH = 297, margin = 5;
+  const contentW = pageW - margin * 2;
+  const contentH = pageH - margin * 2;
   const imgW = canvas.width, imgH = canvas.height;
-  const ratioW = pageW / imgW;
+  const ratioW = contentW / imgW;
   const scaledH = imgH * ratioW;
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const imgData = canvas.toDataURL("image/jpeg", 0.92);
-  if (scaledH <= pageH) {
-    // Content fits or exactly fills page
-    pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
+  const imgData = canvas.toDataURL("image/jpeg", 0.95);
+  if (scaledH <= contentH) {
+    pdf.addImage(imgData, "JPEG", margin, margin, contentW, scaledH);
   } else {
-    // Content taller than A4 → scale down to fit
-    const fitRatio = pageH / scaledH;
-    const finalW = pageW * fitRatio;
-    const xOffset = (pageW - finalW) / 2;
-    pdf.addImage(imgData, "JPEG", xOffset, 0, finalW, pageH);
+    const fitRatio = contentH / scaledH;
+    const finalW = contentW * fitRatio;
+    const xOffset = margin + (contentW - finalW) / 2;
+    pdf.addImage(imgData, "JPEG", xOffset, margin, finalW, contentH);
   }
   return pdf.output("datauristring").split(",")[1];
 };
