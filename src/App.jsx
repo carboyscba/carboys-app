@@ -684,6 +684,8 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
 });
 
 // ── HTML element → PDF base64 (A4, single page auto-fit, full bleed) ──
+// Uses oversize page trick: PDF is slightly larger than A4 (220×310mm)
+// When printer scales to fit A4, margins are absorbed → content fills edge to edge
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   if (!window.html2canvas) {
@@ -691,44 +693,40 @@ const htmlToPdfBase64 = async (el, filename) => {
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
-  // Save original styles
   const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight };
-  // 740px capture = text ~8% bigger than 800px, still fits A4 height
-  // A4 proportional min-height at 740px: 740 * (297/210) = 1046px
+  // 600px capture = ~30% bigger text than 800px on A4
+  // Proportional height at 600px: 600 * (310/220) = 845px
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "740px";
+  el.style.width = "600px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "1046px";
-  // Push footer to bottom
+  el.style.minHeight = "845px";
   const lastChild = el.lastElementChild;
   const origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
   void el.offsetHeight;
-  // Scale 3 = much sharper text on print (higher DPI)
+  // Scale 3 = high DPI for sharp text
   const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
-  // Restore all styles
   Object.assign(el.style, orig);
   if (lastChild) lastChild.style.marginTop = origLastMT;
-  // A4 with 5mm margin (prevents iOS printer from adding its own margins and shrinking)
-  const pageW = 210, pageH = 297, margin = 5;
-  const contentW = pageW - margin * 2;
-  const contentH = pageH - margin * 2;
+  // Oversize page: 220×310mm (A4 + ~10mm each side)
+  // When printer "fit to page" scales this to 210×297mm, content fills edge to edge
+  const pageW = 220, pageH = 310;
   const imgW = canvas.width, imgH = canvas.height;
-  const ratioW = contentW / imgW;
+  const ratioW = pageW / imgW;
   const scaledH = imgH * ratioW;
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageW, pageH] });
   const imgData = canvas.toDataURL("image/jpeg", 0.95);
-  if (scaledH <= contentH) {
-    pdf.addImage(imgData, "JPEG", margin, margin, contentW, scaledH);
+  if (scaledH <= pageH) {
+    pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
   } else {
-    const fitRatio = contentH / scaledH;
-    const finalW = contentW * fitRatio;
-    const xOffset = margin + (contentW - finalW) / 2;
-    pdf.addImage(imgData, "JPEG", xOffset, margin, finalW, contentH);
+    const fitRatio = pageH / scaledH;
+    const finalW = pageW * fitRatio;
+    const xOffset = (pageW - finalW) / 2;
+    pdf.addImage(imgData, "JPEG", xOffset, 0, finalW, pageH);
   }
   return pdf.output("datauristring").split(",")[1];
 };
