@@ -683,7 +683,10 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
   document.head.appendChild(s);
 });
 
-// ── HTML element → PDF base64 (A4, single page, max content) ──
+// ── HTML element → PDF base64 (A4, single page) ──
+// KEY INSIGHT: wider capture = shorter content = fits A4 without scaling = BIGGER on paper
+// At 700px content overflows A4 → scales to 85% → everything shrinks
+// At 780px content fits A4 naturally → no scaling → text is actually bigger
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   if (!window.html2canvas) {
@@ -696,22 +699,10 @@ const htmlToPdfBase64 = async (el, filename) => {
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "700px";
+  el.style.width = "810px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "700px";
-  // Squeeze horizontal padding for max content width
-  var _padSaved = [];
-  try { el.querySelectorAll("*").forEach(function(child) {
-    var cs = window.getComputedStyle(child);
-    var pl = parseFloat(cs.paddingLeft) || 0;
-    var pr = parseFloat(cs.paddingRight) || 0;
-    if (pl > 12 || pr > 12) {
-      _padSaved.push({ el: child, pl: child.style.paddingLeft, pr: child.style.paddingRight });
-      child.style.paddingLeft = Math.max(6, Math.round(pl * 0.4)) + "px";
-      child.style.paddingRight = Math.max(6, Math.round(pr * 0.4)) + "px";
-    }
-  }); } catch(e) {}
+  el.style.minHeight = "810px";
   var lastChild = el.lastElementChild;
   var origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
@@ -719,7 +710,6 @@ const htmlToPdfBase64 = async (el, filename) => {
   var canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
   Object.assign(el.style, orig);
   if (lastChild) lastChild.style.marginTop = origLastMT;
-  _padSaved.forEach(function(s) { s.el.style.paddingLeft = s.pl; s.el.style.paddingRight = s.pr; });
   var pageW = 210, pageH = 297;
   var imgW = canvas.width, imgH = canvas.height;
   var ratioW = pageW / imgW;
