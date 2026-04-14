@@ -7013,6 +7013,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [editServFc, setEditServFc] = useState(null);
 
   const [showIgGasto, setShowIgGasto] = useState(false);
+  const [editIgGasto, setEditIgGasto] = useState(null);
   const [selIgnacio, setSelIgnacio] = useState(null);
   const [igForm, setIgForm] = useState({ categoria: "", desc: "", monto: "", fecha: new Date().toISOString().split("T")[0], fechaVenc: "" });
   const holdRef = useRef(null);
@@ -12439,6 +12440,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             setIgGastos(prev => prev.map(x => x.id === g.id ? { ...x, estado: "pendiente", fechaPago: null, pagoMetodo: null, egresoId: null } : x));
                           }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 12, flex: 1, padding: "9px 0" }}>↩ Marcar pendiente</button>
                         )}
+                        <button onClick={() => setEditIgGasto({ ...g, monto: String(g.monto || 0) })}
+                          style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.accent}30`, fontSize: 12, padding: "9px 14px", color: T.accent }}>✏️</button>
                         <button onClick={() => {
                           if (g.egresoId) setEgresos(p => p.filter(e => e.id !== g.egresoId));
                           setIgGastos(prev => prev.filter(x => x.id !== g.id));
@@ -12596,6 +12599,54 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   setIgForm({ categoria: "", desc: "", monto: "", fecha: today, fechaVenc: "", newCat: "" });
                   setShowIgGasto(false);
                 }} style={{ ...btnPrimary(T.accent), flex: 1 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL EDITAR GASTO IGNACIO ── */}
+        {editIgGasto && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setEditIgGasto(null)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 24, maxWidth: 420, width: "92%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, marginBottom: 14 }}>✏️ Editar Gasto</div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Categoría</label>
+                <select value={editIgGasto.catName || editIgGasto.categoria || ""} onChange={e => setEditIgGasto(f => ({ ...f, catName: e.target.value, categoria: e.target.value }))} style={inputStyle}>
+                  {[...new Set([...(igGastos || []).filter(g => g.categoria !== "extraccion").map(g => g.catName || g.categoria), "Servicios", "Alquiler", "Expensas", "Impuestos", "Personal", "Otro"])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Descripción *</label>
+                <input inputMode="text" value={editIgGasto.desc || ""} onChange={e => setEditIgGasto(f => ({ ...f, desc: e.target.value }))} style={inputStyle} placeholder="Ej: Seguro, Alquiler mes..." />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={labelStyle}>Monto *</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontWeight: 700, color: T.accent }}>$</span>
+                    <input inputMode="numeric" value={editIgGasto.monto ? Number(editIgGasto.monto).toLocaleString("es-AR") : ""} onChange={e => setEditIgGasto(f => ({ ...f, monto: e.target.value.replace(/[^0-9]/g, "") }))} style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Fecha</label>
+                  <input type="date" value={editIgGasto.fecha || ""} onChange={e => setEditIgGasto(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Fecha vencimiento</label>
+                <input type="date" value={editIgGasto.fechaVenc || ""} onChange={e => setEditIgGasto(f => ({ ...f, fechaVenc: e.target.value }))} style={inputStyle} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Nota</label>
+                <input inputMode="text" value={editIgGasto.nota || ""} onChange={e => setEditIgGasto(f => ({ ...f, nota: e.target.value }))} style={inputStyle} placeholder="Nota adicional (opcional)" />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setEditIgGasto(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => {
+                  if (!editIgGasto.desc || !editIgGasto.monto) return;
+                  setIgGastos(prev => prev.map(g => g.id === editIgGasto.id ? { ...g, catName: editIgGasto.catName || editIgGasto.categoria, categoria: editIgGasto.catName || editIgGasto.categoria, desc: editIgGasto.desc, monto: parseFloat(editIgGasto.monto) || 0, fecha: editIgGasto.fecha, fechaVenc: editIgGasto.fechaVenc || null, nota: editIgGasto.nota || "" } : g));
+                  setEditIgGasto(null);
+                }} style={{ ...btnPrimary(T.accent), flex: 1 }}>💾 Guardar</button>
               </div>
             </div>
           </div>
