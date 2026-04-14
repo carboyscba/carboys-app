@@ -684,7 +684,6 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
 });
 
 // ── HTML element → PDF base64 (A4, single page, max content) ──
-// Standard A4 + 0 margins + squeezed padding for maximum content area
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   if (!window.html2canvas) {
@@ -697,81 +696,97 @@ const htmlToPdfBase64 = async (el, filename) => {
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "620px";
+  el.style.width = "700px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "620px";
-  // Squeeze horizontal padding: reduce all padding-left/right > 10px to 6px
-  const _padSaved = [];
+  el.style.minHeight = "700px";
+  // Squeeze horizontal padding for max content width
+  var _padSaved = [];
   try { el.querySelectorAll("*").forEach(function(child) {
     var cs = window.getComputedStyle(child);
     var pl = parseFloat(cs.paddingLeft) || 0;
     var pr = parseFloat(cs.paddingRight) || 0;
-    if (pl > 10 || pr > 10) {
+    if (pl > 12 || pr > 12) {
       _padSaved.push({ el: child, pl: child.style.paddingLeft, pr: child.style.paddingRight });
-      child.style.paddingLeft = Math.max(6, Math.round(pl * 0.35)) + "px";
-      child.style.paddingRight = Math.max(6, Math.round(pr * 0.35)) + "px";
+      child.style.paddingLeft = Math.max(6, Math.round(pl * 0.4)) + "px";
+      child.style.paddingRight = Math.max(6, Math.round(pr * 0.4)) + "px";
     }
   }); } catch(e) {}
-  const lastChild = el.lastElementChild;
-  const origLastMT = lastChild ? lastChild.style.marginTop : "";
+  var lastChild = el.lastElementChild;
+  var origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
   void el.offsetHeight;
-  const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
-  // Restore everything
+  var canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
   Object.assign(el.style, orig);
   if (lastChild) lastChild.style.marginTop = origLastMT;
   _padSaved.forEach(function(s) { s.el.style.paddingLeft = s.pl; s.el.style.paddingRight = s.pr; });
-  // A4 zero margins
-  const pageW = 210, pageH = 297;
-  const imgW = canvas.width, imgH = canvas.height;
-  const ratioW = pageW / imgW;
-  const scaledH = imgH * ratioW;
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const imgData = canvas.toDataURL("image/jpeg", 0.95);
+  var pageW = 210, pageH = 297;
+  var imgW = canvas.width, imgH = canvas.height;
+  var ratioW = pageW / imgW;
+  var scaledH = imgH * ratioW;
+  var pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  var imgData = canvas.toDataURL("image/jpeg", 0.95);
   if (scaledH <= pageH) {
     pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
   } else {
-    const fitRatio = pageH / scaledH;
-    const finalW = pageW * fitRatio;
-    const xOffset = (pageW - finalW) / 2;
+    var fitRatio = pageH / scaledH;
+    var finalW = pageW * fitRatio;
+    var xOffset = (pageW - finalW) / 2;
     pdf.addImage(imgData, "JPEG", xOffset, 0, finalW, pageH);
   }
   return pdf.output("datauristring").split(",")[1];
 };
 
-// ── Abrir ventana de impresión con auto-ajuste A4 ──
-// Abre ventana SYNC (evita bloqueador iOS), genera PDF, navega a él
+// ── Imprimir: genera PDF y lo entrega al sistema ──
+// iOS: descarga el PDF → share sheet → imprimir desde ahí (respeta dimensiones)
+// PC: abre en pestaña nueva → print dialog
 const openPrintA4 = async (elementId, title) => {
-  const el = document.getElementById(elementId);
+  var el = document.getElementById(elementId);
   if (!el) return;
-  // Open window IMMEDIATELY from user click — iOS blocks window.open after await
-  const pw = window.open("about:blank", "_blank");
-  if (pw) {
-    pw.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666"><div style="text-align:center"><div style="font-size:24px;margin-bottom:10px">⏳</div>Generando PDF...</div></body></html>');
-    pw.document.close();
-  }
-  try {
-    const base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
-    const byteChars = atob(base64);
-    const byteArray = new Uint8Array(byteChars.length);
-    for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
-    const blob = new Blob([byteArray], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    if (pw && !pw.closed) {
-      pw.location.href = url;
-      setTimeout(() => { try { pw.print(); } catch(e) {} }, 1500);
-    }
-  } catch(e) {
-    console.error("[PRINT] PDF error:", e);
-    if (pw && !pw.closed) {
-      pw.document.open();
-      pw.document.write('<!DOCTYPE html><html><head><title>' + (title||"") + '</title>' +
-        '<style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
-        'body{font-family:sans-serif;background:#fff}@page{size:A4;margin:5mm}' +
-        '</style></head><body>' + el.outerHTML + '</body></html>');
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isIOS) {
+    // iOS: download the PDF — triggers share sheet where Print works with correct margins
+    try {
+      var base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
+      var byteChars = atob(base64);
+      var byteArray = new Uint8Array(byteChars.length);
+      for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+      var blob = new Blob([byteArray], { type: "application/pdf" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = (title || "documento").replace(/\s+/g, "_") + ".pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+    } catch(e) { console.error("[PRINT iOS] error:", e); alert("Error al generar PDF"); }
+  } else {
+    // PC: open in new tab and trigger print
+    var pw = window.open("about:blank", "_blank");
+    if (pw) {
+      pw.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666"><div style="text-align:center"><div style="font-size:24px;margin-bottom:10px">⏳</div>Generando PDF...</div></body></html>');
       pw.document.close();
-      setTimeout(() => { try { pw.focus(); pw.print(); } catch(e2) {} }, 1000);
+    }
+    try {
+      var base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
+      var byteChars = atob(base64);
+      var byteArray = new Uint8Array(byteChars.length);
+      for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+      var blob = new Blob([byteArray], { type: "application/pdf" });
+      var url = URL.createObjectURL(blob);
+      if (pw && !pw.closed) {
+        pw.location.href = url;
+        setTimeout(function() { try { pw.print(); } catch(e) {} }, 1500);
+      }
+    } catch(e) {
+      console.error("[PRINT PC] error:", e);
+      if (pw && !pw.closed) {
+        pw.document.open();
+        pw.document.write('<!DOCTYPE html><html><head><title>' + (title||"") + '</title><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:sans-serif;background:#fff}@page{size:A4;margin:0}</style></head><body>' + el.outerHTML + '</body></html>');
+        pw.document.close();
+        setTimeout(function() { try { pw.focus(); pw.print(); } catch(e2) {} }, 1000);
+      }
     }
   }
 };
