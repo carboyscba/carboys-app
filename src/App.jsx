@@ -18083,10 +18083,26 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   </div>
                 );
               })}
-              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: 6, paddingTop: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${order.works.filter(w => w.type === "Escape").reduce((s, w) => s + (parseFloat(w.price) || 0), 0).toLocaleString("es-AR")}</span>
-              </div>
+              {(() => {
+                const _escBase = order.works.filter(w => w.type === "Escape").reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                const _escIva = (order.payments || []).some(p => p.withIva) || order.paymentPref?.withIva;
+                return (<>
+                {_escIva && (<>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 4 }}>
+                    <span style={{ fontSize: 10, color: "#718096" }}>Subtotal (neto)</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_escBase.toLocaleString("es-AR")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
+                    <span style={{ fontSize: 10, color: "#718096" }}>IVA 21%</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_escBase * 21 / 100).toLocaleString("es-AR")}</span>
+                  </div>
+                </>)}
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: _escIva ? 4 : 6, paddingTop: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_escIva ? Math.round(_escBase * 1.21) : _escBase).toLocaleString("es-AR")}</span>
+                </div>
+                </>);
+              })()}
             </div>
           </div>
 
@@ -18261,10 +18277,26 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   );
                 });
               })()}
-              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: 6, paddingTop: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${trenWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0).toLocaleString("es-AR")}</span>
-              </div>
+              {(() => {
+                const _trenBase = trenWorks.reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                const _trenIva = (order.payments || []).some(p => p.withIva) || order.paymentPref?.withIva;
+                return (<>
+                {_trenIva && (<>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 4 }}>
+                    <span style={{ fontSize: 10, color: "#718096" }}>Subtotal (neto)</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_trenBase.toLocaleString("es-AR")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
+                    <span style={{ fontSize: 10, color: "#718096" }}>IVA 21%</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_trenBase * 21 / 100).toLocaleString("es-AR")}</span>
+                  </div>
+                </>)}
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: _trenIva ? 4 : 6, paddingTop: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_trenIva ? Math.round(_trenBase * 1.21) : _trenBase).toLocaleString("es-AR")}</span>
+                </div>
+                </>);
+              })()}
             </div>
           </div>
           {/* Footer */}
@@ -18644,11 +18676,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ marginTop: "auto" }}>
           <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "8px 12px", border: "1px solid #EDF0F5", marginBottom: 10 }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: "#1B2D45", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>TRABAJOS REALIZADOS</div>
+            {(() => {
+              const _hasIvaFoja = (order.payments || []).some(p => p.withIva) || order.paymentPref?.withIva;
+              const _ivaRFoja = 21;
+              const _baseTotal = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+              return (<>
             {(order.works || []).map((w, i) => (
               <div key={i} style={{ padding: "3px 0", borderBottom: i < (order.works||[]).length - 1 ? "1px solid #F0F2F5" : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 9, color: "#1B2D45", fontWeight: 700 }}>{w.type}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+w.price.toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+(parseFloat(w.price)||0).toLocaleString("es-AR")}</span>
                 </div>
                 {w.trenItems && w.trenItems.filter(ti => ti.isCustom ? ti.label : ti.selected).length > 0 ? (
                   <div style={{ paddingLeft: 8, marginTop: 1 }}>
@@ -18666,10 +18703,29 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 ) : null}
               </div>
             ))}
-            <div style={{ borderTop: "2px solid #1E88E5", marginTop: 4, paddingTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+order.works.reduce((s,w)=>s+w.price,0).toLocaleString("es-AR")}</span>
+            <div style={{ borderTop: "2px solid #1E88E5", marginTop: 4, paddingTop: 4 }}>
+              {_hasIvaFoja ? (<>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                  <span style={{ fontSize: 9, color: "#718096" }}>Subtotal (neto)</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1B2D45", fontFamily: fontD }}>{"$"+_baseTotal.toLocaleString("es-AR")}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                  <span style={{ fontSize: 9, color: "#718096" }}>IVA {_ivaRFoja}%</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>{"$"+Math.round(_baseTotal * _ivaRFoja / 100).toLocaleString("es-AR")}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #E2E8F0", paddingTop: 3 }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+Math.round(_baseTotal * (1 + _ivaRFoja / 100)).toLocaleString("es-AR")}</span>
+                </div>
+              </>) : (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#1B2D45", fontFamily: fontD, letterSpacing: .5 }}>TOTAL</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>{"$"+_baseTotal.toLocaleString("es-AR")}</span>
+                </div>
+              )}
             </div>
+              </>);
+            })()}
           </div>
 
           {!isPF && <div style={{ background: "linear-gradient(135deg, #1E88E5, #0D47A1)", borderRadius: 8, padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
