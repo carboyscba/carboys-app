@@ -18577,24 +18577,24 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           })()}
         </div>
         <div style={{ background: "#F7F9FC", padding: "6px 22px", borderBottom: "1px solid #E8ECF2", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: "#1B2D45", letterSpacing: 1 }}>{isPF ? "INFORME DE INTERVENCIÓN" : `FOJA DE SERVICIO — ${isBase ? "Service Base" : "Service Full"}`}</div>
-          <div style={{ fontSize: 9, color: "#718096" }}>Fecha: {new Date().toLocaleDateString("es-AR")} · {isBase ? "Service Base" : "Service Full"}</div>
+          <div style={{ fontFamily: fontD, fontSize: 13, fontWeight: 700, color: "#1B2D45", letterSpacing: 1 }}>{isPF ? "INFORME DE INTERVENCIÓN" : "FOJA DE SERVICIO"}</div>
+          <div style={{ fontSize: 9, color: "#718096" }}>Fecha: {new Date().toLocaleDateString("es-AR")}</div>
         </div>
         <div style={{ padding: "12px 18px" }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <div style={{ flex: 1, background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1px solid #E8ECF2" }}>
-              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 600, letterSpacing: 1.5, marginBottom: 1 }}>VEHÍCULO</div>
-              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, color: "#1B2D45", letterSpacing: 1 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 10, color: "#4A5568", fontWeight: 600 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
-              <div style={{ fontSize: 9, color: "#718096" }}>Kilometraje: {(vehicle?.km || 0).toLocaleString("es-AR")} km</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 10 }}>
+            <div style={{ background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1.5px solid #E8ECF2" }}>
+              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>VEHÍCULO</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: "#1B2D45", letterSpacing: 0 }}>{fmtD(order.domain)}</div>
+              <div style={{ fontSize: 10, color: "#4A5568", fontWeight: 700 }}>{vehicle?.brand} {vehicle?.model} {vehicle?.year}</div>
+              <div style={{ fontSize: 10, color: "#4A5568", fontWeight: 700 }}>Kilometraje: {(vehicle?.km || 0).toLocaleString("es-AR")} km</div>
             </div>
-            <div style={{ flex: 1, background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1px solid #E8ECF2" }}>
-              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 600, letterSpacing: 1.5, marginBottom: 1 }}>CLIENTE</div>
-              <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 700, color: "#1B2D45" }}>{client?.name} {client?.lastName}</div>
+            <div style={{ background: "#F7F9FC", borderRadius: 8, padding: "8px 12px", border: "1.5px solid #E8ECF2" }}>
+              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 17, fontWeight: 800, color: "#1B2D45" }}>{client?.name} {client?.lastName}</div>
               <div style={{ fontSize: 9, color: "#4A5568" }}>Tel: {client?.phone || "—"}</div>
             </div>
-            {!isBase && !isPF && (<div style={{ width: 80, background: "#F7F9FC", borderRadius: 8, padding: 8, border: `2px solid ${scoreColor}25`, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 600, letterSpacing: 1 }}>SCORE</div>
+            {!isBase && !isPF && (<div style={{ minWidth: 72, background: "#F7F9FC", borderRadius: 8, padding: 8, border: "1.5px solid #E8ECF2", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontSize: 7, color: "#A0AEC0", fontWeight: 700, letterSpacing: 1 }}>SCORE</div>
               <div style={{ position: "relative", width: 46, height: 46, margin: "3px 0" }}>
                 <svg viewBox="0 0 46 46" width="46" height="46">
                   <circle cx="23" cy="23" r="19" fill="none" stroke="#E8ECF2" strokeWidth="3.5" />
@@ -18613,7 +18613,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: gapSize, marginBottom: 8 }}>
             {sections.map((sec, i) => (
               <div key={i} style={{ background: "#FAFBFD", borderRadius: 6, padding: secPad, border: "1px solid #EDF0F5" }}>
-                <div style={{ fontSize: 8, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", marginBottom: 4, letterSpacing: .3, borderBottom: "1px solid #EDF0F5", paddingBottom: 2 }}>{sec.icon} {sec.section}</div>
                 {sec.items.map((it, j) => (
                   <div key={j} style={{ marginBottom: 2 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -18651,32 +18651,84 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            {hasTires && (
-              <div style={{ background: "#FAFBFD", borderRadius: 6, padding: "6px 10px", border: "1px solid #EDF0F5", textAlign: "center", width: 140 }}>
-                <div style={{ fontSize: 8, fontWeight: 700, color: "#1E88E5", marginBottom: 2, letterSpacing: .3 }}>🛞 CUBIERTAS</div>
-                <FojaTireDiagram tires={tires} size={85} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            {/* LEFT: CUBIERTAS */}
+            <div style={{ background: "#F0F7FF", border: "1.5px solid #BBDEFB", borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#1E88E5" }}>Cubiertas</div>
+                {(() => {
+                  const rotData = sheet.escobillas_cubiertas || sheet.cubiertas_bateria || {};
+                  const rotRealizada = rotData.rotacion === "realizada";
+                  return <div style={{ fontSize: 8, fontWeight: 600, padding: "2px 10px", borderRadius: 12, background: rotRealizada ? "#C8E6C9" : "#FFECB3", color: rotRealizada ? "#1B5E20" : "#E65100" }}>Rotación: {rotRealizada ? "Realizada" : "No realizada"}</div>;
+                })()}
               </div>
-            )}
-            {(() => {
-              const allObs = [...techNotes];
-              // Add otroDesc annotations from all work items
-              (order.works || []).forEach(w => {
-                (w.trenItems || []).filter(ti => (ti.isCustom ? ti.label : ti.selected) && ti.otroDesc && ti.otroDesc.trim()).forEach(ti => {
-                  allObs.push((ti.label || w.type) + ": " + ti.otroDesc);
+              {hasTires ? (
+                <div style={{ position: "relative", width: 130, height: 170, margin: "0 auto" }}>
+                  <div style={{ position: "absolute", top: 24, left: 20, width: 90, height: 122, border: "2.5px solid #90CAF9", borderRadius: 28, background: "#E3F2FD" }} />
+                  <div style={{ position: "absolute", top: 48, left: 36, width: 58, height: 28, border: "1.5px solid #90CAF9", borderRadius: "8px 8px 0 0", background: "rgba(187,222,251,.25)" }} />
+                  {[["del_izq", 8, 0, "DEL IZQ"], ["del_der", 8, null, "DEL DER"], ["tra_izq", null, 0, "TRA IZQ"], ["tra_der", null, null, "TRA DER"]].map(([key, top, left, label], idx) => {
+                    const pct = tiresD.tires?.[key] ?? 0;
+                    const bg = pct >= 50 ? "linear-gradient(135deg,#2E7D32,#43A047)" : pct >= 30 ? "linear-gradient(135deg,#E65100,#EF6C00)" : "linear-gradient(135deg,#C62828,#E53935)";
+                    const style = { position: "absolute", width: 34, height: 48, borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, background: bg, boxShadow: "0 2px 6px rgba(0,0,0,.15)" };
+                    if (top !== null) style.top = top; else style.bottom = 8;
+                    if (left !== null) style.left = left; else style.right = 0;
+                    return <div key={idx} style={style}><div style={{ fontSize: 12, lineHeight: 1 }}>{pct}%</div><div style={{ fontSize: 5.5, opacity: .85, marginTop: 1 }}>{label}</div></div>;
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: 20, color: "#A0AEC0", fontSize: 9, textAlign: "center" }}>Sin datos de cubiertas</div>
+              )}
+            </div>
+            {/* RIGHT: OBSERVACIONES */}
+            <div style={{ border: "1.5px solid #E2E8F0", borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#F9A825", marginBottom: 8 }}>Observaciones</div>
+              {(() => {
+                const _obs = [];
+                // Collect techNotes
+                techNotes.forEach(n => _obs.push({ text: n, type: "note" }));
+                // Collect otroDesc from work items
+                (order.works || []).forEach(w => {
+                  (w.trenItems || []).filter(ti => (ti.isCustom ? ti.label : ti.selected) && ti.otroDesc && ti.otroDesc.trim()).forEach(ti => {
+                    _obs.push({ text: (ti.label || w.type) + ": " + ti.otroDesc, type: "item" });
+                  });
                 });
-              });
-              return allObs.length > 0 ? (
-              <div style={{ flex: 1, background: "#FAFBFD", borderRadius: 6, padding: "6px 10px", border: "1px solid #EDF0F5" }}>
-                <div style={{ fontSize: 8, fontWeight: 700, color: "#E65100", marginBottom: 4, letterSpacing: .3 }}>📝 OBSERVACIONES</div>
-                {allObs.map((o, i) => (
-                  <div key={i} style={{ fontSize: 8, color: "#4A5568", marginBottom: 4, paddingLeft: 6, borderLeft: "2px solid #E65100", lineHeight: 1.3 }}>{o}</div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ flex: 1, background: "#FAFBFD", borderRadius: 6, padding: "10px", border: "1px solid #EDF0F5", textAlign: "center", color: "#A0AEC0", fontSize: 9 }}>Sin observaciones adicionales</div>
-            );
-            })()}
+                // Collect items with Regular/Bad status as observations
+                sections.forEach(sec => {
+                  sec.items.forEach(it => {
+                    if (it.color === "#E65100" && it.label && !it.wasChanged) {
+                      const existing = _obs.some(o => o.text.toLowerCase().includes(it.label.toLowerCase()));
+                      if (!existing) _obs.push({ text: it.label + ": Regular — revisar en próximo service", type: "item" });
+                    }
+                    if (it.color === "#C62828" && it.label) {
+                      const existing = _obs.some(o => o.text.toLowerCase().includes(it.label.toLowerCase()));
+                      if (!existing) _obs.push({ text: it.label + ": requiere atención", type: "warn" });
+                    }
+                  });
+                });
+                // DTC codes
+                const _dtcData = sheet.diagnostico || {};
+                const _dtcPresent = _dtcData.dtc_fallos === "con_fallos" || _dtcData.dtc_codigos;
+                const _dtcCodes = (_dtcData.dtc_codigos || "").split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+                return (<>
+                  {_obs.length === 0 && !_dtcPresent && <div style={{ color: "#A0AEC0", fontSize: 9, padding: 8, textAlign: "center" }}>Sin observaciones</div>}
+                  {_obs.map((o, i) => (
+                    <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 9, color: o.type === "warn" ? "#C62828" : o.type === "item" ? "#E65100" : "#4A5568", lineHeight: 1.4 }}>
+                      <span style={{ fontWeight: 700, color: "#F9A825", minWidth: 14 }}>{i + 1}.</span>
+                      <span>{o.text}</span>
+                    </div>
+                  ))}
+                  {_dtcPresent && _dtcCodes.length > 0 && (<>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: "#C62828", letterSpacing: .5, marginTop: 8, marginBottom: 4 }}>CÓDIGOS DTC DETECTADOS</div>
+                    {_dtcCodes.map((code, i) => (
+                      <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 9, color: "#C62828", fontWeight: 600, lineHeight: 1.4 }}>
+                        <span style={{ fontWeight: 700, minWidth: 18 }}>D{i + 1}.</span>
+                        <span>{code}</span>
+                      </div>
+                    ))}
+                  </>)}
+                </>);
+              })()}
+            </div>
           </div>
           </>)}
                     {/* BLOQUE INFERIOR — se empuja al fondo de la página */}
