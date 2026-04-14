@@ -699,10 +699,10 @@ const htmlToPdfBase64 = async (el, filename) => {
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "810px";
+  el.style.width = "850px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "810px";
+  el.style.minHeight = "850px";
   var lastChild = el.lastElementChild;
   var origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
@@ -727,56 +727,35 @@ const htmlToPdfBase64 = async (el, filename) => {
   return pdf.output("datauristring").split(",")[1];
 };
 
-// ── Imprimir: genera PDF y lo entrega al sistema ──
-// iOS: descarga el PDF → share sheet → imprimir desde ahí (respeta dimensiones)
-// PC: abre en pestaña nueva → print dialog
+// ── Imprimir: genera PDF y abre print dialog ──
+// Abre ventana SYNC (desde click del usuario) → genera PDF → navega al PDF → print
 const openPrintA4 = async (elementId, title) => {
   var el = document.getElementById(elementId);
   if (!el) return;
-  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (isIOS) {
-    // iOS: download the PDF — triggers share sheet where Print works with correct margins
-    try {
-      var base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
-      var byteChars = atob(base64);
-      var byteArray = new Uint8Array(byteChars.length);
-      for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
-      var blob = new Blob([byteArray], { type: "application/pdf" });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = (title || "documento").replace(/\s+/g, "_") + ".pdf";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-    } catch(e) { console.error("[PRINT iOS] error:", e); alert("Error al generar PDF"); }
-  } else {
-    // PC: open in new tab and trigger print
-    var pw = window.open("about:blank", "_blank");
-    if (pw) {
-      pw.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666"><div style="text-align:center"><div style="font-size:24px;margin-bottom:10px">⏳</div>Generando PDF...</div></body></html>');
-      pw.document.close();
+  // Open window IMMEDIATELY from user click — iOS blocks window.open after await
+  var pw = window.open("about:blank", "_blank");
+  if (pw) {
+    pw.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666"><div style="text-align:center"><div style="font-size:24px;margin-bottom:10px">⏳</div>Generando PDF...</div></body></html>');
+    pw.document.close();
+  }
+  try {
+    var base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
+    var byteChars = atob(base64);
+    var byteArray = new Uint8Array(byteChars.length);
+    for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+    var blob = new Blob([byteArray], { type: "application/pdf" });
+    var url = URL.createObjectURL(blob);
+    if (pw && !pw.closed) {
+      pw.location.href = url;
+      setTimeout(function() { try { pw.print(); } catch(e) {} }, 1500);
     }
-    try {
-      var base64 = await htmlToPdfBase64(el, (title || "documento") + ".pdf");
-      var byteChars = atob(base64);
-      var byteArray = new Uint8Array(byteChars.length);
-      for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
-      var blob = new Blob([byteArray], { type: "application/pdf" });
-      var url = URL.createObjectURL(blob);
-      if (pw && !pw.closed) {
-        pw.location.href = url;
-        setTimeout(function() { try { pw.print(); } catch(e) {} }, 1500);
-      }
-    } catch(e) {
-      console.error("[PRINT PC] error:", e);
-      if (pw && !pw.closed) {
-        pw.document.open();
-        pw.document.write('<!DOCTYPE html><html><head><title>' + (title||"") + '</title><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:sans-serif;background:#fff}@page{size:A4;margin:0}</style></head><body>' + el.outerHTML + '</body></html>');
-        pw.document.close();
-        setTimeout(function() { try { pw.focus(); pw.print(); } catch(e2) {} }, 1000);
-      }
+  } catch(e) {
+    console.error("[PRINT] PDF error:", e);
+    if (pw && !pw.closed) {
+      pw.document.open();
+      pw.document.write('<!DOCTYPE html><html><head><title>' + (title||"") + '</title><style>*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:sans-serif;background:#fff}@page{size:A4;margin:0}</style></head><body>' + el.outerHTML + '</body></html>');
+      pw.document.close();
+      setTimeout(function() { try { pw.focus(); pw.print(); } catch(e2) {} }, 1000);
     }
   }
 };
