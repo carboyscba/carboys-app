@@ -683,8 +683,9 @@ const loadJsPDF = () => new Promise((resolve, reject) => {
   document.head.appendChild(s);
 });
 
-// ── HTML element → PDF base64 (A4, single page auto-fit, borderless print) ──
-// Oversize page trick: PDF slightly larger than A4 → printer scales down → margins absorbed
+// ── HTML element → PDF base64 (A4, single page, max content) ──
+// Standard A4 + 0 margins + edge-to-edge content
+// iOS prints PDFs respecting the PDF's own layout (no added margins for PDFs)
 const htmlToPdfBase64 = async (el, filename) => {
   if (!el) throw new Error("Elemento no encontrado");
   if (!window.html2canvas) {
@@ -692,17 +693,16 @@ const htmlToPdfBase64 = async (el, filename) => {
   }
   const jspdfLib = await loadJsPDF();
   const { jsPDF } = jspdfLib;
-  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight };
-  // 700px = ~14% bigger text than 800px, won't make foja too tall
-  // Oversize page 216×306mm (3mm extra each side vs A4)
+  const orig = { maxWidth: el.style.maxWidth, margin: el.style.margin, borderRadius: el.style.borderRadius, boxShadow: el.style.boxShadow, width: el.style.width, display: el.style.display, flexDirection: el.style.flexDirection, minHeight: el.style.minHeight, padding: el.style.padding };
+  // 660px capture → text ~21% bigger than 800px on A4
   el.style.maxWidth = "none";
   el.style.margin = "0";
   el.style.borderRadius = "0";
   el.style.boxShadow = "none";
-  el.style.width = "700px";
+  el.style.width = "660px";
   el.style.display = "flex";
   el.style.flexDirection = "column";
-  el.style.minHeight = "700px"; // conservative min so short docs still fill page
+  el.style.minHeight = "660px";
   const lastChild = el.lastElementChild;
   const origLastMT = lastChild ? lastChild.style.marginTop : "";
   if (lastChild) lastChild.style.marginTop = "auto";
@@ -710,18 +710,16 @@ const htmlToPdfBase64 = async (el, filename) => {
   const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
   Object.assign(el.style, orig);
   if (lastChild) lastChild.style.marginTop = origLastMT;
-  // Oversize page: 216×306mm (A4 + 3mm each side)
-  const pageW = 216, pageH = 306;
+  // Standard A4, zero margins — content fills entire page
+  const pageW = 210, pageH = 297;
   const imgW = canvas.width, imgH = canvas.height;
   const ratioW = pageW / imgW;
   const scaledH = imgH * ratioW;
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageW, pageH] });
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const imgData = canvas.toDataURL("image/jpeg", 0.95);
   if (scaledH <= pageH) {
-    // Content fits — place at top, full width
     pdf.addImage(imgData, "JPEG", 0, 0, pageW, scaledH);
   } else {
-    // Content too tall → scale to fit single page
     const fitRatio = pageH / scaledH;
     const finalW = pageW * fitRatio;
     const xOffset = (pageW - finalW) / 2;
