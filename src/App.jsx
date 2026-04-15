@@ -6755,6 +6755,18 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   const cuitEmisor = getCuentaCuit(config, mainPayment.account);
   const puntoVenta = getCuentaPV(config, mainPayment.account);
 
+  // Condición IVA del receptor
+  const COND_IVA_OPTIONS = [
+    { id: 5, label: "Consumidor Final" },
+    { id: 1, label: "Resp. Inscripto" },
+    { id: 6, label: "Monotributista" },
+    { id: 4, label: "IVA Exento" },
+  ];
+  const clientHasCuit = !!(client?.cuit && (client.cuit || "").replace(/[^0-9]/g, "").length >= 7);
+  const needsCondIvaSelector = invoiceType === "B" && clientHasCuit && !readonly;
+  const defaultCondIva = client?.condicionIva || (invoiceType === "A" ? 1 : 5);
+  const [condIvaSelected, setCondIvaSelected] = useState(defaultCondIva);
+
   const withIva = mainPayment.withIva;
   // For FC A: always use factura importeTotal and discriminate IVA
   const isFacturaA = invoiceType === "A";
@@ -6788,7 +6800,7 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           {!readonly && (
-            <button onClick={onEmit} disabled={facturando} style={{ ...btnPrimary(T.accent), padding: "8px 20px", fontSize: 13, opacity: facturando ? 0.6 : 1 }}>
+            <button onClick={() => onEmit(condIvaSelected)} disabled={facturando} style={{ ...btnPrimary(T.accent), padding: "8px 20px", fontSize: 13, opacity: facturando ? 0.6 : 1 }}>
               {facturando ? "⏳ Facturando en ARCA..." : "✅ Confirmar y emitir"}
             </button>
           )}
@@ -6820,6 +6832,24 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
 
       {/* Factura */}
       <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+        {/* Condición IVA selector — solo FC B + CUIT */}
+        {needsCondIvaSelector && (
+          <div style={{ maxWidth: 680, margin: "0 auto 12px", background: T.bg2, borderRadius: 10, padding: "12px 16px", border: `1.5px solid ${T.orange}40` }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.orange, marginBottom: 8 }}>📋 Condición IVA del receptor {client?.condicionIva ? <span style={{ fontSize: 10, color: T.green, marginLeft: 6 }}>✅ Guardada</span> : ""}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {COND_IVA_OPTIONS.map(opt => (
+                <div key={opt.id} onClick={() => setCondIvaSelected(opt.id)} style={{
+                  flex: 1, minWidth: 100, padding: "10px 12px", borderRadius: 8, textAlign: "center", cursor: "pointer",
+                  border: `2px solid ${condIvaSelected === opt.id ? T.accent : T.border}`,
+                  background: condIvaSelected === opt.id ? `${T.accent}15` : T.bg,
+                  transition: "all .2s"
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: condIvaSelected === opt.id ? T.accent : T.text }}>{opt.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div id="factura-print" style={{ maxWidth: 680, margin: "0 auto", background: "#fff", borderRadius: 12, overflow: "hidden", color: "#111", fontFamily: "'Outfit', sans-serif", boxShadow: "0 8px 40px rgba(0,0,0,.4)" }}>
 
           {/* ── HEADER ── */}
@@ -7369,9 +7399,11 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [facturando, setFacturando] = useState(false);
   const [fcManualPopup, setFcManualPopup] = useState(null); // { order, reason }
 
-  const handleEmitirFactura = async () => {
+  const handleEmitirFactura = async (condIvaOverride) => {
     if (!facturaModal || facturando) return;
     const { order, payments, client: _client } = facturaModal;
+    // Save condicionIva override for use in ARCA call
+    if (condIvaOverride) facturaModal.condicionIva = condIvaOverride;
     // Fallback: si el client no tiene CUIT, buscarlo fresco del array
     const freshCl = clients.find(c => matchId(c.id, order.clientId));
     const client = _client ? {
@@ -7532,9 +7564,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     }
     setFacturando(false);
     
-    // Guardar datos de cliente actualizados
+    // Guardar datos de cliente actualizados + condicionIva
     if (client) {
-      setClients(prev => prev.map(c => matchId(c.id, order.clientId) ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit } : c));
+      const _savedCondIva = facturaModal?.condicionIva || _condIvaReceptor;
+      setClients(prev => prev.map(c => matchId(c.id, order.clientId) ? { ...c, name: client.name, lastName: client.lastName, phone: client.phone, dni: client.dni, cuit: client.cuit, condicionIva: _savedCondIva } : c));
     }
     // Guardar factura en la orden + pagos confirmados
     setOrders(prev => prev.map(o => o.id === order.id ? { ...o, factura, payments: (payments || o.payments).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : o));
