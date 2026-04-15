@@ -14206,7 +14206,7 @@ const SF_TEMPLATE = [
     { id: "luz_baja", label: "Luz baja", type: "lamp" },
     { id: "luz_alta", label: "Luz alta", type: "lamp" },
     { id: "luz_pos_del", label: "Luz posición del.", type: "lamp" },
-    { id: "luz_pos_tra", label: "Luz posición tra.", type: "lamp" },
+    { id: "luz_pos_tra", label: "Luz patente", type: "lamp" },
     { id: "luz_stop", label: "Luz de stop", type: "lamp" },
     { id: "guinos", label: "Guiños", type: "lamp" },
   ]},
@@ -14327,7 +14327,7 @@ const CHEQUEO_TEMPLATE = [
     { id: "ch_luz_baja", label: "Luz baja", type: "brc" },
     { id: "ch_luz_alta", label: "Luz alta", type: "brc" },
     { id: "ch_luz_pos_del", label: "Luz posición del.", type: "brc" },
-    { id: "ch_luz_pos_tra", label: "Luz posición tra.", type: "brc" },
+    { id: "ch_luz_pos_tra", label: "Luz patente", type: "brc" },
     { id: "ch_luz_stop", label: "Luz de stop", type: "brc" },
     { id: "ch_guinos", label: "Guiños", type: "brc" },
     { id: "ch_luz_patente", label: "Patente", type: "brc" },
@@ -17585,7 +17585,7 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
             {R("Baja", "ch_luz_baja")}
             {R("Alta", "ch_luz_alta")}
             {R("Posición del.", "ch_luz_pos_del")}
-            {R("Posición tra.", "ch_luz_pos_tra")}
+            {R("Patente", "ch_luz_pos_tra")}
             {R("Stop", "ch_luz_stop")}
             {R("Guiños", "ch_guinos")}
             {R("Patente", "ch_luz_patente")}
