@@ -3158,8 +3158,9 @@ const NewOrderScreen = (props) => {
           {works.map((w, i) => {
             const wt = findWorkType(w.type);
             const price = parseFloat(w.price) || 0;
-            const total3 = price * (1 + config.surcharge3 / 100);
-            const total6 = price * (1 + config.surcharge6 / 100);
+            const priceConIva = Math.round(price * (1 + (config.ivaRate || 21) / 100));
+            const total3 = priceConIva * (1 + config.surcharge3 / 100);
+            const total6 = priceConIva * (1 + config.surcharge6 / 100);
             return (
               <div key={i} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: `3px solid ${T.accent}`, animation: `fadeUp .3s ease ${i * .05}s both` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -3216,9 +3217,9 @@ const NewOrderScreen = (props) => {
                     )}
                     {(() => {
                       const batPrice = parseFloat(w.price) || 0;
-                      const batIva = batPrice * (1 + config.ivaRate / 100);
-                      const bat3 = batPrice * (1 + config.surcharge3 / 100);
-                      const bat6 = batPrice * (1 + config.surcharge6 / 100);
+                      const batIva = Math.round(batPrice * (1 + config.ivaRate / 100));
+                      const bat3 = batIva * (1 + config.surcharge3 / 100);
+                      const bat6 = batIva * (1 + config.surcharge6 / 100);
                       return batPrice > 0 ? (
                         <div style={{ padding: "12px 14px", background: T.bg, borderRadius: 10, fontSize: 12 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
@@ -3360,9 +3361,9 @@ const NewOrderScreen = (props) => {
                     {/* Total + IVA + cuotas */}
                     {(() => {
                       const catTotal = parseFloat(w.price) || 0;
-                      const catIva = catTotal * (1 + config.ivaRate / 100);
-                      const cat3 = catTotal * (1 + config.surcharge3 / 100);
-                      const cat6 = catTotal * (1 + config.surcharge6 / 100);
+                      const catIva = Math.round(catTotal * (1 + config.ivaRate / 100));
+                      const cat3 = catIva * (1 + config.surcharge3 / 100);
+                      const cat6 = catIva * (1 + config.surcharge6 / 100);
                       return catTotal > 0 ? (
                         <div style={{ padding: "12px 14px", marginTop: 8, background: T.bg, borderRadius: 10, fontSize: 12 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
@@ -5398,15 +5399,15 @@ const VehicleDetailScreen = (props) => {
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3}%)</span>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(getBaseTotal(order) * (1 + config.surcharge3 / 100) / 3)} c/u</span>
-                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(getBaseTotal(order) * (1 + config.surcharge3 / 100))}</span>
+                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(Math.round(getBaseTotal(order) * (1 + config.ivaRate / 100)) * (1 + config.surcharge3 / 100) / 3)} c/u</span>
+                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(Math.round(getBaseTotal(order) * (1 + config.ivaRate / 100)) * (1 + config.surcharge3 / 100))}</span>
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6}%)</span>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(getBaseTotal(order) * (1 + config.surcharge6 / 100) / 6)} c/u</span>
-                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(getBaseTotal(order) * (1 + config.surcharge6 / 100))}</span>
+                    <span style={{ color: T.orange, fontWeight: 700 }}>{fmt(Math.round(getBaseTotal(order) * (1 + config.ivaRate / 100)) * (1 + config.surcharge6 / 100) / 6)} c/u</span>
+                    <span style={{ color: T.gray, marginLeft: 8, fontSize: 11 }}>Total: {fmt(Math.round(getBaseTotal(order) * (1 + config.ivaRate / 100)) * (1 + config.surcharge6 / 100))}</span>
                   </div>
                 </div>
               </div>
