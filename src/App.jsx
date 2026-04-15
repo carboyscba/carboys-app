@@ -1931,6 +1931,7 @@ const NewOrderScreen = (props) => {
   const clientFormValid = form.name && form.lastName && (form.dni || form.cuit) && form.phone && form.brand && form.model && form.year && yearValid && (form.km || form.currentKm) && form.domain;
 
   const [kmError, setKmError] = useState("");
+  const kmLowerOkRef = React.useRef(false);
 
   const saveClient = () => {
     if (!clientFormValid) return;
@@ -1940,11 +1941,12 @@ const NewOrderScreen = (props) => {
     }
     const finalKm = parseInt(form.currentKm || form.km);
     const lastKm = parseInt(form.lastKm) || 0;
-    if (foundVehicle && !isNew && finalKm < lastKm) {
-      setKmError(`El kilometraje no puede ser menor al último registro (${lastKm.toLocaleString("es-AR")} km)`);
+    if (foundVehicle && !isNew && finalKm < lastKm && !kmLowerOkRef.current) {
+      setKmError("CONFIRM_LOWER");
       return;
     }
     setKmError("");
+    kmLowerOkRef.current = false;
     const capBrand = form.brand.trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
     const capModel = form.model.trim().split(" ").map(w => /^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
     if (setVehicleDB && capBrand) {
@@ -2879,17 +2881,18 @@ const NewOrderScreen = (props) => {
                     const val = e.target.value.replace(/[^0-9]/g, "");
                     setForm(f => ({ ...f, currentKm: val }));
                     if (val && parseInt(val) < (parseInt(form.lastKm) || 0)) {
-                      setKmError(`No puede ser menor a ${Number(form.lastKm).toLocaleString("es-AR")} km`);
+                      setKmError(`Menor al último registro (${Number(form.lastKm).toLocaleString("es-AR")} km)`);
                     } else {
                       setKmError("");
                     }
+                    kmLowerOkRef.current = false;
                   }}
                     onKeyDown={focusBlur}
                     placeholder="—"
                     style={{ ...inputStyle, fontSize: 22, fontWeight: 700, fontFamily: fontD, borderColor: "transparent", background: "transparent", padding: "4px 0", flex: 1 }} />
                   <span style={{ fontSize: 13, color: T.gray, fontWeight: 600 }}>km</span>
                 </div>
-                {kmError && <div style={{ fontSize: 11, color: T.red, fontWeight: 600, marginTop: 2 }}>⚠️ {kmError}</div>}
+                {kmError && kmError !== "CONFIRM_LOWER" && <div style={{ fontSize: 11, color: T.orange, fontWeight: 600, marginTop: 2 }}>⚠️ {kmError}</div>}
               </div>
             </div>
           )}
@@ -3462,6 +3465,27 @@ const NewOrderScreen = (props) => {
         </div>
       )}
 
+      {/* Popup: km menor al registrado */}
+      {kmError === "CONFIRM_LOWER" && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }} onClick={() => setKmError("")}>
+          <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, textAlign: "center", marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, textAlign: "center", marginBottom: 8, color: T.orange }}>Kilometraje menor al registrado</div>
+            <div style={{ fontSize: 14, color: T.grayLight, textAlign: "center", marginBottom: 6 }}>
+              Último registro: <strong style={{ color: T.text }}>{Number(form.lastKm).toLocaleString("es-AR")} km</strong>
+            </div>
+            <div style={{ fontSize: 14, color: T.grayLight, textAlign: "center", marginBottom: 20 }}>
+              Ingresado: <strong style={{ color: T.orange }}>{Number(form.currentKm || form.km).toLocaleString("es-AR")} km</strong>
+            </div>
+            <div style={{ fontSize: 13, color: T.gray, textAlign: "center", marginBottom: 20 }}>El km ingresado es menor. ¿Desea continuar de todas formas?</div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setKmError("")} style={{ ...btnPrimary(T.bg3), flex: 1, fontSize: 14, padding: "12px 0", border: `1px solid ${T.border}` }}>Cancelar</button>
+              <button onClick={() => { kmLowerOkRef.current = true; setKmError(""); saveClient(); }} style={{ ...btnPrimary(T.orange), flex: 1, fontSize: 14, padding: "12px 0" }}>Sí, continuar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showBrakePopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, backdropFilter: "blur(4px)", animation: "fadeUp .2s ease" }} onClick={() => setShowBrakePopup(false)}>
           <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 420, width: "90%", border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
@@ -3524,17 +3548,18 @@ const NewOrderScreen = (props) => {
                 const val = e.target.value.replace(/[^0-9]/g, "");
                 setForm(f => ({ ...f, currentKm: val }));
                 if (val && parseInt(val) < (parseInt(form.lastKm) || 0)) {
-                  setKmError(`No puede ser menor a ${Number(form.lastKm).toLocaleString("es-AR")} km`);
+                  setKmError(`Menor al último registro (${Number(form.lastKm).toLocaleString("es-AR")} km)`);
                 } else {
                   setKmError("");
                 }
+                kmLowerOkRef.current = false;
               }}
                 placeholder="Ej: 52.000" autoFocus
-                style={{ ...inputStyle, fontSize: 22, fontWeight: 700, fontFamily: fontD, textAlign: "center", flex: 1, borderColor: kmError ? T.red : (form.currentKm && !kmError) ? T.green : T.border }} />
+                style={{ ...inputStyle, fontSize: 22, fontWeight: 700, fontFamily: fontD, textAlign: "center", flex: 1, borderColor: kmError ? T.orange : (form.currentKm && !kmError) ? T.green : T.border }} />
               <span style={{ fontSize: 16, color: T.gray, fontWeight: 600 }}>km</span>
             </div>
             {form.lastKm && <div style={{ fontSize: 11, color: T.gray, textAlign: "center", marginBottom: 4 }}>Último registro: <strong style={{ color: T.accent }}>{Number(form.lastKm).toLocaleString("es-AR")} km</strong></div>}
-            {kmError && <div style={{ fontSize: 11, color: T.red, fontWeight: 600, textAlign: "center", marginBottom: 8 }}>⚠️ {kmError}</div>}
+            {kmError && kmError !== "CONFIRM_LOWER" && <div style={{ fontSize: 11, color: T.orange, fontWeight: 600, textAlign: "center", marginBottom: 8 }}>⚠️ {kmError}</div>}
             <div style={{ marginTop: kmError ? 4 : 12, display: "flex", gap: 10 }}>
               <button onClick={() => setShowKmPopup(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1, fontSize: 13 }}>Cancelar</button>
               <button onClick={() => {
