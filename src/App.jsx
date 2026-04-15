@@ -17766,8 +17766,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
-              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 14, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "#9badc4", lineHeight: 1.7 }}>
                 {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
                 {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
@@ -17786,7 +17786,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
                   </div>
-                  <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                  <div style={{ fontSize: 9, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
                 </div>
               );
             })()}
@@ -17794,22 +17794,22 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
           {/* Title + Date */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE BATERÍA</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {fmtDate(order.date)} · Cambio de Batería</div>
+            <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE BATERÍA</div>
+            <div style={{ fontSize: 10, color: "#718096" }}>Fecha: {fmtDate(order.date)} · Cambio de Batería</div>
           </div>
 
           {/* Vehicle + Client */}
           <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
             <div style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 8, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-              <div style={{ fontSize: 7.5, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
+              <div style={{ fontSize: 10, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              <div style={{ fontSize: 10, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
             </div>
             <div style={{ flex: 1.2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
-              <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
-              <div style={{ fontSize: 8, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
+              <div style={{ fontSize: 10, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
             </div>
           </div>
 
@@ -17819,7 +17819,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               {/* Battery illustration */}
               <div style={{ flex: 1, background: "linear-gradient(135deg, #0D1B2A, #1B2D45)", borderRadius: 10, padding: "18px 16px", textAlign: "center", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.05, background: "repeating-linear-gradient(45deg, #FFF 0, #FFF 1px, transparent 1px, transparent 8px)" }} />
-                <div style={{ fontSize: 7, fontWeight: 700, color: "#64B5F6", letterSpacing: 2, marginBottom: 10 }}>BATERÍA INSTALADA</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#64B5F6", letterSpacing: 2, marginBottom: 10 }}>BATERÍA INSTALADA</div>
                 {/* Battery SVG */}
                 <div style={{ position: "relative", display: "inline-block", marginBottom: 10 }}>
                   <svg width="100" height="60" viewBox="0 0 100 60">
@@ -17832,9 +17832,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                     <text x="50" y="48" textAnchor="middle" fontSize="6" fill="#90CAF9" fontWeight="600">AMP</text>
                   </svg>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#FFF", marginBottom: 4 }}>{batData.batCode || "—"}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#FFF", marginBottom: 4 }}>{batData.batCode || "—"}</div>
                 {batData.batWarranty && (
-                  <div style={{ fontSize: 8, color: "#90CAF9", background: "rgba(30,136,229,0.2)", display: "inline-block", padding: "2px 10px", borderRadius: 4 }}>
+                  <div style={{ fontSize: 10, color: "#90CAF9", background: "rgba(30,136,229,0.2)", display: "inline-block", padding: "2px 10px", borderRadius: 4 }}>
                     Garantía: {batData.batWarranty} meses
                   </div>
                 )}
@@ -17843,7 +17843,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               {/* Alternator illustration */}
               <div style={{ flex: 1, background: voltage ? (voltOk ? "linear-gradient(135deg, #1B5E20, #2E7D32)" : "linear-gradient(135deg, #B71C1C, #E53935)") : "linear-gradient(135deg, #37474F, #546E7A)", borderRadius: 10, padding: "18px 16px", textAlign: "center", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.05, background: "repeating-linear-gradient(-45deg, #FFF 0, #FFF 1px, transparent 1px, transparent 8px)" }} />
-                <div style={{ fontSize: 7, fontWeight: 700, color: voltage ? (voltOk ? "#A5D6A7" : "#EF9A9A") : "#B0BEC5", letterSpacing: 2, marginBottom: 10 }}>CARGA ALTERNADOR</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: voltage ? (voltOk ? "#A5D6A7" : "#EF9A9A") : "#B0BEC5", letterSpacing: 2, marginBottom: 10 }}>CARGA ALTERNADOR</div>
                 {/* Alternator gauge */}
                 <div style={{ position: "relative", display: "inline-block", marginBottom: 8 }}>
                   <svg width="100" height="60" viewBox="0 0 100 60">
@@ -17854,8 +17854,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                     <text x="50" y="50" textAnchor="middle" fontSize="7" fill={voltOk ? "#A5D6A7" : "#EF9A9A"} fontWeight="700">VOLTS</text>
                   </svg>
                 </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: "#FFF" }}>{voltOk ? "✓ NORMAL" : voltage < 13.5 ? "⚠ BAJA" : "⚠ ALTA"}</div>
-                <div style={{ fontSize: 7, color: "rgba(255,255,255,.6)", marginTop: 2 }}>Rango normal: 13.5V — 14.8V</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#FFF" }}>{voltOk ? "✓ NORMAL" : voltage < 13.5 ? "⚠ BAJA" : "⚠ ALTA"}</div>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,.6)", marginTop: 2 }}>Rango normal: 13.5V — 14.8V</div>
               </div>
             </div>
           </div>
@@ -17864,15 +17864,15 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ marginTop: "auto" }}>
           {/* Work details */}
           <div style={{ padding: "8px 22px 16px" }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJO REALIZADO</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJO REALIZADO</div>
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
               {(order.works || []).map((w, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: i < (order.works||[]).length - 1 ? "1px solid #F0F0F0" : "none" }}>
                   <div>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#0D1B2A" }}>{w.type}</span>
-                    {w.desc && <span style={{ fontSize: 8, color: "#718096", marginLeft: 6 }}>— {w.desc}</span>}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>{w.type}</span>
+                    {w.desc && <span style={{ fontSize: 10, color: "#718096", marginLeft: 6 }}>— {w.desc}</span>}
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
                 </div>
               ))}
             </div>
@@ -17880,7 +17880,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
           {/* Footer */}
           <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
+            <div style={{ fontSize: 10, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
@@ -17923,8 +17923,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
-              <div style={{ fontSize: 11, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: "#9badc4", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 14, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "#9badc4", lineHeight: 1.7 }}>
                 {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
                 {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
@@ -17943,7 +17943,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
                   </div>
-                  <div style={{ fontSize: 7, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                  <div style={{ fontSize: 9, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
                 </div>
               );
             })()}
@@ -17951,29 +17951,29 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
           {/* Title */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: fontD, fontSize: 12, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE ESCAPE</div>
-            <div style={{ fontSize: 8, color: "#718096" }}>Fecha: {fmtDate(order.date)} · {escWork?.escapeType === "deportivo" ? "Escape Deportivo" : "Sistema Original"}</div>
+            <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE ESCAPE</div>
+            <div style={{ fontSize: 10, color: "#718096" }}>Fecha: {fmtDate(order.date)} · {escWork?.escapeType === "deportivo" ? "Escape Deportivo" : "Sistema Original"}</div>
           </div>
 
           {/* Vehicle + Client */}
           <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
             <div style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 8, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-              <div style={{ fontSize: 7.5, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
+              <div style={{ fontSize: 10, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              <div style={{ fontSize: 10, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
             </div>
             <div style={{ flex: 1.2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 6, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
-              <div style={{ fontFamily: fontD, fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
-              <div style={{ fontSize: 8, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
+              <div style={{ fontSize: 10, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
             </div>
           </div>
 
           {/* Escape Diagram - Technical Drawing */}
           <div style={{ padding: "10px 22px 16px" }}>
             <div style={{ background: "#FFF", borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "16px 12px 12px", position: "relative" }}>
-              <div style={{ fontSize: 7, fontWeight: 700, color: "#A0AEC0", letterSpacing: 2, textAlign: "center", marginBottom: 8 }}>DIAGRAMA DEL SISTEMA DE ESCAPE</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#A0AEC0", letterSpacing: 2, textAlign: "center", marginBottom: 8 }}>DIAGRAMA DEL SISTEMA DE ESCAPE</div>
               <div style={{ display: "flex", gap: 8 }}>
                 {/* Main SVG diagram */}
                 <div style={{ flex: 1 }}>
@@ -18116,7 +18116,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ marginTop: "auto" }}>
           {/* Work details */}
           <div style={{ padding: "4px 22px 16px" }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
               {order.works.filter(w => w.type === "Escape").map((w, wi) => {
                 let items = w.trenItems?.filter(ti => ti.isCustom ? ti.label : ti.selected) || [];
@@ -18132,15 +18132,15 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 if (items.length > 0) {
                   return items.map((ti, j) => (
                     <div key={`${wi}-${j}`} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: "#0D1B2A" }}>• {ti.label}{ti.otroDesc ? ` — ${ti.otroDesc}` : ""}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: "#718096", fontFamily: fontD }}>{Number(ti.price) > 0 ? `$${Number(ti.price).toLocaleString("es-AR")}` : ""}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#0D1B2A" }}>• {ti.label}{ti.otroDesc ? ` — ${ti.otroDesc}` : ""}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#718096", fontFamily: fontD }}>{Number(ti.price) > 0 ? `$${Number(ti.price).toLocaleString("es-AR")}` : ""}</span>
                     </div>
                   ));
                 }
                 return (
                   <div key={wi} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: "#0D1B2A" }}>{w.type}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#0D1B2A" }}>{w.type}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
                   </div>
                 );
               })}
@@ -18150,17 +18150,17 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 return (<>
                 {_escIva && (<>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 4 }}>
-                    <span style={{ fontSize: 10, color: "#718096" }}>Subtotal (neto)</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_escBase.toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 13, color: "#718096" }}>Subtotal (neto)</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_escBase.toLocaleString("es-AR")}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
-                    <span style={{ fontSize: 10, color: "#718096" }}>IVA 21%</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_escBase * 21 / 100).toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 13, color: "#718096" }}>IVA 21%</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_escBase * 21 / 100).toLocaleString("es-AR")}</span>
                   </div>
                 </>)}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: _escIva ? 4 : 6, paddingTop: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_escIva ? Math.round(_escBase * 1.21) : _escBase).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_escIva ? Math.round(_escBase * 1.21) : _escBase).toLocaleString("es-AR")}</span>
                 </div>
                 </>);
               })()}
@@ -18180,11 +18180,11 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             return (
               <div style={{ padding: "4px 22px 12px" }}>
                 <div style={{ padding: "8px 14px", background: "#FFF8E1", borderRadius: 6, border: "1px solid #FFE082" }}>
-                  <div style={{ fontSize: 7, fontWeight: 800, color: "#E65100", letterSpacing: 1.5, marginBottom: 4 }}>📝 OBSERVACIONES</div>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: "#E65100", letterSpacing: 1.5, marginBottom: 4 }}>📝 OBSERVACIONES</div>
                   {escObs.map((obs, i) => (
                     <div key={i} style={{ display: "flex", gap: 4, marginBottom: 2, paddingLeft: 6, borderLeft: "2px solid #E65100" }}>
-                      <span style={{ fontSize: 8, fontWeight: 700, color: "#E65100", flexShrink: 0 }}>{obs.label}:</span>
-                      <span style={{ fontSize: 8, color: "#4A5568" }}>{obs.text}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#E65100", flexShrink: 0 }}>{obs.label}:</span>
+                      <span style={{ fontSize: 10, color: "#4A5568" }}>{obs.text}</span>
                     </div>
                   ))}
                 </div>
@@ -18194,7 +18194,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
 
           {/* Footer */}
           <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 8, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
+            <div style={{ fontSize: 10, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
@@ -18223,8 +18223,8 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ background: "#0d1526", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 36, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
-              <div style={{ fontSize: 14, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
-              <div style={{ marginTop: 8, fontSize: 13, color: "#9badc4", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 16, color: "#7b8fad", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Servicio Integral del Automotor</div>
+              <div style={{ marginTop: 8, fontSize: 16, color: "#9badc4", lineHeight: 1.7 }}>
                 {config.tallerDir && <div>{config.tallerDir}{config.tallerCiudad ? " , " + config.tallerCiudad : ""}</div>}
                 {(config.tallerTel || config.tallerCel) && <div>Tel: {config.tallerCel || config.tallerTel}</div>}
                 {(config.tallerCuit || config.cuit) && <div>CUIT: {config.tallerCuit || config.cuit}</div>}
@@ -18243,7 +18243,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c-.001 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/></svg>
                   </div>
-                  <div style={{ fontSize: 9, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
+                  <div style={{ fontSize: 12, color: "#7b8fad", marginTop: 2 }}>WhatsApp</div>
                 </div>
               );
             })()}
@@ -18251,20 +18251,20 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           {/* Title */}
           <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: "#0D1B2A" }}>INFORME DE INTERVENCIÓN</div>
-            <div style={{ fontSize: 10, color: "#718096" }}>Fecha: {fmtDate(order.date)}</div>
+            <div style={{ fontSize: 13, color: "#718096" }}>Fecha: {fmtDate(order.date)}</div>
           </div>
           {/* Vehicle + Client */}
           <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
             <div style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
               <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 10, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-              <div style={{ fontSize: 10, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
+              <div style={{ fontSize: 13, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              <div style={{ fontSize: 13, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
             </div>
             <div style={{ flex: 1.2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 8, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
               <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
-              <div style={{ fontSize: 10, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
+              <div style={{ fontSize: 13, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
             </div>
           </div>
           {/* Intervention Diagram */}
@@ -18275,7 +18275,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           <div style={{ marginTop: "auto" }}>
           {/* Trabajos */}
           <div style={{ padding: "8px 22px 16px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
             <div style={{ padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
               {(() => {
                 const authNotif = (order._notifications || notifications || []).find(n => n.orderId === order.id && (n.status === "approved" || n.status === "denied"));
@@ -18292,16 +18292,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   return (
                     <div key={`auth_${it.id}`}>
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px", alignItems: "center" }}>
-                        <span style={{ fontSize: 8.5, color, fontWeight: 700 }}>
+                        <span style={{ fontSize: 11, color, fontWeight: 700 }}>
                           {isApproved ? "✓ " : "✗ "}{it.label}{isApproved ? " — SUSTITUIDO" : ""}
                         </span>
                         {isApproved && Number(it.price) > 0 && (
-                          <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(it.price).toLocaleString("es-AR")}</span>
+                          <span style={{ fontSize: 11, color: "#718096", fontFamily: fontD }}>${Number(it.price).toLocaleString("es-AR")}</span>
                         )}
                       </div>
                       {isDenied && (
                         <div style={{ padding: "1px 0 2px 20px" }}>
-                          <span style={{ fontSize: 10, color: "#C62828", fontStyle: "italic" }}>
+                          <span style={{ fontSize: 13, color: "#C62828", fontStyle: "italic" }}>
                             ⚠ Cambio no autorizado por el cliente
                           </span>
                         </div>
@@ -18322,14 +18322,14 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                   return (
                     <div key={wi} style={{ marginBottom: wi < trenWorks.length - 1 ? 6 : 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid #F0F0F0" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: "#0D1B2A" }}>{w.type}{w.desc && !w.trenItems ? ` — ${w.desc}` : ""}</span>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Number(w.price).toLocaleString("es-AR")}</span>
                       </div>
                       {/* Items originales de la orden */}
                       {w.trenItems && w.trenItems.filter(ti => ti.selected).map((ti, j) => (
                         <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0 2px 12px" }}>
-                          <span style={{ fontSize: 8.5, color: "#4A5568" }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}</span>
-                          {Number(ti.price) > 0 && <span style={{ fontSize: 8.5, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
+                          <span style={{ fontSize: 11, color: "#4A5568" }}>• {ti.label}{ti.side && ti.side !== "ambos" ? ` (${ti.side === "izq" ? "Izq" : "Der"})` : ""}</span>
+                          {Number(ti.price) > 0 && <span style={{ fontSize: 11, color: "#718096", fontFamily: fontD }}>${Number(ti.price).toLocaleString("es-AR")}</span>}
                         </div>
                       ))}
                       {/* Items extra aprobados/denegados por auth */}
@@ -18344,17 +18344,17 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 return (<>
                 {_trenIva && (<>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 4 }}>
-                    <span style={{ fontSize: 13, color: "#718096" }}>Subtotal (neto)</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_trenBase.toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 16, color: "#718096" }}>Subtotal (neto)</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: "#0D1B2A", fontFamily: fontD }}>${_trenBase.toLocaleString("es-AR")}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
-                    <span style={{ fontSize: 13, color: "#718096" }}>IVA 21%</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_trenBase * 21 / 100).toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 16, color: "#718096" }}>IVA 21%</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: "#1E88E5", fontFamily: fontD }}>${Math.round(_trenBase * 21 / 100).toLocaleString("es-AR")}</span>
                   </div>
                 </>)}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #0D1B2A", marginTop: _trenIva ? 4 : 6, paddingTop: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_trenIva ? Math.round(_trenBase * 1.21) : _trenBase).toLocaleString("es-AR")}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: "#0D1B2A", fontFamily: fontD }}>TOTAL</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: "#1E88E5", fontFamily: fontD }}>${(_trenIva ? Math.round(_trenBase * 1.21) : _trenBase).toLocaleString("es-AR")}</span>
                 </div>
                 </>);
               })()}
@@ -18362,7 +18362,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           </div>
           {/* Footer */}
           <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 10, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
+            <div style={{ fontSize: 13, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
             <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
