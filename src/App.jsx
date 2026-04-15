@@ -17890,12 +17890,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             </div>
           </div>
 
-          {/* Footer */}
-          <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+          {/* Footer — Gracias por confiar */}
+          <div style={{ background: "linear-gradient(135deg, #1E88E5, #0D47A1)", borderRadius: 8, padding: "14px 22px", margin: "0 28px 12px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 14, color: "#FFF", fontWeight: 500 }}>Gracias por confiar en</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
+          <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#A0AEC0" }}>
+            <span>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</span>
+            <span>{(config.tallerDir || "") + (config.tallerCiudad ? ", " + config.tallerCiudad : "") + (config.tallerTel ? " · " + config.tallerTel : "") + (config.tallerIG ? " · " + config.tallerIG : "")}</span>
+          </div>
         </div>
       </div>
     );
@@ -17962,30 +17966,30 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           </div>
 
           {/* Title */}
-          <div style={{ padding: "10px 22px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE ESCAPE</div>
+          <div style={{ padding: "12px 28px", background: "#F8F9FA", borderBottom: "2px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 700, color: "#0D1B2A" }}>FOJA DE ESCAPE</div>
             <div style={{ fontSize: 14, color: "#718096" }}>Fecha: {fmtDate(order.date)} · {escWork?.escapeType === "deportivo" ? "Escape Deportivo" : "Sistema Original"}</div>
           </div>
 
           {/* Vehicle + Client */}
-          <div style={{ display: "flex", padding: "14px 22px", gap: 14 }}>
-            <div style={{ flex: 1, padding: "14px 20px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>VEHÍCULO</div>
-              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2 }}>{fmtD(order.domain)}</div>
-              <div style={{ fontSize: 14, color: "#4A5568" }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
-              <div style={{ fontSize: 14, color: "#718096" }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
+          <div style={{ display: "flex", padding: "20px 28px", gap: 16 }}>
+            <div style={{ flex: 1, padding: "16px 22px", border: "1.5px solid #E2E8F0", borderRadius: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1.5, marginBottom: 4 }}>VEHÍCULO</div>
+              <div style={{ fontFamily: fontD, fontSize: 22, fontWeight: 900, color: "#0D1B2A", letterSpacing: 0 }}>{fmtD(order.domain)}</div>
+              <div style={{ fontSize: 14, color: "#4A5568", fontWeight: 700 }}>{vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}` : ""}</div>
+              <div style={{ fontSize: 14, color: "#4A5568", fontWeight: 700 }}>Kilometraje: {vehicle?.km ? `${Number(vehicle.km).toLocaleString("es-AR")} km` : "—"}</div>
             </div>
-            <div style={{ flex: 1.2, padding: "14px 20px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 4 }}>CLIENTE</div>
-              <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
+            <div style={{ flex: 1.2, padding: "16px 22px", border: "1.5px solid #E2E8F0", borderRadius: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1.5, marginBottom: 4 }}>CLIENTE</div>
+              <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, color: "#0D1B2A" }}>{client ? `${client.name} ${client.lastName}` : ""}</div>
               <div style={{ fontSize: 14, color: "#718096" }}>Tel: {client?.phone || "—"}</div>
             </div>
           </div>
 
-          {/* Escape Diagram - Technical Drawing */}
-          <div style={{ padding: "10px 22px 16px" }}>
-            <div style={{ background: "#FFF", borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "16px 12px 12px", position: "relative" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#A0AEC0", letterSpacing: 2, textAlign: "center", marginBottom: 8 }}>DIAGRAMA DEL SISTEMA DE ESCAPE</div>
+          {/* Escape Diagram - centered with flex:1 */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "20px 28px 24px" }}>
+            <div style={{ background: "#FFF", borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "24px 20px 20px", position: "relative" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#0D1B2A", letterSpacing: 2, textAlign: "center", marginBottom: 16 }}>DIAGRAMA DEL SISTEMA DE ESCAPE</div>
               <div style={{ display: "flex", gap: 8 }}>
                 {/* Main SVG diagram */}
                 <div style={{ flex: 1 }}>
@@ -18127,9 +18131,9 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
           {/* Bloque inferior — se empuja al fondo */}
           <div style={{ marginTop: "auto" }}>
           {/* Work details */}
-          <div style={{ padding: "4px 22px 16px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 6 }}>TRABAJOS REALIZADOS</div>
-            <div style={{ padding: "14px 20px", border: "1.5px solid #E2E8F0", borderRadius: 6 }}>
+          <div style={{ padding: "16px 28px 20px" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#A0AEC0", letterSpacing: 1, marginBottom: 8 }}>TRABAJOS REALIZADOS</div>
+            <div style={{ padding: "16px 22px", border: "1.5px solid #E2E8F0", borderRadius: 8 }}>
               {order.works.filter(w => w.type === "Escape").map((w, wi) => {
                 let items = w.trenItems?.filter(ti => ti.isCustom ? ti.label : ti.selected) || [];
                 if (items.length === 0 && w.desc && w.trenItems) {
@@ -18204,12 +18208,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
             );
           })()}
 
-          {/* Footer */}
-          <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+          {/* Footer — Gracias por confiar */}
+          <div style={{ background: "linear-gradient(135deg, #1E88E5, #0D47A1)", borderRadius: 8, padding: "14px 22px", margin: "0 28px 12px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 14, color: "#FFF", fontWeight: 500 }}>Gracias por confiar en</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
+          <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#A0AEC0" }}>
+            <span>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</span>
+            <span>{(config.tallerDir || "") + (config.tallerCiudad ? ", " + config.tallerCiudad : "") + (config.tallerTel ? " · " + config.tallerTel : "") + (config.tallerIG ? " · " + config.tallerIG : "")}</span>
+          </div>
         </div>
       </div>
     );
@@ -18372,12 +18380,16 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
               })()}
             </div>
           </div>
-          {/* Footer */}
-          <div style={{ background: "#0d1526", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 16, color: "#FFF", fontStyle: "italic", opacity: 0.9 }}>Gracias por confiar en</div>
-            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
+          {/* Footer — Gracias por confiar */}
+          <div style={{ background: "linear-gradient(135deg, #1E88E5, #0D47A1)", borderRadius: 8, padding: "14px 22px", margin: "0 28px 12px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 14, color: "#FFF", fontWeight: 500 }}>Gracias por confiar en</div>
+            <div style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}><span style={{ color: "#c8d6e5" }}>Car</span><span style={{ color: "#e53935" }}>Boys</span></div>
           </div>
           </div>{/* cierre bloque inferior */}
+          <div style={{ background: "#F7F9FC", borderTop: "1px solid #E8ECF2", padding: "5px 22px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#A0AEC0" }}>
+            <span>{(config.tallerNombre || "CarBoys") + " — Servicio Integral del Automotor"}</span>
+            <span>{(config.tallerDir || "") + (config.tallerCiudad ? ", " + config.tallerCiudad : "") + (config.tallerTel ? " · " + config.tallerTel : "") + (config.tallerIG ? " · " + config.tallerIG : "")}</span>
+          </div>
         </div>
       </div>
     );
