@@ -7808,7 +7808,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             const o = selCobro;
             const cl = clients.find(c => matchId(c.id, o.clientId));
             const vh = cl?.vehicles?.find(v => v.domain === o.domain);
-            const total = getOrderTotal(o);
+            const total = (() => {
+              const base = getBaseTotal(o);
+              const _iva = config.ivaRate || 21;
+              const hasIva = cobroPay.some(p => p.withIva);
+              return hasIva ? Math.round(base * (1 + _iva / 100)) : base;
+            })();
             const baseTotal = getBaseTotal(o);
             const iva = config.ivaRate || 21;
             return (
@@ -8117,7 +8122,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>Base (neto)</span><span style={{ fontWeight: 700 }}>{fmt(baseNeto)}</span></div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span style={{ color: T.gray }}>IVA {iva}%</span><span style={{ fontWeight: 700, color: T.accent }}>{fmt(ivaAmount)}</span></div>
                             <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>Total a cobrar</span><span style={{ color: T.accent, fontFamily: fontD }}>{fmt(totalConIva)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 18, fontWeight: 800 }}><span>Total a cobrar</span><span style={{ color: T.green, fontFamily: fontD, fontSize: 20 }}>{fmt(totalConIva)}</span></div>
                           </div>
                         );
                       })()}
