@@ -5490,7 +5490,6 @@ const VehicleDetailScreen = (props) => {
           ...(order.status === "inspection_done" && order.isChequeo && order.chequeoData ? [
             { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
-            { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
           ] : []),
           ...(order.status === "budget_sent" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
@@ -5525,7 +5524,6 @@ const VehicleDetailScreen = (props) => {
           ...(order.isChequeo && order.status === "done" ? [
             { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
-            { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
             { icon: "📋", label: "Generar Presupuesto", show: canSeePrices, color: "#9C27B0", action: () => {
               onNavigate("budgetPricing", { ...order, _fromChequeo: true });
             }, bg: "rgba(156,39,176,.08)" },
@@ -5533,7 +5531,6 @@ const VehicleDetailScreen = (props) => {
           ...(order.isChequeo && (order.status === "budget_sent" || order.status === "budget_closed") ? [
             { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
-            { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
             { icon: "📋", label: "Ver/Editar Presupuesto", show: canSeePrices, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
           ] : []),
           ...(order.status === "working" && !order.budgetApproved && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
@@ -5543,9 +5540,6 @@ const VehicleDetailScreen = (props) => {
             const fojaType = (order.works||[]).some(w => w.type === "Service Full" || w.type === "Service Base") ? "service" : (order.works||[]).some(w => w.type === "Baterías" || w.type === "Baterias") ? "battery" : (order.works||[]).some(w => w.type === "Escape") ? "escape" : "service";
             onNavigate("fojaClient", { ...order, _fojaType: fojaType });
           }, bg: "rgba(30,136,229,.08)" }] : []),
-          ...((order.status === "done" || order.status === "delivered") && order.isChequeo && order.chequeoData ? [
-            { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
-          ] : []),
           { icon: "✏️", label: "Editar Orden", show: !order.isChequeo && order.status !== "done" && order.status !== "delivered" && canSeePrices, color: T.accent, action: () => {
             setEditClient({ name: client?.name || "", lastName: client?.lastName || "", phone: client?.phone || "", dni: client?.dni || "", cuit: client?.cuit || "" });
             setEditWorks((order.works || []).map(w => ({ ...w, price: String(w.price) }))); setEditPayments((order.payments || []).map(p => ({ ...p })));
