@@ -13740,38 +13740,105 @@ const BudgetPricingScreen = (props) => {
     if (order.isChequeo && order.chequeoData) {
       var cd = order.chequeoData;
       var d = {};
-      // Map chequeo sections to work categories
-      var sectionMap = {
-        "MOTOR": { keys: ["ch_aceite", "ch_filtro_aceite", "ch_filtro_aire", "ch_filtro_habitaculo", "ch_filtro_combustible", "ch_bujias", "ch_correa_distribucion", "ch_correa_polyv", "ch_tensores", "ch_bomba_agua", "ch_mangueras", "ch_perdidas_aceite", "ch_motor_general"], workType: "Service Full" },
-        "TREN DELANTERO": { keys: ["ch_td_amortiguadores", "ch_td_extremos", "ch_td_axiales", "ch_td_bieletas", "ch_td_parrilla", "ch_td_rotulas", "ch_td_bujes", "ch_td_rulemanes", "ch_td_discos", "ch_td_pastillas", "ch_td_otros"], workType: "Tren Delantero" },
-        "TREN TRASERO": { keys: ["ch_tt_amortiguadores", "ch_tt_freno", "ch_tt_bujes", "ch_tt_rulemanes", "ch_tt_otros"], workType: "Tren Trasero" },
-        "ESCAPE": { keys: ["ch_esc_sil_tra", "ch_esc_sil_int", "ch_esc_multiple", "ch_esc_cano", "ch_esc_soporte", "ch_esc_catalizador"], workType: "Escape" },
-      };
-      // Collect items that need work (regular or cambiar) grouped by section
-      Object.entries(sectionMap).forEach(function([secName, secInfo]) {
-        var items = [];
-        secInfo.keys.forEach(function(key) {
-          var val = cd[key];
-          var desc = cd[key + "_desc"] || "";
-          var tmplItem = null;
-          CHEQUEO_TEMPLATE.forEach(function(sec) { sec.items.forEach(function(it) { if (it.id === key) tmplItem = it; }); });
-          if (val === "regular" || val === "cambiar") {
-            items.push({ key: key, label: tmplItem ? tmplItem.label : key, price: "", estado: val, desc: desc, isCustom: false });
+      // Helper: find template item by id
+      var findTmpl = function(key) { var r = null; CHEQUEO_TEMPLATE.forEach(function(sec) { sec.items.forEach(function(it) { if (it.id === key) r = it; }); }); return r; };
+
+      // MOTOR section → check if any motor maintenance items need work → offer Service Full or Service Base
+      var motorServiceKeys = ["ch_aceite", "ch_filtro_aceite", "ch_filtro_aire", "ch_filtro_habitaculo", "ch_filtro_combustible"];
+      var motorOtherKeys = ["ch_bujias", "ch_correa_distribucion", "ch_correa_polyv", "ch_tensores", "ch_bomba_agua", "ch_mangueras", "ch_perdidas_aceite", "ch_motor_general"];
+      var motorServiceNeeded = motorServiceKeys.some(function(k) { return cd[k] === "regular" || cd[k] === "cambiar"; });
+      var motorItems = [];
+      // If service items need work, add Service Full as a top-level work option (user can change to Service Base)
+      if (motorServiceNeeded) {
+        d["Service Full"] = { items: [], noItems: true, totalPrice: "", desc: "Incluye cambio de aceite, filtros y revisión completa" };
+      }
+      // Motor mechanical items (bujías, correas, etc.) — individual items in Mecánica
+      var mecItems = [];
+      motorOtherKeys.forEach(function(key) {
+        var val = cd[key];
+        var desc = cd[key + "_desc"] || cd[key + "_text"] || "";
+        var tmpl = findTmpl(key);
+        if (val === "regular" || val === "cambiar") {
+          mecItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, desc: desc, isCustom: false });
+        }
+        // Pérdidas de aceite with description
+        if (key === "ch_perdidas_aceite" && val && val !== "no" && val !== "bien" && desc) {
+          mecItems.push({ key: key + "_obs", label: "Pérdida de aceite — " + desc, price: "", estado: "cambiar", desc: desc, isCustom: true });
+        }
+        // opt_desc / General items with observations → each observation as individual item
+        if (tmpl && (tmpl.type === "opt_desc" || tmpl.type === "desc")) {
+          if (cd[key + "_on"] && desc) {
+            // Split multiple observations by comma or newline
+            desc.split(/[,;\n]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(obs, idx) {
+              mecItems.push({ key: key + "_obs_" + idx, label: obs, price: "", estado: "observacion", desc: obs, isCustom: true });
+            });
           }
-          // Also check opt_desc items with description (custom observations)
-          if (tmplItem && (tmplItem.type === "opt_desc" || tmplItem.type === "desc") && cd[key + "_on"] && desc) {
-            items.push({ key: key + "_custom", label: desc, price: "", estado: "observacion", desc: desc, isCustom: true });
-          }
-          // Pérdidas de aceite with description
-          if (tmplItem && tmplItem.type === "desc" && val && val !== "no" && desc) {
-            items.push({ key: key + "_custom", label: tmplItem.label + ": " + desc, price: "", estado: "cambiar", desc: desc, isCustom: true });
-          }
-        });
-        if (items.length > 0) {
-          d[secInfo.workType] = { items: items, desc: "", noItems: false };
         }
       });
-      // Add empty "custom" category for individual items not in any section
+      if (mecItems.length > 0) {
+        d["Mecánica"] = { items: mecItems, desc: "", noItems: false };
+      }
+
+      // TREN DELANTERO
+      var tdKeys = ["ch_td_amortiguadores", "ch_td_extremos", "ch_td_axiales", "ch_td_bieletas", "ch_td_parrilla", "ch_td_rotulas", "ch_td_bujes", "ch_td_rulemanes", "ch_td_discos", "ch_td_pastillas", "ch_td_otros"];
+      var tdItems = [];
+      tdKeys.forEach(function(key) {
+        var val = cd[key]; var desc = cd[key + "_desc"] || cd[key + "_text"] || ""; var tmpl = findTmpl(key);
+        if (val === "regular" || val === "cambiar") {
+          tdItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, desc: desc, isCustom: false });
+        }
+        if (tmpl && tmpl.type === "opt_desc" && cd[key + "_on"] && desc) {
+          desc.split(/[,;\n]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(obs, idx) {
+            tdItems.push({ key: key + "_obs_" + idx, label: obs, price: "", estado: "observacion", desc: obs, isCustom: true });
+          });
+        }
+      });
+      if (tdItems.length > 0) d["Tren Delantero"] = { items: tdItems, desc: "", noItems: false };
+
+      // TREN TRASERO
+      var ttKeys = ["ch_tt_amortiguadores", "ch_tt_freno", "ch_tt_bujes", "ch_tt_rulemanes", "ch_tt_otros"];
+      var ttItems = [];
+      ttKeys.forEach(function(key) {
+        var val = cd[key]; var desc = cd[key + "_desc"] || cd[key + "_text"] || ""; var tmpl = findTmpl(key);
+        if (val === "regular" || val === "cambiar") {
+          ttItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, desc: desc, isCustom: false });
+        }
+        if (tmpl && tmpl.type === "opt_desc" && cd[key + "_on"] && desc) {
+          desc.split(/[,;\n]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(obs, idx) {
+            ttItems.push({ key: key + "_obs_" + idx, label: obs, price: "", estado: "observacion", desc: obs, isCustom: true });
+          });
+        }
+      });
+      if (ttItems.length > 0) d["Tren Trasero"] = { items: ttItems, desc: "", noItems: false };
+
+      // ESCAPE
+      var escKeys = ["ch_esc_sil_tra", "ch_esc_sil_int", "ch_esc_multiple", "ch_esc_cano", "ch_esc_soporte", "ch_esc_catalizador"];
+      var escItems = [];
+      escKeys.forEach(function(key) {
+        var val = cd[key]; var tmpl = findTmpl(key);
+        if (val === "regular" || val === "cambiar") {
+          escItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, isCustom: false });
+        }
+      });
+      if (escItems.length > 0) d["Escape"] = { items: escItems, desc: "", noItems: false };
+
+      // FLUIDOS with observations
+      var fluidKeys = ["ch_liq_frenos", "ch_liq_direccion", "ch_liq_refrigerante", "ch_aceite_caja", "ch_lavaparabrisas"];
+      var fluidItems = [];
+      fluidKeys.forEach(function(key) {
+        var val = cd[key]; var tmpl = findTmpl(key);
+        if (val === "regular" || val === "cambiar") {
+          fluidItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, isCustom: false });
+        }
+      });
+      if (fluidItems.length > 0) {
+        // Add fluid items to Service Full if exists, otherwise as separate
+        if (d["Service Full"]) {
+          d["Service Full"].desc += (d["Service Full"].desc ? " + " : "") + "Fluidos: " + fluidItems.map(function(it) { return it.label; }).join(", ");
+        }
+      }
+
+      // Items Individuales — always available for custom entries
       d["_custom"] = { items: [{ key: "custom_1", label: "", price: "", desc: "", isCustom: true }], desc: "", noItems: false, isCustomCategory: true };
       return d;
     }
