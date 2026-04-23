@@ -17656,8 +17656,8 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
   );
 
   const t = cd.ch_tires || {};
-  const tCol = (v) => (v||100) > 60 ? "#276749" : (v||100) > 30 ? "#975A16" : "#9B2C2C";
-  const tBg = (v) => (v||100) > 60 ? "#C6F6D5" : (v||100) > 30 ? "#FEFCBF" : "#FED7D7";
+  const tCol = (v) => { const n = v ?? 100; return n > 60 ? "#276749" : n > 30 ? "#975A16" : "#9B2C2C"; };
+  const tBg = (v) => { const n = v ?? 100; return n > 60 ? "#C6F6D5" : n > 30 ? "#FEFCBF" : "#FED7D7"; };
 
   return (
     <div style={{ background: "#E8ECF0", minHeight: "100vh", padding: "16px", fontFamily: font }}>
@@ -17816,19 +17816,19 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
 
                   {/* Front left tire */}
                   <rect x="42" y="18" width="16" height="30" rx="4" fill={tBg(t.del_izq)} stroke={tCol(t.del_izq)} strokeWidth="1.5"/>
-                  <text x="50" y="37" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.del_izq)}>{t.del_izq || 100}</text>
+                  <text x="50" y="37" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.del_izq)}>{t.del_izq ?? 100}</text>
 
                   {/* Front right tire */}
                   <rect x="142" y="18" width="16" height="30" rx="4" fill={tBg(t.del_der)} stroke={tCol(t.del_der)} strokeWidth="1.5"/>
-                  <text x="150" y="37" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.del_der)}>{t.del_der || 100}</text>
+                  <text x="150" y="37" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.del_der)}>{t.del_der ?? 100}</text>
 
                   {/* Rear left tire */}
                   <rect x="42" y="82" width="16" height="30" rx="4" fill={tBg(t.tra_izq)} stroke={tCol(t.tra_izq)} strokeWidth="1.5"/>
-                  <text x="50" y="101" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.tra_izq)}>{t.tra_izq || 100}</text>
+                  <text x="50" y="101" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.tra_izq)}>{t.tra_izq ?? 100}</text>
 
                   {/* Rear right tire */}
                   <rect x="142" y="82" width="16" height="30" rx="4" fill={tBg(t.tra_der)} stroke={tCol(t.tra_der)} strokeWidth="1.5"/>
-                  <text x="150" y="101" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.tra_der)}>{t.tra_der || 100}</text>
+                  <text x="150" y="101" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.tra_der)}>{t.tra_der ?? 100}</text>
 
                   {/* Labels */}
                   <text x="50" y="14" textAnchor="middle" fontSize="5" fill="#A0AEC0" fontWeight="700">DEL IZQ</text>
@@ -17838,7 +17838,7 @@ const FojaChequeoScreen = ({ order, clients, config, onNavigate }) => {
 
                   {/* Auxilio — small circle center */}
                   <circle cx="100" cy="65" r="12" fill={tBg(t.auxilio)} stroke={tCol(t.auxilio)} strokeWidth="1"/>
-                  <text x="100" y="68" textAnchor="middle" fontSize="8" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.auxilio)}>{t.auxilio || 100}</text>
+                  <text x="100" y="68" textAnchor="middle" fontSize="8" fontWeight="900" fontFamily="Rajdhani, sans-serif" fill={tCol(t.auxilio)}>{t.auxilio ?? 100}</text>
                   <text x="100" y="55" textAnchor="middle" fontSize="4.5" fill="#A0AEC0" fontWeight="700">AUX</text>
                 </svg>
               </div>
