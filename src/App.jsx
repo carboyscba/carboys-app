@@ -14475,9 +14475,9 @@ const CHEQUEO_TEMPLATE = [
     { id: "ch_td_extremos", label: "Extremos de dirección", type: "brc" },
     { id: "ch_td_axiales", label: "Axiales", type: "brc" },
     { id: "ch_td_bieletas", label: "Bieletas", type: "brc" },
-    { id: "ch_td_parrilla", label: "Parrilla", type: "brc" },
-    { id: "ch_td_rotulas", label: "Rótulas", type: "brc" },
-    { id: "ch_td_bujes", label: "Bujes", type: "brc" },
+    { id: "ch_td_parrilla", label: "Parrilla", type: "brc", exclusive: ["ch_td_rotulas", "ch_td_bujes"] },
+    { id: "ch_td_rotulas", label: "Rótulas", type: "brc", exclusive: ["ch_td_parrilla"] },
+    { id: "ch_td_bujes", label: "Bujes", type: "brc", exclusive: ["ch_td_parrilla"] },
     { id: "ch_td_rulemanes", label: "Rulemanes del.", type: "brc" },
     { id: "ch_td_discos", label: "Discos de freno del.", type: "brc" },
     { id: "ch_td_pastillas", label: "Pastillas de freno del.", type: "brc" },
@@ -14593,12 +14593,23 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   };
 
   // ── Helper: BRC inline (NOT a component — avoids re-mount on state change) ──
-  const brcButtons = (id, small) => {
+  const brcButtons = (id, small, exclusiveIds) => {
     const val = data[id];
     return (
       <div style={{ display: "flex", gap: small ? 4 : 6 }}>
         {[{ key: "bien", label: "Bien", color: T.green, icon: "✅" }, { key: "regular", label: "Regular", color: T.orange, icon: "⚠️" }, { key: "cambiar", label: "Cambiar", color: T.red, icon: "🔴" }].map(opt => (
-          <div key={opt.key} onClick={() => toggle(id, opt.key)}
+          <div key={opt.key} onClick={() => {
+            setData(prev => {
+              const n = { ...prev };
+              if (n[id] === opt.key) { delete n[id]; }
+              else {
+                n[id] = opt.key;
+                // Clear exclusive items when selecting
+                if (exclusiveIds) exclusiveIds.forEach(exId => { delete n[exId]; delete n[exId + "_note"]; delete n[exId + "_noteOpen"]; });
+              }
+              return n;
+            });
+          }}
             style={{ padding: small ? "4px 8px" : "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: small ? 10 : 11, fontWeight: 700,
               background: val === opt.key ? `${opt.color}20` : T.bg, color: val === opt.key ? opt.color : T.gray,
               border: `2px solid ${val === opt.key ? opt.color : T.border}`, transition: "all .15s", whiteSpace: "nowrap" }}>
@@ -14652,15 +14663,19 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
   };
 
   // ── Render functions (called as functions, NOT as JSX components) ──
-  const renderBrc = (item) => (
+  const renderBrc = (item) => {
+    // Exclusive logic: if item.exclusive has items with values, hide this one
+    if (item.exclusive && item.exclusive.some(exId => data[exId] && data[exId] !== "")) return null;
+    return (
     <div key={item.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: data[item.id] ? T.text : T.grayLight, flex: 1, minWidth: 100 }}>{item.label}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{brcButtons(item.id)}{noteArea(item.id)}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{brcButtons(item.id, false, item.exclusive)}{noteArea(item.id)}</div>
       </div>
       {noteInput(item.id)}
     </div>
-  );
+    );
+  };
 
   const renderOpt = (item) => {
     const isOn = data[item.id + "_on"];
