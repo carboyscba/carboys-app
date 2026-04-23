@@ -5522,10 +5522,14 @@ const VehicleDetailScreen = (props) => {
             { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
             { icon: "📋", label: "Generar Presupuesto", show: canSeePrices, color: "#9C27B0", action: () => {
-              // Navigate to budget pricing from chequeo
-              setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "inspection_done", _fromChequeo: true } : o));
-              onNavigate("budgetPricing", { ...order, status: "inspection_done", _fromChequeo: true });
+              onNavigate("budgetPricing", { ...order, _fromChequeo: true });
             }, bg: "rgba(156,39,176,.08)" },
+          ] : []),
+          ...(order.isChequeo && (order.status === "budget_sent" || order.status === "budget_closed") ? [
+            { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
+            { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
+            { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
+            { icon: "📋", label: "Ver/Editar Presupuesto", show: canSeePrices, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
           ] : []),
           ...(order.status === "working" && !order.budgetApproved && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
