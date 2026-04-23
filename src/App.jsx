@@ -13737,6 +13737,11 @@ const BudgetPricingScreen = (props) => {
       // Helper: find template item by id
       var findTmpl = function(key) { var r = null; CHEQUEO_TEMPLATE.forEach(function(sec) { sec.items.forEach(function(it) { if (it.id === key) r = it; }); }); return r; };
 
+      // Helper: get observation text for a chequeo item
+      var getNote = function(key) { return cd[key + "_note"] || ""; };
+      var getDescs = function(key) { return cd[key + "_descs"] || []; };
+      var isOn = function(key) { return cd[key + "_on"]; };
+
       // MOTOR section → check if any motor maintenance items need work → offer Service Full or Service Base
       var motorServiceKeys = ["ch_aceite", "ch_filtro_aceite", "ch_filtro_aire", "ch_filtro_habitaculo", "ch_filtro_combustible"];
       var motorOtherKeys = ["ch_bujias", "ch_correa_distribucion", "ch_correa_polyv", "ch_tensores", "ch_bomba_agua", "ch_mangueras", "ch_perdidas_aceite", "ch_motor_general"];
@@ -13750,22 +13755,34 @@ const BudgetPricingScreen = (props) => {
       var mecItems = [];
       motorOtherKeys.forEach(function(key) {
         var val = cd[key];
-        var desc = cd[key + "_desc"] || cd[key + "_text"] || "";
+        var note = getNote(key);
+        var descs = getDescs(key);
         var tmpl = findTmpl(key);
+        // Regular/Cambiar items
         if (val === "regular" || val === "cambiar") {
-          mecItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, desc: desc, isCustom: false });
+          var label = tmpl ? tmpl.label : key;
+          // Append note to label if it has one
+          if (note && key !== "ch_motor_general") {
+            mecItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true });
+          } else if (key !== "ch_motor_general") {
+            mecItems.push({ key: key, label: label, price: "", estado: val, desc: "", isCustom: false });
+          }
         }
-        // Pérdidas de aceite with description
-        if (key === "ch_perdidas_aceite" && val && val !== "no" && val !== "bien" && desc) {
-          mecItems.push({ key: key + "_obs", label: "Pérdida de aceite — " + desc, price: "", estado: "cambiar", desc: desc, isCustom: true });
+        // Opt items with _on flag and note (e.g. correa distribución, bomba agua)
+        if (tmpl && tmpl.type === "opt" && isOn(key) && note) {
+          if (val !== "regular" && val !== "cambiar") {
+            mecItems.push({ key: key + "_obs", label: (tmpl.label || key) + " — " + note, price: "", estado: "observacion", desc: note, isCustom: true });
+          }
         }
-        // opt_desc / General items with observations → each observation as individual item
-        if (tmpl && (tmpl.type === "opt_desc" || tmpl.type === "desc")) {
-          if (cd[key + "_on"] && desc) {
-            // Split multiple observations by comma or newline
-            desc.split(/[,;\n]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(obs, idx) {
-              mecItems.push({ key: key + "_obs_" + idx, label: obs, price: "", estado: "observacion", desc: obs, isCustom: true });
+        // General item with _descs array → each desc as individual item
+        if (key === "ch_motor_general" && isOn(key)) {
+          if (descs.length > 0) {
+            descs.forEach(function(obs, idx) {
+              if (obs && obs.trim()) mecItems.push({ key: key + "_obs_" + idx, label: obs.trim(), price: "", estado: val || "observacion", desc: obs.trim(), isCustom: true });
             });
+          }
+          if (note) {
+            mecItems.push({ key: key + "_note", label: note, price: "", estado: val || "observacion", desc: note, isCustom: true });
           }
         }
       });
@@ -13777,14 +13794,16 @@ const BudgetPricingScreen = (props) => {
       var tdKeys = ["ch_td_amortiguadores", "ch_td_extremos", "ch_td_axiales", "ch_td_bieletas", "ch_td_parrilla", "ch_td_rotulas", "ch_td_bujes", "ch_td_rulemanes", "ch_td_discos", "ch_td_pastillas", "ch_td_otros"];
       var tdItems = [];
       tdKeys.forEach(function(key) {
-        var val = cd[key]; var desc = cd[key + "_desc"] || cd[key + "_text"] || ""; var tmpl = findTmpl(key);
+        var val = cd[key]; var note = getNote(key); var descs = getDescs(key); var tmpl = findTmpl(key);
         if (val === "regular" || val === "cambiar") {
-          tdItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, desc: desc, isCustom: false });
+          var label = tmpl ? tmpl.label : key;
+          if (note) { tdItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true }); }
+          else { tdItems.push({ key: key, label: label, price: "", estado: val, desc: "", isCustom: false }); }
         }
-        if (tmpl && tmpl.type === "opt_desc" && cd[key + "_on"] && desc) {
-          desc.split(/[,;\n]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(obs, idx) {
-            tdItems.push({ key: key + "_obs_" + idx, label: obs, price: "", estado: "observacion", desc: obs, isCustom: true });
-          });
+        // Otros with _on and note/descs
+        if (key === "ch_td_otros" && (isOn(key) || note)) {
+          if (descs.length > 0) descs.forEach(function(obs, idx) { if (obs && obs.trim()) tdItems.push({ key: key + "_obs_" + idx, label: obs.trim(), price: "", estado: "observacion", desc: obs.trim(), isCustom: true }); });
+          if (note && !descs.length) tdItems.push({ key: key + "_note", label: note, price: "", estado: "observacion", desc: note, isCustom: true });
         }
       });
       if (tdItems.length > 0) d["Tren Delantero"] = { items: tdItems, desc: "", noItems: false };
@@ -13793,14 +13812,15 @@ const BudgetPricingScreen = (props) => {
       var ttKeys = ["ch_tt_amortiguadores", "ch_tt_freno", "ch_tt_bujes", "ch_tt_rulemanes", "ch_tt_otros"];
       var ttItems = [];
       ttKeys.forEach(function(key) {
-        var val = cd[key]; var desc = cd[key + "_desc"] || cd[key + "_text"] || ""; var tmpl = findTmpl(key);
+        var val = cd[key]; var note = getNote(key); var descs = getDescs(key); var tmpl = findTmpl(key);
         if (val === "regular" || val === "cambiar") {
-          ttItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, desc: desc, isCustom: false });
+          var label = tmpl ? tmpl.label : key;
+          if (note) { ttItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true }); }
+          else { ttItems.push({ key: key, label: label, price: "", estado: val, desc: "", isCustom: false }); }
         }
-        if (tmpl && tmpl.type === "opt_desc" && cd[key + "_on"] && desc) {
-          desc.split(/[,;\n]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(obs, idx) {
-            ttItems.push({ key: key + "_obs_" + idx, label: obs, price: "", estado: "observacion", desc: obs, isCustom: true });
-          });
+        if (key === "ch_tt_otros" && (isOn(key) || note)) {
+          if (descs.length > 0) descs.forEach(function(obs, idx) { if (obs && obs.trim()) ttItems.push({ key: key + "_obs_" + idx, label: obs.trim(), price: "", estado: "observacion", desc: obs.trim(), isCustom: true }); });
+          if (note && !descs.length) ttItems.push({ key: key + "_note", label: note, price: "", estado: "observacion", desc: note, isCustom: true });
         }
       });
       if (ttItems.length > 0) d["Tren Trasero"] = { items: ttItems, desc: "", noItems: false };
@@ -13809,9 +13829,11 @@ const BudgetPricingScreen = (props) => {
       var escKeys = ["ch_esc_sil_tra", "ch_esc_sil_int", "ch_esc_multiple", "ch_esc_cano", "ch_esc_soporte", "ch_esc_catalizador"];
       var escItems = [];
       escKeys.forEach(function(key) {
-        var val = cd[key]; var tmpl = findTmpl(key);
+        var val = cd[key]; var note = getNote(key); var tmpl = findTmpl(key);
         if (val === "regular" || val === "cambiar") {
-          escItems.push({ key: key, label: tmpl ? tmpl.label : key, price: "", estado: val, isCustom: false });
+          var label = tmpl ? tmpl.label : key;
+          if (note) { escItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true }); }
+          else { escItems.push({ key: key, label: label, price: "", estado: val, isCustom: false }); }
         }
       });
       if (escItems.length > 0) d["Escape"] = { items: escItems, desc: "", noItems: false };
