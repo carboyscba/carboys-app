@@ -5486,7 +5486,12 @@ const VehicleDetailScreen = (props) => {
         {[
           ...(order.status === "inspection" ? [{ icon: "🔍", label: "Realizar Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
           ...(order.status === "inspection_done" && canSeePrices ? [{ icon: "💰", label: "Presupuestar", show: true, color: "#E91E63", action: () => onNavigate("budgetPricing", order), bg: "rgba(233,30,99,.08)" }] : []),
-          ...(order.status === "inspection_done" ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
+          ...(order.status === "inspection_done" && !order.isChequeo ? [{ icon: "🔍", label: "Ver Inspeccion", show: true, color: "#E91E63", action: () => onNavigate("inspection", order), bg: "rgba(233,30,99,.08)" }] : []),
+          ...(order.status === "inspection_done" && order.isChequeo && order.chequeoData ? [
+            { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
+            { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
+            { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
+          ] : []),
           ...(order.status === "budget_sent" ? [
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
             { icon: "▶️", label: "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
