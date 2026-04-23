@@ -13749,7 +13749,7 @@ const BudgetPricingScreen = (props) => {
       var motorItems = [];
       // If service items need work, add Service Full as a top-level work option (user can change to Service Base)
       if (motorServiceNeeded) {
-        d["Service Full"] = { items: [], noItems: true, totalPrice: "", desc: "Incluye cambio de aceite, filtros y revisión completa" };
+        d["Service Full"] = { items: [], noItems: true, totalPrice: "", desc: "" };
       }
       // Motor mechanical items (bujías, correas, etc.) — individual items in Mecánica
       var mecItems = [];
@@ -13842,7 +13842,7 @@ const BudgetPricingScreen = (props) => {
       if (fluidItems.length > 0) {
         // Add fluid items to Service Full if exists, otherwise as separate
         if (d["Service Full"]) {
-          d["Service Full"].desc += (d["Service Full"].desc ? " + " : "") + "Fluidos: " + fluidItems.map(function(it) { return it.label; }).join(", ");
+          // Fluids included in Service Full — no extra desc needed
         }
       }
 
