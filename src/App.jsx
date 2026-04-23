@@ -13758,23 +13758,18 @@ const BudgetPricingScreen = (props) => {
         var note = getNote(key);
         var descs = getDescs(key);
         var tmpl = findTmpl(key);
-        // Regular/Cambiar items
+        // Regular/Cambiar items — keep original label, note goes in obs
         if (val === "regular" || val === "cambiar") {
           var label = tmpl ? tmpl.label : key;
-          // Append note to label if it has one
-          if (note && key !== "ch_motor_general") {
-            mecItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true });
-          } else if (key !== "ch_motor_general") {
-            mecItems.push({ key: key, label: label, price: "", estado: val, desc: "", isCustom: false });
+          if (key !== "ch_motor_general") {
+            mecItems.push({ key: key, label: label, price: "", estado: val, obs: note || "", isCustom: false });
           }
         }
-        // Opt items with _on flag and note (e.g. correa distribución, bomba agua)
-        if (tmpl && tmpl.type === "opt" && isOn(key) && note) {
-          if (val !== "regular" && val !== "cambiar") {
-            mecItems.push({ key: key + "_obs", label: (tmpl.label || key) + " — " + note, price: "", estado: "observacion", desc: note, isCustom: true });
-          }
+        // Opt items with _on flag (e.g. correa distribución, bomba agua) that aren't already added
+        if (tmpl && tmpl.type === "opt" && isOn(key) && val !== "regular" && val !== "cambiar") {
+          mecItems.push({ key: key, label: tmpl.label || key, price: "", estado: "observacion", obs: note || "", isCustom: false });
         }
-        // General item with _descs array → each desc as individual item
+        // General item with _descs array → each desc as individual custom item
         if (key === "ch_motor_general" && isOn(key)) {
           if (descs.length > 0) {
             descs.forEach(function(obs, idx) {
@@ -13797,10 +13792,9 @@ const BudgetPricingScreen = (props) => {
         var val = cd[key]; var note = getNote(key); var descs = getDescs(key); var tmpl = findTmpl(key);
         if (val === "regular" || val === "cambiar") {
           var label = tmpl ? tmpl.label : key;
-          if (note) { tdItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true }); }
-          else { tdItems.push({ key: key, label: label, price: "", estado: val, desc: "", isCustom: false }); }
+          tdItems.push({ key: key, label: label, price: "", estado: val, obs: note || "", isCustom: false });
         }
-        // Otros with _on and note/descs
+        // Otros with _on and note/descs → individual custom items
         if (key === "ch_td_otros" && (isOn(key) || note)) {
           if (descs.length > 0) descs.forEach(function(obs, idx) { if (obs && obs.trim()) tdItems.push({ key: key + "_obs_" + idx, label: obs.trim(), price: "", estado: "observacion", desc: obs.trim(), isCustom: true }); });
           if (note && !descs.length) tdItems.push({ key: key + "_note", label: note, price: "", estado: "observacion", desc: note, isCustom: true });
@@ -13815,8 +13809,7 @@ const BudgetPricingScreen = (props) => {
         var val = cd[key]; var note = getNote(key); var descs = getDescs(key); var tmpl = findTmpl(key);
         if (val === "regular" || val === "cambiar") {
           var label = tmpl ? tmpl.label : key;
-          if (note) { ttItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true }); }
-          else { ttItems.push({ key: key, label: label, price: "", estado: val, desc: "", isCustom: false }); }
+          ttItems.push({ key: key, label: label, price: "", estado: val, obs: note || "", isCustom: false });
         }
         if (key === "ch_tt_otros" && (isOn(key) || note)) {
           if (descs.length > 0) descs.forEach(function(obs, idx) { if (obs && obs.trim()) ttItems.push({ key: key + "_obs_" + idx, label: obs.trim(), price: "", estado: "observacion", desc: obs.trim(), isCustom: true }); });
@@ -13832,8 +13825,7 @@ const BudgetPricingScreen = (props) => {
         var val = cd[key]; var note = getNote(key); var tmpl = findTmpl(key);
         if (val === "regular" || val === "cambiar") {
           var label = tmpl ? tmpl.label : key;
-          if (note) { escItems.push({ key: key, label: label + " — " + note, price: "", estado: val, desc: note, isCustom: true }); }
-          else { escItems.push({ key: key, label: label, price: "", estado: val, isCustom: false }); }
+          escItems.push({ key: key, label: label, price: "", estado: val, obs: note || "", isCustom: false });
         }
       });
       if (escItems.length > 0) d["Escape"] = { items: escItems, desc: "", noItems: false };
