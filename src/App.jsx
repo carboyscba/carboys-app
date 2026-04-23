@@ -2999,32 +2999,50 @@ const NewOrderScreen = (props) => {
                   <strong>{fmtD(form.domain)}</strong> — {form.brand} {form.model} {form.year}
                 </div>
 
-                {/* Precio */}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={{ fontSize: 12, color: T.gray, fontWeight: 600 }}>Precio del chequeo</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: "#FF4081" }}>$</span>
-                    <input inputMode="numeric" value={chequeoPrice ? Number(chequeoPrice).toLocaleString("es-AR") : ""} onChange={e => setChequeoPrice(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="0" style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD }} />
-                  </div>
+                {/* Toggle: Gratis / Con precio */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                  <div onClick={() => { setChequeoPrice(""); setChequeoMethod(""); setChequeoIva(null); }}
+                    style={{ padding: "12px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700,
+                      border: `2px solid ${!chequeoPrice ? "#4CAF50" : T.border}`,
+                      background: !chequeoPrice ? "rgba(76,175,80,0.10)" : T.bg,
+                      color: !chequeoPrice ? "#4CAF50" : T.gray }}>🆓 Gratis</div>
+                  <div onClick={() => { if (!chequeoPrice) setChequeoPrice("1"); }}
+                    style={{ padding: "12px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 13, fontWeight: 700,
+                      border: `2px solid ${chequeoPrice ? "#FF4081" : T.border}`,
+                      background: chequeoPrice ? "rgba(255,64,129,0.10)" : T.bg,
+                      color: chequeoPrice ? "#FF4081" : T.gray }}>💰 Con precio</div>
                 </div>
 
-                {/* Método de pago */}
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 12, color: T.gray, fontWeight: 600, marginBottom: 8, display: "block" }}>Método de pago</label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
-                      <div key={m} onClick={() => setChequeoMethod(chequeoMethod === m ? "" : m)}
-                        style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
-                          border: `2px solid ${chequeoMethod === m ? "#FF4081" : T.border}`,
-                          background: chequeoMethod === m ? "rgba(255,64,129,0.10)" : T.bg,
-                          color: chequeoMethod === m ? "#FF4081" : T.gray }}>{m === "Efectivo" ? "💵" : m === "Tarjeta" ? "💳" : m === "Transferencia" ? "🔁" : "📒"} {m}</div>
-                    ))}
+                {/* Precio — solo si "Con precio" */}
+                {chequeoPrice && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 12, color: T.gray, fontWeight: 600 }}>Precio del chequeo</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: "#FF4081" }}>$</span>
+                      <input inputMode="numeric" value={chequeoPrice && chequeoPrice !== "1" ? Number(chequeoPrice).toLocaleString("es-AR") : ""} onChange={e => setChequeoPrice(e.target.value.replace(/[^0-9]/g, "") || "1")}
+                        placeholder="Monto" autoFocus style={{ ...inputStyle, fontSize: 20, fontWeight: 800, fontFamily: fontD }} />
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* IVA */}
-                {chequeoMethod && (
+                {/* Método de pago — solo si tiene precio */}
+                {chequeoPrice && parseInt(chequeoPrice) > 1 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 12, color: T.gray, fontWeight: 600, marginBottom: 8, display: "block" }}>Método de pago</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      {["Efectivo", "Tarjeta", "Transferencia", "Cuenta Corriente"].map(m => (
+                        <div key={m} onClick={() => setChequeoMethod(chequeoMethod === m ? "" : m)}
+                          style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
+                            border: `2px solid ${chequeoMethod === m ? "#FF4081" : T.border}`,
+                            background: chequeoMethod === m ? "rgba(255,64,129,0.10)" : T.bg,
+                            color: chequeoMethod === m ? "#FF4081" : T.gray }}>{m === "Efectivo" ? "💵" : m === "Tarjeta" ? "💳" : m === "Transferencia" ? "🔁" : "📒"} {m}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* IVA — solo si tiene precio y método */}
+                {chequeoPrice && parseInt(chequeoPrice) > 1 && chequeoMethod && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div onClick={() => setChequeoIva(true)}
                       style={{ padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 700,
@@ -3042,29 +3060,30 @@ const NewOrderScreen = (props) => {
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
                 <button onClick={() => { setStep(2); setChequeoMode(false); }}
                   style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}` }}>← Volver</button>
-                <button disabled={!chequeoPrice || !chequeoMethod || chequeoIva === null} onClick={() => {
+                <button disabled={chequeoPrice && parseInt(chequeoPrice) > 1 && (!chequeoMethod || chequeoIva === null)} onClick={() => {
                   const _maxNum = Math.max(0, ...orders.map(o => { var s = String(o.id); var m = s.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
                   const priceNum = parseFloat(chequeoPrice) || 0;
+                  const isFree = priceNum <= 1;
                   const newOrder = {
                     id: "ord_" + String(_maxNum + 1).padStart(3, "0"),
                     clientId: foundClient?.id ?? null,
                     domain: form.domain,
                     status: "working",
                     isChequeo: true,
-                    works: [{ type: "Chequeo Vehicular", price: priceNum, desc: "" }],
+                    works: [{ type: "Chequeo Vehicular", price: isFree ? 0 : priceNum, desc: isFree ? "Cortesía" : "" }],
                     payments: [],
                     assignedTo: "",
                     date: new Date().toISOString().split("T")[0],
                     _createdAt: new Date().toISOString(),
                     km: form.km || form.lastKm || "",
-                    paymentPref: { method: chequeoMethod, withIva: chequeoIva },
+                    paymentPref: isFree ? { method: "", withIva: false } : { method: chequeoMethod, withIva: chequeoIva },
                     startedBy: "",
                     startedAt: "",
                   };
                   setOrders(prev => [...prev, newOrder]);
                   setChequeoMode(false);
                   onNavigate("chequeo", newOrder);
-                }} style={{ ...btnPrimary("#FF4081"), fontSize: 14, opacity: (chequeoPrice && chequeoMethod && chequeoIva !== null) ? 1 : 0.4 }}>
+                }} style={{ ...btnPrimary("#FF4081"), fontSize: 14, opacity: (chequeoPrice && parseInt(chequeoPrice) > 1 && (!chequeoMethod || chequeoIva === null)) ? 0.4 : 1 }}>
                   🩺 Comenzar Chequeo
                 </button>
               </div>
@@ -5502,6 +5521,11 @@ const VehicleDetailScreen = (props) => {
             { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
             { icon: "📱", label: "Enviar Foja WA", show: true, color: "#25D366", action: () => onNavigate("fojaChequeo", { ...order, _autoSendWA: true }), bg: "rgba(37,211,102,.08)" },
+            { icon: "📋", label: "Generar Presupuesto", show: canSeePrices, color: "#9C27B0", action: () => {
+              // Navigate to budget pricing from chequeo
+              setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "inspection_done", _fromChequeo: true } : o));
+              onNavigate("budgetPricing", { ...order, status: "inspection_done", _fromChequeo: true });
+            }, bg: "rgba(156,39,176,.08)" },
           ] : []),
           ...(order.status === "working" && !order.budgetApproved && !order.isChequeo ? [{ icon: "↩️", label: "Volver a Pendiente", show: canSeePrices, color: T.orange, action: () => {
             if (confirm("¿Volver esta orden a estado PENDIENTE?")) setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "pending" } : o));
@@ -13698,10 +13722,50 @@ const BudgetPricingScreen = (props) => {
   var client = clients.find(function(c) { return matchId(c.id, order.clientId); });
   var vehicle = client ? (client.vehicles || []).find(function(v) { return v.domain === order.domain; }) : null;
   var inspData = order.inspectionData || {};
-  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛", "Chequeo Pre-Post": "🔍" };
+  var catIcons = { "Tren Delantero": "⚙️", "Tren Trasero": "⚙️", "Service Full": "🔧", "Service Base": "🔧", "Mecanica": "🔩", "Mecánica": "🔩", "Escape": "💨", "Pastillas de Freno": "🛞", "Baterías": "🔋", "Arreglo": "🪛", "Chequeo Pre-Post": "🔍", "_custom": "📝" };
+  var catDisplayNames = { "_custom": "Items Individuales" };
 
   var initPricing = function() {
     if (order.pricingData) return order.pricingData;
+    // If coming from chequeo, build pricing from chequeoData
+    if (order.isChequeo && order.chequeoData) {
+      var cd = order.chequeoData;
+      var d = {};
+      // Map chequeo sections to work categories
+      var sectionMap = {
+        "MOTOR": { keys: ["ch_aceite", "ch_filtro_aceite", "ch_filtro_aire", "ch_filtro_habitaculo", "ch_filtro_combustible", "ch_bujias", "ch_correa_distribucion", "ch_correa_polyv", "ch_tensores", "ch_bomba_agua", "ch_mangueras", "ch_perdidas_aceite", "ch_motor_general"], workType: "Service Full" },
+        "TREN DELANTERO": { keys: ["ch_td_amortiguadores", "ch_td_extremos", "ch_td_axiales", "ch_td_bieletas", "ch_td_parrilla", "ch_td_rotulas", "ch_td_bujes", "ch_td_rulemanes", "ch_td_discos", "ch_td_pastillas", "ch_td_otros"], workType: "Tren Delantero" },
+        "TREN TRASERO": { keys: ["ch_tt_amortiguadores", "ch_tt_freno", "ch_tt_bujes", "ch_tt_rulemanes", "ch_tt_otros"], workType: "Tren Trasero" },
+        "ESCAPE": { keys: ["ch_esc_sil_tra", "ch_esc_sil_int", "ch_esc_multiple", "ch_esc_cano", "ch_esc_soporte", "ch_esc_catalizador"], workType: "Escape" },
+      };
+      // Collect items that need work (regular or cambiar) grouped by section
+      Object.entries(sectionMap).forEach(function([secName, secInfo]) {
+        var items = [];
+        secInfo.keys.forEach(function(key) {
+          var val = cd[key];
+          var desc = cd[key + "_desc"] || "";
+          var tmplItem = null;
+          CHEQUEO_TEMPLATE.forEach(function(sec) { sec.items.forEach(function(it) { if (it.id === key) tmplItem = it; }); });
+          if (val === "regular" || val === "cambiar") {
+            items.push({ key: key, label: tmplItem ? tmplItem.label : key, price: "", estado: val, desc: desc, isCustom: false });
+          }
+          // Also check opt_desc items with description (custom observations)
+          if (tmplItem && (tmplItem.type === "opt_desc" || tmplItem.type === "desc") && cd[key + "_on"] && desc) {
+            items.push({ key: key + "_custom", label: desc, price: "", estado: "observacion", desc: desc, isCustom: true });
+          }
+          // Pérdidas de aceite with description
+          if (tmplItem && tmplItem.type === "desc" && val && val !== "no" && desc) {
+            items.push({ key: key + "_custom", label: tmplItem.label + ": " + desc, price: "", estado: "cambiar", desc: desc, isCustom: true });
+          }
+        });
+        if (items.length > 0) {
+          d[secInfo.workType] = { items: items, desc: "", noItems: false };
+        }
+      });
+      // Add empty "custom" category for individual items not in any section
+      d["_custom"] = { items: [{ key: "custom_1", label: "", price: "", desc: "", isCustom: true }], desc: "", noItems: false, isCustomCategory: true };
+      return d;
+    }
     var d = {};
     Object.keys(inspData).forEach(function(catKey) {
       var cat = inspData[catKey];
@@ -13854,7 +13918,7 @@ const BudgetPricingScreen = (props) => {
               <div key={catKey} style={{ ...card, padding: 16, marginBottom: 12, borderLeft: "3px solid #9C27B0" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: d.noItems && !d.items.length ? 8 : 10 }}>
                   <span style={{ fontSize: 20 }}>{catIcons[catKey] || "📝"}</span>
-                  <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, flex: 1 }}>{catKey}</span>
+                  <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 700, flex: 1 }}>{catDisplayNames[catKey] || catKey}</span>
                   {sub > 0 && <span style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: "#9C27B0" }}>{fmt(sub)}</span>}
                   <span onClick={function() { setPricing(function(prev) { var c = Object.assign({}, prev); delete c[catKey]; return c; }); }} style={{ fontSize: 14, color: T.red, cursor: "pointer", padding: "2px 6px", opacity: 0.6 }} title="Quitar">✕</span>
                 </div>
