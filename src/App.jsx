@@ -5278,29 +5278,55 @@ const VehicleDetailScreen = (props) => {
         <div style={{ ...card, padding: "16px 20px", marginBottom: 20, borderColor: "#1E88E5", background: "rgba(30,136,229,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
             <div style={{ fontSize: 28 }}>📩</div>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14, color: "#1E88E5" }}>Presupuesto enviado — Esperando aprobacion</div>
-              <div style={{ fontSize: 12, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt(order.works.reduce((s, w) => s + (parseFloat(w.price) || 0), 0))}</strong></div>
             </div>
           </div>
           {(order.works || []).map(function(w, wi) {
             var wItems = (w.trenItems || []).filter(function(x) { return x.isCustom ? x.label : x.selected; });
-            if (wItems.length === 0) return null;
             return (
               <div key={wi} style={{ padding: "8px 12px", background: T.bg, borderRadius: 8, fontSize: 12, marginBottom: 6 }}>
-                <div style={{ fontWeight: 700, color: "#9C27B0", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>{w.type}</div>
-                {wItems.map(function(ti, k) { return (
-                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-                    <span style={{ color: T.text }}>{ti.isCustom ? ti.label : (ti.otroDesc ? ti.label + " (" + ti.otroDesc + ")" : ti.label)}</span>
-                    <span style={{ fontWeight: 700, color: "#9C27B0" }}>{fmt(parseFloat(ti.price) || 0)}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, color: "#9C27B0", fontSize: 11, textTransform: "uppercase" }}>{w.type}</span>
+                  <span style={{ fontWeight: 700, color: "#9C27B0", fontFamily: fontD, fontSize: 14 }}>{fmt(parseFloat(w.price) || 0)}</span>
+                </div>
+                {wItems.length > 0 && wItems.map(function(ti, k) { return (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0 3px 8px" }}>
+                    <span style={{ color: T.text, fontSize: 12 }}>• {ti.isCustom ? ti.label : ti.label}{ti.otroDesc ? " — " + ti.otroDesc : ""}</span>
+                    <span style={{ fontWeight: 600, color: T.gray, fontSize: 11 }}>{fmt(parseFloat(ti.price) || 0)}</span>
                   </div>
                 ); })}
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", marginTop: 4, borderTop: "1px solid " + T.border, fontWeight: 700, fontSize: 11 }}>
-                  <span>Subtotal</span><span>{fmt(parseFloat(w.price) || 0)}</span>
-                </div>
               </div>
             );
           })}
+          {/* Totals */}
+          {(() => {
+            var budgetTotal = (order.works || []).reduce(function(s, w) { return s + (parseFloat(w.price) || 0); }, 0);
+            var ivaR = config.ivaRate || 21;
+            return (
+              <div style={{ padding: "10px 12px", background: T.bg, borderRadius: 8, marginTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 6 }}>
+                  <span>TOTAL SIN IVA</span><span style={{ color: "#9C27B0" }}>{fmt(budgetTotal)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: T.gray }}>+ IVA {ivaR}%</span><span style={{ fontWeight: 600, color: T.grayLight }}>{fmt(Math.round(budgetTotal * ivaR / 100))}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 18, fontWeight: 800, color: T.accent }}>
+                  <span>TOTAL CON IVA</span><span>{fmt(Math.round(budgetTotal * (1 + ivaR / 100)))}</span>
+                </div>
+                <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                  <span style={{ color: T.gray }}>3 cuotas (+{config.surcharge3 || 15}%)</span>
+                  <span style={{ fontWeight: 700, color: T.orange }}>{fmt(Math.round(budgetTotal * (1 + ivaR / 100) * (1 + (config.surcharge3 || 15) / 100) / 3))} c/u</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ color: T.gray }}>6 cuotas (+{config.surcharge6 || 25}%)</span>
+                  <span style={{ fontWeight: 700, color: T.orange }}>{fmt(Math.round(budgetTotal * (1 + ivaR / 100) * (1 + (config.surcharge6 || 25) / 100) / 6))} c/u</span>
+                </div>
+                <div style={{ fontSize: 11, color: T.orange, fontWeight: 600, marginTop: 6 }}>Presupuesto válido por 15 días</div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -5352,7 +5378,8 @@ const VehicleDetailScreen = (props) => {
         </div>
       )}
 
-      {/* Works */}
+      {/* Works — hide when presupuesto is showing (budget_sent/budget_closed) */}
+      {order.status !== "budget_sent" && order.status !== "budget_closed" && (
       <div style={{ ...card, padding: 20, marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, fontFamily: fontD }}>TRABAJOS</div>
         {(order.works || []).map((w, i) => (
@@ -5434,6 +5461,7 @@ const VehicleDetailScreen = (props) => {
           </>
         )}
       </div>
+      )}
 
       {/* Auth status banner */}
       {(() => {
