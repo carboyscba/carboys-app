@@ -5387,7 +5387,7 @@ const VehicleDetailScreen = (props) => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{w.type}{w.escapeType ? (w.escapeType === "deportivo" ? " — Deportivo" : " — Original") : ""}</div>
-                {w.desc && <div style={{ fontSize: 12, color: T.gray }}>{w.desc}</div>}
+                {w.desc && w.type !== "Service Full" && w.type !== "Service Base" && <div style={{ fontSize: 12, color: T.gray }}>{w.desc}</div>}
               </div>
               {canSeePrices && <div style={{ fontWeight: 700, color: T.accent }}>{fmt(getWorkPrice(order, w.price))}</div>}
             </div>
@@ -6164,7 +6164,7 @@ const VehicleDetailScreen = (props) => {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: w.selected ? "#9C27B0" : T.text }}>{w.type}</div>
-                      {w.desc && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
+                      {w.desc && w.type !== "Service Full" && w.type !== "Service Base" && <div style={{ fontSize: 11, color: T.gray }}>{w.desc}</div>}
                     </div>
                     <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: w.selected ? "#9C27B0" : T.gray }}>{fmt(subTotal)}</div>
                     {hasSubs && w.selected && (
@@ -13926,7 +13926,7 @@ const BudgetPricingScreen = (props) => {
       var d = pricing[catKey];
       var desc = "";
       if (d.noItems) {
-        desc = (d.desc || catKey) + (d.obs ? " — " + d.obs : "");
+        desc = d.obs ? d.obs : "";
       } else {
         desc = (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) {
           var lbl = it.isCustom ? (it.desc || "Otro") : it.label;
@@ -13959,7 +13959,7 @@ const BudgetPricingScreen = (props) => {
   var saveDraft = function() {
     var works = Object.keys(pricing).map(function(catKey) {
       var d = pricing[catKey];
-      var desc = d.noItems ? (d.desc || catKey) : (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) { return it.desc ? it.label + " (" + it.desc + ")" : it.label; }).join(", ");
+      var desc = d.noItems ? (d.obs || "") : (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) { return it.desc ? it.label + " (" + it.desc + ")" : it.label; }).join(", ");
       return { type: catKey, price: catSubtotal(catKey), desc: desc, trenItems: d.noItems ? [] : (d.items || []).map(function(it) { return Object.assign({}, it, { selected: true }); }) };
     }).filter(function(w) { return w.price > 0; });
     setOrders(function(prev) { return prev.map(function(o) {
