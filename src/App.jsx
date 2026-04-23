@@ -13999,7 +13999,11 @@ const BudgetPricingScreen = (props) => {
   var fechaHoy = new Date().toLocaleDateString("es-AR");
   var nroPresup = "P-" + (String(order.id).match(/(\d+)$/) || ["","0"])[1].padStart(4, "0");
 
-  var activeCats = Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; });
+  var catOrder = ["Service Full", "Service Base", "Mecánica", "Mecanica", "Tren Delantero", "Tren Trasero", "Escape", "Baterías", "Pastillas de Freno", "Repro", "Arreglo", "Otros", "_custom"];
+  var activeCats = Object.keys(pricing).filter(function(k) { return catSubtotal(k) > 0; }).sort(function(a, b) {
+    var ia = catOrder.indexOf(a); var ib = catOrder.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
 
   return (
     <div style={{ padding: 24, maxWidth: 700, margin: "0 auto", animation: "fadeUp .3s ease" }}>
@@ -14252,12 +14256,12 @@ const BudgetPricingScreen = (props) => {
                 <div key={catKey} style={{ padding: "20px 28px", borderBottom: "1px solid #e2e8f0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                     <span style={{ fontSize: 16 }}>{catIcons[catKey] || "📝"}</span>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#9C27B0", textTransform: "uppercase", letterSpacing: 1 }}>{catKey}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#9C27B0", textTransform: "uppercase", letterSpacing: 1 }}>{catDisplayNames[catKey] || catKey}</div>
                   </div>
                   {d.noItems ? (
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, fontWeight: 600 }}>
-                        <span>{d.desc || catKey}</span>
+                        <span>{catDisplayNames[catKey] || catKey}</span>
                         <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700 }}>{fmtP(sub)}</span>
                       </div>
                       {d.obs && <div style={{ fontSize: 10, color: "#64748b", fontStyle: "italic", paddingLeft: 4 }}>{d.obs}</div>}
