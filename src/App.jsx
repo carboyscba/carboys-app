@@ -14658,8 +14658,9 @@ const ChequeoScreen = ({ order, clients, orders, setOrders, config, onNavigate }
 
   // ── Render functions (called as functions, NOT as JSX components) ──
   const renderBrc = (item) => {
-    // Exclusive logic: if item.exclusive has items with values, hide this one
-    if (item.exclusive && item.exclusive.some(exId => data[exId] && data[exId] !== "")) return null;
+    // Exclusive logic: hide only if exclusive counterpart has value AND this item has no value
+    // If both have values (legacy data from before exclusive was added), show all
+    if (item.exclusive && !data[item.id] && item.exclusive.some(exId => data[exId] && data[exId] !== "")) return null;
     return (
     <div key={item.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}30` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
