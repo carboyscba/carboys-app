@@ -5523,6 +5523,18 @@ const VehicleDetailScreen = (props) => {
             { icon: "📄", label: "PDF Presupuesto", show: true, color: "#9C27B0", action: () => onNavigate("budgetPricing", order), bg: "rgba(156,39,176,.08)" },
             { icon: "▶️", label: "Iniciar Trabajo", show: canSeePrices, color: T.green, action: () => {
               var worksToShow = order.budgetRemainingWorks || (order.works || []);
+              // Defensive: if works only has "Chequeo Vehicular" but pricingData exists, regenerate from pricingData
+              var onlyChequeo = worksToShow.length > 0 && worksToShow.every(w => w.type === "Chequeo Vehicular");
+              if (onlyChequeo && order.pricingData) {
+                worksToShow = Object.keys(order.pricingData).map(function(catKey) {
+                  var d = order.pricingData[catKey];
+                  var sub = d.noItems ? (parseFloat(d.totalPrice) || 0) : (d.items || []).reduce(function(s, it) { return s + (parseFloat(it.price) || 0); }, 0);
+                  var trenItems = d.noItems ? [] : (d.items || []).filter(function(it) { return parseFloat(it.price) > 0; }).map(function(it) {
+                    return { key: it.key, label: it.isCustom ? (it.desc || "Otro") : it.label, price: it.price || "", selected: true, side: it.side || "ambos", hasSide: it.hasSide || false, isCustom: it.isCustom || false, desc: it.desc || "", otroDesc: it.obs || "" };
+                  });
+                  return { type: catKey, price: sub, desc: "", trenItems: trenItems };
+                }).filter(function(w) { return w.price > 0; });
+              }
               setBudgetSelWorks(worksToShow.map(w => ({ ...w, selected: true, expanded: true, price: String(w.price || 0), trenItems: (w.trenItems || []).map(ti => ({ ...ti, selected: ti.selected !== false, price: String(ti.price || 0) })) })));
               setShowBudgetStartPopup(true);
             }, bg: "rgba(67,160,71,.08)" },
@@ -5546,6 +5558,10 @@ const VehicleDetailScreen = (props) => {
               setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "inspection_done" } : o));
               onNavigate("budgetPricing", order);
             }, bg: "rgba(30,136,229,.08)" },
+          ] : []),
+          ...(order.wasChequeo && order.chequeoData && (order.status === "pending" || order.status === "working" || order.status === "done" || order.status === "delivered") ? [
+            { icon: "🩺", label: "Ver Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" },
+            { icon: "📄", label: "Foja de Chequeo", show: true, color: "#FF4081", action: () => onNavigate("fojaChequeo", order), bg: "rgba(255,64,129,.08)" },
           ] : []),
           ...(order.status === "working" && canStartWork && !order.isChequeo ? [{ icon: "📋", label: "Comenzar Trabajo", show: true, color: T.accent, action: () => onNavigate("serviceSheet", order), bg: "rgba(30,136,229,.08)" }] : []),
           ...(order.isChequeo && order.status === "working" ? [{ icon: "🩺", label: "Continuar Chequeo", show: true, color: "#FF4081", action: () => onNavigate("chequeo", order), bg: "rgba(255,64,129,.08)" }] : []),
@@ -6278,6 +6294,10 @@ const VehicleDetailScreen = (props) => {
                         budgetOriginalWorks: order.works, // Keep original budget works for reference
                         partialStarted: selWorks.length < budgetSelWorks.length,
                         paymentPref: { method: budgetPayPref.method, withIva: budgetPayPref.withIva },
+                        // Si venía de chequeo, marcar que YA NO es chequeo pero conservar history
+                        isChequeo: false,
+                        wasChequeo: order.isChequeo || order.wasChequeo || false,
+                        _fromChequeo: undefined,
                       };
                       setOrders(prev => prev.map(o => o.id === order.id ? transformedOrder : o));
                       setShowBudgetStartPopup(false);
