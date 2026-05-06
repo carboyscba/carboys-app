@@ -7343,14 +7343,15 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     return s;
   }, [cierres]);
   const saldoCaja = useMemo(() => {
-    const sinceDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
-    // Efectivo cobrado: TODAS las órdenes con cajaDate hasta hoy que NO estén en cierre previo
+    // Cutoff date: end of last cierre period (or fecha as fallback). Orders with cajaDate <= cutoff are already in saldoReal of last cierre.
+    const cutoffDate = ultimoCierre ? (ultimoCierre.periodoHasta || ultimoCierre.fecha) : "2000-01-01";
+    // Efectivo cobrado: solo órdenes DESPUÉS del cutoff Y no incluidas en ningún cierre posterior
     const efSinceCierre = cobradas
-      .filter(o => o.cajaDate && o.cajaDate <= today && !allClosedOrderIds.has(o.id))
+      .filter(o => o.cajaDate && o.cajaDate > cutoffDate && o.cajaDate <= today && !allClosedOrderIds.has(o.id))
       .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-    const ingExSince = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate && normDate(e.fecha) <= today)
+    const ingExSince = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > cutoffDate && normDate(e.fecha) <= today)
       .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
-    const egrSince = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate && normDate(e.fecha) <= today)
+    const egrSince = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > cutoffDate && normDate(e.fecha) <= today)
       .reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
     const base = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
     return base + efSinceCierre + ingExSince - egrSince;
