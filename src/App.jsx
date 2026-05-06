@@ -7190,6 +7190,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [movDetail, setMovDetail] = useState(null); // selected movement for detail popup
   const [saldoReal, setSaldoReal] = useState("");
   const [showCierre, setShowCierre] = useState(false);
+  const [cierreSelectedPeriod, setCierreSelectedPeriod] = useState(null); // {desde, hasta, label} or null = auto
   const [expandedWeek, setExpandedWeek] = useState(null); // week number expanded in Caja month view
   // Ingreso
   const [showIngreso, setShowIngreso] = useState(false);
@@ -7325,15 +7326,27 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const ctaCteIngresado = useMemo(() => periodOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0), [periodOrders]);
   const inTaller = useMemo(() => orders.filter(o => ["pending", "working", "done", "inspection", "inspection_done", "budget_sent", "budget_approved"].includes(o.status)), [orders]);
   // ── SALDO CAJA: independiente del periodo, siempre desde último cierre hasta hoy ──
-  const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
+  const ultimoCierre = useMemo(() => {
+    if (cierres.length === 0) return null;
+    // Get the cierre with the latest periodoHasta (or fecha as fallback)
+    const sorted = [...cierres].sort((a, b) => {
+      const ad = a.periodoHasta || a.fecha || "";
+      const bd = b.periodoHasta || b.fecha || "";
+      return bd.localeCompare(ad);
+    });
+    return sorted[0];
+  }, [cierres]);
+  // Acumular IDs de TODAS las órdenes ya cerradas en cualquier cierre previo
+  const allClosedOrderIds = useMemo(() => {
+    const s = new Set();
+    cierres.forEach(c => (c.cobradaIds || []).forEach(id => s.add(id)));
+    return s;
+  }, [cierres]);
   const saldoCaja = useMemo(() => {
     const sinceDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
-    const hasCobradaIds = ultimoCierre?.cobradaIds?.length > 0;
-    const excludeIds = new Set(hasCobradaIds ? ultimoCierre.cobradaIds : []);
-    // Si el cierre tiene cobradaIds: usar >= y excluir por ID (preciso)
-    // Si NO tiene cobradaIds (cierre viejo): usar > para evitar doble conteo del mismo día
+    // Efectivo cobrado: TODAS las órdenes con cajaDate hasta hoy que NO estén en cierre previo
     const efSinceCierre = cobradas
-      .filter(o => o.cajaDate && o.cajaDate <= today && (hasCobradaIds ? (o.cajaDate >= sinceDate && !excludeIds.has(o.id)) : o.cajaDate > sinceDate))
+      .filter(o => o.cajaDate && o.cajaDate <= today && !allClosedOrderIds.has(o.id))
       .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
     const ingExSince = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > sinceDate && normDate(e.fecha) <= today)
       .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
@@ -7341,7 +7354,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
       .reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
     const base = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
     return base + efSinceCierre + ingExSince - egrSince;
-  }, [cobradas, egresos, ultimoCierre, today]);
+  }, [cobradas, egresos, ultimoCierre, today, allClosedOrderIds]);
   // Cierre semanal: semanas por día del mes (1-7=S1, 8-14=S2, 15-21=S3, 22-28=S4, 29+=S5)
   const todayDate = new Date();
   const todayDay = todayDate.getDate();
@@ -7382,8 +7395,8 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const semanaAnterior = semanaActual > 1
     ? getSemanaRange(semanaActual - 1, todayYear, todayMonth)
     : getSemanaRange(getSemana(new Date(todayYear, todayMonth, 0).getDate()), todayYear, todayMonth - 1 < 0 ? 11 : todayMonth - 1);
-  const lastCierreDate = cierres.length > 0 ? cierres[cierres.length - 1].fecha : null;
-  const lastCierrePeriodo = cierres.length > 0 ? cierres[cierres.length - 1].periodoHasta : null;
+  const lastCierreDate = ultimoCierre ? ultimoCierre.fecha : null;
+  const lastCierrePeriodo = ultimoCierre ? ultimoCierre.periodoHasta : null;
   // Falta cierre si la semana anterior ya terminó y no hay cierre que la cubra
   const faltaCierre = today > semanaAnterior.hasta && (!lastCierrePeriodo ? (!lastCierreDate || lastCierreDate < semanaAnterior.hasta) : lastCierrePeriodo < semanaAnterior.hasta);
 
@@ -10210,12 +10223,42 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
         {/* ══ POPUP CIERRE DE CAJA ══ */}
         {showCierre && (() => {
-          // Calculate data for the CIERRE period (may be different from current view period)
-          const cierrePeriodo = faltaCierre ? semanaAnterior : getSemanaRange(semanaActual, todayYear, todayMonth);
+          // Build list of pending periods to close
+          const pendingPeriods = (() => {
+            const list = [];
+            const lastClose = ultimoCierre?.periodoHasta || ultimoCierre?.fecha;
+            // If never closed, just suggest current week
+            if (!lastClose) {
+              list.push(getSemanaRange(semanaActual, todayYear, todayMonth));
+              return list;
+            }
+            // Add all weeks between lastClose and today
+            const start = new Date(lastClose); start.setDate(start.getDate() + 1);
+            let cursor = new Date(start);
+            while (cursor <= todayDate) {
+              const yr = cursor.getFullYear(), mo = cursor.getMonth();
+              const wks = _buildWeeks(yr, mo);
+              const day = cursor.getDate();
+              const wkIdx = wks.findIndex(w => day >= w.start && day <= w.end);
+              if (wkIdx >= 0) {
+                const wk = wks[wkIdx];
+                const range = {
+                  desde: new Date(yr, mo, wk.start).toISOString().split("T")[0],
+                  hasta: new Date(yr, mo, wk.end).toISOString().split("T")[0],
+                  label: `Sem ${wkIdx + 1} ${["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][mo]} ${yr}`
+                };
+                if (!list.some(p => p.desde === range.desde)) list.push(range);
+                cursor.setDate(wk.end + 2);
+              } else { cursor.setDate(cursor.getDate() + 1); }
+            }
+            return list;
+          })();
+          // Selected period: explicit selection OR first pending OR current week
+          const cierrePeriodo = cierreSelectedPeriod || (pendingPeriods[0] || getSemanaRange(semanaActual, todayYear, todayMonth));
           const cpDesde = cierrePeriodo.desde;
           const cpHasta = cierrePeriodo.hasta;
-          // Totals for THIS week (what was cobrado/egresado in the period)
-          const cpOrders = cobradas.filter(o => { if (!o.cajaDate) return false; const d = normDate(o.cajaDate); return d >= cpDesde && d <= cpHasta; });
+          // Totals for THIS week (what was cobrado/egresado in the period) — EXCLUYENDO IDs ya cerrados
+          const cpOrders = cobradas.filter(o => { if (!o.cajaDate || allClosedOrderIds.has(o.id)) return false; const d = normDate(o.cajaDate); return d >= cpDesde && d <= cpHasta; });
           const cpEgrEf = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo")).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
           const cpEgrVirt = egresos.filter(e => e.esIngreso !== true && e.metodoPago && e.metodoPago !== "Efectivo").filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
           const cpIngExtra = egresos.filter(e => e.esIngreso === true).filter(e => { const d = normDate(e.fecha); return d >= cpDesde && d <= cpHasta; });
@@ -10226,26 +10269,32 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           const cpCta = cpOrders.reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Cuenta Corriente").reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
           const cpTotalEgr = cpEgrEf.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
           const cpTotalEgrVirt = cpEgrVirt.reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-          // SALDO ACUMULADO: último cierre saldoReal + todo efectivo desde ese cierre hasta cpHasta - todo egreso efectivo desde ese cierre hasta cpHasta
-          const prevCierreDate = ultimoCierre ? ultimoCierre.fecha : "2000-01-01";
+          // SALDO: prevSaldo + efectivo del período (solo lo de este período) - egresos del período + ingresos extra
           const prevSaldo = ultimoCierre ? (parseFloat(ultimoCierre.saldoReal) || 0) : 0;
-          const prevHasIds = ultimoCierre?.cobradaIds?.length > 0;
-          const prevExcludeIds = new Set(prevHasIds ? ultimoCierre.cobradaIds : []);
-          const efSincePrev = cobradas
-            .filter(o => o.cajaDate && o.cajaDate <= cpHasta && (prevHasIds ? (o.cajaDate >= prevCierreDate && !prevExcludeIds.has(o.id)) : o.cajaDate > prevCierreDate))
-            .reduce((s, o) => s + (o.payments || []).filter(p => p.method === "Efectivo" && !p.ctaFechaPago).reduce((s2, p) => s2 + (parseFloat(p.amount) || 0), 0), 0);
-          const ingExSincePrev = egresos.filter(e => e.esIngreso === true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > prevCierreDate && normDate(e.fecha) <= cpHasta)
-            .reduce((s, e) => s + Math.abs(parseFloat(e.monto) || 0), 0);
-          const egrSincePrev = egresos.filter(e => e.esIngreso !== true && (!e.metodoPago || e.metodoPago === "Efectivo") && normDate(e.fecha) > prevCierreDate && normDate(e.fecha) <= cpHasta)
-            .reduce((s, e) => s + (parseFloat(e.monto) || 0), 0);
-          const cpSaldo = prevSaldo + efSincePrev + ingExSincePrev - egrSincePrev;
+          const cpSaldo = prevSaldo + cpEf - cpTotalEgr;
           return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setShowCierre(false)}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => { setShowCierre(false); setCierreSelectedPeriod(null); }}>
             <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 440, width: "100%", border: `1px solid ${T.border}`, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📋 Cierre de Caja</div>
-              <div style={{ fontSize: 13, color: T.accent, fontWeight: 700, marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: T.accent, fontWeight: 700, marginBottom: 10 }}>
                 {cierrePeriodo.label} — {fmtDate(cpDesde)} al {fmtDate(cpHasta)}
               </div>
+              {pendingPeriods.length > 1 && (
+                <div style={{ ...card, padding: 10, marginBottom: 12, borderColor: T.orange }}>
+                  <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 6 }}>⚠️ Períodos pendientes — cerrá uno por vez en orden</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {pendingPeriods.map(p => (
+                      <div key={p.desde} onClick={() => setCierreSelectedPeriod(p)}
+                        style={{ padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                          border: `1.5px solid ${cierrePeriodo.desde === p.desde ? T.accent : T.border}`,
+                          background: cierrePeriodo.desde === p.desde ? `${T.accent}15` : T.bg,
+                          color: cierrePeriodo.desde === p.desde ? T.accent : T.gray }}>
+                        {p.label} ({fmtDate(p.desde)} — {fmtDate(p.hasta)})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{ ...card, padding: 14, marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 10 }}>Resumen del período</div>
                 {[
@@ -10288,7 +10337,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                 );
               })()}
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setShowCierre(false)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
+                <button onClick={() => { setShowCierre(false); setCierreSelectedPeriod(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, flex: 1 }}>Cancelar</button>
                 <button onClick={() => {
                   setCierres(p => [...p, {
                     id: Date.now(),
@@ -10303,7 +10352,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     cobradaIds: cpOrders.map(o => o.id),
                     desglose: { efectivo: cpEf, tarjeta: cpTarj, transferencia: cpTransf, ctaCte: cpCta, egresosEf: cpTotalEgr, egresosVirt: cpTotalEgrVirt }
                   }]);
-                  setSaldoReal(""); setShowCierre(false);
+                  setSaldoReal(""); setShowCierre(false); setCierreSelectedPeriod(null);
                 }} style={{ ...btnPrimary(T.green), flex: 1 }}>✓ Cerrar Caja</button>
               </div>
             </div>
