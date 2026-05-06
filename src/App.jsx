@@ -7151,6 +7151,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [cobroClient, setCobroClient] = useState(_initOrder ? (() => { const _cl = clients.find(c => matchId(c.id, _initOrder.clientId)); return _cl ? { name: _cl.name, lastName: _cl.lastName, phone: _cl.phone, dni: _cl.dni || '', cuit: _cl.cuit || '' } : null; })() : null);
   const [cobroSearchQ, setCobroSearchQ] = useState("");
   const [facturaModal, setFacturaModal] = useState(null); // { order, payments, client, vehicle }
+  const [facturaSelectorPopup, setFacturaSelectorPopup] = useState(null); // { order, client, vehicle, mergedClient } when shown
   const [fcFilter, setFcFilter] = useState(null); // null, "A", "B", "C", "T"
   const [fcExpandPeriod, setFcExpandPeriod] = useState(null); // null, "mes", "semana"
   const [fcSelMonth, setFcSelMonth] = useState(null); // 0-11
@@ -7685,6 +7686,87 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
 
   return (
     <>
+    {/* Factura selector popup - solo cuando hay múltiples pagos */}
+    {facturaSelectorPopup && (() => {
+      const { order: fspOrder, client: fspClient, vehicle: fspVehicle } = facturaSelectorPopup;
+      const ivaR = config.ivaRate || 21;
+      const baseFsp = (fspOrder.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+      // Build the full payment list with auto-calculated last payment amount
+      const lastIdxFsp = cobroPay.length - 1;
+      const otrosBaseFsp = cobroPay.filter((_, j) => j !== lastIdxFsp).reduce((s, p) => {
+        const amt = parseFloat(p.amount) || 0;
+        return s + (p.withIva ? Math.round(amt / (1 + ivaR / 100)) : amt);
+      }, 0);
+      const lastBaseFsp = Math.max(0, baseFsp - otrosBaseFsp);
+      const lastAmtFsp = cobroPay[lastIdxFsp]?.withIva ? Math.round(lastBaseFsp * (1 + ivaR / 100)) : lastBaseFsp;
+      const fullPays = cobroPay.map((pp, idx) => {
+        let amt = parseFloat(pp.amount) || 0;
+        if (idx === lastIdxFsp) amt = lastAmtFsp;
+        return { ...pp, amount: amt };
+      });
+      // Identify pagos con IVA y sin IVA
+      const pagosConIva = fullPays.filter(p => p.withIva);
+      const pagosSinIva = fullPays.filter(p => !p.withIva);
+      const hayMixto = pagosConIva.length > 0 && pagosSinIva.length > 0;
+      const totalConIva = pagosConIva.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const totalCompleto = fullPays.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const emitirFactura = (paysToInvoice) => {
+        setFacturaSelectorPopup(null);
+        setFacturaModal({ order: fspOrder, payments: paysToInvoice, client: fspClient, vehicle: fspVehicle });
+      };
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 16 }} onClick={() => setFacturaSelectorPopup(null)}>
+          <div style={{ ...card, padding: 20, maxWidth: 480, width: "100%", maxHeight: "85vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800, marginBottom: 6, color: T.accent }}>🧾 ¿Qué facturar?</div>
+            <div style={{ fontSize: 12, color: T.gray, marginBottom: 16 }}>Hay {cobroPay.length} pagos. Elegí qué incluir en la factura:</div>
+
+            {/* Opción 1: Solo monto con IVA (default si hay mixto) */}
+            {hayMixto && (
+              <div onClick={() => emitirFactura(pagosConIva)} style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", border: `2px solid ${T.accent}`, background: `${T.accent}10` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>✨ Solo monto con IVA</div>
+                  <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, color: T.accent }}>{fmt(totalConIva)}</div>
+                </div>
+                <div style={{ fontSize: 11, color: T.gray }}>
+                  {pagosConIva.map((p, i) => `${p.method}: ${fmt(p.amount)}`).join(" + ")}
+                </div>
+              </div>
+            )}
+
+            {/* Opción 2: Total completo */}
+            <div onClick={() => emitirFactura(fullPays)} style={{ ...card, padding: 14, marginBottom: 8, cursor: "pointer", border: `2px solid ${T.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>📋 Total completo</div>
+                <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800 }}>{fmt(totalCompleto)}</div>
+              </div>
+              <div style={{ fontSize: 11, color: T.gray }}>
+                {fullPays.map((p, i) => `${p.method}: ${fmt(p.amount)}`).join(" + ")}
+              </div>
+            </div>
+
+            {/* Opción 3: Pago específico individual */}
+            {fullPays.length > 1 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, color: T.gray, fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Pago específico</div>
+                {fullPays.map((p, idx) => (
+                  <div key={idx} onClick={() => emitirFactura([p])} style={{ ...card, padding: 12, marginBottom: 6, cursor: "pointer", border: `1.5px solid ${T.border}`, background: T.bg }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{p.method}</div>
+                        <div style={{ fontSize: 10, color: p.withIva ? T.accent : T.gray, marginTop: 2 }}>{p.withIva ? "Con IVA" : "Sin IVA"}</div>
+                      </div>
+                      <div style={{ fontFamily: fontD, fontSize: 15, fontWeight: 800 }}>{fmt(p.amount)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={() => setFacturaSelectorPopup(null)} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, width: "100%", marginTop: 12, fontSize: 13 }}>Cancelar</button>
+          </div>
+        </div>
+      );
+    })()}
     {facturaModal && (
       <FacturaModal
         data={facturaModal}
@@ -8535,7 +8617,12 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           if (cobroClient && cl) {
                             setClients(prev => prev.map(c => matchId(c.id, o.clientId) ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni || c.dni, cuit: cobroClient.cuit || c.cuit } : c));
                           }
-                          setFacturaModal({ order: o, payments: cobroPay, client: mergedClient, vehicle: vh });
+                          // Si hay múltiples pagos, mostrar selector de qué facturar
+                          if (cobroPay.length > 1) {
+                            setFacturaSelectorPopup({ order: o, client: mergedClient, vehicle: vh });
+                          } else {
+                            setFacturaModal({ order: o, payments: cobroPay, client: mergedClient, vehicle: vh });
+                          }
                         }} style={{ ...btnPrimary(T.accent), width: "100%", fontSize: 14, padding: "13px 0" }}>
                           🧾 EMITIR FACTURA
                         </button>
