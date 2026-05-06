@@ -6820,7 +6820,6 @@ const TicketModal = ({ data, onClose, onEmit, config }) => {
 const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   const { order, payments, client, vehicle, readonly } = data;
   if (!order) return null;
-  const total = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
   const iva = config?.ivaRate || 21;
 
   // Determinar tipo de factura y cuenta emisora
@@ -6829,6 +6828,20 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   const cuenta = getCuentaNombre(config, mainPayment.account);
   const cuitEmisor = getCuentaCuit(config, mainPayment.account);
   const puntoVenta = getCuentaPV(config, mainPayment.account);
+
+  // CALCULAR TOTAL: si payments es un subconjunto (pago parcial), usar pagos. Sino, usar works.
+  const allPayments = order.payments || [];
+  const isPartialInvoice = payments && payments.length > 0 && payments.length < allPayments.length;
+  const ivaR = config?.ivaRate || 21;
+  const totalWorks = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+  // Total base (sin IVA) a facturar
+  const totalBase = isPartialInvoice
+    ? (payments || []).reduce((s, p) => {
+        const amt = parseFloat(p.amount) || 0;
+        return s + (p.withIva ? Math.round(amt / (1 + ivaR / 100)) : amt);
+      }, 0)
+    : totalWorks;
+  const total = totalBase;
 
   // Condición IVA del receptor
   const COND_IVA_OPTIONS = [
@@ -7011,7 +7024,19 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #e2e8f0" }}>
               <span>DESCRIPCIÓN</span><span style={{ textAlign: "right" }}>{isFacturaA ? "PRECIO NETO" : "IMPORTE"}</span>
             </div>
-            {(order.works || []).map((w, i) => {
+            {isPartialInvoice ? (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1526" }}>Servicio mecánico</div>
+                    <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 10 }}>• {(payments||[]).map(p => p.method).join(" + ")}</div>
+                  </div>
+                  <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#0d1526", textAlign: "right", whiteSpace: "nowrap" }}>
+                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(neto)}
+                  </div>
+                </div>
+              </div>
+            ) : (order.works || []).map((w, i) => {
               const isBat = w.type === "Baterías" || w.type === "Baterias";
               const selTren = (w.trenItems || []).filter(ti => ti.selected);
               const showDesc = isBat ? (w.desc || selTren[0]?.label || "") : (w.desc || "");
@@ -7035,8 +7060,6 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
               );
             })}
           </div>
-
-          {/* Bloque inferior: Total + Forma de pago + CAE + Footer — se empuja al fondo de la página */}
           <div style={{ marginTop: "auto" }}>
           {/* ── TOTALES ── */}
           <div style={{ padding: "16px 28px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -8103,19 +8126,57 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     </div>
                   ))}
                   <div style={{ height: 2, background: T.border, margin: "12px 0" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-                    <span>{(cobroPay[0]?.withIva || o.paymentPref?.withIva) ? "SUBTOTAL" : "TOTAL"}</span>
-                    <span style={{ color: T.accent }}>{fmt(baseTotal)}</span>
-                  </div>
-                  {(cobroPay[0]?.withIva || o.paymentPref?.withIva) && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.gray }}><span>+ IVA {iva}%</span><span style={{ fontWeight: 700, color: T.orange }}>{fmt(Math.round(baseTotal * iva / 100))}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, marginTop: 6, paddingTop: 8, borderTop: `2px solid ${T.accent}` }}>
-                        <span>TOTAL A COBRAR</span>
-                        <span style={{ color: T.green }}>{fmt(total)}</span>
-                      </div>
-                    </div>
-                  )}
+                  {(() => {
+                    const ivaRC = config.ivaRate || 21;
+                    const anyHasIva = cobroPay.some(p => p.withIva) || o.paymentPref?.withIva;
+                    if (!anyHasIva) {
+                      return (
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
+                          <span>TOTAL</span>
+                          <span style={{ color: T.accent }}>{fmt(baseTotal)}</span>
+                        </div>
+                      );
+                    }
+                    // Calcular IVA total: solo sobre los pagos que tienen IVA
+                    let totalIva = 0;
+                    if (cobroPay.length > 1) {
+                      // Mixto: el último pago se auto-calcula
+                      const lastIdxR = cobroPay.length - 1;
+                      const otrosBaseR = cobroPay.filter((_, j) => j !== lastIdxR).reduce((s, p) => {
+                        const amt = parseFloat(p.amount) || 0;
+                        return s + (p.withIva ? Math.round(amt / (1 + ivaRC / 100)) : amt);
+                      }, 0);
+                      const lastBaseR = Math.max(0, baseTotal - otrosBaseR);
+                      // IVA del último pago si tiene IVA
+                      if (cobroPay[lastIdxR]?.withIva) totalIva += Math.round(lastBaseR * ivaRC / 100);
+                      // IVA de los pagos editables con IVA
+                      cobroPay.filter((_, j) => j !== lastIdxR).forEach(p => {
+                        if (p.withIva) {
+                          const amt = parseFloat(p.amount) || 0;
+                          const base = Math.round(amt / (1 + ivaRC / 100));
+                          totalIva += amt - base;
+                        }
+                      });
+                    } else {
+                      // Pago único con IVA
+                      totalIva = Math.round(baseTotal * ivaRC / 100);
+                    }
+                    return (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
+                          <span>SUBTOTAL</span>
+                          <span style={{ color: T.accent }}>{fmt(baseTotal)}</span>
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.gray }}><span>+ IVA {ivaRC}%{cobroPay.length > 1 ? " (proporcional)" : ""}</span><span style={{ fontWeight: 700, color: T.orange }}>{fmt(totalIva)}</span></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, marginTop: 6, paddingTop: 8, borderTop: `2px solid ${T.accent}` }}>
+                            <span>TOTAL A COBRAR</span>
+                            <span style={{ color: T.green }}>{fmt(baseTotal + totalIva)}</span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* ── RESUMEN DE COBRO (solo cuando fue cobrado) ── */}
