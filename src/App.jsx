@@ -2149,18 +2149,32 @@ const NewOrderScreen = (props) => {
                   );
                   for (const v of (c.vehicles || []).filter(Boolean)) {
                     if (!v.domain) continue;
-                    const domainMatch = v.domain.replace(/[^a-z0-9]/gi, "").toUpperCase().includes(dsNorm);
+                    const vDom = v.domain.replace(/[^a-z0-9]/gi, "").toUpperCase();
+                    const domainMatch = vDom.includes(dsNorm);
                     if (domainMatch || clientMatch) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled","budget_closed"].includes(o.status));
-                      matches.push({ c, v, vCount, activeOrder });
+                      // SCORE: exact match=100, starts with=50, contains=20, client match only=5
+                      let score = 0;
+                      if (vDom === dsNorm) score = 100;
+                      else if (vDom.startsWith(dsNorm)) score = 50;
+                      else if (domainMatch) score = 20;
+                      else if (clientMatch) score = 5;
+                      matches.push({ c, v, vCount, activeOrder, score });
                     }
                   }
                   // If client matches but has no vehicles, still show them
                   if (clientMatch && (!c.vehicles || c.vehicles.length === 0)) {
-                    matches.push({ c, v: null, vCount: 0, activeOrder: null });
+                    matches.push({ c, v: null, vCount: 0, activeOrder: null, score: 5 });
                   }
                 }
+                // Sort: highest score first, then alphabetical
+                matches.sort((a, b) => {
+                  if (b.score !== a.score) return b.score - a.score;
+                  const aDom = (a.v?.domain || "").toUpperCase();
+                  const bDom = (b.v?.domain || "").toUpperCase();
+                  return aDom.localeCompare(bDom);
+                });
                 if (matches.length === 0) return (
                   <div style={{ ...card, padding: 20, textAlign: "center", marginTop: 12 }}>
                     <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
