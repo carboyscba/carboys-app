@@ -20918,10 +20918,16 @@ export default function App() {
           const localCobrado = (localHasAnulacion && !reChargedAfterAnulacion) ? false
             : (local.cobrado === true ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
           // CRITICAL: never empty payments that exist locally
-          const localPayments = (local.payments && local.payments.length > 0) ? local.payments : (fsDoc.payments || []);
+          // Prefer Firestore payments if FS has more entries (more recent or merged from another tab)
+          const fsPaymentsCount = (fsDoc.payments || []).length;
+          const localPaymentsCount = (local.payments || []).length;
+          const localPayments = fsPaymentsCount > localPaymentsCount
+            ? fsDoc.payments  // Firestore has more — use FS (came from another device or repair)
+            : ((local.payments && local.payments.length > 0) ? local.payments : (fsDoc.payments || []));
           // CRITICAL: never clear cajaDate that exists locally - NEVER auto-set to today
+          // For cajaDate: if FS has a value and local doesn't match, prefer FS (cross-device authority)
           const localCajaDate = (localHasAnulacion && !reChargedAfterAnulacion) ? null
-            : (local.cajaDate || fsDoc.cajaDate || null);
+            : (fsDoc.cajaDate && local.cajaDate !== fsDoc.cajaDate ? fsDoc.cajaDate : (local.cajaDate || fsDoc.cajaDate || null));
           const merged = {
             ...fsDoc,
             cobrado: localCobrado,
