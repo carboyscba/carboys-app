@@ -2137,28 +2137,29 @@ const NewOrderScreen = (props) => {
                 const matches = [];
                 const dsNorm = domainSearch.replace(/[^a-z0-9]/gi, "").toUpperCase();
                 const dsLower = domainSearch.trim().toLowerCase();
+                // Si la búsqueda parece dominio (alfanumérico), usar startsWith. Sino, buscar por nombre/dni/cuit
+                const isDomainSearch = /[a-z0-9]/i.test(dsNorm);
                 for (const c of clients) {
-                  // Match by client name/lastName/DNI/CUIT/phone
+                  // Match by client name/lastName/DNI/CUIT/phone (también startsWith)
                   const clientMatch = (
-                    (c.name && c.name.toLowerCase().includes(dsLower)) ||
-                    (c.lastName && c.lastName.toLowerCase().includes(dsLower)) ||
-                    (c.name && c.lastName && `${c.name} ${c.lastName}`.toLowerCase().includes(dsLower)) ||
-                    (c.dni && c.dni.includes(dsNorm)) ||
-                    (c.cuit && c.cuit.replace(/[^0-9]/g,"").includes(dsNorm)) ||
-                    (c.phone && c.phone.includes(dsNorm))
+                    (c.name && c.name.toLowerCase().startsWith(dsLower)) ||
+                    (c.lastName && c.lastName.toLowerCase().startsWith(dsLower)) ||
+                    (c.name && c.lastName && `${c.name} ${c.lastName}`.toLowerCase().startsWith(dsLower)) ||
+                    (c.dni && c.dni.startsWith(dsNorm)) ||
+                    (c.cuit && c.cuit.replace(/[^0-9]/g,"").startsWith(dsNorm)) ||
+                    (c.phone && c.phone.startsWith(dsNorm))
                   );
                   for (const v of (c.vehicles || []).filter(Boolean)) {
                     if (!v.domain) continue;
                     const vDom = v.domain.replace(/[^a-z0-9]/gi, "").toUpperCase();
-                    const domainMatch = vDom.includes(dsNorm);
+                    // Solo matchea si EMPIEZA con la búsqueda
+                    const domainMatch = isDomainSearch && vDom.startsWith(dsNorm);
                     if (domainMatch || clientMatch) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled","budget_closed"].includes(o.status));
-                      // SCORE: exact match=100, starts with=50, contains=20, client match only=5
                       let score = 0;
                       if (vDom === dsNorm) score = 100;
                       else if (vDom.startsWith(dsNorm)) score = 50;
-                      else if (domainMatch) score = 20;
                       else if (clientMatch) score = 5;
                       matches.push({ c, v, vCount, activeOrder, score });
                     }
@@ -4611,30 +4612,29 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
   // Si el input tiene letras Y números => es una patente => solo buscar por dominio
   const isDomainQuery = /[a-zA-Z]/.test(q) && /[0-9]/.test(q);
 
-  // Helper: get best score for a client/vehicle pair
+  // Helper: get best score for a client/vehicle pair (PREFIX match)
   const getMatchScore = (c, v) => {
     if (!v) return 0;
     const vDom = (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
     if (!vDom) return 0;
     if (vDom === cleanQ) return 100;
     if (vDom.startsWith(cleanQ)) return 50;
-    if (vDom.includes(cleanQ)) return 20;
     // Client name/data match
     const lq = q.toLowerCase();
-    if ((c.name || "").toLowerCase().includes(lq) || (c.lastName || "").toLowerCase().includes(lq) || (c.dni || "").includes(q) || (c.cuit || "").includes(q)) return 5;
+    if ((c.name || "").toLowerCase().startsWith(lq) || (c.lastName || "").toLowerCase().startsWith(lq) || (c.dni || "").startsWith(q) || (c.cuit || "").startsWith(q)) return 5;
     return 0;
   };
 
   const results = q.length > 0 ? clients.filter(c => {
-    const domainMatch = (c.vehicles || []).filter(Boolean).some(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ));
+    // Domain match: solo dominios que EMPIEZAN con la búsqueda
+    const domainMatch = (c.vehicles || []).filter(Boolean).some(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(cleanQ));
     if (isDomainQuery) return domainMatch;
     return domainMatch ||
-      c.name.toLowerCase().includes(q.toLowerCase()) ||
-      c.lastName.toLowerCase().includes(q.toLowerCase()) ||
-      (c.dni && c.dni.includes(q)) ||
-      (c.cuit && c.cuit.includes(q));
+      c.name.toLowerCase().startsWith(q.toLowerCase()) ||
+      c.lastName.toLowerCase().startsWith(q.toLowerCase()) ||
+      (c.dni && c.dni.startsWith(q)) ||
+      (c.cuit && c.cuit.startsWith(q));
   }).map(c => {
-    // Best score across all vehicles of this client
     const scores = (c.vehicles || []).filter(Boolean).map(v => getMatchScore(c, v));
     const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
     return { c, bestScore };
@@ -4819,7 +4819,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
       {results.map(c => {
         const matchingVehicles = (c.vehicles || []).filter(Boolean).filter(v => {
           if (!q) return false;
-          return (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ);
+          return (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().startsWith(cleanQ);
         });
         // If domain search matched specific vehicles, show those. Otherwise show all vehicles for this client.
         const vehiclesToShow = (matchingVehicles.length > 0 ? matchingVehicles : (c.vehicles || []))
