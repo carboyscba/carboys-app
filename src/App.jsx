@@ -2741,6 +2741,11 @@ const NewOrderScreen = (props) => {
                   <div>
                     <span style={{ color: T.grayLight }}>{fmtDate(h.date)}</span>
                     <span style={{ marginLeft: 10 }}>{(h.works||[]).map(w => w.type).join(", ")}</span>
+                    {h.descuento && h.descuento.montoDescuento > 0 && (
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: T.orange, padding: "2px 6px", background: `${T.orange}15`, borderRadius: 4 }}>
+                        🏷️ −{h.descuento.tipo === "porcentaje" ? `${h.descuento.valor}%` : fmt(h.descuento.montoDescuento)}
+                      </span>
+                    )}
                   </div>
                   <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(getOrderTotal(h))}</span>
                 </div>
@@ -5423,9 +5428,24 @@ const VehicleDetailScreen = (props) => {
         {canSeePrices && (
           <>
             <div style={{ height: 1, background: T.border, margin: "10px 0" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
-              <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(total)}</span>
-            </div>
+            {order.descuento && order.descuento.montoDescuento > 0 ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 14, fontWeight: 600, color: T.gray, textDecoration: "line-through" }}>
+                  <span>Total original</span><span>{fmt(order.descuento.montoOriginal)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: T.orange, marginTop: 4 }}>
+                  <span>🏷️ Descuento {order.descuento.tipo === "porcentaje" ? `(${order.descuento.valor}%)` : ""}{order.descuento.motivo ? ` · ${order.descuento.motivo}` : ""}</span>
+                  <span>−{fmt(order.descuento.montoDescuento)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 800, marginTop: 6, marginBottom: 8, paddingTop: 6, borderTop: `1px solid ${T.green}30` }}>
+                  <span>TOTAL CON DESCUENTO</span><span style={{ color: T.green }}>{fmt(total)}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: fontD, fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
+                <span>TOTAL</span><span style={{ color: T.accent }}>{fmt(total)}</span>
+              </div>
+            )}
             {/* Si cobrada → mostrar pago real. Si no → mostrar opciones IVA/cuotas */}
             {order.cobrado || order.status === "delivered" ? (
               <div style={{ padding: "10px 12px", background: T.bg, borderRadius: 8, fontSize: 13 }}>
@@ -6850,7 +6870,11 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   const allPayments = order.payments || [];
   const isPartialInvoice = payments && payments.length > 0 && payments.length < allPayments.length;
   const ivaR = config?.ivaRate || 21;
-  const totalWorks = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+  const totalWorksOriginal = (order.works || []).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+  // Aplicar descuento al total facturable (fiscal compliance: factura por el monto realmente cobrado)
+  const totalWorks = order.descuento && order.descuento.montoDescuento > 0
+    ? Math.max(0, totalWorksOriginal - order.descuento.montoDescuento)
+    : totalWorksOriginal;
   // Total base (sin IVA) a facturar
   const totalBase = isPartialInvoice
     ? (payments || []).reduce((s, p) => {
@@ -7201,6 +7225,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
   const [showAnularConfirm, setShowAnularConfirm] = useState(false);
+  // ── DESCUENTO en pantalla de cobro ──
+  const [showDescuentoPanel, setShowDescuentoPanel] = useState(false);
+  const [cobroDescuento, setCobroDescuento] = useState({ tipo: "porcentaje", valor: "", motivo: "" });
   const [anularMotivoAdmin, setAnularMotivoAdmin] = useState("");
   const [histYear, setHistYear] = useState(new Date().getFullYear());
   const [histMonth, setHistMonth] = useState(new Date().getMonth());
@@ -8077,6 +8104,20 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
             })();
             const baseTotal = getBaseTotal(o);
             const iva = config.ivaRate || 21;
+            // ── CÁLCULO DE DESCUENTO ──
+            // Si la orden ya está cobrada, usar el descuento guardado. Si no, usar el state actual.
+            const descuentoActivo = o.descuento || (cobroDescuento.valor && parseFloat(cobroDescuento.valor) > 0 ? cobroDescuento : null);
+            let montoDescuento = 0;
+            if (descuentoActivo && parseFloat(descuentoActivo.valor) > 0) {
+              const _v = parseFloat(descuentoActivo.valor) || 0;
+              if (descuentoActivo.tipo === "porcentaje") {
+                montoDescuento = Math.round(baseTotal * (_v / 100));
+              } else {
+                montoDescuento = Math.min(Math.round(_v), baseTotal); // no descontar más que el total
+              }
+            }
+            const baseTotalConDescuento = Math.max(0, baseTotal - montoDescuento);
+            const hayDescuento = montoDescuento > 0;
             return (
               <div>
                 <button onClick={() => { setSelCobro(null); setCobroPay([]); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a lista</button>
@@ -8148,13 +8189,29 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     const anyHasIva = cobroPay.some(p => p.withIva) || o.paymentPref?.withIva;
                     if (!anyHasIva) {
                       return (
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-                          <span>TOTAL</span>
-                          <span style={{ color: T.accent }}>{fmt(baseTotal)}</span>
-                        </div>
+                        <>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, fontFamily: fontD, color: hayDescuento ? T.gray : undefined, textDecoration: hayDescuento ? "line-through" : undefined }}>
+                            <span>{hayDescuento ? "Subtotal original" : "TOTAL"}</span>
+                            <span style={{ color: hayDescuento ? T.gray : T.accent }}>{fmt(baseTotal)}</span>
+                          </div>
+                          {hayDescuento && (
+                            <>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.orange, marginTop: 6 }}>
+                                <span>− Descuento {descuentoActivo.tipo === "porcentaje" ? `(${descuentoActivo.valor}%)` : ""}{descuentoActivo.motivo ? ` · ${descuentoActivo.motivo}` : ""}</span>
+                                <span style={{ fontWeight: 700 }}>−{fmt(montoDescuento)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, marginTop: 8, paddingTop: 8, borderTop: `2px solid ${T.green}` }}>
+                                <span>TOTAL A COBRAR</span>
+                                <span style={{ color: T.green }}>{fmt(baseTotalConDescuento)}</span>
+                              </div>
+                            </>
+                          )}
+                        </>
                       );
                     }
                     // Calcular IVA total: solo sobre los pagos que tienen IVA
+                    // El descuento se aplica sobre la base ANTES del IVA
+                    const baseParaIva = baseTotalConDescuento;
                     let totalIva = 0;
                     if (cobroPay.length > 1) {
                       // Mixto: el último pago se auto-calcula
@@ -8163,7 +8220,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         const amt = parseFloat(p.amount) || 0;
                         return s + (p.withIva ? Math.round(amt / (1 + ivaRC / 100)) : amt);
                       }, 0);
-                      const lastBaseR = Math.max(0, baseTotal - otrosBaseR);
+                      const lastBaseR = Math.max(0, baseParaIva - otrosBaseR);
                       // IVA del último pago si tiene IVA
                       if (cobroPay[lastIdxR]?.withIva) totalIva += Math.round(lastBaseR * ivaRC / 100);
                       // IVA de los pagos editables con IVA
@@ -8176,25 +8233,114 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       });
                     } else {
                       // Pago único con IVA
-                      totalIva = Math.round(baseTotal * ivaRC / 100);
+                      totalIva = Math.round(baseParaIva * ivaRC / 100);
                     }
                     return (
                       <>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-                          <span>SUBTOTAL</span>
-                          <span style={{ color: T.accent }}>{fmt(baseTotal)}</span>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, color: hayDescuento ? T.gray : undefined, textDecoration: hayDescuento ? "line-through" : undefined }}>
+                          <span>SUBTOTAL{hayDescuento ? " original" : ""}</span>
+                          <span style={{ color: hayDescuento ? T.gray : T.accent }}>{fmt(baseTotal)}</span>
                         </div>
+                        {hayDescuento && (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.orange, marginTop: 6 }}>
+                              <span>− Descuento {descuentoActivo.tipo === "porcentaje" ? `(${descuentoActivo.valor}%)` : ""}{descuentoActivo.motivo ? ` · ${descuentoActivo.motivo}` : ""}</span>
+                              <span style={{ fontWeight: 700 }}>−{fmt(montoDescuento)}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, marginTop: 4 }}>
+                              <span>Subtotal con descuento</span>
+                              <span style={{ color: T.accent }}>{fmt(baseTotalConDescuento)}</span>
+                            </div>
+                          </>
+                        )}
                         <div style={{ marginTop: 8 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.gray }}><span>+ IVA {ivaRC}%{cobroPay.length > 1 ? " (proporcional)" : ""}</span><span style={{ fontWeight: 700, color: T.orange }}>{fmt(totalIva)}</span></div>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD, marginTop: 6, paddingTop: 8, borderTop: `2px solid ${T.accent}` }}>
                             <span>TOTAL A COBRAR</span>
-                            <span style={{ color: T.green }}>{fmt(baseTotal + totalIva)}</span>
+                            <span style={{ color: T.green }}>{fmt(baseTotalConDescuento + totalIva)}</span>
                           </div>
                         </div>
                       </>
                     );
                   })()}
                 </div>
+
+                {/* ── PANEL DE DESCUENTO (solo si no está cobrada todavía) ── */}
+                {!o.cobrado && (
+                  <div style={{ ...card, padding: 16, marginBottom: 16, borderLeft: hayDescuento ? `4px solid ${T.green}` : `1px solid ${T.border}` }}>
+                    <div onClick={() => setShowDescuentoPanel(p => !p)}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: hayDescuento ? T.green : T.accent }}>
+                        🏷️ {hayDescuento ? `Descuento aplicado: −${fmt(montoDescuento)}` : "Aplicar descuento"}
+                      </div>
+                      <div style={{ fontSize: 16, color: T.gray }}>{showDescuentoPanel ? "▲" : "▼"}</div>
+                    </div>
+                    {showDescuentoPanel && (
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+                        <div style={{ fontSize: 12, color: T.gray, marginBottom: 8, fontWeight: 700 }}>TIPO DE DESCUENTO</div>
+                        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                          <button onClick={() => setCobroDescuento(d => ({ ...d, tipo: "porcentaje" }))}
+                            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: `1.5px solid ${cobroDescuento.tipo === "porcentaje" ? T.accent : T.border}`, background: cobroDescuento.tipo === "porcentaje" ? `${T.accent}15` : T.bg2, color: cobroDescuento.tipo === "porcentaje" ? T.accent : T.grayLight, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            % Porcentaje
+                          </button>
+                          <button onClick={() => setCobroDescuento(d => ({ ...d, tipo: "monto" }))}
+                            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: `1.5px solid ${cobroDescuento.tipo === "monto" ? T.accent : T.border}`, background: cobroDescuento.tipo === "monto" ? `${T.accent}15` : T.bg2, color: cobroDescuento.tipo === "monto" ? T.accent : T.grayLight, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            $ Monto fijo
+                          </button>
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                          <label style={{ fontSize: 12, color: T.gray, fontWeight: 700 }}>{cobroDescuento.tipo === "porcentaje" ? "PORCENTAJE (%)" : "MONTO ($)"}</label>
+                          <input
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={cobroDescuento.valor}
+                            onChange={e => {
+                              const v = e.target.value.replace(/[^0-9]/g, "");
+                              setCobroDescuento(d => ({ ...d, valor: v }));
+                            }}
+                            placeholder={cobroDescuento.tipo === "porcentaje" ? "Ej: 10" : "Ej: 50000"}
+                            style={{ ...inputStyle, marginTop: 4 }}
+                          />
+                          {cobroDescuento.tipo === "porcentaje" && parseFloat(cobroDescuento.valor) > 100 && (
+                            <div style={{ fontSize: 11, color: T.red, marginTop: 4 }}>El porcentaje no puede ser mayor a 100%</div>
+                          )}
+                          {cobroDescuento.tipo === "porcentaje" && parseFloat(cobroDescuento.valor) > 15 && parseFloat(cobroDescuento.valor) <= 100 && user.role !== "dueño" && (
+                            <div style={{ fontSize: 11, color: T.orange, marginTop: 4 }}>⚠️ Descuentos mayores al 15% requieren autorización del dueño</div>
+                          )}
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                          <label style={{ fontSize: 12, color: T.gray, fontWeight: 700 }}>MOTIVO (opcional)</label>
+                          <input
+                            type="text"
+                            value={cobroDescuento.motivo}
+                            onChange={e => setCobroDescuento(d => ({ ...d, motivo: e.target.value }))}
+                            placeholder="Ej: Cliente recurrente, pago al contado..."
+                            style={{ ...inputStyle, marginTop: 4 }}
+                          />
+                        </div>
+                        {hayDescuento && (
+                          <div style={{ padding: 12, background: `${T.green}08`, borderRadius: 8, border: `1px solid ${T.green}40`, marginBottom: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.gray, marginBottom: 4 }}>
+                              <span>Original:</span><span>{fmt(baseTotal)}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.orange, marginBottom: 4 }}>
+                              <span>Descuento:</span><span>−{fmt(montoDescuento)}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: T.green, paddingTop: 4, borderTop: `1px solid ${T.green}30` }}>
+                              <span>Subtotal final:</span><span>{fmt(baseTotalConDescuento)}</span>
+                            </div>
+                          </div>
+                        )}
+                        {hayDescuento && (
+                          <button onClick={() => setCobroDescuento({ tipo: "porcentaje", valor: "", motivo: "" })}
+                            style={{ width: "100%", padding: 10, borderRadius: 8, background: T.bg3, border: `1px solid ${T.border}`, color: T.grayLight, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            Quitar descuento
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* ── RESUMEN DE COBRO (solo cuando fue cobrado) ── */}
                 {o.cobrado && (o.payments||[]).length > 0 && (() => {
@@ -8206,8 +8352,26 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                   return (
                     <div style={{ ...card, padding: 20, marginBottom: 16, borderColor: T.green, background: `${T.green}06` }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: T.green, marginBottom: 12 }}>✅ Cobro Realizado</div>
+                      {o.descuento && (
+                        <div style={{ marginBottom: 12, padding: 10, background: `${T.orange}08`, borderRadius: 8, border: `1px solid ${T.orange}30` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.gray, marginBottom: 3 }}>
+                            <span>Total original</span>
+                            <span style={{ textDecoration: "line-through" }}>{fmt(o.descuento.montoOriginal)}</span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.orange, marginBottom: 3, fontWeight: 700 }}>
+                            <span>🏷️ Descuento {o.descuento.tipo === "porcentaje" ? `(${o.descuento.valor}%)` : ""}</span>
+                            <span>−{fmt(o.descuento.montoDescuento)}</span>
+                          </div>
+                          {o.descuento.motivo && (
+                            <div style={{ fontSize: 11, color: T.grayLight, marginTop: 4, fontStyle: "italic" }}>
+                              "{o.descuento.motivo}"
+                              {o.descuento.aplicadoPor ? ` — ${o.descuento.aplicadoPor}` : ""}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                        <span style={{ fontSize: 13, color: T.gray }}>Total abonado</span>
+                        <span style={{ fontSize: 13, color: T.gray }}>{o.descuento ? "Total cobrado" : "Total abonado"}</span>
                         <span style={{ fontFamily: fontD, fontSize: 24, fontWeight: 900, color: T.green }}>{fmt(totalAbonado)}</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -8640,8 +8804,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     };
                     const confirmarCobro = () => {
                       if (cobroClient) { setClients(prev => prev.map(c => matchId(c.id, o.clientId) ? { ...c, name: cobroClient.name, lastName: cobroClient.lastName, phone: cobroClient.phone, dni: cobroClient.dni, cuit: cobroClient.cuit } : c)); }
-                      const totalBase = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
+                      const totalBaseOriginal = (o.works||[]).reduce((s, w) => s + (parseFloat(w.price) || 0), 0);
                       const ivaRate = config.ivaRate || 21;
+                      // ── Aplicar descuento al total base si corresponde ──
+                      // Solo se aplica el descuento si la orden NO estaba cobrada antes (para no doble-aplicar al re-cobrar)
+                      const descuentoNuevo = (!o.cobrado && cobroDescuento.valor && parseFloat(cobroDescuento.valor) > 0) ? cobroDescuento : null;
+                      let descuentoMonto = 0;
+                      if (descuentoNuevo) {
+                        const _v = parseFloat(descuentoNuevo.valor) || 0;
+                        if (descuentoNuevo.tipo === "porcentaje") {
+                          descuentoMonto = Math.round(totalBaseOriginal * (_v / 100));
+                        } else {
+                          descuentoMonto = Math.min(Math.round(_v), totalBaseOriginal);
+                        }
+                      }
+                      const totalBase = Math.max(0, totalBaseOriginal - descuentoMonto);
                       // Each payment already has IVA included in its amount (applied when toggling Con IVA)
                       // First payment auto-adjusts: total (with its own IVA if applicable) minus sum of other payments
                       const otrosTotalFinal = cobroPay.filter((_, j) => j !== 0).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -8679,10 +8856,26 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       } : {};
                       // Preserve original cajaDate if order was already cobrada (don't overwrite with today)
                       const cajaDateValue = orderWasAlreadyCobrada && o.cajaDate ? o.cajaDate : new Date().toISOString().split("T")[0];
-                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: cajaDateValue, cobradoEn: new Date().toISOString(), ...vencData, ...archiveAnulacion } : o2));
-                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: cajaDateValue, cobradoEn: new Date().toISOString(), ...vencData, ...archiveAnulacion }));
+                      // Build descuento object if applied
+                      const descuentoData = descuentoNuevo ? {
+                        descuento: {
+                          tipo: descuentoNuevo.tipo,
+                          valor: parseFloat(descuentoNuevo.valor) || 0,
+                          motivo: (descuentoNuevo.motivo || "").trim(),
+                          montoOriginal: totalBaseOriginal,
+                          montoDescuento: descuentoMonto,
+                          montoFinal: totalBase,
+                          aplicadoPor: user.name,
+                          fecha: new Date().toISOString(),
+                        }
+                      } : (o.descuento ? { descuento: o.descuento } : {});
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: cajaDateValue, cobradoEn: new Date().toISOString(), ...vencData, ...archiveAnulacion, ...descuentoData } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: cajaDateValue, cobradoEn: new Date().toISOString(), ...vencData, ...archiveAnulacion, ...descuentoData }));
                       setHoldProgress(0);
                       setCobroVencimiento("");
+                      // Reset descuento panel state
+                      setCobroDescuento({ tipo: "porcentaje", valor: "", motivo: "" });
+                      setShowDescuentoPanel(false);
                     };
                     return (
                     <button
