@@ -8661,8 +8661,13 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       });
                       const hasCtaCte = finalPays.some(p => p.method === "Cuenta Corriente");
                       const vencData = hasCtaCte && cobroVencimiento ? { ctaVencimiento: cobroVencimiento } : {};
-                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData } : o2));
-                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData }));
+                      // Si había una anulación previa, archivarla en el histórico (no perder el dato pero no bloquear el merge)
+                      const archiveAnulacion = o.anulacionCobro ? {
+                        historicoAnulaciones: [...(o.historicoAnulaciones || []), o.anulacionCobro],
+                        anulacionCobro: null,
+                      } : {};
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData, ...archiveAnulacion } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData, ...archiveAnulacion }));
                       setHoldProgress(0);
                       setCobroVencimiento("");
                     };
@@ -20889,13 +20894,15 @@ export default function App() {
           const local = prevMap[String(fsDoc.id)];
           if (!local) return fsDoc;
           const localHasAnulacion = !!local.anulacionCobro;
-          // CRITICAL: never downgrade cobrado true → null/false unless explicit anulación
-          const localCobrado = localHasAnulacion ? false
+          // Has the order been re-charged AFTER an anulación? Check if local.cobrado is true with payments.
+          const reChargedAfterAnulacion = localHasAnulacion && local.cobrado === true && (local.payments || []).length > 0;
+          // CRITICAL: never downgrade cobrado true → null/false unless explicit anulación that wasn't re-charged
+          const localCobrado = (localHasAnulacion && !reChargedAfterAnulacion) ? false
             : (local.cobrado === true ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
           // CRITICAL: never empty payments that exist locally
           const localPayments = (local.payments && local.payments.length > 0) ? local.payments : (fsDoc.payments || []);
           // CRITICAL: never clear cajaDate that exists locally
-          const localCajaDate = localHasAnulacion ? null
+          const localCajaDate = (localHasAnulacion && !reChargedAfterAnulacion) ? null
             : (local.cajaDate || fsDoc.cajaDate || null);
           const merged = {
             ...fsDoc,
