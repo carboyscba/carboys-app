@@ -8654,11 +8654,22 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                       }, 0);
                       const lastBaseFinal = Math.max(0, totalBase - otrosBase);
                       const lastAmt = lastPay.withIva ? Math.round(lastBaseFinal * (1 + ivaRate / 100)) : lastBaseFinal;
-                      const finalPays = cobroPay.map((pp, idx) => {
+                      const finalPaysFromCurrent = cobroPay.map((pp, idx) => {
                         let amt = parseFloat(pp.amount) || 0;
                         if (idx === lastIdxFinal && cobroPay.length > 1) amt = Math.max(0, lastAmt);
                         return { ...pp, amount: amt };
                       });
+                      // CRITICAL FIX: if the order was already cobrada with payments, MERGE old payments with new ones
+                      // This handles the case where order is re-opened to add new works and new payments
+                      const orderWasAlreadyCobrada = o.cobrado === true && (o.payments || []).length > 0;
+                      const previousPayments = o.payments || [];
+                      // Only merge if cobroPay state doesn't already include the previous payments (avoid double-add)
+                      // Detect if cobroPay starts with the same payments as o.payments
+                      const cobroPayIncludesPrevious = previousPayments.length > 0 && cobroPay.length >= previousPayments.length &&
+                        previousPayments.every((pp, i) => cobroPay[i] && cobroPay[i].method === pp.method && parseFloat(cobroPay[i].amount) === parseFloat(pp.amount));
+                      const finalPays = (orderWasAlreadyCobrada && !cobroPayIncludesPrevious)
+                        ? [...previousPayments, ...finalPaysFromCurrent]
+                        : finalPaysFromCurrent;
                       const hasCtaCte = finalPays.some(p => p.method === "Cuenta Corriente");
                       const vencData = hasCtaCte && cobroVencimiento ? { ctaVencimiento: cobroVencimiento } : {};
                       // Si había una anulación previa, archivarla en el histórico (no perder el dato pero no bloquear el merge)
@@ -8666,8 +8677,10 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                         historicoAnulaciones: [...(o.historicoAnulaciones || []), o.anulacionCobro],
                         anulacionCobro: null,
                       } : {};
-                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData, ...archiveAnulacion } : o2));
-                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: new Date().toISOString().split("T")[0], ...vencData, ...archiveAnulacion }));
+                      // Preserve original cajaDate if order was already cobrada (don't overwrite with today)
+                      const cajaDateValue = orderWasAlreadyCobrada && o.cajaDate ? o.cajaDate : new Date().toISOString().split("T")[0];
+                      setOrders(prev => prev.map(o2 => o2.id === o.id ? { ...o2, cobrado: true, payments: finalPays, cajaDate: cajaDateValue, cobradoEn: new Date().toISOString(), ...vencData, ...archiveAnulacion } : o2));
+                      setSelCobro(prev => ({ ...prev, cobrado: true, payments: finalPays, cajaDate: cajaDateValue, cobradoEn: new Date().toISOString(), ...vencData, ...archiveAnulacion }));
                       setHoldProgress(0);
                       setCobroVencimiento("");
                     };
@@ -20894,38 +20907,27 @@ export default function App() {
           const local = prevMap[String(fsDoc.id)];
           if (!local) return fsDoc;
           const localHasAnulacion = !!local.anulacionCobro;
-          // Detectar si fue re-cobrada después de la anulación.
-          // Caso A: cobrado:true + payments con monto = re-cobrada confirmada
-          // Caso B: payments con monto > 0 PERO la fecha de payments es posterior a la anulación = se cobró pero no se completó
-          // Caso C: tiene anulacionCobro Y payments con monto > 0 que NO son los paymentsPrev de la anulación
-          const localPaymentsTotal = (local.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-          const anulacionPayments = local.anulacionCobro?.paymentsPrev || [];
-          // Compare: if current payments are different from the anulación's previous payments, it's a re-charge
-          const paymentsAreDifferent = localHasAnulacion && localPaymentsTotal > 0 && (
-            (local.payments || []).length !== anulacionPayments.length ||
-            (local.payments || []).some((p, i) => {
-              const prev = anulacionPayments[i];
-              return !prev || p.method !== prev.method || parseFloat(p.amount) !== parseFloat(prev.amount);
-            })
-          );
-          const reChargedAfterAnulacion = localHasAnulacion && (
-            (local.cobrado === true && (local.payments || []).length > 0) ||
-            paymentsAreDifferent
-          );
+          // SAFE: only consider "re-charged after anulación" if BOTH conditions:
+          //  1. local.cobrado === true (explicit re-cobro completado)
+          //  2. cobradoEn exists AND is recent (last 24h)
+          // This prevents accidentally modifying old orders just because they have anulacionCobro
+          const cobradoEnTime = local.cobradoEn ? new Date(local.cobradoEn).getTime() : 0;
+          const isRecent = cobradoEnTime > 0 && (Date.now() - cobradoEnTime) < 24 * 60 * 60 * 1000;
+          const reChargedAfterAnulacion = localHasAnulacion && local.cobrado === true && (local.payments || []).length > 0 && isRecent;
           // CRITICAL: never downgrade cobrado true → null/false unless explicit anulación that wasn't re-charged
           const localCobrado = (localHasAnulacion && !reChargedAfterAnulacion) ? false
-            : (local.cobrado === true || reChargedAfterAnulacion ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
+            : (local.cobrado === true ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
           // CRITICAL: never empty payments that exist locally
           const localPayments = (local.payments && local.payments.length > 0) ? local.payments : (fsDoc.payments || []);
-          // CRITICAL: never clear cajaDate that exists locally
+          // CRITICAL: never clear cajaDate that exists locally - NEVER auto-set to today
           const localCajaDate = (localHasAnulacion && !reChargedAfterAnulacion) ? null
-            : (local.cajaDate || fsDoc.cajaDate || (reChargedAfterAnulacion ? new Date().toISOString().split('T')[0] : null));
+            : (local.cajaDate || fsDoc.cajaDate || null);
           const merged = {
             ...fsDoc,
             cobrado: localCobrado,
             payments: localPayments,
             cajaDate: localCajaDate,
-            // Si fue re-cobrada después de la anulación, NO preservar anulacionCobro - mover a histórico
+            // Si fue re-cobrada después de la anulación, mover a histórico (solo si es reciente)
             ...(localHasAnulacion && !reChargedAfterAnulacion ? { anulacionCobro: local.anulacionCobro } : {}),
             ...(reChargedAfterAnulacion ? { historicoAnulaciones: [...(local.historicoAnulaciones || []), local.anulacionCobro].filter(Boolean), anulacionCobro: null } : {}),
             ...(local.paymentPref || fsDoc.paymentPref ? { paymentPref: local.paymentPref || fsDoc.paymentPref } : {}),
