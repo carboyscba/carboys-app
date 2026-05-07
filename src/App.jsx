@@ -20894,22 +20894,40 @@ export default function App() {
           const local = prevMap[String(fsDoc.id)];
           if (!local) return fsDoc;
           const localHasAnulacion = !!local.anulacionCobro;
-          // Has the order been re-charged AFTER an anulación? Check if local.cobrado is true with payments.
-          const reChargedAfterAnulacion = localHasAnulacion && local.cobrado === true && (local.payments || []).length > 0;
+          // Detectar si fue re-cobrada después de la anulación.
+          // Caso A: cobrado:true + payments con monto = re-cobrada confirmada
+          // Caso B: payments con monto > 0 PERO la fecha de payments es posterior a la anulación = se cobró pero no se completó
+          // Caso C: tiene anulacionCobro Y payments con monto > 0 que NO son los paymentsPrev de la anulación
+          const localPaymentsTotal = (local.payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+          const anulacionPayments = local.anulacionCobro?.paymentsPrev || [];
+          // Compare: if current payments are different from the anulación's previous payments, it's a re-charge
+          const paymentsAreDifferent = localHasAnulacion && localPaymentsTotal > 0 && (
+            (local.payments || []).length !== anulacionPayments.length ||
+            (local.payments || []).some((p, i) => {
+              const prev = anulacionPayments[i];
+              return !prev || p.method !== prev.method || parseFloat(p.amount) !== parseFloat(prev.amount);
+            })
+          );
+          const reChargedAfterAnulacion = localHasAnulacion && (
+            (local.cobrado === true && (local.payments || []).length > 0) ||
+            paymentsAreDifferent
+          );
           // CRITICAL: never downgrade cobrado true → null/false unless explicit anulación that wasn't re-charged
           const localCobrado = (localHasAnulacion && !reChargedAfterAnulacion) ? false
-            : (local.cobrado === true ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
+            : (local.cobrado === true || reChargedAfterAnulacion ? true : (local.cobrado !== undefined ? local.cobrado : fsDoc.cobrado));
           // CRITICAL: never empty payments that exist locally
           const localPayments = (local.payments && local.payments.length > 0) ? local.payments : (fsDoc.payments || []);
           // CRITICAL: never clear cajaDate that exists locally
           const localCajaDate = (localHasAnulacion && !reChargedAfterAnulacion) ? null
-            : (local.cajaDate || fsDoc.cajaDate || null);
+            : (local.cajaDate || fsDoc.cajaDate || (reChargedAfterAnulacion ? new Date().toISOString().split('T')[0] : null));
           const merged = {
             ...fsDoc,
             cobrado: localCobrado,
             payments: localPayments,
             cajaDate: localCajaDate,
-            ...(localHasAnulacion ? { anulacionCobro: local.anulacionCobro } : {}),
+            // Si fue re-cobrada después de la anulación, NO preservar anulacionCobro - mover a histórico
+            ...(localHasAnulacion && !reChargedAfterAnulacion ? { anulacionCobro: local.anulacionCobro } : {}),
+            ...(reChargedAfterAnulacion ? { historicoAnulaciones: [...(local.historicoAnulaciones || []), local.anulacionCobro].filter(Boolean), anulacionCobro: null } : {}),
             ...(local.paymentPref || fsDoc.paymentPref ? { paymentPref: local.paymentPref || fsDoc.paymentPref } : {}),
             ...(local.factura     !== undefined ? { factura: local.factura } : fsDoc.factura ? { factura: fsDoc.factura } : {}),
             ...(local.ticket      !== undefined ? { ticket:  local.ticket  } : fsDoc.ticket  ? { ticket:  fsDoc.ticket  } : {}),
