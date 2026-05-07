@@ -4611,6 +4611,20 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
   // Si el input tiene letras Y números => es una patente => solo buscar por dominio
   const isDomainQuery = /[a-zA-Z]/.test(q) && /[0-9]/.test(q);
 
+  // Helper: get best score for a client/vehicle pair
+  const getMatchScore = (c, v) => {
+    if (!v) return 0;
+    const vDom = (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+    if (!vDom) return 0;
+    if (vDom === cleanQ) return 100;
+    if (vDom.startsWith(cleanQ)) return 50;
+    if (vDom.includes(cleanQ)) return 20;
+    // Client name/data match
+    const lq = q.toLowerCase();
+    if ((c.name || "").toLowerCase().includes(lq) || (c.lastName || "").toLowerCase().includes(lq) || (c.dni || "").includes(q) || (c.cuit || "").includes(q)) return 5;
+    return 0;
+  };
+
   const results = q.length > 0 ? clients.filter(c => {
     const domainMatch = (c.vehicles || []).filter(Boolean).some(v => (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ));
     if (isDomainQuery) return domainMatch;
@@ -4619,7 +4633,12 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
       c.lastName.toLowerCase().includes(q.toLowerCase()) ||
       (c.dni && c.dni.includes(q)) ||
       (c.cuit && c.cuit.includes(q));
-  }) : [];
+  }).map(c => {
+    // Best score across all vehicles of this client
+    const scores = (c.vehicles || []).filter(Boolean).map(v => getMatchScore(c, v));
+    const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
+    return { c, bestScore };
+  }).sort((a, b) => b.bestScore - a.bestScore).map(x => x.c) : [];
 
   // Vehicle history view
   if (selVehicle) {
@@ -4803,7 +4822,10 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
           return (v.domain || "").replace(/[^a-z0-9]/gi, "").toLowerCase().includes(cleanQ);
         });
         // If domain search matched specific vehicles, show those. Otherwise show all vehicles for this client.
-        const vehiclesToShow = matchingVehicles.length > 0 ? matchingVehicles : (c.vehicles || []);
+        const vehiclesToShow = (matchingVehicles.length > 0 ? matchingVehicles : (c.vehicles || []))
+          .map(v => ({ v, score: getMatchScore(c, v) }))
+          .sort((a, b) => b.score - a.score)
+          .map(x => x.v);
         return (
         <div key={c.id}>
           {vehiclesToShow.map(v => {
