@@ -2130,40 +2130,27 @@ const NewOrderScreen = (props) => {
             <div>
               <input inputMode="text" value={domainSearch} onChange={e => { setDomainSearch(e.target.value); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
                 onKeyDown={e => e.key === "Enter" && searchDomain()}
-                placeholder="Buscar dominio, nombre, DNI, CUIT..." style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
+                placeholder="Ingresá el dominio (ej: AD848BJ)" style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
               {/* Predictivo por dominio Y por cliente */}
               {domainSearch.replace(/\s/g,"").length >= 1 && !historyVehicle && (() => {
                 const matches = [];
                 const dsNorm = domainSearch.replace(/[^a-z0-9]/gi, "").toUpperCase();
-                const dsLower = domainSearch.trim().toLowerCase();
+                if (!dsNorm) return null;
+                // SOLO buscar por dominio. Prefix match. Punto.
                 for (const c of clients) {
-                  // Match by client name/lastName/DNI/CUIT/phone (startsWith)
-                  const clientMatch = (
-                    (c.name && c.name.toLowerCase().startsWith(dsLower)) ||
-                    (c.lastName && c.lastName.toLowerCase().startsWith(dsLower)) ||
-                    (c.name && c.lastName && `${c.name} ${c.lastName}`.toLowerCase().startsWith(dsLower)) ||
-                    (c.dni && c.dni.startsWith(dsNorm)) ||
-                    (c.cuit && c.cuit.replace(/[^0-9]/g,"").startsWith(dsNorm)) ||
-                    (c.phone && c.phone.startsWith(dsNorm))
-                  );
-                  // Solo agregar vehículos cuyo DOMINIO empieza con la búsqueda
                   for (const v of (c.vehicles || []).filter(Boolean)) {
                     if (!v.domain) continue;
                     const vDom = v.domain.replace(/[^a-z0-9]/gi, "").toUpperCase();
                     if (vDom.startsWith(dsNorm)) {
                       const vCount = orders.filter(o => o.domain === v.domain && o.status !== "cancelled").length;
                       const activeOrder = orders.find(o => o.domain === v.domain && !["delivered","cancelled","budget_closed"].includes(o.status));
-                      let score = vDom === dsNorm ? 100 : 50;
+                      const score = vDom === dsNorm ? 100 : 50;
                       matches.push({ c, v, vCount, activeOrder, score });
                     }
                   }
-                  // Si el cliente matchea por nombre/DNI/CUIT pero no tiene autos, mostrarlo igual
-                  if (clientMatch && (!c.vehicles || c.vehicles.length === 0)) {
-                    matches.push({ c, v: null, vCount: 0, activeOrder: null, score: 5 });
-                  }
                 }
-                // Sort: highest score first, then alphabetical
+                // Sort: exact match first, then alphabetical
                 matches.sort((a, b) => {
                   if (b.score !== a.score) return b.score - a.score;
                   const aDom = (a.v?.domain || "").toUpperCase();
