@@ -7251,6 +7251,9 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
   const [ticketModal, setTicketModal] = useState(null); // comprobante sin validez fiscal
   const [cobroValidError, setCobroValidError] = useState(""); // popup de validación
   const [showAnularConfirm, setShowAnularConfirm] = useState(false);
+  // Popup de anular cuando hay FC emitida — pregunta qué anular
+  const [anularConFCPopup, setAnularConFCPopup] = useState(null); // { order, motivo, motivoCustom, action }
+  const [anularNCError, setAnularNCError] = useState("");
   // ── DESCUENTO en pantalla de cobro ──
   const [showDescuentoPanel, setShowDescuentoPanel] = useState(false);
   const [cobroDescuento, setCobroDescuento] = useState({ tipo: "porcentaje", valor: "", motivo: "" });
@@ -7758,6 +7761,119 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     setSelCobro(prev => prev ? { ...prev, factura, payments: (payments || prev.payments || []).map(p => ({ ...p, amount: parseFloat(p.amount) || 0 })) } : prev);
     // Actualizar modal a modo readonly con nro de factura
     setFacturaModal(prev => ({ ...prev, order: { ...prev.order, factura }, readonly: true }));
+  };
+
+  // ── Handler emitir Nota de Crédito (anular factura emitida en ARCA) ──
+  const [emitiendoNC, setEmitiendoNC] = useState(false);
+
+  // ARCA exige que NC sea misma entidad/PV/letra que la FC original
+  // Devuelve { success, notaCredito } o { success: false, error }
+  const emitirNotaCredito = async (order, motivo) => {
+    if (!order || !order.factura || emitiendoNC) return { success: false, error: "Datos invalidos" };
+    const fc = order.factura;
+    if (!fc.cae || !fc.cbteNro || !fc.puntoVenta || !fc.tipo || !fc.entityId) {
+      return { success: false, error: "La factura original no tiene todos los datos requeridos (cae, cbteNro, puntoVenta, tipo, entityId)" };
+    }
+    if (order.notaCredito) {
+      return { success: false, error: "Esta factura ya tiene una Nota de Credito asociada" };
+    }
+
+    setEmitiendoNC(true);
+
+    try {
+      // Datos del cliente para el docTipo/docNro
+      const cl = clients.find(c => matchId(c.id, order.clientId));
+      const tipoFC = fc.tipo;
+      let docTipo = 99;
+      let docNro = 0;
+      if (tipoFC === "A" && cl?.cuit) { docTipo = 80; docNro = parseInt((cl.cuit || "").replace(/[^0-9]/g, "")) || 0; }
+      else if (tipoFC === "B" && cl?.cuit) { docTipo = 80; docNro = parseInt((cl.cuit || "").replace(/[^0-9]/g, "")) || 0; }
+      else if (tipoFC === "B" && cl?.dni) { docTipo = 96; docNro = parseInt((cl.dni || "").replace(/[^0-9]/g, "")) || 0; }
+      else if (tipoFC === "C" && cl?.dni) { docTipo = 96; docNro = parseInt((cl.dni || "").replace(/[^0-9]/g, "")) || 0; }
+
+      // Importes: deben coincidir con la FC original
+      const importeTotal = parseFloat(fc.importeTotal) || 0;
+      const importeNeto = parseFloat(fc.importeNeto) || 0;
+      const importeIva = parseFloat(fc.importeIva) || 0;
+
+      // Actividad: misma logica que la FC original
+      const workTypes = (order.works || []).map(w => w.type);
+      const solosBaterias = workTypes.length > 0 && workTypes.every(t => t === "Baterías");
+      const actividad = solosBaterias ? 453220 : 452990;
+
+      // Fecha de la FC original (yyyy-mm-dd)
+      let fcFecha = "";
+      if (fc.fecha && fc.fecha.includes("/")) {
+        // formato dd/mm/yyyy
+        const parts = fc.fecha.split("/");
+        if (parts.length === 3) fcFecha = `${parts[2]}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
+      } else if (fc.emitidaEn) {
+        fcFecha = fc.emitidaEn.split("T")[0];
+      }
+
+      const now = new Date();
+      const todayStr = now.toISOString().split("T")[0].replace(/-/g, "");
+      const arcaUrl = config.arcaUrl || "https://carboys-arca-production.up.railway.app";
+      const arcaKey = config.arcaApiKey || "carboys-arca-2026";
+
+      const payload = {
+        entityId: fc.entityId,
+        puntoVenta: fc.puntoVenta,
+        tipoFactura: tipoFC,
+        docTipo,
+        docNro,
+        importeTotal,
+        importeNeto,
+        importeIva,
+        concepto: 3,
+        actividad,
+        fchServDesde: todayStr,
+        fchServHasta: todayStr,
+        fchVtoPago: todayStr,
+        facturaOriginal: {
+          tipo: tipoFC,
+          ptoVta: fc.puntoVenta,
+          nro: fc.cbteNro,
+          fecha: fcFecha, // yyyy-mm-dd
+        },
+      };
+
+      const resp = await fetch(`${arcaUrl}/api/nota-credito`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": arcaKey },
+        body: JSON.stringify(payload)
+      });
+      const result = await resp.json();
+
+      if (!result.success) {
+        setEmitiendoNC(false);
+        return { success: false, error: result.error || "Error desconocido en ARCA" };
+      }
+
+      const notaCredito = {
+        numero: String(fc.puntoVenta).padStart(5, "0") + "-" + String(result.cbteNro).padStart(8, "0"),
+        fecha: now.toLocaleDateString("es-AR"),
+        tipo: tipoFC, // A/B/C (misma letra que la FC original)
+        cae: result.cae,
+        caeVto: result.caeVto ? result.caeVto.replace(/(\d{4})(\d{2})(\d{2})/, "$3/$2/$1") : "",
+        emitidaEn: now.toISOString(),
+        entityId: fc.entityId,
+        puntoVenta: fc.puntoVenta,
+        cbteNro: result.cbteNro,
+        importeTotal,
+        importeNeto,
+        importeIva,
+        motivo: motivo || "",
+        aplicadaPor: user.name,
+        // Referencia a la FC anulada
+        facturaOriginal: { numero: fc.numero, cbteNro: fc.cbteNro, tipo: fc.tipo, puntoVenta: fc.puntoVenta, cae: fc.cae, fecha: fc.fecha },
+      };
+      setEmitiendoNC(false);
+      return { success: true, notaCredito };
+    } catch (e) {
+      setEmitiendoNC(false);
+      return { success: false, error: "Error de conexion: " + e.message };
+    }
   };
 
   const handleEmitirTicket = () => {
@@ -8418,6 +8534,35 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                           <span style={{ fontSize: 13, fontWeight: 800, color: T.green }}>🧾 FC {o.factura.tipo} — #{o.factura.numero}</span>
                         </div>
                       )}
+                      {/* Badge de Nota de Crédito si esta orden tuvo una emitida */}
+                      {o.notaCredito && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}`, padding: "8px 12px", background: `${T.red}08`, borderRadius: 8, border: `1px solid ${T.red}30` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 12, color: T.red, fontWeight: 700 }}>🔴 Nota de Crédito emitida</span>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: T.red }}>NC {o.notaCredito.tipo} — #{o.notaCredito.numero}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: T.gray, marginTop: 3 }}>
+                            CAE: {o.notaCredito.cae} · {o.notaCredito.fecha}
+                          </div>
+                          {o.notaCredito.motivo && <div style={{ fontSize: 11, color: T.grayLight, marginTop: 2, fontStyle: "italic" }}>"{o.notaCredito.motivo}"{o.notaCredito.aplicadaPor ? ` — ${o.notaCredito.aplicadaPor}` : ""}</div>}
+                          {o.notaCredito.facturaOriginal && <div style={{ fontSize: 10, color: T.gray, marginTop: 4 }}>Anula FC {o.notaCredito.facturaOriginal.tipo} #{o.notaCredito.facturaOriginal.numero}</div>}
+                        </div>
+                      )}
+                      {/* Histórico fiscal si hubo facturas previas anuladas */}
+                      {(o.historicoFacturas || []).length > 0 && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: T.gray, marginBottom: 6 }}>📋 HISTÓRICO FISCAL</div>
+                          {(o.historicoFacturas || []).map((hf, i) => (
+                            <div key={i} style={{ fontSize: 11, padding: "6px 10px", background: T.bg3, borderRadius: 6, marginBottom: 4, borderLeft: `2px solid ${T.gray}` }}>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: T.gray, textDecoration: "line-through" }}>FC {hf.tipo} #{hf.numero}</span>
+                                {hf.anuladaCon && <span style={{ color: T.red, fontSize: 10 }}>Anulada con NC #{hf.anuladaCon.numero}</span>}
+                              </div>
+                              {hf.anuladaCon?.motivo && <div style={{ fontSize: 10, color: T.gray, fontStyle: "italic", marginTop: 2 }}>"{hf.anuladaCon.motivo}"</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {hasTicket && !hasFc && (
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
                           <span style={{ fontSize: 13, color: T.gray }}>Comprobante</span>
@@ -8706,6 +8851,146 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
           </div>
         </div>
       )}
+
+      {/* ── POPUP ANULAR CON FC EMITIDA — 3 opciones: solo cobro, solo factura, ambos ── */}
+      {anularConFCPopup && (() => {
+        const ord = anularConFCPopup.order;
+        const motivosPredefinidos = [
+          { id: "arrepentido", label: "Cliente arrepentido" },
+          { id: "monto", label: "Error en monto" },
+          { id: "datos", label: "Error en datos" },
+          { id: "otro", label: "Otro" },
+        ];
+        const motivoFinal = anularConFCPopup.motivo === "otro"
+          ? (anularConFCPopup.motivoCustom || "").trim()
+          : (motivosPredefinidos.find(m => m.id === anularConFCPopup.motivo)?.label || "");
+        const canSubmit = !!anularConFCPopup.motivo; // motivo seleccionado obligatorio (texto custom es opcional)
+
+        const ejecutarAccion = async (accion) => {
+          if (!canSubmit) return;
+          if (emitiendoNC) return;
+          setAnularConFCPopup(p => ({ ...p, action: accion }));
+          setAnularNCError("");
+          const now = new Date().toISOString();
+
+          // Acción 1: solo anular cobro (no toca factura)
+          if (accion === "cobro") {
+            const updated = {
+              ...ord, cobrado: false, payments: [], cajaDate: null,
+              status: ord.status === "delivered" ? "done" : ord.status,
+              anulacionCobro: { fecha: now, motivo: motivoFinal, usuario: user.name, facturaPrev: null, ticketPrev: ord.ticket || null, paymentsPrev: ord.payments || [] },
+            };
+            setOrders(prev => prev.map(o2 => o2.id === ord.id ? updated : o2));
+            setSelCobro(updated);
+            setCobroPay(buildInitPay(updated, config, clients));
+            setAnularConFCPopup(null);
+            return;
+          }
+
+          // Acción 2 o 3: emitir NC (anular factura, opcionalmente también cobro)
+          const ncResult = await emitirNotaCredito(ord, motivoFinal);
+          if (!ncResult.success) {
+            setAnularNCError(ncResult.error || "Error desconocido");
+            setAnularConFCPopup(p => ({ ...p, action: null }));
+            return;
+          }
+
+          // NC emitida con éxito → archivar FC en historicoFacturas
+          const facturaArchivada = { ...ord.factura, anuladaCon: { numero: ncResult.notaCredito.numero, cae: ncResult.notaCredito.cae, fecha: ncResult.notaCredito.fecha, motivo: motivoFinal } };
+          const baseUpdate = {
+            historicoFacturas: [...(ord.historicoFacturas || []), facturaArchivada],
+            factura: null,
+            notaCredito: ncResult.notaCredito,
+          };
+
+          let updated;
+          if (accion === "ambos") {
+            updated = {
+              ...ord, ...baseUpdate,
+              cobrado: false, payments: [], cajaDate: null,
+              status: ord.status === "delivered" ? "done" : ord.status,
+              anulacionCobro: { fecha: now, motivo: motivoFinal, usuario: user.name, facturaPrev: ord.factura || null, ticketPrev: ord.ticket || null, paymentsPrev: ord.payments || [] },
+            };
+          } else {
+            // Solo factura → cobro intacto
+            updated = { ...ord, ...baseUpdate };
+          }
+
+          setOrders(prev => prev.map(o2 => o2.id === ord.id ? updated : o2));
+          setSelCobro(updated);
+          if (accion === "ambos") setCobroPay(buildInitPay(updated, config, clients));
+          setAnularConFCPopup(null);
+        };
+
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 9100, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", padding: 16 }}
+            onClick={() => !emitiendoNC && setAnularConFCPopup(null)}>
+            <div style={{ background: T.bg2, borderRadius: 16, padding: 28, maxWidth: 480, width: "100%", border: `2px solid #B71C1C`, maxHeight: "92vh", overflowY: "auto" }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 40, textAlign: "center", marginBottom: 8 }}>⚠️</div>
+              <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 700, textAlign: "center", color: "#B71C1C", marginBottom: 4 }}>Anular Operación</div>
+              <div style={{ fontSize: 12, color: T.gray, textAlign: "center", marginBottom: 16 }}>Esta orden tiene factura emitida. Elegí qué anular.</div>
+
+              <div style={{ ...card, padding: 12, marginBottom: 16, background: T.bg3 }}>
+                <div style={{ fontSize: 11, color: T.gray }}>Orden: <strong>{ord.id}</strong> · {fmtD(ord.domain)}</div>
+                <div style={{ fontSize: 11, color: T.gray }}>Total: <strong style={{ color: T.accent }}>{fmt(getOrderTotal(ord))}</strong></div>
+                {ord.factura && <div style={{ fontSize: 11, color: T.green, marginTop: 4 }}>📄 FC {ord.factura.tipo} #{ord.factura.numero} · CAE {ord.factura.cae}</div>}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: T.grayLight, marginBottom: 8, display: "block" }}>Motivo *</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {motivosPredefinidos.map(m => (
+                    <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, border: `1.5px solid ${anularConFCPopup.motivo === m.id ? T.accent : T.border}`, background: anularConFCPopup.motivo === m.id ? `${T.accent}15` : T.bg3, cursor: "pointer", fontSize: 13 }}>
+                      <input type="radio" name="motivoNC" checked={anularConFCPopup.motivo === m.id} onChange={() => setAnularConFCPopup(p => ({ ...p, motivo: m.id }))} />
+                      <span>{m.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {anularConFCPopup.motivo === "otro" && (
+                  <input value={anularConFCPopup.motivoCustom} onChange={e => setAnularConFCPopup(p => ({ ...p, motivoCustom: e.target.value }))}
+                    placeholder="Detalle (opcional)"
+                    style={{ ...inputStyle, marginTop: 8, fontSize: 13 }} />
+                )}
+              </div>
+
+              {anularNCError && (
+                <div style={{ padding: 10, background: `${T.red}10`, border: `1px solid ${T.red}`, borderRadius: 8, color: T.red, fontSize: 12, marginBottom: 12 }}>
+                  ❌ Error al emitir NC: {anularNCError}
+                </div>
+              )}
+
+              {emitiendoNC && (
+                <div style={{ padding: 10, background: `${T.accent}10`, border: `1px solid ${T.accent}`, borderRadius: 8, color: T.accent, fontSize: 12, marginBottom: 12, textAlign: "center" }}>
+                  ⏳ Emitiendo Nota de Crédito en ARCA...
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button disabled={!canSubmit || emitiendoNC} onClick={() => ejecutarAccion("cobro")}
+                  style={{ padding: "14px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, background: T.bg3, border: `1.5px solid ${T.orange}`, color: T.orange, cursor: canSubmit && !emitiendoNC ? "pointer" : "not-allowed", opacity: canSubmit && !emitiendoNC ? 1 : 0.4, textAlign: "left" }}>
+                  💰 Solo el cobro
+                  <div style={{ fontSize: 11, fontWeight: 400, color: T.gray, marginTop: 3 }}>Reembolso de pago. La factura sigue vigente.</div>
+                </button>
+                <button disabled={!canSubmit || emitiendoNC} onClick={() => ejecutarAccion("factura")}
+                  style={{ padding: "14px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, background: T.bg3, border: `1.5px solid #B71C1C`, color: "#B71C1C", cursor: canSubmit && !emitiendoNC ? "pointer" : "not-allowed", opacity: canSubmit && !emitiendoNC ? 1 : 0.4, textAlign: "left" }}>
+                  📄 Solo la factura (emite NC en ARCA)
+                  <div style={{ fontSize: 11, fontWeight: 400, color: T.gray, marginTop: 3 }}>El cobro queda intacto en caja.</div>
+                </button>
+                <button disabled={!canSubmit || emitiendoNC} onClick={() => ejecutarAccion("ambos")}
+                  style={{ padding: "14px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, background: "#B71C1C", border: `1.5px solid #B71C1C`, color: "#fff", cursor: canSubmit && !emitiendoNC ? "pointer" : "not-allowed", opacity: canSubmit && !emitiendoNC ? 1 : 0.4, textAlign: "left" }}>
+                  ⚠️ Cobro + Factura (anular todo)
+                  <div style={{ fontSize: 11, fontWeight: 400, color: "#fff", marginTop: 3, opacity: 0.85 }}>Reembolso + NC en ARCA. Acción completa.</div>
+                </button>
+                <button disabled={emitiendoNC} onClick={() => { setAnularConFCPopup(null); setAnularNCError(""); }}
+                  style={{ padding: "12px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, background: T.bg3, border: `1px solid ${T.border}`, color: T.gray, cursor: emitiendoNC ? "not-allowed" : "pointer", marginTop: 4 }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {cobroValidError && (
                   <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setCobroValidError("")}>
@@ -9001,12 +9286,21 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
                     {o.status === "delivered" && (
                       <div style={{ flex: 1, padding: "14px 0", borderRadius: 10, textAlign: "center", fontSize: 13, fontWeight: 700, background: "#00C85315", border: "1.5px solid #00C853", color: "#00C853" }}>🚗 ENTREGADO</div>
                     )}
-                    {user.role === "dueño" && (
-                      <button onClick={() => { setAnularMotivoAdmin(""); setShowAnularConfirm(true); }}
+                    {(user.role === "dueño" || user.role === "admin" || user.role === "Admin" || user.role === "administracion") && (
+                      <button onClick={() => {
+                        setAnularMotivoAdmin("");
+                        // Si la orden tiene factura emitida con CAE → popup de 3 opciones
+                        // Si no → popup tradicional de anular cobro
+                        if (o.factura && o.factura.cae) {
+                          setAnularConFCPopup({ order: o, motivo: "", motivoCustom: "", action: null });
+                        } else {
+                          setShowAnularConfirm(true);
+                        }
+                      }}
                         style={{ padding: "14px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700,
                           background: "rgba(183,28,28,.06)", border: "1.5px solid #B71C1C40", color: "#B71C1C",
                           cursor: "pointer" }}>
-                        ⏪ Anular Cobro
+                        ❌ Anular
                       </button>
                     )}
                   </div>
