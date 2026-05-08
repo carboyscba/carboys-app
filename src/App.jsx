@@ -440,6 +440,28 @@ const idbLoad = async (store) => {
 
 // ── Google OAuth via GSI + Firebase signInWithIdp ─────────────
 const CB_STORAGE_KEY = "carboys_session_v1"; // clave localStorage por dispositivo
+const CB_LAST_SUC_KEY = "carboys_last_sucursal_v1"; // última sucursal usada en este device
+const CB_LAST_USER_KEY = "carboys_last_user_v1"; // último usuario por PIN en este device
+
+// ── Helpers de preferencias del dispositivo ──
+const saveLastSucursalId = (sucId) => {
+  try { if (sucId) localStorage.setItem(CB_LAST_SUC_KEY, String(sucId)); } catch(e) {}
+};
+const loadLastSucursalId = () => {
+  try { return localStorage.getItem(CB_LAST_SUC_KEY) || null; } catch(e) { return null; }
+};
+const clearLastSucursalId = () => {
+  try { localStorage.removeItem(CB_LAST_SUC_KEY); } catch(e) {}
+};
+const saveLastUserId = (userId) => {
+  try { if (userId) localStorage.setItem(CB_LAST_USER_KEY, String(userId)); } catch(e) {}
+};
+const loadLastUserId = () => {
+  try { return localStorage.getItem(CB_LAST_USER_KEY) || null; } catch(e) { return null; }
+};
+const clearLastUserId = () => {
+  try { localStorage.removeItem(CB_LAST_USER_KEY); } catch(e) {}
+};
 
 let _authToken = null;
 let _authExpiry = 0;
@@ -449,10 +471,13 @@ let _googleUserName = null;
 let _googleUserPhoto = null;
 
 // Guarda la sesión completa en localStorage del dispositivo
+// Incluye idToken+expiry para evitar refrescos innecesarios al iniciar
 const saveSession = () => {
   try {
     localStorage.setItem(CB_STORAGE_KEY, JSON.stringify({
       refreshToken: _refreshToken,
+      idToken: _authToken,
+      expiry: _authExpiry,
       email: _googleUserEmail,
       name:  _googleUserName,
       photo: _googleUserPhoto,
@@ -463,6 +488,9 @@ const saveSession = () => {
 // Borra la sesión guardada (logout)
 const clearSession = () => {
   try { localStorage.removeItem(CB_STORAGE_KEY); } catch(e) {}
+  // También limpiar preferencias de sucursal y user (logout completo)
+  clearLastSucursalId();
+  clearLastUserId();
   _authToken = null;
   _authExpiry = 0;
   _refreshToken = null;
@@ -501,16 +529,26 @@ const refreshAuthToken = async (refreshToken) => {
 };
 
 // Intenta restaurar sesión guardada — retorna { email, name, photo } o null
+// MEJORA: si el idToken aún es válido (no expiró), saltamos el fetch a Google
 const restoreSession = async () => {
   const saved = loadSession();
   if (!saved?.refreshToken) return null;
+  // Restaurar datos básicos
+  _refreshToken    = saved.refreshToken;
+  _googleUserEmail = saved.email || "";
+  _googleUserName  = saved.name  || "";
+  _googleUserPhoto = saved.photo || "";
+  // ── Fast-path: si tenemos idToken válido en cache → usarlo sin refrescar
+  if (saved.idToken && saved.expiry && Date.now() < saved.expiry - 60000) {
+    _authToken  = saved.idToken;
+    _authExpiry = saved.expiry;
+    return { email: _googleUserEmail, name: _googleUserName, photo: _googleUserPhoto };
+  }
+  // ── Slow-path: token expirado o ausente → refrescar contra Google
   try {
     const ok = await refreshAuthToken(saved.refreshToken);
     if (!ok) { clearSession(); return null; }
-    _googleUserEmail = saved.email || "";
-    _googleUserName  = saved.name  || "";
-    _googleUserPhoto = saved.photo || "";
-    saveSession(); // actualiza con el nuevo refreshToken si fue rotado
+    saveSession(); // guarda el nuevo idToken+expiry
     return { email: _googleUserEmail, name: _googleUserName, photo: _googleUserPhoto };
   } catch(e) {
     clearSession();
@@ -21686,11 +21724,22 @@ export default function App() {
       const saved = await restoreSession();
       if (saved) {
         setGoogleAuth(saved);
-        // Multi-tenant: auto-seleccionar sucursal si solo tiene una
         const sucs = findSucursalesForEmail(saved.email);
+        // ── MEJORA 3: auto-seleccionar última sucursal usada en este device ──
         if (sucs.length === 1) {
+          // Solo tiene una sucursal → auto
           switchFirebase(sucs[0]);
           setActiveSucursal(sucs[0]);
+        } else if (sucs.length > 1) {
+          // Tiene varias → buscar la última usada en este device
+          const lastSucId = loadLastSucursalId();
+          if (lastSucId) {
+            const lastSuc = sucs.find(s => String(s.id) === String(lastSucId));
+            if (lastSuc) {
+              switchFirebase(lastSuc);
+              setActiveSucursal(lastSuc);
+            }
+          }
         }
       }
       setSessionChecked(true);
@@ -21743,6 +21792,23 @@ export default function App() {
   const setUsers = _mkAdminSetter('users', 'users', _setUsers_raw);
   const [vehicleDB, setVehicleDB] = useState(VEHICLE_DB);
   const [notifications, setNotifications] = useState([]);
+
+  // ── MEJORA 4: auto-seleccionar último usuario que se logueó en este device ──
+  // Solo si hay sucursal activa, users cargados, y NO hay user activo aún
+  const userAutoSelectRef = useRef(false);
+  useEffect(() => {
+    if (userAutoSelectRef.current) return;
+    if (!activeSucursal || !googleAuth) return;
+    if (user) return; // ya hay user activo
+    if (!users || users.length === 0) return;
+    const lastUserId = loadLastUserId();
+    if (!lastUserId) return;
+    const found = users.find(u => String(u.id) === String(lastUserId));
+    if (found) {
+      userAutoSelectRef.current = true;
+      setUser(found);
+    }
+  }, [activeSucursal, googleAuth, users, user]);
 
   // ── Fix: restaurar 9 CTA CTE de marzo 2026 que fueron incorrectamente marcadas como cobradas ──
   const ctaFixRef = useRef(false);
@@ -21912,6 +21978,12 @@ export default function App() {
         }
         idbLoaded = true;
         idbReadyRef.current = true;
+        // ── MEJORA: Si IDB ya tiene datos → mostrar UI YA, Firestore actualiza en background
+        // Solo bloquear con pantalla de carga si IDB está completamente vacío (primera vez en este device)
+        if (idbOrders.length > 0 || idbClients.length > 0) {
+          isLoadingRef.current = false;
+          setDbLoading(false);
+        }
       } catch(e) {
         console.error('[IDB] loadFromIDB error:', e);
         // fallback a seed data
@@ -22259,8 +22331,20 @@ export default function App() {
         if (sucs.length === 1) {
           switchFirebase(sucs[0]);
           setActiveSucursal(sucs[0]);
+          saveLastSucursalId(sucs[0].id);
+        } else if (sucs.length > 1) {
+          // Si hay varias y tenemos una recordada del último uso → auto
+          const lastSucId = loadLastSucursalId();
+          if (lastSucId) {
+            const lastSuc = sucs.find(s => String(s.id) === String(lastSucId));
+            if (lastSuc) {
+              switchFirebase(lastSuc);
+              setActiveSucursal(lastSuc);
+              return;
+            }
+          }
+          // Si no hay recordada → se mostrará SucursalSelector
         }
-        // Si tiene más de una → se mostrará SucursalSelector
       }} />
     </NumPadProvider>
   );
@@ -22286,9 +22370,11 @@ export default function App() {
               const master = SUCURSALES_REGISTRY.find(s => s.isMaster) || SUCURSALES_REGISTRY[0];
               switchFirebase(master);
               setActiveSucursal({ ...master, _vistaGlobal: true });
+              saveLastSucursalId(master.id);
             } else {
               switchFirebase(suc);
               setActiveSucursal(suc);
+              saveLastSucursalId(suc.id);
             }
           }}
         />
@@ -22347,7 +22433,7 @@ export default function App() {
   );
 
   // 3 — Selección de usuario (¿Quién sos?)
-  if (!user) return <NumPadProvider><FontLoader /><LoginScreen onLogin={setUser} users={users} /></NumPadProvider>;
+  if (!user) return <NumPadProvider><FontLoader /><LoginScreen onLogin={(u) => { saveLastUserId(u.id); setUser(u); }} users={users} /></NumPadProvider>;
 
   const _foundOrder = selOrder ? orders.find(o => o.id === selOrder.id) : null;
   const currentOrder = selOrder ? (_foundOrder ? (selOrder._fojaType ? { ..._foundOrder, _fojaType: selOrder._fojaType } : _foundOrder) : selOrder) : null;
@@ -22399,6 +22485,7 @@ export default function App() {
                   const sucs = findSucursalesForEmail(googleAuth?.email);
                   if (isGerenteGeneral(googleAuth?.email) && sucs.length > 1) {
                     // Volver al selector de sucursales sin destruir la sesión
+                    clearLastSucursalId(); // permite volver a elegir
                     setActiveSucursal(null);
                     setUser(null);
                     setScreen("dashboard");
@@ -22457,7 +22544,7 @@ export default function App() {
               <div style={{ fontSize: 11, color: T.gray }}>Sesión activa</div>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{user.name}</div>
             </div>
-            <div onClick={() => { setUser(null); setScreen("dashboard"); }}
+            <div onClick={() => { clearLastUserId(); setUser(null); setScreen("dashboard"); }}
               style={{ width: 38, height: 38, borderRadius: "50%", background: user.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 17, cursor: "pointer", fontFamily: fontD }} title="Cerrar sesión">
               {user.initial}
             </div>
