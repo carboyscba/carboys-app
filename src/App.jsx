@@ -1617,14 +1617,35 @@ const FontLoader = () => (
       
       /* Larger checkboxes and radio buttons */
       input[type="range"] {
-        height: 8px !important;
+        height: 6px !important;
         -webkit-appearance: none;
         appearance: none;
+        background: rgba(180, 180, 180, 0.25);
+        border-radius: 3px;
       }
       input[type="range"]::-webkit-slider-thumb {
-        width: 28px !important;
-        height: 28px !important;
+        width: 22px !important;
+        height: 22px !important;
+        border-radius: 50% !important;
+        background: #FB8C00 !important;
+        border: 2px solid #fff !important;
+        box-shadow: 0 2px 6px rgba(251, 140, 0, 0.45), 0 1px 2px rgba(0,0,0,0.2) !important;
+        cursor: grab;
         -webkit-appearance: none;
+        transition: transform .12s ease, box-shadow .12s ease;
+      }
+      input[type="range"]::-webkit-slider-thumb:active {
+        transform: scale(1.15);
+        cursor: grabbing;
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 22px !important;
+        height: 22px !important;
+        border-radius: 50% !important;
+        background: #FB8C00 !important;
+        border: 2px solid #fff !important;
+        box-shadow: 0 2px 6px rgba(251, 140, 0, 0.45), 0 1px 2px rgba(0,0,0,0.2) !important;
+        cursor: grab;
       }
       
       /* Scrollbar for touch */
@@ -15377,6 +15398,7 @@ const SF_TEMPLATE = [
   { section: "CUBIERTAS", icon: "🛞", items: [
     { id: "rotacion_cubiertas", label: "Rotación de cubiertas", type: "toggle", toggleOptions: ["Realizada", "No realizada"] },
     { id: "estado_cubiertas", label: "Estado de cubiertas", type: "tires" },
+    { id: "presion_cubiertas", label: "Presión final de cubiertas", type: "pressure" },
   ]},
   { section: "BATERÍA", icon: "🔋", items: [
     { id: "bateria_control", label: "Control batería", type: "batteryPercent", percentLabel: "Vida útil", needsAuth: true },
@@ -16211,7 +16233,7 @@ const ServiceSheetScreen = (props) => {
     if (order.serviceSheet && typeof order.serviceSheet === "object" && Object.keys(order.serviceSheet).length > 0) return order.serviceSheet;
     const init = {};
     SHEET_TPL.forEach(sec => sec.items.forEach(item => {
-      init[item.id] = { checked: false, status: "", obs: "", percent: -1, toggle: "", voltage: "", fluidOk: "", added: false, lampChanged: false, dtcStatus: "", dtcEntries: [], tires: { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 } };
+      init[item.id] = { checked: false, status: "", obs: "", percent: -1, toggle: "", voltage: "", fluidOk: "", added: false, lampChanged: false, dtcStatus: "", dtcEntries: [], tires: { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 }, pressures: { del_izq: { low: false, psi: "" }, del_der: { low: false, psi: "" }, tra_izq: { low: false, psi: "" }, tra_der: { low: false, psi: "" } }, psi: "" };
     }));
     return init;
   });
@@ -16382,6 +16404,7 @@ const ServiceSheetScreen = (props) => {
       case "voltage": return !!d.voltage;
       case "dtc": return !!d.dtcStatus;
       case "tires": return d.checked;
+      case "pressure": return !!d.psi;
       case "optionalBinary": return !d.checked || !!d.fluidOk;
       case "optionalStatusRC": return !d.checked || !!d.status;
       default: return d.checked;
@@ -17312,8 +17335,19 @@ const ServiceSheetScreen = (props) => {
 
         {item.type === "tires" && !(item.optional && !d.checked) && (() => {
           const tires = d.tires || { del_izq: 100, del_der: 100, tra_izq: 100, tra_der: 100 };
+          const pressures = d.pressures || { del_izq: { low: false, psi: "" }, del_der: { low: false, psi: "" }, tra_izq: { low: false, psi: "" }, tra_der: { low: false, psi: "" } };
           const col = (v) => v > 60 ? T.green : v > 30 ? T.orange : T.red;
           const setTire = (key, val) => upd(item.id, { tires: { ...tires, [key]: parseInt(val) || 0 }, checked: true });
+          const togglePressureLow = (key) => {
+            const cur = pressures[key] || { low: false, psi: "" };
+            const newPressures = { ...pressures, [key]: { low: !cur.low, psi: cur.low ? "" : cur.psi } };
+            upd(item.id, { pressures: newPressures, checked: true });
+          };
+          const setPressurePsi = (key, val) => {
+            const cur = pressures[key] || { low: true, psi: "" };
+            const newPressures = { ...pressures, [key]: { ...cur, psi: val.replace(/[^0-9]/g, "") } };
+            upd(item.id, { pressures: newPressures, checked: true });
+          };
           const TIRES = [{ key: "del_izq", label: "Del. Izq." }, { key: "del_der", label: "Del. Der." }, { key: "tra_izq", label: "Tra. Izq." }, { key: "tra_der", label: "Tra. Der." }];
           return (
             <div style={{ ...ml, marginBottom: 8 }}>
@@ -17333,8 +17367,10 @@ const ServiceSheetScreen = (props) => {
                   </div>
                 ))}
               </div>
-              {TIRES.map(({ key, label }) => (
-                <div key={key} style={{ marginBottom: 6 }}>
+              {TIRES.map(({ key, label }) => {
+                const pp = pressures[key] || { low: false, psi: "" };
+                return (
+                <div key={key} style={{ marginBottom: 8, padding: "6px 8px", background: T.bg, borderRadius: 8, border: `1px solid ${T.border}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
                     <span style={{ color: T.grayLight }}>{label}</span>
                     <span style={{ fontFamily: fontD, fontWeight: 800, color: col(tires[key]) }}>{tires[key]}%</span>
@@ -17342,11 +17378,39 @@ const ServiceSheetScreen = (props) => {
                   <input type="range" min="0" max="100" step="5" value={tires[key]}
                     onChange={e => setTire(key, e.target.value)}
                     style={{ width: "100%", accentColor: col(tires[key]) }} />
+                  {/* Check de presión baja con input PSI */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                    <div onClick={() => togglePressureLow(key)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${pp.low ? T.red : T.border}`, background: pp.low ? T.red : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{pp.low ? "✓" : ""}</div>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: pp.low ? T.red : T.gray }}>🔴 Presión baja</span>
+                    </div>
+                    {pp.low && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
+                        <input inputMode="numeric" value={pp.psi || ""} onChange={e => setPressurePsi(key, e.target.value)}
+                          placeholder="PSI" style={{ ...inputStyle, width: 60, fontSize: 11, padding: "3px 6px", textAlign: "center", fontWeight: 700, color: T.red, borderColor: T.red }} />
+                        <span style={{ fontSize: 10, fontWeight: 700, color: T.red }}>PSI</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           );
         })()}
+
+        {/* ── Presión final de cubiertas (un solo input para las 4) ── */}
+        {item.type === "pressure" && (
+          <div style={{ ...ml, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input inputMode="numeric" value={d.psi || ""} onChange={e => upd(item.id, { psi: e.target.value.replace(/[^0-9]/g, ""), checked: !!e.target.value })}
+                placeholder="Ej: 32" style={{ ...inputStyle, width: 110, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "8px 12px", textAlign: "center" }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>PSI</span>
+              <span style={{ fontSize: 11, color: T.gray }}>Presión a la que se inflaron las cubiertas</span>
+            </div>
+          </div>
+        )}
 
         <div style={ml}>
           {item.type !== "binaryPresente" && <input inputMode="text" value={d.obs || ""} onChange={e => upd(item.id, { obs: e.target.value })}
@@ -19913,9 +19977,18 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   const isItemVisible = (item, d) => {
     if (!d) return false;
     // Ítems opcionales (Service Base): solo mostrar si fueron tildados
-    if (item.optional === true) return !!d.checked;
+    if (item.optional === true) {
+      // Caso especial cuatrox4: si checked pero NO completó nada → no mostrar
+      if (item.type === "cuatrox4") {
+        if (!d.checked) return false;
+        // Visible solo si llenó al menos uno de los 3 campos
+        return !!(d.diferencial_ok || d.transfer_ok || d.engrase_ok);
+      }
+      return !!d.checked;
+    }
     if (item.type === "optionalStatusRC" || item.type === "optionalBinary") return !!d.checked;
     if (item.type === "tires") return false;
+    if (item.type === "pressure") return false;
     if (item.type === "check") return d.checked;
     if (item.type === "serviceReset") return !!d.resetStatus;
     if (d.status || d.fluidOk || d.checked || d.toggle || d.voltage || d.dtcStatus || d.percent >= 0 || d.lampChanged) return true;
@@ -19939,8 +20012,43 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
   });
 
   const sections = FOJA_TPL.map(sec => {
-    const items = sec.items.filter(it => isItemVisible(it, sheet[it.id])).map(it => {
+    const items = sec.items.filter(it => isItemVisible(it, sheet[it.id])).flatMap(it => {
       const d = sheet[it.id] || {};
+      // ── Caso especial: cuatrox4 → expandir en múltiples sub-items para layout vertical ──
+      if (it.type === "cuatrox4" && d.checked) {
+        const subRows = [];
+        if (d.diferencial_ok) {
+          subRows.push({
+            itemId: it.id + "_dif",
+            label: "Diferencial" + (d.diferencial_nivelado ? " (niveló)" : ""),
+            color: d.diferencial_ok === "bien" ? "#2E7D32" : "#C62828",
+            text: d.diferencial_ok === "bien" ? "Bien" : "Mal",
+            wasChanged: false, prevText: null, prevColor: null, subText: null, subColor: null,
+            pct: null, pctChanged: false, brakePct: null, brakePctColor: null, brakePctLabel: null,
+          });
+        }
+        if (d.transfer_ok) {
+          subRows.push({
+            itemId: it.id + "_trans",
+            label: "Caja transferencia" + (d.transfer_nivelado ? " (niveló)" : ""),
+            color: d.transfer_ok === "bien" ? "#2E7D32" : "#C62828",
+            text: d.transfer_ok === "bien" ? "Bien" : "Mal",
+            wasChanged: false, prevText: null, prevColor: null, subText: null, subColor: null,
+            pct: null, pctChanged: false, brakePct: null, brakePctColor: null, brakePctLabel: null,
+          });
+        }
+        if (d.engrase_ok) {
+          subRows.push({
+            itemId: it.id + "_eng",
+            label: "Engrase",
+            color: d.engrase_ok === "Se realizó" ? "#2E7D32" : "#718096",
+            text: d.engrase_ok,
+            wasChanged: false, prevText: null, prevColor: null, subText: null, subColor: null,
+            pct: null, pctChanged: false, brakePct: null, brakePctColor: null, brakePctLabel: null,
+          });
+        }
+        return subRows;
+      }
       // Si es un ítem forzado (incluido en la orden), siempre mostrar como Sustituida
       const isForced = fojaPDFForcedKeys.has(it.id);
       const isSustituida = d.status === "cambiado" || d.fluidOk === "cambiado"
@@ -19956,7 +20064,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       const info = hasPct ? null : fojaLabel(it, effectiveD);
       let pctChanged = false;
       if (hasPct && d.status === "cambiado") pctChanged = true;
-      return {
+      return [{
         itemId: it.id,
         label: it.type === "freno_trasero" ? `Freno (${d.toggle || ""})` : it.label,
         color: isSustituida ? "#1565C0" : (info ? info.color : fojaColor(it, d)),
@@ -19971,7 +20079,7 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
         brakePct: (info?.pctVal !== null && info?.pctVal !== undefined && info?.pctVal <= 2) ? info.pctVal : null,
         brakePctColor: info?.pctColor || null,
         brakePctLabel: info?.pctLabel || null,
-      };
+      }];
     });
     return { ...sec, items };
   }).filter(s => s.items.length > 0);
@@ -20154,21 +20262,44 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 })()}
               </div>
               {hasTires ? (
-                <div style={{ position: "relative", width: 130, height: 170, margin: "0 auto" }}>
-                  <div style={{ position: "absolute", top: 24, left: 20, width: 90, height: 122, border: "2.5px solid #90CAF9", borderRadius: 28, background: "#E3F2FD" }} />
-                  <div style={{ position: "absolute", top: 48, left: 36, width: 58, height: 28, border: "1.5px solid #90CAF9", borderRadius: "8px 8px 0 0", background: "rgba(187,222,251,.25)" }} />
-                  {[["del_izq", 8, 0, "DEL IZQ"], ["del_der", 8, null, "DEL DER"], ["tra_izq", null, 0, "TRA IZQ"], ["tra_der", null, null, "TRA DER"]].map(([key, top, left, label], idx) => {
+                <div style={{ position: "relative", width: 200, height: 170, margin: "0 auto" }}>
+                  <div style={{ position: "absolute", top: 24, left: 55, width: 90, height: 122, border: "2.5px solid #90CAF9", borderRadius: 28, background: "#E3F2FD" }} />
+                  <div style={{ position: "absolute", top: 48, left: 71, width: 58, height: 28, border: "1.5px solid #90CAF9", borderRadius: "8px 8px 0 0", background: "rgba(187,222,251,.25)" }} />
+                  {[["del_izq", 8, 35, "DEL IZQ", "left"], ["del_der", 8, null, "DEL DER", "right"], ["tra_izq", null, 35, "TRA IZQ", "left"], ["tra_der", null, null, "TRA DER", "right"]].map(([key, top, left, label, side], idx) => {
                     const pct = tiresD.tires?.[key] ?? 0;
+                    const press = tiresD.pressures?.[key] || {};
                     const bg = pct >= 50 ? "linear-gradient(135deg,#2E7D32,#43A047)" : pct >= 30 ? "linear-gradient(135deg,#E65100,#EF6C00)" : "linear-gradient(135deg,#C62828,#E53935)";
                     const style = { position: "absolute", width: 34, height: 48, borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, background: bg, boxShadow: "0 2px 6px rgba(0,0,0,.15)" };
                     if (top !== null) style.top = top; else style.bottom = 8;
-                    if (left !== null) style.left = left; else style.right = 0;
-                    return <div key={idx} style={style}><div style={{ fontSize: 15, lineHeight: 1 }}>{pct}%</div><div style={{ fontSize: 7, opacity: .85, marginTop: 1 }}>{label}</div></div>;
+                    if (left !== null) style.left = left; else style.right = 35;
+                    // PSI badge style — al costado opuesto a la cubierta (afuera)
+                    const psiStyle = { position: "absolute", fontSize: 9, fontWeight: 800, color: "#C62828", lineHeight: 1, textAlign: side === "left" ? "right" : "left" };
+                    if (top !== null) psiStyle.top = top + 16; else psiStyle.bottom = 24;
+                    if (side === "left") psiStyle.left = 0; else psiStyle.right = 0;
+                    psiStyle.width = 32;
+                    return (
+                      <React.Fragment key={idx}>
+                        <div style={style}><div style={{ fontSize: 15, lineHeight: 1 }}>{pct}%</div><div style={{ fontSize: 7, opacity: .85, marginTop: 1 }}>{label}</div></div>
+                        {press.low && press.psi && (
+                          <div style={psiStyle}>{press.psi} PSI</div>
+                        )}
+                      </React.Fragment>
+                    );
                   })}
                 </div>
               ) : (
                 <div style={{ padding: 20, color: "#A0AEC0", fontSize: 12, textAlign: "center" }}>Sin datos de cubiertas</div>
               )}
+              {/* PRESIÓN FINAL DE CUBIERTAS — debajo del gráfico */}
+              {(() => {
+                const presionFinal = (sheet.presion_cubiertas || {}).psi;
+                if (!presionFinal) return null;
+                return (
+                  <div style={{ marginTop: 8, padding: "6px 12px", background: "#E3F2FD", border: "1px solid #90CAF9", borderRadius: 6, textAlign: "center", width: "100%" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#1565C0", letterSpacing: .3 }}>PRESIÓN FINAL DE CUBIERTAS: {presionFinal} PSI</span>
+                  </div>
+                );
+              })()}
             </div>
             {/* RIGHT: OBSERVACIONES */}
             <div style={{ border: "1.5px solid #E2E8F0", borderRadius: 8, padding: "10px 14px" }}>
@@ -20255,10 +20386,10 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                     }
                   });
                 });
-                // DTC codes
-                const _dtcData = sheet.diagnostico || {};
-                const _dtcPresent = _dtcData.dtc_fallos === "con_fallos" || _dtcData.dtc_codigos;
-                const _dtcCodes = (_dtcData.dtc_codigos || "").split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+                // DTC codes — leer del lugar correcto (sheet.dtc_fallos.dtcStatus + dtcEntries)
+                const _dtcData = sheet.dtc_fallos || {};
+                const _dtcPresent = _dtcData.dtcStatus === "con_fallos";
+                const _dtcEntries = (_dtcData.dtcEntries || []).filter(e => (e.code || "").trim() || (e.desc || "").trim());
                 return (<>
                   {_obs.length === 0 && !_dtcPresent && <div style={{ color: "#A0AEC0", fontSize: 12, padding: 8, textAlign: "center" }}>Sin observaciones</div>}
                   {_obs.map((o, i) => (
@@ -20267,12 +20398,12 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                       <span>{o.text}</span>
                     </div>
                   ))}
-                  {_dtcPresent && _dtcCodes.length > 0 && (<>
+                  {_dtcPresent && _dtcEntries.length > 0 && (<>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "#C62828", letterSpacing: .5, marginTop: 8, marginBottom: 4 }}>CÓDIGOS DTC DETECTADOS</div>
-                    {_dtcCodes.map((code, i) => (
+                    {_dtcEntries.map((entry, i) => (
                       <div key={i} style={{ display: "flex", gap: 5, padding: "3px 0", borderBottom: "1px solid #F5F5F5", fontSize: 12, color: "#C62828", fontWeight: 600, lineHeight: 1.4 }}>
                         <span style={{ fontWeight: 700, minWidth: 18 }}>D{i + 1}.</span>
-                        <span>{code}</span>
+                        <span><strong>{entry.code || "—"}</strong>{entry.desc ? ` — ${entry.desc}` : ""}</span>
                       </div>
                     ))}
                   </>)}
