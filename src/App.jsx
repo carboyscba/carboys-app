@@ -1265,6 +1265,11 @@ const BUDGET_CATEGORIES = {
     { key: "correa_poliv", label: "Correa poliv" },
     { key: "tensores", label: "Tensores" },
     { key: "bujias", label: "Bujías" },
+    { key: "tacos_motor", label: "Tacos de motor", hasSubitems: [
+      { key: "izq", label: "Izquierdo", labelShort: "Izq" },
+      { key: "der", label: "Derecho", labelShort: "Der" },
+      { key: "caja", label: "Caja", labelShort: "Caja" },
+    ] },
   ],
   "Escape": [
     { key: "multiple_esc", label: "Múltiple" },
@@ -1306,8 +1311,49 @@ const findWorkType = (name) => {
 };
 const ITEMS_PLUS_FREE = ["Tren Delantero", "Tren Trasero", "Mecánica", "Escape"];
 
+// ── Helpers para items agrupados (ej: Tacos de motor con izq/der/caja) ──
+const trenItemsTotal = (items) => {
+  if (!Array.isArray(items)) return 0;
+  return items.reduce((s, x) => {
+    if (x.isGroup && Array.isArray(x.subitems)) {
+      return s + x.subitems.filter(si => si.selected).reduce((s2, si) => s2 + (parseFloat(si.price) || 0), 0);
+    }
+    if (x.isCustom) return s + (x.price && x.label ? parseFloat(x.price) || 0 : 0);
+    return s + (x.selected ? parseFloat(x.price) || 0 : 0);
+  }, 0);
+};
+const trenItemsDesc = (items) => {
+  if (!Array.isArray(items)) return "";
+  const parts = [];
+  items.forEach(x => {
+    if (x.isGroup && Array.isArray(x.subitems)) {
+      const selSubs = x.subitems.filter(si => si.selected);
+      if (selSubs.length > 0) {
+        parts.push(`${x.label} (${selSubs.map(si => si.label).join(", ")})`);
+      }
+    } else if (x.isCustom) {
+      if (x.label) parts.push(x.label);
+    } else if (x.selected) {
+      parts.push(x.otroDesc ? `${x.label} (${x.otroDesc})` : x.label);
+    }
+  });
+  return parts.join(", ");
+};
+
 const buildTrenItems = (category) => {
-  const fixed = (BUDGET_CATEGORIES[category] || []).map(t => ({ ...t, selected: false, price: "", side: t.hasSide ? "ambos" : undefined }));
+  const fixed = (BUDGET_CATEGORIES[category] || []).map(t => {
+    if (t.hasSubitems) {
+      return {
+        ...t,
+        isGroup: true,
+        expanded: false,
+        selected: false,
+        price: "",
+        subitems: t.hasSubitems.map(si => ({ key: si.key, label: si.label, labelShort: si.labelShort, selected: false, price: "" })),
+      };
+    }
+    return { ...t, selected: false, price: "", side: t.hasSide ? "ambos" : undefined };
+  });
   if (FREE_CATEGORIES.includes(category)) return [{ key: "libre_1", label: "", selected: false, price: "", isCustom: true }];
   if (category === "Mecánica") return fixed; // Sin "Otro" — usar Agregar servicio
   return [...fixed, { key: "otro", label: "Otro", selected: false, price: "", otroDesc: "", isCustom: false }];
@@ -2036,8 +2082,14 @@ const NewOrderScreen = (props) => {
       if (w.type === "Baterías" || w.type === "Baterias") {
         return w.trenItems.some(ti => ti.selected) && parseFloat(w.price) > 0;
       }
-      const hasSelected = w.trenItems.some(ti => ti.isCustom ? ti.label : ti.selected);
-      const missingPrice = w.trenItems.some(ti => (ti.isCustom ? (ti.label && !ti.price) : (ti.selected && !ti.price)));
+      const hasSelected = w.trenItems.some(ti => {
+        if (ti.isGroup) return (ti.subitems || []).some(si => si.selected);
+        return ti.isCustom ? ti.label : ti.selected;
+      });
+      const missingPrice = w.trenItems.some(ti => {
+        if (ti.isGroup) return (ti.subitems || []).some(si => si.selected && !si.price);
+        return ti.isCustom ? (ti.label && !ti.price) : (ti.selected && !ti.price);
+      });
       return hasSelected && !missingPrice && parseFloat(w.price) > 0;
     }
     return w.type && w.price && parseFloat(w.price) > 0;
@@ -3302,15 +3354,79 @@ const NewOrderScreen = (props) => {
                   </div>
                 ) : w.trenItems && (
                   <div style={{ marginBottom: 10 }}>
-                    {w.trenItems.map((ti, j) => (
+                    {w.trenItems.map((ti, j) => {
+                      // ── Item AGRUPADO (ej: Tacos de motor con izq/der/caja) ──
+                      if (ti.isGroup) {
+                        const selSubs = (ti.subitems || []).filter(si => si.selected);
+                        const groupTotal = selSubs.reduce((s, si) => s + (parseFloat(si.price) || 0), 0);
+                        const hasSel = selSubs.length > 0;
+                        return (
+                          <div key={j} style={{ padding: "8px 10px", marginBottom: 4, background: hasSel ? "rgba(30,136,229,0.08)" : T.bg, borderRadius: 8, border: `1px solid ${hasSel ? T.accent : T.border}`, transition: "all .2s" }}>
+                            <div onClick={() => {
+                              const newItems = [...w.trenItems];
+                              newItems[j] = { ...newItems[j], expanded: !newItems[j].expanded };
+                              updateWork(i, "trenItems", newItems);
+                            }} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+                              <span style={{ fontSize: 12, color: T.gray, width: 18, textAlign: "center" }}>{ti.expanded ? "▼" : "▶"}</span>
+                              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: hasSel ? T.accent : T.text }}>{ti.label}</span>
+                              {hasSel && (
+                                <span style={{ fontSize: 11, color: T.accent, fontWeight: 700, marginRight: 6 }}>
+                                  {selSubs.length} sel · {fmt(groupTotal)}
+                                </span>
+                              )}
+                            </div>
+                            {ti.expanded && (
+                              <div style={{ marginTop: 8, paddingLeft: 26 }}>
+                                {(ti.subitems || []).map((si, sk) => (
+                                  <div key={sk} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: si.selected ? "rgba(30,136,229,0.05)" : T.bg, borderRadius: 6, border: `1px solid ${si.selected ? T.accent : T.border}` }}>
+                                    <div onClick={() => {
+                                      const newItems = [...w.trenItems];
+                                      const newSubs = [...newItems[j].subitems];
+                                      newSubs[sk] = { ...newSubs[sk], selected: !newSubs[sk].selected };
+                                      newItems[j] = { ...newItems[j], subitems: newSubs };
+                                      const total = trenItemsTotal(newItems);
+                                      const desc = trenItemsDesc(newItems);
+                                      updateWork(i, "trenItems", newItems);
+                                      updateWork(i, "price", total);
+                                      updateWork(i, "desc", desc);
+                                    }} style={{ width: 22, height: 22, borderRadius: 5, border: `2px solid ${si.selected ? T.accent : T.border}`, background: si.selected ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                                      {si.selected && <span style={{ color: "#FFF", fontSize: 12, fontWeight: 800 }}>✓</span>}
+                                    </div>
+                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: si.selected ? T.accent : T.text }}>{si.label}</span>
+                                    {si.selected && (
+                                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                        <span style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>$</span>
+                                        <input inputMode="numeric" value={si.price ? Number(si.price).toLocaleString("es-AR") : ""} onChange={e => {
+                                          const raw = e.target.value.replace(/[^0-9]/g, "");
+                                          const newItems = [...w.trenItems];
+                                          const newSubs = [...newItems[j].subitems];
+                                          newSubs[sk] = { ...newSubs[sk], price: raw };
+                                          newItems[j] = { ...newItems[j], subitems: newSubs };
+                                          const total = trenItemsTotal(newItems);
+                                          const desc = trenItemsDesc(newItems);
+                                          updateWork(i, "trenItems", newItems);
+                                          updateWork(i, "price", total);
+                                          updateWork(i, "desc", desc);
+                                        }} placeholder="0" style={{ ...inputStyle, width: 85, fontSize: 13, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      // ── Item plano normal ──
+                      return (
                       <div key={j} style={{ padding: "8px 10px", marginBottom: 4, background: ti.isCustom ? (ti.label ? "rgba(30,136,229,0.08)" : T.bg) : (ti.selected ? "rgba(30,136,229,0.08)" : T.bg), borderRadius: 8, border: `1px solid ${(ti.isCustom ? (ti.label || ti.price) : ti.selected) ? T.accent : T.border}`, transition: "all .2s" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {!ti.isCustom && (
                           <div onClick={() => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], selected: !newItems[j].selected };
-                            const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
-                            const desc = newItems.filter(x => x.isCustom ? (x.label) : x.selected).map(x => x.isCustom ? x.label : (x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label)).join(", ");
+                            const total = trenItemsTotal(newItems);
+                            const desc = trenItemsDesc(newItems);
                             updateWork(i, "trenItems", newItems);
                             updateWork(i, "price", total);
                             updateWork(i, "desc", desc);
@@ -3322,8 +3438,8 @@ const NewOrderScreen = (props) => {
                           <input inputMode="text" value={ti.label || ""} onChange={e => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], label: e.target.value };
-                            const desc = newItems.filter(x => x.isCustom ? (x.label) : x.selected).map(x => x.isCustom ? x.label : (x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label)).join(", ");
-                            const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
+                            const desc = trenItemsDesc(newItems);
+                            const total = trenItemsTotal(newItems);
                             updateWork(i, "trenItems", newItems);
                             updateWork(i, "desc", desc);
                             updateWork(i, "price", total);
@@ -3335,7 +3451,7 @@ const NewOrderScreen = (props) => {
                           <input inputMode="text" value={ti.otroDesc || ""} onChange={e => {
                             const newItems = [...w.trenItems];
                             newItems[j] = { ...newItems[j], otroDesc: e.target.value };
-                            const desc = newItems.filter(x => x.isCustom ? x.label : x.selected).map(x => x.otroDesc ? x.label + " (" + x.otroDesc + ")" : x.label).join(", ");
+                            const desc = trenItemsDesc(newItems);
                             updateWork(i, "trenItems", newItems);
                             updateWork(i, "desc", desc);
                           }} placeholder={ti.key === "otro" ? "Especificar..." : "Descripción..."} style={{ ...inputStyle, width: 100, fontSize: 11, padding: "4px 8px" }} />
@@ -3347,7 +3463,7 @@ const NewOrderScreen = (props) => {
                                 const newItems = [...w.trenItems];
                                 const isFree = !newItems[j].isFree;
                                 newItems[j] = { ...newItems[j], isFree, price: isFree ? "0" : "" };
-                                const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
+                                const total = trenItemsTotal(newItems);
                                 updateWork(i, "trenItems", newItems);
                                 updateWork(i, "price", total);
                               }} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${ti.isFree ? T.green : T.border}`, background: ti.isFree ? `${T.green}20` : "transparent", color: ti.isFree ? T.green : T.gray, marginRight: 4 }}>
@@ -3360,7 +3476,7 @@ const NewOrderScreen = (props) => {
                               const raw = e.target.value.replace(/[^0-9]/g, "");
                               const newItems = [...w.trenItems];
                               newItems[j] = { ...newItems[j], price: raw };
-                              const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
+                              const total = trenItemsTotal(newItems);
                               updateWork(i, "trenItems", newItems);
                               updateWork(i, "price", total);
                             }} placeholder="0" style={{ ...inputStyle, width: 85, fontSize: 14, fontWeight: 700, fontFamily: fontD, padding: "4px 8px", textAlign: "right" }} />
@@ -3371,7 +3487,7 @@ const NewOrderScreen = (props) => {
                         {ti.isCustom && w.trenItems.filter(x => x.isCustom).length > 1 && (
                           <span onClick={() => {
                             const newItems = w.trenItems.filter((_, k) => k !== j);
-                            const total = newItems.filter(x => x.isCustom ? (x.price && x.label) : x.selected).reduce((s, x) => s + (parseFloat(x.price) || 0), 0);
+                            const total = trenItemsTotal(newItems);
                             updateWork(i, "trenItems", newItems);
                             updateWork(i, "price", total);
                           }} style={{ color: T.red, cursor: "pointer", fontSize: 14, fontWeight: 700, padding: "0 4px" }}>✕</span>
@@ -3396,7 +3512,8 @@ const NewOrderScreen = (props) => {
                           </div>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
                     {/* Add more custom fields */}
                     <div onClick={() => {
                       const newItems = [...w.trenItems, { key: `libre_${Date.now()}`, label: "", selected: false, price: "", isCustom: true }];
@@ -5331,14 +5448,26 @@ const VehicleDetailScreen = (props) => {
             </div>
           </div>
           {(order.works || []).map(function(w, wi) {
-            var wItems = (w.trenItems || []).filter(function(x) { return x.isCustom ? x.label : x.selected; });
+            var wItems = (w.trenItems || []).filter(function(x) {
+              if (x.isGroup) return (x.subitems || []).some(function(si) { return si.selected; });
+              return x.isCustom ? x.label : x.selected;
+            });
             return (
               <div key={wi} style={{ padding: "8px 12px", background: T.bg, borderRadius: 8, fontSize: 12, marginBottom: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                   <span style={{ fontWeight: 700, color: "#9C27B0", fontSize: 11, textTransform: "uppercase" }}>{w.type}</span>
                   <span style={{ fontWeight: 700, color: "#9C27B0", fontFamily: fontD, fontSize: 14 }}>{fmt(parseFloat(w.price) || 0)}</span>
                 </div>
-                {wItems.length > 0 && wItems.map(function(ti, k) { return (
+                {wItems.length > 0 && wItems.map(function(ti, k) {
+                  if (ti.isGroup) {
+                    return (ti.subitems || []).filter(function(si) { return si.selected; }).map(function(si, sk) { return (
+                      <div key={k + "_" + sk} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0 3px 8px" }}>
+                        <span style={{ color: T.text, fontSize: 12 }}>• {ti.label} — {si.label}</span>
+                        <span style={{ fontWeight: 600, color: T.gray, fontSize: 11 }}>{fmt(parseFloat(si.price) || 0)}</span>
+                      </div>
+                    ); });
+                  }
+                  return (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0 3px 8px" }}>
                     <span style={{ color: T.text, fontSize: 12 }}>• {ti.isCustom ? ti.label : ti.label}{ti.otroDesc ? " — " + ti.otroDesc : ""}</span>
                     <span style={{ fontWeight: 600, color: T.gray, fontSize: 11 }}>{fmt(parseFloat(ti.price) || 0)}</span>
@@ -15211,6 +15340,13 @@ const SF_TEMPLATE = [
     { id: "tensores_poliv", label: "Tensores poly-v", type: "binary" , needsAuth: true },
     { id: "mangueras_refrig", label: "Mangueras de refrigeración", type: "binary" },
     { id: "perdidas_aceite", label: "Pérdidas de aceite", type: "binaryPresente" },
+    { id: "tacos_motor", label: "Tacos de motor", type: "statusRC_grouped", needsAuth: true,
+      subitems: [
+        { id: "taco_motor_izq", label: "Taco de motor izquierdo", labelShort: "Izq", obsLabel: "TACO DE MOTOR IZQUIERDO" },
+        { id: "taco_motor_der", label: "Taco de motor derecho", labelShort: "Der", obsLabel: "TACO DE MOTOR DERECHO" },
+        { id: "taco_caja", label: "Taco de caja", labelShort: "Caja", obsLabel: "TACO DE CAJA" },
+      ]
+    },
   ]},
   { section: "LUCES", icon: "💡", items: [
     { id: "luz_baja", label: "Luz baja", type: "lamp" },
@@ -15906,6 +16042,10 @@ const ServiceSheetScreen = (props) => {
     tensores_poliv:    "Mecánica",
     mangueras_refrig:  "Mecánica",
     perdidas_aceite:   "Mecánica",
+    // Tacos de motor (subitems del statusRC_grouped)
+    taco_motor_izq:    "Mecánica",
+    taco_motor_der:    "Mecánica",
+    taco_caja:         "Mecánica",
     // Varios
     escobillas_estado: "Varios",
     escobillas:        "Varios",
@@ -16050,6 +16190,20 @@ const ServiceSheetScreen = (props) => {
           if (sheetKey) forcedChangeItems.add(sheetKey);
         });
       }
+    }
+    // Mecánica → mapear subitems del grupo "tacos_motor" a sheet items individuales
+    if (w.type === "Mecánica" && w.trenItems) {
+      w.trenItems.forEach(ti => {
+        if (ti.isGroup && ti.key === "tacos_motor" && Array.isArray(ti.subitems)) {
+          ti.subitems.forEach(si => {
+            if (si.selected) {
+              if (si.key === "izq") forcedChangeItems.add("taco_motor_izq");
+              if (si.key === "der") forcedChangeItems.add("taco_motor_der");
+              if (si.key === "caja") forcedChangeItems.add("taco_caja");
+            }
+          });
+        }
+      });
     }
   });
 
@@ -16202,6 +16356,15 @@ const ServiceSheetScreen = (props) => {
       case "check": return d.checked;
       case "serviceReset": return !!d.resetStatus;
       case "statusRC": return !!d.status;
+      case "statusRC_grouped": {
+        // Completo si está en "bien" (sin subitems necesarios) o si tiene status definido y al menos un subitem si es regular/cambiar
+        if (d.status === "bien") return true;
+        if (d.status === "regular" || d.status === "cambiar") {
+          const subs = d.subitems || {};
+          return Object.values(subs).some(s => s && s.selected);
+        }
+        return false;
+      }
       case "binary": return !!d.fluidOk;
       case "binaryPresente": return !!d.fluidOk && (d.fluidOk !== "mal" || !!d.obs);
       case "ternary": return !!d.fluidOk;
@@ -16343,6 +16506,12 @@ const ServiceSheetScreen = (props) => {
       const d2 = data[it.id];
       if (!d2) return false;
       if (d2.status === "cambiar") return true;
+      if (it.type === "statusRC_grouped" && (d2.status === "regular" || d2.status === "cambiar")) {
+        // Si algún subitem está seleccionado y NO está en la orden → requiere auth
+        const subs = d2.subitems || {};
+        const subDefs = it.subitems || [];
+        return subDefs.some(si => subs[si.id]?.selected && !forcedChangeItems.has(si.id));
+      }
       if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
       if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
       if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
@@ -16488,6 +16657,101 @@ const ServiceSheetScreen = (props) => {
             <span style={{ fontSize: 10, color: T.orange, fontWeight: 600, display: "flex", alignItems: "center" }}>⚠️ Incluido en la orden</span>
           </div>
         )}
+
+        {/* ── Item AGRUPADO statusRC_grouped (ej: Tacos de motor con izq/der/caja) ── */}
+        {item.type === "statusRC_grouped" && !(item.optional && !d.checked) && (() => {
+          const subs = item.subitems || [];
+          const dSubs = d.subitems || {};
+          // Detectar si TODOS los subitems están en forcedChangeItems (orden incluye TODO)
+          const subsForced = subs.map(si => forcedChangeItems.has(si.id));
+          const allForced = subs.length > 0 && subsForced.every(Boolean);
+          const someForced = subsForced.some(Boolean);
+
+          // Si TODOS los subitems están en la orden → comportamiento "isForced" total
+          if (allForced) {
+            return (
+              <div style={{ ...ml }}>
+                <div style={{ fontSize: 10, color: T.orange, fontWeight: 600, marginBottom: 6 }}>⚠️ Incluido en la orden</div>
+                {subs.map(si => {
+                  const sd = dSubs[si.id] || {};
+                  return (
+                    <div key={si.id} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: T.text, width: 200 }}>• {si.label}</span>
+                      <div onClick={() => {
+                        const newSubs = { ...dSubs, [si.id]: { ...sd, status: sd.status === "cambiado" ? "" : "cambiado", selected: true } };
+                        upd(item.id, { status: "cambiar", subitems: newSubs, checked: true });
+                      }}
+                        style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700, background: sd.status === "cambiado" ? "#1E88E520" : T.bg, color: sd.status === "cambiado" ? "#1E88E5" : T.gray, border: `2px solid ${sd.status === "cambiado" ? "#1E88E5" : T.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#1E88E5" }} />SUSTITUIDA
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }
+
+          // Caso general: 3 botones Bien/Regular/Cambiar, y al tocar Regular/Cambiar despliega sub-checkboxes
+          return (
+            <div style={{ ...ml, marginBottom: 8 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {["bien", "regular", "cambiar"].map(s => (
+                  <div key={s} onClick={() => {
+                    // Si vuelve a "bien", limpiar subitems
+                    if (s === "bien") {
+                      upd(item.id, { status: s, checked: true, subitems: {} });
+                    } else {
+                      upd(item.id, { status: s, checked: true });
+                    }
+                  }}
+                    style={{ padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, background: d.status === s ? `${S4_COLORS[s]}20` : T.bg, color: d.status === s ? S4_COLORS[s] : T.gray, border: `1.5px solid ${d.status === s ? S4_COLORS[s] : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: S4_COLORS[s] }} />{s === "cambiar" ? "CAMBIAR" : s.toUpperCase()}
+                  </div>
+                ))}
+              </div>
+
+              {/* Si Regular o Cambiar → mostrar sub-checkboxes */}
+              {(d.status === "regular" || d.status === "cambiar") && (
+                <div style={{ marginTop: 10, paddingLeft: 8, borderLeft: `2px solid ${T.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.gray, marginBottom: 6 }}>Indicar cuál(es):</div>
+                  {subs.map(si => {
+                    const sd = dSubs[si.id] || {};
+                    const siForced = forcedChangeItems.has(si.id);
+                    return (
+                      <div key={si.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4, background: sd.selected ? "rgba(30,136,229,0.05)" : T.bg, borderRadius: 6, border: `1px solid ${sd.selected ? T.accent : T.border}` }}>
+                        {siForced ? (
+                          // Subitem incluido en la orden → solo botón SUSTITUIDA
+                          <>
+                            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: T.text }}>{si.label}</span>
+                            <div onClick={() => {
+                              const newSubs = { ...dSubs, [si.id]: { ...sd, status: sd.status === "cambiado" ? "" : "cambiado", selected: true } };
+                              upd(item.id, { status: "cambiar", subitems: newSubs, checked: true });
+                            }}
+                              style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: sd.status === "cambiado" ? "#1E88E520" : T.bg, color: sd.status === "cambiado" ? "#1E88E5" : T.gray, border: `2px solid ${sd.status === "cambiado" ? "#1E88E5" : T.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                              <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#1E88E5" }} />SUSTITUIDA
+                            </div>
+                            <span style={{ fontSize: 9, color: T.orange, fontWeight: 600, marginLeft: 4 }}>⚠️ En orden</span>
+                          </>
+                        ) : (
+                          // Subitem normal: checkbox de selección
+                          <>
+                            <div onClick={() => {
+                              const newSubs = { ...dSubs, [si.id]: { ...sd, selected: !sd.selected } };
+                              upd(item.id, { subitems: newSubs, checked: true });
+                            }} style={{ width: 22, height: 22, borderRadius: 5, border: `2px solid ${sd.selected ? T.accent : T.border}`, background: sd.selected ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                              {sd.selected && <span style={{ color: "#FFF", fontSize: 12, fontWeight: 800 }}>✓</span>}
+                            </div>
+                            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: sd.selected ? T.accent : T.text }}>{si.label}</span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
                 {item.type === "serviceReset" && !(item.optional && !d.checked) && (
           <div style={{ display: "flex", gap: 6, ...ml, flexWrap: "wrap" }}>
@@ -17596,23 +17860,35 @@ const ServiceSheetScreen = (props) => {
             </div>
             {/* Items a autorizar */}
             <div style={{ background: T.bg, borderRadius: 12, padding: "10px 14px", marginBottom: 20 }}>
-              {SHEET_TPL.flatMap(sec => sec.items.filter(it => {
-                if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
-                const d2 = data[it.id];
-                if (!d2) return false;
-                if (d2.status === "cambiar") return true;
-                if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
-                if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
-                if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
-                if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
-                if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
-                return false;
-              })).map((it, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, flexShrink: 0 }} />
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{it.label}</span>
-                </div>
-              ))}
+              {(() => {
+                const previewItems = [];
+                SHEET_TPL.forEach(sec => sec.items.forEach(it => {
+                  if (!it.needsAuth || forcedChangeItems.has(it.id)) return;
+                  const d2 = data[it.id];
+                  if (!d2) return;
+                  if (it.type === "statusRC_grouped" && (d2.status === "regular" || d2.status === "cambiar")) {
+                    const subs = d2.subitems || {};
+                    (it.subitems || []).forEach(si => {
+                      if (subs[si.id]?.selected && !forcedChangeItems.has(si.id)) {
+                        previewItems.push({ id: si.id, label: si.label });
+                      }
+                    });
+                    return;
+                  }
+                  if (d2.status === "cambiar") previewItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) previewItems.push({ id: it.id, label: it.label });
+                  else if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") previewItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "fluid" && d2.fluidOk === "cambiar") previewItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "lamp" && d2.fluidOk === "quemada") previewItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") previewItems.push({ id: it.id, label: it.label });
+                }));
+                return previewItems.map((it, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, flexShrink: 0 }} />
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{it.label}</span>
+                  </div>
+                ));
+              })()}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowAuthRequest(false)}
@@ -17620,19 +17896,29 @@ const ServiceSheetScreen = (props) => {
                 Cancelar
               </button>
               <button onClick={() => {
-                const authItems = SHEET_TPL.flatMap(sec => sec.items.filter(it => {
-                  if (!it.needsAuth || forcedChangeItems.has(it.id)) return false;
+                const authItems = [];
+                SHEET_TPL.forEach(sec => sec.items.forEach(it => {
+                  if (!it.needsAuth || forcedChangeItems.has(it.id)) return;
                   const d2 = data[it.id];
-                  if (!d2) return false;
-                  if (d2.status === "cambiar") return true;
-                  if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) return true;
-                  if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") return true;
-                  if (it.type === "fluid" && d2.fluidOk === "cambiar") return true;
-                  if (it.type === "lamp" && d2.fluidOk === "quemada") return true;
-                  if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") return true;
-                  return false;
+                  if (!d2) return;
+                  // Item agrupado: expandir subitems seleccionados
+                  if (it.type === "statusRC_grouped" && (d2.status === "regular" || d2.status === "cambiar")) {
+                    const subs = d2.subitems || {};
+                    (it.subitems || []).forEach(si => {
+                      if (subs[si.id]?.selected && !forcedChangeItems.has(si.id)) {
+                        authItems.push({ id: si.id, label: si.label });
+                      }
+                    });
+                    return;
+                  }
+                  if (d2.status === "cambiar") authItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "batteryPercent" && d2.percent >= 0 && d2.percent < 50) authItems.push({ id: it.id, label: it.label });
+                  else if ((it.type === "binary" || it.type === "ternary") && d2.fluidOk === "mal") authItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "fluid" && d2.fluidOk === "cambiar") authItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "lamp" && d2.fluidOk === "quemada") authItems.push({ id: it.id, label: it.label });
+                  else if (it.type === "brakeFluid" && d2.wantChange && d2.fluidOk !== "cambiado") authItems.push({ id: it.id, label: it.label });
                 }));
-                const items = authItems.map(it => ({ id: it.id, label: it.label }));
+                const items = authItems;
                 const notif = { id: Date.now(), orderId: order.id, domain: order.domain, clientId: order.clientId, items, status: "pending", date: new Date().toISOString().split("T")[0], requestedBy: user.name };
                 setNotifications(prev => [...prev, notif]);
                 setShowAuthRequest(false);
@@ -17701,6 +17987,10 @@ const AuthManageScreen = ({ notification, order, clients, user, orders, setOrder
     tensores_poliv:    "Mecánica",
     mangueras_refrig:  "Mecánica",
     perdidas_aceite:   "Mecánica",
+    // Tacos de motor
+    taco_motor_izq:    "Mecánica",
+    taco_motor_der:    "Mecánica",
+    taco_caja:         "Mecánica",
     // Varios (escobillas, luces, líquidos varios)
     escobillas_estado: "Varios",
     escobillas:        "Varios",
@@ -19460,6 +19750,18 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       if (d.status === "cambiado") return "#1565C0";
       return "#718096";
     }
+    if (item.type === "statusRC_grouped") {
+      if (d.status === "bien") return "#2E7D32";
+      if (!d.status) return "#718096";
+      // Si todos los subitems seleccionados están en "cambiado" → azul
+      const subs = d.subitems || {};
+      const subDefs = item.subitems || [];
+      const selectedSubs = subDefs.filter(si => subs[si.id]?.selected);
+      if (selectedSubs.length > 0 && selectedSubs.every(si => subs[si.id]?.status === "cambiado")) return "#1565C0";
+      if (d.status === "regular") return "#E65100";
+      if (d.status === "cambiar") return "#C62828";
+      return "#718096";
+    }
     if (item.type === "nivelado") return d.fluidOk === "nivelado" ? "#2E7D32" : "#718096";
     if (item.type === "lamp") return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "quemada" ? "#C62828" : "#718096";
     if (item.type === "binaryPresente") return d.fluidOk === "bien" ? "#2E7D32" : d.fluidOk === "mal" ? "#C62828" : "#718096";
@@ -19532,6 +19834,24 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
       const m = { bien: "Bien", regular: "Regular", cambiar: "Cambiar" };
       const cm = { bien: "#2E7D32", regular: "#E65100", cambiar: "#C62828" };
       return { text: m[d.status] || "", color: cm[d.status] || "#718096" };
+    }
+    if (item.type === "statusRC_grouped") {
+      if (d.status === "bien") return { text: "Bien", color: "#2E7D32" };
+      if (!d.status) return { text: "", color: "#718096" };
+      const subs = d.subitems || {};
+      const subDefs = item.subitems || [];
+      const selectedSubs = subDefs.filter(si => subs[si.id]?.selected);
+      if (selectedSubs.length === 0) {
+        const m = { regular: "Regular", cambiar: "Cambiar" };
+        const cm = { regular: "#E65100", cambiar: "#C62828" };
+        return { text: m[d.status] || "", color: cm[d.status] || "#718096" };
+      }
+      const allCambiado = selectedSubs.every(si => subs[si.id]?.status === "cambiado");
+      const summary = selectedSubs.map(si => si.labelShort || si.label).join(", ");
+      if (allCambiado) return { text: `Sustituida (${summary})`, color: "#1565C0", wasChanged: true };
+      const stateLabel = d.status === "regular" ? "Regular" : "Cambiar";
+      const stateColor = d.status === "regular" ? "#E65100" : "#C62828";
+      return { text: `${stateLabel} (${summary})`, color: stateColor };
     }
     if (item.type === "fluid") {
       if (d.fluidOk === "bien") return { text: "Bien", color: "#2E7D32", subText: d.added ? "Se niveló" : null, subColor: "#1565C0" };
@@ -19865,8 +20185,61 @@ const FojaClientScreen = ({ order, clients, notifications, config, onNavigate })
                 });
                 // Collect items with Regular/Bad status as observations
                 // Skip "No equipado" items — means the car doesn't have that feature
+                // ── PRE: Manejo especial de tacos_motor (auto-adaptativo) ──
+                const tacosState = sheet.tacos_motor || {};
+                const tacosSubs = tacosState.subitems || {};
+                const tacosSubDefs = [
+                  { id: "taco_motor_izq", label: "TACO DE MOTOR IZQUIERDO", labelShort: "IZQ" },
+                  { id: "taco_motor_der", label: "TACO DE MOTOR DERECHO", labelShort: "DER" },
+                  { id: "taco_caja", label: "TACO DE CAJA", labelShort: "CAJA" },
+                ];
+                const tacosToReport = tacosSubDefs.filter(si => {
+                  const ss = tacosSubs[si.id];
+                  return ss && ss.selected && ss.status !== "cambiado";
+                });
+                const tacosFlag = tacosToReport.length > 0;
+                // Calcular cuántas observaciones hay en total (para decidir formato compacto)
+                let _otherObsCount = techNotes.length;
+                (order.works || []).forEach(w => {
+                  (w.trenItems || []).filter(ti => (ti.isCustom ? ti.label : ti.selected) && ti.otroDesc && ti.otroDesc.trim()).forEach(() => _otherObsCount++);
+                });
                 sections.forEach(sec => {
                   sec.items.forEach(it => {
+                    if (it.itemId === "tacos_motor") return; // se cuenta aparte
+                    const valText = ((it.text || "") + " " + (it.label || "")).toLowerCase();
+                    if (valText.includes("no equipado") || valText.includes("no equip")) return;
+                    if (it.itemId === "reinicio_service") return;
+                    if ((it.color === "#E65100" && !it.wasChanged) || it.color === "#C62828") _otherObsCount++;
+                  });
+                });
+                const totalIfFull = _otherObsCount + tacosToReport.length;
+                // Si caben holgados (≤ 8 obs totales) → uno abajo del otro. Si no → compactar tacos en 1 línea
+                const tacosCompact = totalIfFull > 8;
+                if (tacosFlag) {
+                  // Las "izq" y "der" se compactan juntas si compact mode
+                  if (tacosCompact) {
+                    const izq = tacosToReport.find(t => t.id === "taco_motor_izq");
+                    const der = tacosToReport.find(t => t.id === "taco_motor_der");
+                    const caja = tacosToReport.find(t => t.id === "taco_caja");
+                    if (izq && der) {
+                      _obs.push({ text: "TACOS DE MOTOR IZQ Y DER REQUIEREN ATENCIÓN", type: "warn" });
+                    } else if (izq) {
+                      _obs.push({ text: "TACO DE MOTOR IZQ REQUIERE ATENCIÓN", type: "warn" });
+                    } else if (der) {
+                      _obs.push({ text: "TACO DE MOTOR DER REQUIERE ATENCIÓN", type: "warn" });
+                    }
+                    if (caja) _obs.push({ text: "TACO DE CAJA REQUIERE ATENCIÓN", type: "warn" });
+                  } else {
+                    // Modo expandido: cada uno en su línea
+                    tacosToReport.forEach(t => {
+                      _obs.push({ text: t.label + " REQUIERE ATENCIÓN", type: "warn" });
+                    });
+                  }
+                }
+                sections.forEach(sec => {
+                  sec.items.forEach(it => {
+                    // Skip tacos_motor — ya se manejó arriba
+                    if (it.itemId === "tacos_motor") return;
                     const valText = ((it.text || "") + " " + (it.label || "")).toLowerCase();
                     const isNoEquipado = valText.includes("no equipado") || valText.includes("no equip");
                     if (isNoEquipado) return;
