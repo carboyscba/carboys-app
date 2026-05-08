@@ -1861,13 +1861,13 @@ const LoginScreen = ({ onLogin, users }) => {
               <>
                 {/* DUEÑO — card horizontal full width arriba */}
                 {dueno && (
-                  <div onClick={() => setSel(dueno)} style={{ ...card, padding: "16px 20px", cursor: "pointer", marginBottom: 14, animation: "fadeUp .4s ease 0s both", transition: "all .2s", display: "flex", alignItems: "center", gap: 16 }}
+                  <div onClick={() => setSel(dueno)} style={{ ...card, padding: "16px 20px", cursor: "pointer", marginBottom: 14, animation: "fadeUp .4s ease 0s both", transition: "all .2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = dueno.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
                     <div style={{ width: 64, height: 64, borderRadius: "50%", background: dueno.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 28, fontFamily: fontD, flexShrink: 0 }}>{dueno.initial}</div>
-                    <div style={{ flex: 1 }}>
+                    <div>
                       <div style={{ fontWeight: 700, fontSize: 22 }}>{dueno.name}</div>
-                      <div style={{ fontSize: 11, color: dueno.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>👑 {dueno.role}</div>
+                      <div style={{ fontSize: 11, color: T.gray, textTransform: "capitalize", marginTop: 2 }}>{dueno.role}</div>
                     </div>
                   </div>
                 )}
