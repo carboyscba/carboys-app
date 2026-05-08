@@ -376,6 +376,32 @@ const idbGetAll = async (store) => {
   } catch(e) { console.error("[IDB] getAll error:", store, e); return []; }
 };
 
+// Lee 1 solo doc del store
+const idbGet = async (store, id) => {
+  try {
+    const db = await idbOpen();
+    return new Promise((resolve) => {
+      const tx  = db.transaction(store, "readonly");
+      const req = tx.objectStore(store).get(String(id));
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror   = () => resolve(null);
+    });
+  } catch(e) { return null; }
+};
+
+// Guarda en IDB SOLO si el doc local no está pendiente de subir a Firestore.
+// Esto evita que el polling pisotee cambios locales que aún no se sincronizaron.
+const idbSaveIfNotPending = async (store, id, data) => {
+  try {
+    const existing = await idbGet(store, id);
+    if (existing && existing._synced === false) {
+      // El doc local tiene cambios pendientes — NO lo sobreescribimos
+      return false;
+    }
+    return idbSave(store, id, data, true);
+  } catch(e) { console.error("[IDB] safe-save error:", store, id, e); }
+};
+
 // Elimina un documento del store local
 const idbDel = async (store, id) => {
   try {
@@ -21146,13 +21172,17 @@ export default function App() {
         const pending = prev.filter(o => !fsMap[String(o.id)]);
 
         // Actualizar IDB con versión mergeada + push auto-fixed orders to Firestore
+        // CRITICAL: usar idbSaveIfNotPending para NO pisotear cambios locales _synced:false
         fromFs.forEach(merged => {
           const fsOriginal = fsMap[String(merged.id)];
           const wasAutoFixed = merged.cajaDate && !fsOriginal.cajaDate;
-          idbSave('orders', merged.id, merged, !wasAutoFixed).catch(console.error);
-          // Push auto-fixed orders to Firestore so all tablets get the fix
           if (wasAutoFixed) {
+            // Auto-fix: forzar guardado y subir a Firestore
+            idbSave('orders', merged.id, merged, false).catch(console.error);
             fsSave('orders', merged.id, merged).then(() => idbMarkSynced('orders', String(merged.id))).catch(console.error);
+          } else {
+            // Polling normal: NO pisotear cambios locales pendientes
+            idbSaveIfNotPending('orders', merged.id, merged).catch(console.error);
           }
         });
 
@@ -21254,8 +21284,7 @@ export default function App() {
 
   // Cuando vuelve la conexión → disparar sync inmediato de pendientes
   useEffect(() => {
-    const onOnline = async () => {
-      setSyncPending(prev => prev); // trigger re-render para actualizar badge
+    const syncPendingDocs = async () => {
       try {
         const [po, pc] = await Promise.all([
           idbGetPending('orders'),
@@ -21275,8 +21304,18 @@ export default function App() {
         });
       } catch(e) {}
     };
+    const onOnline = async () => {
+      setSyncPending(prev => prev); // trigger re-render para actualizar badge
+      syncPendingDocs();
+    };
     window.addEventListener('online', onOnline);
-    return () => window.removeEventListener('online', onOnline);
+    // CRITICAL: Reintento periódico cada 30s para subir docs pendientes que fallaron
+    // Esto resuelve el bug de pérdida de cobros entre tablets cuando la subida inicial falla
+    const retryInterval = setInterval(syncPendingDocs, 30000);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      clearInterval(retryInterval);
+    };
   }, []);
 
   const nav = useCallback((target, data = null) => {
