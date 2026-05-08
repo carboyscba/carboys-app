@@ -1851,19 +1851,41 @@ const LoginScreen = ({ onLogin, users }) => {
       <div style={{ fontSize: 13, color: T.gray, letterSpacing: 3, textTransform: "uppercase", marginBottom: 40, animation: "fadeUp .5s ease .1s both" }}>Servicio Integral</div>
 
       {!sel ? (
-        <div style={{ animation: "fadeUp .4s ease .2s both" }}>
+        <div style={{ animation: "fadeUp .4s ease .2s both", width: "100%", maxWidth: 340 }}>
           <div style={{ fontSize: 15, color: T.grayLight, marginBottom: 20, textAlign: "center", fontWeight: 500 }}>¿Quién sos?</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 340 }}>
-            {users.map((u, i) => (
-              <div key={u.id} onClick={() => setSel(u)} style={{ ...card, padding: "20px 16px", cursor: "pointer", textAlign: "center", animation: `fadeUp .4s ease ${.15*i}s both`, transition: "all .2s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = u.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
-                <div style={{ width: 72, height: 72, borderRadius: "50%", background: u.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 30, margin: "0 auto 12px", fontFamily: fontD }}>{u.initial}</div>
-                <div style={{ fontWeight: 700, fontSize: 22 }}>{u.name}</div>
-                <div style={{ fontSize: 11, color: T.gray, textTransform: "capitalize", marginTop: 2 }}>{u.role}</div>
-              </div>
-            ))}
-          </div>
+          {(() => {
+            // Separar dueño del resto — el dueño va arriba en card ancha
+            const dueno = users.find(u => u.role === "dueño");
+            const otros = users.filter(u => u.role !== "dueño");
+            return (
+              <>
+                {/* DUEÑO — card horizontal full width arriba */}
+                {dueno && (
+                  <div onClick={() => setSel(dueno)} style={{ ...card, padding: "16px 20px", cursor: "pointer", marginBottom: 14, animation: "fadeUp .4s ease 0s both", transition: "all .2s", display: "flex", alignItems: "center", gap: 16 }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = dueno.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
+                    <div style={{ width: 64, height: 64, borderRadius: "50%", background: dueno.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 28, fontFamily: fontD, flexShrink: 0 }}>{dueno.initial}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 22 }}>{dueno.name}</div>
+                      <div style={{ fontSize: 11, color: dueno.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>👑 {dueno.role}</div>
+                    </div>
+                  </div>
+                )}
+                {/* RESTO — grid 2 columnas (par o impar) */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {otros.map((u, i) => (
+                    <div key={u.id} onClick={() => setSel(u)} style={{ ...card, padding: "20px 16px", cursor: "pointer", textAlign: "center", animation: `fadeUp .4s ease ${.1 + .1 * i}s both`, transition: "all .2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = u.color; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "none"; }}>
+                      <div style={{ width: 72, height: 72, borderRadius: "50%", background: u.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 30, margin: "0 auto 12px", fontFamily: fontD }}>{u.initial}</div>
+                      <div style={{ fontWeight: 700, fontSize: 22 }}>{u.name}</div>
+                      <div style={{ fontSize: 11, color: T.gray, textTransform: "capitalize", marginTop: 2 }}>{u.role}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
       ) : (
         <div style={{ textAlign: "center", animation: "scaleIn .3s ease" }}>
