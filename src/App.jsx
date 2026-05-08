@@ -20995,8 +20995,15 @@ export default function App() {
           if (o === old) return;
           if (!old || JSON.stringify(o) !== JSON.stringify(old)) {
             idbSave('orders', o.id, o, false).catch(console.error);
+            // CRITICAL: solo marcar synced si Firestore aceptó la subida (r.ok === true)
             fsSave('orders', o.id, o)
-              .then(() => idbMarkSynced('orders', String(o.id)))
+              .then(r => {
+                if (r && r.ok) {
+                  idbMarkSynced('orders', String(o.id));
+                } else {
+                  console.warn('[FS] orders save failed, will retry:', o.id, r?.status);
+                }
+              })
               .catch(e => console.error('[FS] setOrders save:', e));
           }
         });
@@ -21024,7 +21031,13 @@ export default function App() {
           if (!old || JSON.stringify(c) !== JSON.stringify(old)) {
             idbSave('clients', c.id, c, false).catch(console.error);
             fsSave('clients', c.id, c)
-              .then(() => idbMarkSynced('clients', String(c.id)))
+              .then(r => {
+                if (r && r.ok) {
+                  idbMarkSynced('clients', String(c.id));
+                } else {
+                  console.warn('[FS] clients save failed, will retry:', c.id, r?.status);
+                }
+              })
               .catch(e => console.error('[FS] setClients save:', e));
           }
         });
@@ -21309,6 +21322,8 @@ export default function App() {
       syncPendingDocs();
     };
     window.addEventListener('online', onOnline);
+    // CRITICAL: sync immediately on app load to push any pending docs from previous sessions
+    syncPendingDocs();
     // CRITICAL: Reintento periódico cada 30s para subir docs pendientes que fallaron
     // Esto resuelve el bug de pérdida de cobros entre tablets cuando la subida inicial falla
     const retryInterval = setInterval(syncPendingDocs, 30000);
