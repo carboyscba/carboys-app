@@ -21465,7 +21465,7 @@ export default function App() {
   const [screen, setScreen] = useState("dashboard");
   const [selOrder, setSelOrder] = useState(null);
   const [newOrderInit, setNewOrderInit] = useState(null); // { domain, clientId } for pre-filling NewOrderScreen
-  const navHistoryRef = useRef(["dashboard"]); // historial de navegación para Volver
+  const navHistoryRef = useRef([]); // historial de navegación para Volver (arranca vacío)
   const [adminInitialTab, setAdminInitialTab] = useState(null);
   const [cierreDismissed, setCierreDismissed] = useState(() => sessionStorage.getItem("cierreDismissed") === "1");
   const [adminInitialOrder, setAdminInitialOrder] = useState(null);
@@ -22001,32 +22001,41 @@ export default function App() {
   }, []);
 
   const nav = useCallback((target, data = null) => {
-    // "back" = pop from history stack
+    // "back" = pop del historial → ir a la pantalla anterior
     if (target === "back") {
-      const hist = navHistoryRef.current;
-      if (hist.length > 0) {
-        const prev = hist[hist.length - 1];
-        navHistoryRef.current = hist.slice(0, -1);
-        setScreen(prev);
-      } else {
-        setScreen("dashboard");
-      }
+      // Usamos functional update para acceder al screen REAL del momento (no del closure)
+      setScreen(currentScreen => {
+        const hist = navHistoryRef.current;
+        if (hist.length > 0) {
+          const prev = hist[hist.length - 1];
+          navHistoryRef.current = hist.slice(0, -1);
+          return prev;
+        }
+        return "dashboard"; // fallback si historial vacío
+      });
       window.scrollTo?.(0, 0);
       return;
     }
+    // Side effects (selOrder, newOrderInit, adminTab, etc.)
     if ((target === "vehicleDetail" || target === "serviceSheet" || target === "authManage" || target === "fojaClient" || target === "search") && data) setSelOrder(data);
     if (target === "search" && !data) setSelOrder(null);
     if (target === "newOrder") setNewOrderInit(data);
     if (target === "admin" && data?.initialTab) setAdminInitialTab(data.initialTab);
     if (target === "admin" && data?.initialOrder) setAdminInitialOrder(data.initialOrder);
     else if (target !== "admin") { setAdminInitialTab(null); setAdminInitialOrder(null); }
-    if (target !== screen) {
-      navHistoryRef.current = [...navHistoryRef.current, screen];
-      if (navHistoryRef.current.length > 20) navHistoryRef.current = navHistoryRef.current.slice(-20);
-    }
-    setScreen(target);
+    // Cambio de pantalla: usar functional update para garantizar que se guarda el screen REAL
+    setScreen(currentScreen => {
+      if (target === currentScreen) return currentScreen; // no-op si ya estamos
+      const hist = navHistoryRef.current;
+      // Evitar duplicados consecutivos en el historial
+      if (hist[hist.length - 1] !== currentScreen) {
+        navHistoryRef.current = [...hist, currentScreen];
+        if (navHistoryRef.current.length > 20) navHistoryRef.current = navHistoryRef.current.slice(-20);
+      }
+      return target;
+    });
     window.scrollTo?.(0, 0);
-  }, [screen]);
+  }, []); // sin deps — callback estable, valor de screen se lee con functional update
 
   const goBack = useCallback(() => nav("back"), [nav]);
 
