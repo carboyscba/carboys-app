@@ -49,6 +49,7 @@ export default function CotizacionesScreen({
   config,
   normalizePhone,
   onNavigate,
+  embedded = false,   // true cuando se renderiza dentro de un tab de Administración
   T, fontD, card, btnPrimary, inputStyle,
 }) {
   const [filtroTexto, setFiltroTexto] = useState("");
@@ -181,11 +182,13 @@ export default function CotizacionesScreen({
   );
 
   return (
-    <div style={{ padding: 24, maxWidth: 760, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+    <div style={{ padding: embedded ? 0 : 24, maxWidth: 760, margin: "0 auto", animation: "fadeUp .3s ease" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <span onClick={() => onNavigate("back")} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        {!embedded && (
+          <span onClick={() => onNavigate("back")} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        )}
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: fontD, fontSize: 26, fontWeight: 800 }}>📄 Cotizaciones</div>
+          <div style={{ fontFamily: fontD, fontSize: embedded ? 20 : 26, fontWeight: 800 }}>📄 Cotizaciones</div>
           <div style={{ fontSize: 12, color: T.gray }}>Seguimiento de precios enviados</div>
         </div>
       </div>
