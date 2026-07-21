@@ -7,6 +7,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { loadFitment, loadCatalogoMobil, getKitIndex, getSkuIndex } from "./dataLoader.js";
 import { cotizarService, buscarPrecioOficialSinIva } from "./engine.js";
 
+// Mapa tipo→label corto para mostrar SKUs con su rol
+const TIPO_SHORT = {
+  filtro_aire: "aire", filtro_aceite: "aceite",
+  filtro_combustible: "combustible", filtro_habitaculo: "habitáculo"
+};
+
 const fmt$ = (n) => n == null || Number.isNaN(n) ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
 export default function MiniExtractoPath2({
@@ -43,6 +49,18 @@ export default function MiniExtractoPath2({
           const inRange = matches.filter(f => (!f.ano_desde || f.ano_desde <= yr) && (!f.ano_hasta || f.ano_hasta >= yr));
           if (inRange.length) matches = inRange;
         }
+        // Dedup por motor_hint: si dos filas comparten el mismo motor (ej Amarok V6 2017→
+        // y 2022→), preferir la que tiene kit (más económica y con precio oficial Wega).
+        const byMotor = new Map();
+        for (const f of matches) {
+          const key = (f.motor_hint || "").toLowerCase();
+          const cur = byMotor.get(key);
+          if (!cur) { byMotor.set(key, f); continue; }
+          // Reemplazar si la nueva tiene kit y la existente no
+          if (f.kit_recomendado && !cur.kit_recomendado) byMotor.set(key, f);
+        }
+        matches = Array.from(byMotor.values());
+
         setFitList(matches);
         // Si hay UN solo fitment, autoseleccionar. Si hay varios, forzar elección
         // manual del usuario — el motor cambia el kit y los litros.
@@ -158,8 +176,46 @@ export default function MiniExtractoPath2({
         )}
       </div>
       <div style={{ fontSize: 11, color: T.grayLight, marginBottom: 10, lineHeight: 1.6 }}>
-        {kit ? <div>📦 <b>KIT {kit.kitCode}</b> ({kit.skusIncluidos?.length || 0} filtros{ownerView ? ` · ${fmt$(kit.precio)} s/IVA` : ""})</div>
-             : <div>📦 Filtros sueltos{ownerView ? ` · ${fmt$(extracto.materiales.filtros?.precio)} s/IVA` : ""}</div>}
+        {extracto.materiales.filtros?.modo === "base_aire_aceite" ? (
+          <div>
+            <div>📦 <b>Aire + Aceite</b> (Service Base){ownerView ? ` · ${fmt$(extracto.materiales.filtros?.precio)} s/IVA` : ""}</div>
+            {skuIndex && (
+              <div style={{ paddingLeft: 18, fontSize: 10, color: T.gray, marginTop: 2 }}>
+                {(extracto.materiales.filtros?.skus || []).map(s => (
+                  <span key={s.sku} style={{ marginRight: 10 }}>
+                    · <b>{s.sku}</b> ({TIPO_SHORT[skuIndex[s.sku]?.tipo] || ""})
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : kit ? (
+          <div>
+            <div>📦 <b>KIT {kit.kitCode}</b> — {kit.nombre || `${kit.skusIncluidos?.length || 0} filtros`}{ownerView ? ` · ${fmt$(kit.precio)} s/IVA` : ""}</div>
+            {skuIndex && (
+              <div style={{ paddingLeft: 18, fontSize: 10, color: T.gray, marginTop: 2 }}>
+                {(kit.skusIncluidos || []).map(s => (
+                  <span key={s.sku} style={{ marginRight: 10 }}>
+                    · <b>{s.sku}</b> ({TIPO_SHORT[skuIndex[s.sku]?.tipo] || ""})
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div>📦 <b>Filtros sueltos</b> (4){ownerView ? ` · ${fmt$(extracto.materiales.filtros?.precio)} s/IVA` : ""}</div>
+            {skuIndex && (
+              <div style={{ paddingLeft: 18, fontSize: 10, color: T.gray, marginTop: 2 }}>
+                {(extracto.materiales.filtros?.skus || []).map(s => (
+                  <span key={s.sku} style={{ marginRight: 10 }}>
+                    · <b>{s.sku}</b> ({TIPO_SHORT[skuIndex[s.sku]?.tipo] || ""})
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div>🛢 {aceiteObj?.nombre} · {extracto.materiales.aceite?.presentacion} × {litros}L{ownerView && extracto.materiales.aceite?.total ? ` · ${fmt$(extracto.materiales.aceite.total)} s/IVA` : ""}</div>
         {ownerView && <div>🔧 M.O. {selectedFitment.categoria === "alta_gama" ? "alta gama" : "estándar"} · {fmt$(extracto.manoObra.total)} s/IVA</div>}
       </div>
