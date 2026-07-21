@@ -73,8 +73,20 @@ export default function NuevaCotizacionModal({
 
   const motoresDisponibles = useMemo(() => {
     if (!fitmentData || !form.marca || !form.modelo) return [];
-    return (fitmentData.fitments || []).filter(f => f.marca === form.marca && f.modelo === form.modelo)
-      .map(f => ({ motor_hint: f.motor_hint, ano_desde: f.ano_desde, ano_hasta: f.ano_hasta, kit_code: f.kit_code }));
+    const raw = (fitmentData.fitments || []).filter(f => f.marca === form.marca && f.modelo === form.modelo);
+    // Dedup por motor_hint: si hay dos filas con mismo motor (ej Amarok V6 2017→ y 2022→),
+    // preferimos la que tiene kit (más económica y con precio oficial Wega).
+    const byMotor = new Map();
+    for (const f of raw) {
+      const key = (f.motor_hint || "").toLowerCase();
+      const cur = byMotor.get(key);
+      if (!cur) { byMotor.set(key, f); continue; }
+      if (f.kit_recomendado && !cur.kit_recomendado) byMotor.set(key, f);
+    }
+    return Array.from(byMotor.values()).map(f => ({
+      motor_hint: f.motor_hint, ano_desde: f.ano_desde, ano_hasta: f.ano_hasta,
+      kit_code: f.kit_recomendado || f.kit_code
+    }));
   }, [fitmentData, form.marca, form.modelo]);
 
   const aceites = mobilData?.aceites || [];
