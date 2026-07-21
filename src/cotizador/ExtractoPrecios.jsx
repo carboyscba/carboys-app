@@ -1,20 +1,10 @@
 // ══════════════════════════════════════════════════════════════════
 //  Cotizador — Extracto de Precios (Iter 4)
-//
-//  El corazón visual del módulo. Renderiza los 3 precios triangulados
-//  con materiales, M.O., precio con IVA, descuento efectivo y color
-//  de zona.
-//
-//  Vista adaptada por rol:
-//    · dueño → ve labels con fórmulas ("piso 50%", "85% oficial") y
-//              precios individuales de cada material.
-//    · resto → ve los números crudos, sin labels ni precios de
-//              materiales; solo el listado de QUÉ va (nombre kit +
-//              aceite + litros).
+//  El corazón visual: 3 precios triangulados + zona + precio cliente.
 // ══════════════════════════════════════════════════════════════════
 
 import React, { useEffect, useState } from "react";
-import { cotizarService, precioFinalCliente, zonaDePrecio } from "./engine.js";
+import { cotizarService, precioFinalCliente, zonaDePrecio, buscarPrecioOficialSinIva } from "./engine.js";
 import { getKitIndex, getSkuIndex, getAceiteIndex } from "./dataLoader.js";
 
 const ZONE_COLORS = {
@@ -24,118 +14,71 @@ const ZONE_COLORS = {
   naranja: { hex: "#fb8c00", label: "Rentable pero el oficial cobra menos",icon: "🟠" },
 };
 
-const fmt$ = (n) => {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
-};
+const fmt$ = (n) => n == null || Number.isNaN(n) ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
 export default function ExtractoPrecios({
-  fitment,
-  aceite,
-  litros,
-  trabajo = "service_full",
-  config,
-  precioOficialSinIva = null,
-  presentacionAceite = null,
-  role = "dueño",
-  onClose,
-  onGuardar,
-  onWhatsApp,
-  onConvertir,
-  T,
-  fontD,
-  card,
-  btnPrimary,
-  inputStyle,
+  fitment, aceite, litros, trabajo = "service_full", config,
+  precioOficialSinIva = null, concesionarias = null, presentacionAceite = null, role = "dueño",
+  onClose, onGuardar, onWhatsApp, onConvertir,
+  T, fontD, card, btnPrimary, inputStyle,
 }) {
-  const ownerView = role === "dueño";
+  const precioOficialCalc = React.useMemo(() => {
+    if (precioOficialSinIva != null) return precioOficialSinIva;
+    if (concesionarias && fitment) {
+      return buscarPrecioOficialSinIva(concesionarias, {
+        marca: fitment.marca, modelo: fitment.modelo, motor: fitment.motor_hint,
+        trabajo, ivaRate: (config?.ivaRate ?? 21) / 100,
+      });
+    }
+    return null;
+  }, [precioOficialSinIva, concesionarias, fitment, trabajo, config]);
 
+  const ownerView = role === "dueño";
   const [extracto, setExtracto] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-
-  // Precio que el recepcionista tipea (CON IVA)
   const [precioFinalConIva, setPrecioFinalConIva] = useState("");
   const [metodoPago, setMetodoPago] = useState("tarjeta");
   const [montoEfectivo, setMontoEfectivo] = useState("");
-
-  // Indexes cache (para mostrar detalle de filtros del kit / aceite)
   const [kitIndex, setKitIndex] = useState(null);
   const [skuIndex, setSkuIndex] = useState(null);
-  const [aceiteIndex, setAceiteIndex] = useState(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         setLoading(true);
-        const [ki, si, ai] = await Promise.all([getKitIndex(), getSkuIndex(), getAceiteIndex()]);
+        const [ki, si] = await Promise.all([getKitIndex(), getSkuIndex()]);
         if (!mounted) return;
-        setKitIndex(ki); setSkuIndex(si); setAceiteIndex(ai);
+        setKitIndex(ki); setSkuIndex(si);
         const e = await cotizarService({
           fitment, aceite, litros, trabajo, config, presentacionAceite,
-          precioOficialSinIva, kitIndex: ki, skuIndex: si,
+          precioOficialSinIva: precioOficialCalc, kitIndex: ki, skuIndex: si,
           ivaRate: (config?.ivaRate ?? 21) / 100,
         });
         if (!mounted) return;
         setExtracto(e);
-        // Pre-cargar el "precio sugerido" con la venta óptima (con IVA)
         setPrecioFinalConIva(String(Math.round(e.ventaOptimaConIva)));
-      } catch (err) {
-        if (mounted) setError(err.message || String(err));
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      } catch (err) { if (mounted) setError(err.message || String(err)); }
+      finally { if (mounted) setLoading(false); }
     })();
     return () => { mounted = false; };
-  }, [fitment, aceite, litros, trabajo, config, presentacionAceite, precioOficialSinIva]);
+  }, [fitment, aceite, litros, trabajo, config, presentacionAceite, precioOficialCalc]);
 
-  if (loading) return (
-    <div style={{ ...card, padding: 40, textAlign: "center", color: T.gray, fontSize: 14 }}>
-      ⏳ Calculando extracto…
-    </div>
-  );
-  if (error) return (
-    <div style={{ ...card, padding: 20, borderColor: T.red, background: T.red + "10", color: T.red, fontSize: 13 }}>
-      ⚠️ {error}
-    </div>
-  );
+  if (loading) return <div style={{ ...card, padding: 40, textAlign: "center", color: T.gray, fontSize: 14 }}>⏳ Calculando extracto…</div>;
+  if (error) return <div style={{ ...card, padding: 20, borderColor: T.red, background: T.red + "10", color: T.red, fontSize: 13 }}>⚠️ {error}</div>;
   if (!extracto) return null;
 
-  // Precio final al cliente según método
   const precioConIva = parseFloat(precioFinalConIva) || 0;
   const efectivoMonto = parseFloat(montoEfectivo) || 0;
-  const cliente = precioFinalCliente({
-    precioBaseConIva: precioConIva,
-    metodo: metodoPago,
-    montoEfectivo: efectivoMonto,
-    config: extracto.config,
-  });
-
-  // Zona de precio (basada en el precio sin IVA)
+  const cliente = precioFinalCliente({ precioBaseConIva: precioConIva, metodo: metodoPago, montoEfectivo: efectivoMonto, config: extracto.config });
   const ivaFactor = 1 + extracto.ivaRate;
   const precioSinIva = precioConIva / ivaFactor;
-  const zona = zonaDePrecio({
-    precioSinIva,
-    ventaMinima: extracto.ventaMinima,
-    ventaOptima: extracto.ventaOptima,
-    techoCompetitivo: extracto.techoCompetitivo,
-  });
+  const zona = zonaDePrecio({ precioSinIva, ventaMinima: extracto.ventaMinima, ventaOptima: extracto.ventaOptima, techoCompetitivo: extracto.techoCompetitivo });
   const zonaConf = ZONE_COLORS[zona.color] || ZONE_COLORS.verde;
-
-  const margen = precioSinIva > 0
-    ? Math.round(((precioSinIva - extracto.ventaMinima) / precioSinIva) * 1000) / 10
-    : 0;
-
-  const withIva = (n) => Math.round(n * ivaFactor);
-
-  // Kit y aceite detalle
-  const kit = extracto.materiales.filtros?.modo === "kit" && kitIndex
-    ? kitIndex[extracto.materiales.filtros.kitCode]
-    : null;
-  const aceiteObj = aceite;
+  const margen = precioSinIva > 0 ? Math.round(((precioSinIva - extracto.ventaMinima) / precioSinIva) * 1000) / 10 : 0;
+  const kit = extracto.materiales.filtros?.modo === "kit" && kitIndex ? kitIndex[extracto.materiales.filtros.kitCode] : null;
   const presentacion = extracto.materiales.aceite?.presentacion || "—";
-
   const trabajoLabel = trabajo === "service_full" ? "Service Full" : "Service Base";
   const vehiculoDesc = fitment.kit_nombre || fitment.descripcion_completa || `${fitment.marca} ${fitment.modelo}`;
 
@@ -149,126 +92,75 @@ export default function ExtractoPrecios({
     </div>
   );
 
+  const ClickPrice = ({ icon, label, valueSinIva, valueConIva, showSinIva, onClick, color, highlight }) => (
+    <div onClick={onClick}
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+        background: highlight ? color + "12" : T.bg, border: `1px solid ${highlight ? color : T.border}`, marginTop: 8, transition: "all .15s" }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = color; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = highlight ? color : T.border; }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: highlight ? color : T.grayLight }}>{icon} {label}</span>
+      <div style={{ textAlign: "right" }}>
+        {showSinIva && <div style={{ fontSize: 11, color: T.gray, fontFamily: fontD }}>{fmt$(valueSinIva)} <span style={{ fontSize: 9 }}>sin IVA</span></div>}
+        <div style={{ fontSize: 16, fontWeight: 800, color, fontFamily: fontD }}>{fmt$(valueConIva)}</div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ ...card, padding: 0, overflow: "hidden" }}>
-      {/* ── Header ── */}
       <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.accent}08)`, borderBottom: `2px solid ${T.accent}`, padding: "18px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800 }}>🧮 Extracto de precios — {trabajoLabel}</div>
+            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800 }}>🧮 Extracto — {trabajoLabel}</div>
             <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>{vehiculoDesc}</div>
           </div>
-          {onClose && (
-            <button onClick={onClose} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 20, padding: "4px 12px", color: T.gray }}>
-              ×
-            </button>
-          )}
+          {onClose && <button onClick={onClose} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 20, padding: "4px 12px", color: T.gray }}>×</button>}
         </div>
       </div>
 
-      {/* ── Materiales ── */}
       <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          📦 Materiales {ownerView ? "(sin IVA)" : ""}
-        </div>
-
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>📦 Materiales {ownerView ? "(sin IVA)" : ""}</div>
         {kit ? (
           <div style={{ marginBottom: 8 }}>
-            <Row
-              label={`KIT ${kit.kitCode} (${kit.skusIncluidos?.length || 0} filtros Wega)`}
-              value={ownerView ? fmt$(kit.precio) : "✓"}
-              bold
-            />
+            <Row label={`KIT ${kit.kitCode} (${kit.skusIncluidos?.length || 0} filtros)`} value={ownerView ? fmt$(kit.precio) : "✓"} bold />
             {kitIndex && skuIndex && (
               <div style={{ paddingLeft: 20, marginTop: 4 }}>
                 {(kit.skusIncluidos || []).map(s => {
                   const art = skuIndex[s.sku];
                   const tipoShort = ({ filtro_aire: "aire", filtro_aceite: "aceite", filtro_combustible: "combustible", filtro_habitaculo: "habitáculo" })[art?.tipo] || art?.tipo || "";
-                  return (
-                    <div key={s.sku} style={{ fontSize: 11, color: T.grayLight, padding: "2px 0" }}>
-                      · <span style={{ fontWeight: 700 }}>{s.sku}</span> ({tipoShort})
-                    </div>
-                  );
+                  return <div key={s.sku} style={{ fontSize: 11, color: T.grayLight, padding: "2px 0" }}>· <span style={{ fontWeight: 700 }}>{s.sku}</span> ({tipoShort})</div>;
                 })}
               </div>
             )}
           </div>
-        ) : (
-          <Row label="Filtros sueltos" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} />
-        )}
-
-        <Row
-          label={`Aceite ${aceiteObj?.nombre || ""}`}
+        ) : <Row label="Filtros sueltos" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} />}
+        <Row label={`Aceite ${aceite?.nombre || ""}`}
           subtext={`${presentacion} × ${litros}L${ownerView && extracto.materiales.aceite?.precio_por_litro ? ` @ ${fmt$(extracto.materiales.aceite.precio_por_litro)}/L` : ""}`}
-          value={ownerView ? fmt$(extracto.materiales.aceite?.total) : `${litros}L`}
-        />
-
+          value={ownerView ? fmt$(extracto.materiales.aceite?.total) : `${litros}L`} />
         <div style={{ borderTop: `1px dashed ${T.border}`, marginTop: 10, paddingTop: 10 }}>
-          <Row
-            label={ownerView ? "Subtotal materiales" : "Total materiales"}
-            value={ownerView ? fmt$(extracto.materiales.subtotal_sin_iva) : "—"}
-            bold muted={!ownerView}
-          />
+          <Row label={ownerView ? "Subtotal" : "Total materiales"} value={ownerView ? fmt$(extracto.materiales.subtotal_sin_iva) : "—"} bold muted={!ownerView} />
         </div>
       </div>
 
-      {/* ── M.O. (solo dueño ve el detalle numérico) ── */}
       {ownerView && (
         <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            🔧 Mano de obra (sin IVA)
-          </div>
-          <Row
-            label={`${fitment.categoria === "alta_gama" ? "Alta gama" : "Auto estándar"} × ${extracto.manoObra.horas} hora${extracto.manoObra.horas === 1 ? "" : "s"}`}
-            value={fmt$(extracto.manoObra.total)}
-            bold
-          />
+          <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>🔧 Mano de obra</div>
+          <Row label={`${fitment.categoria === "alta_gama" ? "Alta gama" : "Auto estándar"} × ${extracto.manoObra.horas}h`} value={fmt$(extracto.manoObra.total)} bold />
         </div>
       )}
 
-      {/* ── Los 3 precios (SIN IVA — solo owner, o CON IVA — todos) ── */}
       <div style={{ padding: 20, background: T.bg3, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          🎯 Precios sugeridos {ownerView ? "(sin IVA / con IVA)" : "(con IVA)"}
-        </div>
-
-        {/* Venta mínima */}
-        <ClickPrice
-          T={T} fontD={fontD}
-          icon="🔻"
-          label={ownerView ? "Venta mínima (costo total)" : "Venta mínima"}
-          valueSinIva={extracto.ventaMinima}
-          valueConIva={extracto.ventaMinimaConIva}
-          showSinIva={ownerView}
-          onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaMinimaConIva)))}
-          color={T.red}
-        />
-
-        {/* Venta óptima */}
-        <ClickPrice
-          T={T} fontD={fontD}
-          icon="🎯"
-          label={ownerView ? `Venta óptima (piso ${Math.round((extracto.config.margenMinimoFull || 0.5) * 100)}%)` : "Venta óptima"}
-          valueSinIva={extracto.ventaOptima}
-          valueConIva={extracto.ventaOptimaConIva}
-          showSinIva={ownerView}
-          onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaOptimaConIva)))}
-          color={T.green}
-          highlight
-        />
-
-        {/* Techo competitivo */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎯 Precios sugeridos {ownerView ? "(sin/con IVA)" : "(con IVA)"}</div>
+        <ClickPrice icon="🔻" label={ownerView ? "Venta mínima (costo total)" : "Venta mínima"}
+          valueSinIva={extracto.ventaMinima} valueConIva={extracto.ventaMinimaConIva} showSinIva={ownerView}
+          onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaMinimaConIva)))} color={T.red} />
+        <ClickPrice icon="🎯" label={ownerView ? `Venta óptima (piso ${Math.round((extracto.config.margenMinimoFull || 0.5) * 100)}%)` : "Venta óptima"}
+          valueSinIva={extracto.ventaOptima} valueConIva={extracto.ventaOptimaConIva} showSinIva={ownerView}
+          onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaOptimaConIva)))} color={T.green} highlight />
         {extracto.techoCompetitivo != null ? (
-          <ClickPrice
-            T={T} fontD={fontD}
-            icon="🔺"
-            label={ownerView ? `Techo competitivo (${Math.round((extracto.config.factorTechoCompetitivo || 0.85) * 100)}% oficial)` : "Techo competitivo"}
-            valueSinIva={extracto.techoCompetitivo}
-            valueConIva={extracto.techoConIva}
-            showSinIva={ownerView}
-            onClick={() => setPrecioFinalConIva(String(Math.round(extracto.techoConIva)))}
-            color={T.orange}
-          />
+          <ClickPrice icon="🔺" label={ownerView ? `Techo (${Math.round((extracto.config.factorTechoCompetitivo || 0.85) * 100)}% oficial)` : "Techo competitivo"}
+            valueSinIva={extracto.techoCompetitivo} valueConIva={extracto.techoConIva} showSinIva={ownerView}
+            onClick={() => setPrecioFinalConIva(String(Math.round(extracto.techoConIva)))} color={T.orange} />
         ) : (
           <div style={{ padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px dashed ${T.border}`, fontSize: 12, color: T.gray, marginTop: 8 }}>
             🔺 Techo competitivo — falta cargar precio oficial de la concesionaria
@@ -276,137 +168,57 @@ export default function ExtractoPrecios({
         )}
       </div>
 
-      {/* ── Precio final al cliente ── */}
       <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          💰 Precio al cliente
-        </div>
-
-        {/* Selector método de pago */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>💰 Precio al cliente</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           {["tarjeta", "efectivo", "mixto"].map(m => (
-            <button
-              key={m}
-              onClick={() => setMetodoPago(m)}
-              style={{
-                ...btnPrimary(metodoPago === m ? T.accent : T.bg3),
-                border: `1px solid ${metodoPago === m ? T.accent : T.border}`,
-                color: metodoPago === m ? "#fff" : T.grayLight,
-                flex: 1, fontSize: 12, padding: "8px 4px",
-              }}
-            >
+            <button key={m} onClick={() => setMetodoPago(m)}
+              style={{ ...btnPrimary(metodoPago === m ? T.accent : T.bg3), border: `1px solid ${metodoPago === m ? T.accent : T.border}`,
+                color: metodoPago === m ? "#fff" : T.grayLight, flex: 1, fontSize: 12, padding: "8px 4px" }}>
               {m === "tarjeta" ? "💳 Tarjeta" : m === "efectivo" ? "💵 Efectivo" : "🔀 Mixto"}
             </button>
           ))}
         </div>
-
-        {/* Input precio con IVA */}
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
-            Precio con IVA (tipeá o tocá uno de los sugeridos ↑)
-          </div>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={precioFinalConIva}
+          <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>Precio con IVA (tipeá o tocá uno de arriba)</div>
+          <input type="text" inputMode="numeric" value={precioFinalConIva}
             onChange={(e) => setPrecioFinalConIva(e.target.value.replace(/[^0-9]/g, ""))}
-            style={{ ...inputStyle, fontSize: 20, fontWeight: 800, textAlign: "center", fontFamily: fontD }}
-          />
+            style={{ ...inputStyle, fontSize: 20, fontWeight: 800, textAlign: "center", fontFamily: fontD }} />
         </div>
-
         {metodoPago === "mixto" && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
-              Parte en efectivo (el resto va con tarjeta)
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={montoEfectivo}
+            <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>Parte en efectivo</div>
+            <input type="text" inputMode="numeric" value={montoEfectivo}
               onChange={(e) => setMontoEfectivo(e.target.value.replace(/[^0-9]/g, ""))}
-              style={{ ...inputStyle, fontSize: 16 }}
-            />
+              style={{ ...inputStyle, fontSize: 16 }} />
           </div>
         )}
-
-        {/* Total real */}
         <div style={{ background: T.bg3, borderRadius: 10, padding: 14, border: `1px solid ${T.border}` }}>
-          <Row
-            label={metodoPago === "tarjeta" ? "💳 Total con tarjeta" : metodoPago === "efectivo" ? `💵 Total efectivo (−${Math.round((extracto.config.descuentoEfectivo || 0.15) * 100)}%)` : "🔀 Total mixto"}
-            value={fmt$(cliente.total)}
-            big bold color={T.green}
-          />
-          {cliente.ahorro > 0 && (
-            <div style={{ fontSize: 11, color: T.green, textAlign: "right", marginTop: 2 }}>
-              Ahorro vs. tarjeta: {fmt$(cliente.ahorro)}
-            </div>
-          )}
+          <Row label={metodoPago === "tarjeta" ? "💳 Total con tarjeta" : metodoPago === "efectivo" ? `💵 Total efectivo (−${Math.round((extracto.config.descuentoEfectivo || 0.15) * 100)}%)` : "🔀 Total mixto"}
+            value={fmt$(cliente.total)} big bold color={T.green} />
+          {cliente.ahorro > 0 && <div style={{ fontSize: 11, color: T.green, textAlign: "right", marginTop: 2 }}>Ahorro vs. tarjeta: {fmt$(cliente.ahorro)}</div>}
         </div>
-
-        {/* Zona de color + margen */}
         {precioSinIva > 0 && (
           <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: zonaConf.hex + "15", border: `1px solid ${zonaConf.hex}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>{zonaConf.icon}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: zonaConf.hex }}>{zonaConf.label}</span>
             </div>
-            {ownerView && (
-              <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color: zonaConf.hex }}>
-                Margen: {margen}%
-              </span>
-            )}
+            {ownerView && <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color: zonaConf.hex }}>Margen: {margen}%</span>}
           </div>
         )}
       </div>
 
-      {/* ── Acciones ── */}
       {(onGuardar || onWhatsApp || onConvertir) && (
         <div style={{ padding: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {onGuardar && (
-            <button onClick={() => onGuardar({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, color: T.grayLight, flex: 1, minWidth: 140, fontSize: 12 }}>
-              💾 Guardar cotización
-            </button>
-          )}
-          {onWhatsApp && (
-            <button onClick={() => onWhatsApp({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })} style={{ ...btnPrimary(T.green), flex: 1, minWidth: 140, fontSize: 12 }}>
-              📱 WhatsApp PDF
-            </button>
-          )}
-          {onConvertir && (
-            <button onClick={() => onConvertir({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })} style={{ ...btnPrimary(T.accent), flex: 1, minWidth: 140, fontSize: 12 }}>
-              → Abrir orden
-            </button>
-          )}
+          {onGuardar && <button onClick={() => onGuardar({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })}
+            style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, color: T.grayLight, flex: 1, minWidth: 140, fontSize: 12 }}>💾 Guardar cotización</button>}
+          {onWhatsApp && <button onClick={() => onWhatsApp({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })}
+            style={{ ...btnPrimary(T.green), flex: 1, minWidth: 140, fontSize: 12 }}>📱 WhatsApp PDF</button>}
+          {onConvertir && <button onClick={() => onConvertir({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })}
+            style={{ ...btnPrimary(T.accent), flex: 1, minWidth: 140, fontSize: 12 }}>→ Abrir orden</button>}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Sub-componente para las 3 filas de precio clickeables ──
-function ClickPrice({ icon, label, valueSinIva, valueConIva, showSinIva, onClick, color, highlight, T, fontD }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "10px 12px", borderRadius: 10, cursor: "pointer",
-        background: highlight ? color + "12" : T.bg,
-        border: `1px solid ${highlight ? color : T.border}`,
-        marginTop: 8, transition: "all .15s",
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = color; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = highlight ? color : T.border; }}
-    >
-      <span style={{ fontSize: 13, fontWeight: 700, color: highlight ? color : T.grayLight }}>
-        {icon} {label}
-      </span>
-      <div style={{ textAlign: "right" }}>
-        {showSinIva && (
-          <div style={{ fontSize: 11, color: T.gray, fontFamily: fontD }}>{fmt$(valueSinIva)} <span style={{ fontSize: 9 }}>sin IVA</span></div>
-        )}
-        <div style={{ fontSize: 16, fontWeight: 800, color: color, fontFamily: fontD }}>{fmt$(valueConIva)}</div>
-      </div>
     </div>
   );
 }
