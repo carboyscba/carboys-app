@@ -224,6 +224,38 @@ export function buildCotizadorSnapshot({ extracto, precioFinalTarjeta, precioFin
   };
 }
 
+/**
+ * Busca el precio oficial de concesionaria para un vehículo y trabajo dados.
+ * Devuelve el precio SIN IVA (convierte si el registro está guardado con IVA),
+ * o null si no hay match.
+ */
+export function buscarPrecioOficialSinIva(concesionarias, { marca, modelo, motor, trabajo = "service_full", ivaRate = 0.21 }) {
+  if (!Array.isArray(concesionarias) || !concesionarias.length) return null;
+  const norm = (s) => String(s || "").toLowerCase().trim();
+  const marcaN = norm(marca), modeloN = norm(modelo), motorN = norm(motor);
+
+  const candidatos = concesionarias.filter(c => {
+    if (norm(c.marca) !== marcaN) return false;
+    const cm = norm(c.modelo);
+    if (!modeloN) return false;
+    return cm.includes(modeloN) || modeloN.includes(cm);
+  });
+  if (!candidatos.length) return null;
+
+  let elegido = candidatos[0];
+  if (motorN) {
+    const conMotor = candidatos.find(c => norm(c.motor) && (norm(c.motor).includes(motorN) || motorN.includes(norm(c.motor))));
+    if (conMotor) elegido = conMotor;
+  }
+
+  const campo = trabajo === "service_base" ? "precioServiceBase" : "precioServiceFull";
+  const precio = elegido[campo];
+  if (precio == null || precio === "") return null;
+
+  const conIva = elegido.conIva !== false;
+  return conIva ? Math.round((Number(precio) / (1 + ivaRate)) * 100) / 100 : Number(precio);
+}
+
 // ── Helper de conveniencia para buscar fitment por (marca, modelo, motor, año) ──
 export async function findFitment({ marca, modelo, motorHint, ano }) {
   const fit = await (await import("./dataLoader.js")).loadFitment();
