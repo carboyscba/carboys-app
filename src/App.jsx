@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from "react";
 import ConfigCotizador from "./cotizador/ConfigCotizador.jsx";
 import ConfigProveedores from "./cotizador/ConfigProveedores.jsx";
+import NuevaCotizacionModal from "./cotizador/NuevaCotizacionModal.jsx";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -1996,6 +1997,8 @@ const NewOrderScreen = (props) => {
   const [searchMode, setSearchMode] = useState("domain"); // "domain" or "dni"
   const [domainSearch, setDomainSearch] = useState("");
   const [dniSearch, setDniSearch] = useState("");
+  // Cotizador (Iter 5 — Path 1.A)
+  const [cotizacionModal, setCotizacionModal] = useState(false);
   const [unlinkVehicle, setUnlinkVehicle] = useState(null);
   const [dniFoundClient, setDniFoundClient] = useState(null);
   const [crossResult, setCrossResult] = useState(null); // resultado de búsqueda cross-sucursal
@@ -2800,7 +2803,51 @@ const NewOrderScreen = (props) => {
               })()}
             </div>
           )}
+          {/* ── Botón COTIZACIÓN (Path 1.A — sin dominio) ── */}
+          {props.config?.cotizador?.activo && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <div style={{ flex: 1, height: 1, background: T.border }} />
+                <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" }}>o cotizar sin abrir orden</div>
+                <div style={{ flex: 1, height: 1, background: T.border }} />
+              </div>
+              <button
+                onClick={() => setCotizacionModal(true)}
+                style={{
+                  width: "100%", padding: "18px 20px", borderRadius: 12,
+                  background: `linear-gradient(135deg, ${T.accent}, ${T.accent}dd)`,
+                  color: "#fff", fontWeight: 800, fontSize: 16, letterSpacing: "0.5px",
+                  border: "none", cursor: "pointer",
+                  boxShadow: `0 4px 12px ${T.accent}40`,
+                  transition: "all .2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 6px 16px ${T.accent}60`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = `0 4px 12px ${T.accent}40`; }}
+              >
+                🧮 COTIZACIÓN
+              </button>
+              <div style={{ fontSize: 11, color: T.gray, textAlign: "center", marginTop: 8 }}>
+                Precio rápido sin dominio · marca + modelo + año a mano · PDF por WhatsApp
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* ── MODAL: Nueva Cotización (Path 1.A) ── */}
+      {cotizacionModal && (
+        <NuevaCotizacionModal
+          config={props.config}
+          role={props.user?.role || "encargado"}
+          onClose={() => setCotizacionModal(false)}
+          T={T}
+          fontD={fontD}
+          card={card}
+          btnPrimary={btnPrimary}
+          inputStyle={inputStyle}
+          selectStyle={selectStyle}
+          labelStyle={labelStyle}
+        />
       )}
 
       {/* ── MODAL: Confirmar eliminación de cliente ── */}
