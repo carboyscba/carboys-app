@@ -49,19 +49,38 @@ export function precioPorLitroDeAceite(aceite, presentacionId = null) {
 }
 
 /**
- * Costo materiales SIN IVA:
- *   materiales = precio_kit + (litros × precio_por_litro_aceite)
- * Si no hay kit_recomendado en el fitment, suma los SKUs sueltos.
+ * Costo materiales SIN IVA.
+ *
+ * REGLAS (Nacho, iter B):
+ *   • Service Full + hay kit Wega → precio del kit.
+ *   • Service Full + NO hay kit → suma de los 4 filtros sueltos (aire, aceite, comb, hab).
+ *   • Service Base → SOLO filtro de aire + filtro de aceite (NUNCA kit, NUNCA los 4).
+ *
+ * Al costo de los filtros se le suma aceite líquido (litros × precio_por_litro).
  */
-export function costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite }) {
+export function costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite, trabajo = "service_full" }) {
   let costoFiltros = 0;
   let detalleFiltros = null;
-  if (fitment.kit_recomendado && kitIndex[fitment.kit_recomendado]) {
+
+  if (trabajo === "service_base") {
+    // ── SERVICE BASE ── solo aire + aceite (nunca kit, nunca combustible ni habitáculo)
+    const skus = [fitment.sku_aire, fitment.sku_aceite].filter(Boolean);
+    const detalleSueltos = [];
+    for (const s of skus) {
+      const a = skuIndex[s];
+      if (a) {
+        costoFiltros += a.costoNeto;
+        detalleSueltos.push({ sku: s, precio: a.costoNeto });
+      }
+    }
+    detalleFiltros = { modo: "base_aire_aceite", skus: detalleSueltos, precio: costoFiltros };
+  } else if (fitment.kit_recomendado && kitIndex[fitment.kit_recomendado]) {
+    // ── SERVICE FULL + KIT ── usar precio del kit
     const kit = kitIndex[fitment.kit_recomendado];
     costoFiltros = kit.precio || 0;
     detalleFiltros = { modo: "kit", kitCode: kit.kitCode, precio: costoFiltros, skus: kit.skusIncluidos };
   } else {
-    // Fallback: sumar SKUs sueltos
+    // ── SERVICE FULL + SUELTOS ── suma de los 4 filtros
     const skus = [
       fitment.sku_aire, fitment.sku_aceite, fitment.sku_combustible, fitment.sku_habitaculo
     ].filter(Boolean);
@@ -126,7 +145,7 @@ export async function cotizarService({
   const kitIndex = kitIdx || await getKitIndex();
   const skuIndex = skuIdx || await getSkuIndex();
 
-  const materiales = costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite });
+  const materiales = costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite, trabajo });
 
   // Mano de obra según categoría del fitment
   const tarifaHora = fitment.categoria === "alta_gama" ? cfg.manoObraAltaGama : cfg.manoObraEstandar;
