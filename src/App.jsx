@@ -3428,6 +3428,9 @@ const NewOrderScreen = (props) => {
                   <span onClick={() => removeWork(i)} style={{ color: T.red, cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "4px 8px", borderRadius: 6, background: "rgba(229,57,53,0.08)" }}>✕ Quitar</span>
                 </div>
 
+                {/* Descripción/Precio: OCULTO para Service Full/Base cuando el cotizador está activo
+                    (redundante — el precio se carga desde el chip del mini-extracto de abajo). */}
+                {!(config?.cotizador?.activo && (w.type === "Service Full" || w.type === "Service Base")) && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
                   <div>
                     <label style={labelStyle}>Descripción</label>
@@ -3443,6 +3446,7 @@ const NewOrderScreen = (props) => {
                     </div>
                   </div>}
                 </div>
+                )}
 
                 {/* ── Mini-Extracto Path 2 (Iter 7) — Service Full/Base ── */}
                 {config?.cotizador?.activo && (w.type === "Service Full" || w.type === "Service Base") && (
@@ -3781,9 +3785,13 @@ const NewOrderScreen = (props) => {
 
           {works.length > 0 && (
             <div style={{ ...card, padding: 16, marginBottom: 16, background: "rgba(30,136,229,0.08)", borderColor: T.accent }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600, fontFamily: fontD, color: T.gray, marginBottom: 4 }}>
+                <span>Subtotal (sin IVA)</span>
+                <span>{fmt(totalWorks)}</span>
+              </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, fontFamily: fontD }}>
-                <span>TOTAL</span>
-                <span style={{ color: T.accent }}>{fmt(totalWorks)}</span>
+                <span>TOTAL (IVA incl.)</span>
+                <span style={{ color: T.accent }}>{fmt(Math.round(totalWorks * (1 + (config.ivaRate || 21) / 100)))}</span>
               </div>
             </div>
           )}
