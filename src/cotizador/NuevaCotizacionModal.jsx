@@ -12,13 +12,14 @@
 //  como stubs.
 // ══════════════════════════════════════════════════════════════════
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ExtractoPrecios from "./ExtractoPrecios.jsx";
 import { loadFitment, loadCatalogoMobil } from "./dataLoader.js";
 
 export default function NuevaCotizacionModal({
   config,
   role = "dueño",
+  initialForm,               // preload desde Path 1.B (marca/modelo/año/cliente ya conocidos)
   onClose,
   onGuardar,
   onWhatsApp,
@@ -36,19 +37,19 @@ export default function NuevaCotizacionModal({
   const [fitmentData, setFitmentData] = useState(null);
   const [mobilData, setMobilData] = useState(null);
 
-  // Form state
+  // Form state (con initialForm si viene desde Path 1.B)
   const [form, setForm] = useState({
-    marca: "",
-    modelo: "",
-    motor_hint: "",   // guardamos el motor_hint como string ("2.0", "1.6", etc.)
-    ano: "",
+    marca: initialForm?.marca || "",
+    modelo: initialForm?.modelo || "",
+    motor_hint: initialForm?.motor_hint || "",
+    ano: initialForm?.ano || "",
     aceiteId: "",
     presentacionId: "",
     litros: 5,
     trabajo: "service_full",
-    nombre: "",
-    apellido: "",
-    telefono: "",
+    nombre: initialForm?.nombre || "",
+    apellido: initialForm?.apellido || "",
+    telefono: initialForm?.telefono || "",
   });
 
   const [step, setStep] = useState("form"); // "form" | "extracto"
@@ -109,13 +110,16 @@ export default function NuevaCotizacionModal({
   const presentaciones = aceiteObj?.presentaciones || [];
 
   // ── Auto-selects cuando cambian dependencias ──
+  // Skip el reset inicial cuando hay initialForm (Path 1.B: precarga marca/modelo/año)
+  const marcaFirst = useRef(true);
   useEffect(() => {
-    // Al elegir marca, resetear modelo y motor
+    if (marcaFirst.current) { marcaFirst.current = false; return; }
     setForm(f => ({ ...f, modelo: "", motor_hint: "", ano: "" }));
   }, [form.marca]);
 
+  const modeloFirst = useRef(true);
   useEffect(() => {
-    // Al elegir modelo, resetear motor. Si solo hay uno, auto-seleccionar.
+    if (modeloFirst.current) { modeloFirst.current = false; return; }
     if (motoresDisponibles.length === 1) {
       const m = motoresDisponibles[0];
       setForm(f => ({ ...f, motor_hint: m.motor_hint || "", ano: m.ano_desde || "" }));
