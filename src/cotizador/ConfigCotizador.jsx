@@ -1,412 +1,276 @@
 // ══════════════════════════════════════════════════════════════════
-//  Cotizador — Extracto de Precios (Iter 4)
+//  Cotizador — Config panel (Iter 2)
 //
-//  El corazón visual del módulo. Renderiza los 3 precios triangulados
-//  con materiales, M.O., precio con IVA, descuento efectivo y color
-//  de zona.
+//  Se renderiza como un tab dentro de AdminScreen. Solo visible al
+//  rol "dueño". Recibe theme/style constants por props para respetar
+//  el look de la app existente sin duplicar constantes.
 //
-//  Vista adaptada por rol:
-//    · dueño → ve labels con fórmulas ("piso 50%", "85% oficial") y
-//              precios individuales de cada material.
-//    · resto → ve los números crudos, sin labels ni precios de
-//              materiales; solo el listado de QUÉ va (nombre kit +
-//              aceite + litros).
+//  Guarda cambios en config.cotizador vía setConfig (que persiste a
+//  Firestore por el flujo existente de la app).
 // ══════════════════════════════════════════════════════════════════
 
-import React, { useEffect, useState } from "react";
-import { cotizarService, precioFinalCliente, zonaDePrecio } from "./engine.js";
-import { getKitIndex, getSkuIndex, getAceiteIndex } from "./dataLoader.js";
+import React, { useState, useEffect } from "react";
+import { DEFAULT_COTIZADOR_CONFIG } from "./engine.js";
+import { loadFitment, loadCatalogoMobil } from "./dataLoader.js";
+import ExtractoPrecios from "./ExtractoPrecios.jsx";
 
-const ZONE_COLORS = {
-  rojo:    { hex: "#e53935", label: "Perdés plata en la venta",           icon: "🔴" },
-  amarillo:{ hex: "#f5b301", label: "Ganás, pero por debajo del target",  icon: "🟡" },
-  verde:   { hex: "#43a047", label: "Zona ideal — rentable y competitivo",icon: "🟢" },
-  naranja: { hex: "#fb8c00", label: "Rentable pero el oficial cobra menos",icon: "🟠" },
-};
-
-const fmt$ = (n) => {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
-};
-
-export default function ExtractoPrecios({
-  fitment,
-  aceite,
-  litros,
-  trabajo = "service_full",
+export default function ConfigCotizador({
   config,
-  precioOficialSinIva = null,
-  presentacionAceite = null,
-  role = "dueño",
-  onClose,
-  onGuardar,
-  onWhatsApp,
-  onConvertir,
+  setConfig,
   T,
   fontD,
   card,
   btnPrimary,
   inputStyle,
+  labelStyle,
 }) {
-  const ownerView = role === "dueño";
+  const cotConfig = { ...DEFAULT_COTIZADOR_CONFIG, ...(config?.cotizador || {}) };
 
-  const [extracto, setExtracto] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  // Estado local (strings para inputs)
+  const [form, setForm] = useState({
+    activo: !!cotConfig.activo,
+    manoObraEstandar: String(cotConfig.manoObraEstandar),
+    manoObraAltaGama: String(cotConfig.manoObraAltaGama),
+    margenMinimoFull: String(Math.round(cotConfig.margenMinimoFull * 100)),
+    margenMinimoBase: String(Math.round(cotConfig.margenMinimoBase * 100)),
+    factorTechoCompetitivo: String(Math.round(cotConfig.factorTechoCompetitivo * 100)),
+    descuentoEfectivo: String(Math.round(cotConfig.descuentoEfectivo * 100)),
+    alertaMoMeses: String(cotConfig.alertaMoMeses),
+  });
 
-  // Precio que el recepcionista tipea (CON IVA)
-  const [precioFinalConIva, setPrecioFinalConIva] = useState("");
-  const [metodoPago, setMetodoPago] = useState("tarjeta");
-  const [montoEfectivo, setMontoEfectivo] = useState("");
-
-  // Indexes cache (para mostrar detalle de filtros del kit / aceite)
-  const [kitIndex, setKitIndex] = useState(null);
-  const [skuIndex, setSkuIndex] = useState(null);
-  const [aceiteIndex, setAceiteIndex] = useState(null);
-
+  // Re-sync si config cambia externamente
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const [ki, si, ai] = await Promise.all([getKitIndex(), getSkuIndex(), getAceiteIndex()]);
-        if (!mounted) return;
-        setKitIndex(ki); setSkuIndex(si); setAceiteIndex(ai);
-        const e = await cotizarService({
-          fitment, aceite, litros, trabajo, config, presentacionAceite,
-          precioOficialSinIva, kitIndex: ki, skuIndex: si,
-          ivaRate: (config?.ivaRate ?? 21) / 100,
-        });
-        if (!mounted) return;
-        setExtracto(e);
-        // Pre-cargar el "precio sugerido" con la venta óptima (con IVA)
-        setPrecioFinalConIva(String(Math.round(e.ventaOptimaConIva)));
-      } catch (err) {
-        if (mounted) setError(err.message || String(err));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [fitment, aceite, litros, trabajo, config, presentacionAceite, precioOficialSinIva]);
+    const c = { ...DEFAULT_COTIZADOR_CONFIG, ...(config?.cotizador || {}) };
+    setForm({
+      activo: !!c.activo,
+      manoObraEstandar: String(c.manoObraEstandar),
+      manoObraAltaGama: String(c.manoObraAltaGama),
+      margenMinimoFull: String(Math.round(c.margenMinimoFull * 100)),
+      margenMinimoBase: String(Math.round(c.margenMinimoBase * 100)),
+      factorTechoCompetitivo: String(Math.round(c.factorTechoCompetitivo * 100)),
+      descuentoEfectivo: String(Math.round(c.descuentoEfectivo * 100)),
+      alertaMoMeses: String(c.alertaMoMeses),
+    });
+  }, [config?.cotizador]);
 
-  if (loading) return (
-    <div style={{ ...card, padding: 40, textAlign: "center", color: T.gray, fontSize: 14 }}>
-      ⏳ Calculando extracto…
-    </div>
-  );
-  if (error) return (
-    <div style={{ ...card, padding: 20, borderColor: T.red, background: T.red + "10", color: T.red, fontSize: 13 }}>
-      ⚠️ {error}
-    </div>
-  );
-  if (!extracto) return null;
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
-  // Precio final al cliente según método
-  const precioConIva = parseFloat(precioFinalConIva) || 0;
-  const efectivoMonto = parseFloat(montoEfectivo) || 0;
-  const cliente = precioFinalCliente({
-    precioBaseConIva: precioConIva,
-    metodo: metodoPago,
-    montoEfectivo: efectivoMonto,
-    config: extracto.config,
-  });
+  // Modal Extracto para probar el motor visualmente
+  const [probando, setProbando] = useState(null);   // {fitment, aceite, litros, trabajo}
+  const [testError, setTestError] = useState("");
 
-  // Zona de precio (basada en el precio sin IVA)
-  const ivaFactor = 1 + extracto.ivaRate;
-  const precioSinIva = precioConIva / ivaFactor;
-  const zona = zonaDePrecio({
-    precioSinIva,
-    ventaMinima: extracto.ventaMinima,
-    ventaOptima: extracto.ventaOptima,
-    techoCompetitivo: extracto.techoCompetitivo,
-  });
-  const zonaConf = ZONE_COLORS[zona.color] || ZONE_COLORS.verde;
+  const openTestAmarok = async () => {
+    setTestError("");
+    try {
+      const [fit, mob] = await Promise.all([loadFitment(), loadCatalogoMobil()]);
+      const fitAmarok = (fit.fitments || []).find(f => f.kit_code === "WKU-2001");
+      const aceite = (mob.aceites || []).find(a => a.id === "mobil_super2000_10w40");
+      if (!fitAmarok || !aceite) throw new Error("No se encontraron datos de prueba (Amarok / Super 2000).");
+      setProbando({ fitment: fitAmarok, aceite, litros: 7, trabajo: "service_full", presentacionAceite: "granel" });
+    } catch (e) {
+      setTestError(e.message);
+    }
+  };
 
-  const margen = precioSinIva > 0
-    ? Math.round(((precioSinIva - extracto.ventaMinima) / precioSinIva) * 1000) / 10
-    : 0;
+  const upd = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    setSaved(false);
+    setError("");
+  };
 
-  const withIva = (n) => Math.round(n * ivaFactor);
+  const handleSave = () => {
+    setError("");
+    try {
+      const parsed = {
+        activo: form.activo,
+        manoObraEstandar: parseFloat(form.manoObraEstandar) || 0,
+        manoObraAltaGama: parseFloat(form.manoObraAltaGama) || 0,
+        margenMinimoFull: (parseFloat(form.margenMinimoFull) || 0) / 100,
+        margenMinimoBase: (parseFloat(form.margenMinimoBase) || 0) / 100,
+        factorTechoCompetitivo: (parseFloat(form.factorTechoCompetitivo) || 0) / 100,
+        descuentoEfectivo: (parseFloat(form.descuentoEfectivo) || 0) / 100,
+        alertaMoMeses: parseInt(form.alertaMoMeses, 10) || 6,
+      };
+      if (parsed.manoObraEstandar <= 0) throw new Error("M.O. estándar debe ser mayor a 0");
+      if (parsed.manoObraAltaGama <= 0) throw new Error("M.O. alta gama debe ser mayor a 0");
+      if (parsed.margenMinimoFull < 0 || parsed.margenMinimoFull >= 1) throw new Error("Margen Full debe estar entre 0% y 99%");
+      if (parsed.margenMinimoBase < 0 || parsed.margenMinimoBase >= 1) throw new Error("Margen Base debe estar entre 0% y 99%");
+      if (parsed.factorTechoCompetitivo <= 0 || parsed.factorTechoCompetitivo > 1) throw new Error("Factor techo debe estar entre 1% y 100%");
+      if (parsed.descuentoEfectivo < 0 || parsed.descuentoEfectivo >= 1) throw new Error("Descuento efectivo debe estar entre 0% y 99%");
 
-  // Kit y aceite detalle
-  const kit = extracto.materiales.filtros?.modo === "kit" && kitIndex
-    ? kitIndex[extracto.materiales.filtros.kitCode]
-    : null;
-  const aceiteObj = aceite;
-  const presentacion = extracto.materiales.aceite?.presentacion || "—";
+      const newConfig = { ...(config || {}), cotizador: parsed };
+      setConfig(newConfig);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
-  const trabajoLabel = trabajo === "service_full" ? "Service Full" : "Service Base";
-  const vehiculoDesc = fitment.kit_nombre || fitment.descripcion_completa || `${fitment.marca} ${fitment.modelo}`;
-
-  const Row = ({ label, value, muted, big, bold, color, subtext }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: subtext ? "flex-start" : "center", padding: "6px 0" }}>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <span style={{ fontSize: big ? 16 : 13, fontWeight: bold ? 700 : 500, color: muted ? T.gray : (color || T.text) }}>{label}</span>
-        {subtext && <span style={{ fontSize: 10, color: T.gray, marginTop: 2 }}>{subtext}</span>}
+  const Field = ({ label, value, onChange, suffix, hint, placeholder }) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          placeholder={placeholder || ""}
+          onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
+          style={{ ...inputStyle, paddingRight: suffix ? 52 : 12 }}
+        />
+        {suffix && (
+          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: T.gray, fontSize: 12, fontWeight: 700, pointerEvents: "none" }}>
+            {suffix}
+          </span>
+        )}
       </div>
-      <span style={{ fontSize: big ? 20 : 14, fontWeight: bold ? 800 : 600, fontFamily: fontD, color: color || T.text, whiteSpace: "nowrap" }}>{value}</span>
+      {hint && <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{hint}</div>}
     </div>
   );
 
   return (
-    <div style={{ ...card, padding: 0, overflow: "hidden" }}>
-      {/* ── Header ── */}
-      <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.accent}08)`, borderBottom: `2px solid ${T.accent}`, padding: "18px 20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div>
+      {/* Toggle activo por sucursal */}
+      <div style={{ ...card, padding: 20, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 18, fontWeight: 800 }}>
+            {form.activo ? "🟢 Cotizador activo" : "⚫ Cotizador desactivado"}
+          </div>
+          <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>
+            {form.activo
+              ? "El módulo está encendido. Los botones de Cotización aparecen en Nueva Orden (cuando se implementen)."
+              : "El módulo está apagado en esta sucursal. La UI del cotizador no aparece en Nueva Orden."}
+          </div>
+        </div>
+        <div
+          onClick={() => upd("activo", !form.activo)}
+          style={{
+            width: 54, height: 30, borderRadius: 15,
+            background: form.activo ? T.green : T.bg3,
+            border: `1px solid ${T.border}`,
+            position: "relative", cursor: "pointer", transition: "background .2s",
+          }}
+        >
+          <div style={{
+            position: "absolute", top: 2, left: form.activo ? 26 : 2,
+            width: 24, height: 24, borderRadius: "50%",
+            background: "#fff", transition: "left .2s",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+          }} />
+        </div>
+      </div>
+
+      <div style={{ ...card, padding: 24 }}>
+        <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800, marginBottom: 6 }}>🧮 Parámetros del cotizador</div>
+        <div style={{ fontSize: 13, color: T.gray, marginBottom: 20 }}>
+          Ajustes del motor de precios. Todos los valores se manejan sin IVA (la UI muestra con IVA al cliente).
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
           <div>
-            <div style={{ fontFamily: fontD, fontSize: 20, fontWeight: 800 }}>🧮 Extracto de precios — {trabajoLabel}</div>
-            <div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>{vehiculoDesc}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>💼 Mano de obra gremial (por hora)</div>
+            <Field label="Auto estándar" value={form.manoObraEstandar} onChange={(v) => upd("manoObraEstandar", v)} suffix="ARS" hint="Default: $120.000 (sin IVA)" />
+            <Field label="Alta gama" value={form.manoObraAltaGama} onChange={(v) => upd("manoObraAltaGama", v)} suffix="ARS" hint="Audi, BMW, Mercedes-Benz, Porsche, Land Rover, Volvo, Jaguar, Mini." />
           </div>
-          {onClose && (
-            <button onClick={onClose} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 20, padding: "4px 12px", color: T.gray }}>
-              ×
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* ── Materiales ── */}
-      <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          📦 Materiales {ownerView ? "(sin IVA)" : ""}
-        </div>
-
-        {kit ? (
-          <div style={{ marginBottom: 8 }}>
-            <Row
-              label={`KIT ${kit.kitCode} (${kit.skusIncluidos?.length || 0} filtros Wega)`}
-              value={ownerView ? fmt$(kit.precio) : "✓"}
-              bold
-            />
-            {kitIndex && skuIndex && (
-              <div style={{ paddingLeft: 20, marginTop: 4 }}>
-                {(kit.skusIncluidos || []).map(s => {
-                  const art = skuIndex[s.sku];
-                  const tipoShort = ({ filtro_aire: "aire", filtro_aceite: "aceite", filtro_combustible: "combustible", filtro_habitaculo: "habitáculo" })[art?.tipo] || art?.tipo || "";
-                  return (
-                    <div key={s.sku} style={{ fontSize: 11, color: T.grayLight, padding: "2px 0" }}>
-                      · <span style={{ fontWeight: 700 }}>{s.sku}</span> ({tipoShort})
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>📊 Márgenes</div>
+            <Field label="Margen mínimo Service Full" value={form.margenMinimoFull} onChange={(v) => upd("margenMinimoFull", v)} suffix="%" hint="50% = venta óptima es 2× costo total." />
+            <Field label="Margen mínimo Service Base" value={form.margenMinimoBase} onChange={(v) => upd("margenMinimoBase", v)} suffix="%" hint="Mismo cálculo que Service Full (sin techo)." />
           </div>
-        ) : (
-          <Row label="Filtros sueltos" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} />
-        )}
 
-        <Row
-          label={`Aceite ${aceiteObj?.nombre || ""}`}
-          subtext={`${presentacion} × ${litros}L${ownerView && extracto.materiales.aceite?.precio_por_litro ? ` @ ${fmt$(extracto.materiales.aceite.precio_por_litro)}/L` : ""}`}
-          value={ownerView ? fmt$(extracto.materiales.aceite?.total) : `${litros}L`}
-        />
-
-        <div style={{ borderTop: `1px dashed ${T.border}`, marginTop: 10, paddingTop: 10 }}>
-          <Row
-            label={ownerView ? "Subtotal materiales" : "Total materiales"}
-            value={ownerView ? fmt$(extracto.materiales.subtotal_sin_iva) : "—"}
-            bold muted={!ownerView}
-          />
-        </div>
-      </div>
-
-      {/* ── M.O. (solo dueño ve el detalle numérico) ── */}
-      {ownerView && (
-        <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            🔧 Mano de obra (sin IVA)
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎯 Techo competitivo</div>
+            <Field label="Factor sobre precio oficial" value={form.factorTechoCompetitivo} onChange={(v) => upd("factorTechoCompetitivo", v)} suffix="%" hint="85% = techo es 15% más barato que la concesionaria oficial." />
           </div>
-          <Row
-            label={`${fitment.categoria === "alta_gama" ? "Alta gama" : "Auto estándar"} × ${extracto.manoObra.horas} hora${extracto.manoObra.horas === 1 ? "" : "s"}`}
-            value={fmt$(extracto.manoObra.total)}
-            bold
-          />
-        </div>
-      )}
 
-      {/* ── Los 3 precios (SIN IVA — solo owner, o CON IVA — todos) ── */}
-      <div style={{ padding: 20, background: T.bg3, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          🎯 Precios sugeridos {ownerView ? "(sin IVA / con IVA)" : "(con IVA)"}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>💵 Descuento por efectivo</div>
+            <Field label="Descuento aplicado al cash" value={form.descuentoEfectivo} onChange={(v) => upd("descuentoEfectivo", v)} suffix="%" hint="15% default. 17,36% equivale exacto a quitar el IVA. 21% regala plata." />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🔔 Alertas</div>
+            <Field label="Revisar M.O. cada" value={form.alertaMoMeses} onChange={(v) => upd("alertaMoMeses", v)} suffix="meses" hint="La app te avisa cuando corresponde revisar tarifas." />
+          </div>
         </div>
 
-        {/* Venta mínima */}
-        <ClickPrice
-          T={T} fontD={fontD}
-          icon="🔻"
-          label={ownerView ? "Venta mínima (costo total)" : "Venta mínima"}
-          valueSinIva={extracto.ventaMinima}
-          valueConIva={extracto.ventaMinimaConIva}
-          showSinIva={ownerView}
-          onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaMinimaConIva)))}
-          color={T.red}
-        />
-
-        {/* Venta óptima */}
-        <ClickPrice
-          T={T} fontD={fontD}
-          icon="🎯"
-          label={ownerView ? `Venta óptima (piso ${Math.round((extracto.config.margenMinimoFull || 0.5) * 100)}%)` : "Venta óptima"}
-          valueSinIva={extracto.ventaOptima}
-          valueConIva={extracto.ventaOptimaConIva}
-          showSinIva={ownerView}
-          onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaOptimaConIva)))}
-          color={T.green}
-          highlight
-        />
-
-        {/* Techo competitivo */}
-        {extracto.techoCompetitivo != null ? (
-          <ClickPrice
-            T={T} fontD={fontD}
-            icon="🔺"
-            label={ownerView ? `Techo competitivo (${Math.round((extracto.config.factorTechoCompetitivo || 0.85) * 100)}% oficial)` : "Techo competitivo"}
-            valueSinIva={extracto.techoCompetitivo}
-            valueConIva={extracto.techoConIva}
-            showSinIva={ownerView}
-            onClick={() => setPrecioFinalConIva(String(Math.round(extracto.techoConIva)))}
-            color={T.orange}
-          />
-        ) : (
-          <div style={{ padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px dashed ${T.border}`, fontSize: 12, color: T.gray, marginTop: 8 }}>
-            🔺 Techo competitivo — falta cargar precio oficial de la concesionaria
+        {error && (
+          <div style={{ padding: 12, background: "rgba(229,57,53,0.1)", border: `1px solid ${T.red}`, borderRadius: 8, color: T.red, marginTop: 20, fontSize: 13 }}>
+            ⚠️ {error}
           </div>
         )}
-      </div>
 
-      {/* ── Precio final al cliente ── */}
-      <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          💰 Precio al cliente
-        </div>
-
-        {/* Selector método de pago */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          {["tarjeta", "efectivo", "mixto"].map(m => (
-            <button
-              key={m}
-              onClick={() => setMetodoPago(m)}
-              style={{
-                ...btnPrimary(metodoPago === m ? T.accent : T.bg3),
-                border: `1px solid ${metodoPago === m ? T.accent : T.border}`,
-                color: metodoPago === m ? "#fff" : T.grayLight,
-                flex: 1, fontSize: 12, padding: "8px 4px",
-              }}
-            >
-              {m === "tarjeta" ? "💳 Tarjeta" : m === "efectivo" ? "💵 Efectivo" : "🔀 Mixto"}
-            </button>
-          ))}
-        </div>
-
-        {/* Input precio con IVA */}
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
-            Precio con IVA (tipeá o tocá uno de los sugeridos ↑)
+        {saved && (
+          <div style={{ padding: 12, background: "rgba(67,160,71,0.1)", border: `1px solid ${T.green}`, borderRadius: 8, color: T.green, marginTop: 20, fontSize: 13 }}>
+            ✅ Configuración guardada
           </div>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={precioFinalConIva}
-            onChange={(e) => setPrecioFinalConIva(e.target.value.replace(/[^0-9]/g, ""))}
-            style={{ ...inputStyle, fontSize: 20, fontWeight: 800, textAlign: "center", fontFamily: fontD }}
-          />
-        </div>
+        )}
 
-        {metodoPago === "mixto" && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 10, color: T.gray, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
-              Parte en efectivo (el resto va con tarjeta)
+        <button onClick={handleSave} style={{ ...btnPrimary(T.accent), marginTop: 24, padding: "12px 32px", fontSize: 15 }}>
+          💾 Guardar cambios
+        </button>
+
+        {/* Info del motor */}
+        <div style={{ marginTop: 32, padding: 16, background: T.bg3, borderRadius: 10, border: `1px solid ${T.border}` }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.gray, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>ℹ️ Cómo se calculan los tres precios</div>
+          <div style={{ fontSize: 12, color: T.grayLight, lineHeight: 1.7 }}>
+            <div>• <b>Venta mínima</b> = materiales + M.O. (costo total sin IVA)</div>
+            <div>• <b>Venta óptima</b> = venta mínima ÷ (1 − margen). Con 50% margen, es 2× el costo.</div>
+            <div>• <b>Techo competitivo</b> = precio oficial de la concesionaria × factor techo.</div>
+            <div style={{ marginTop: 6 }}>
+              Todos los cálculos internos son SIN IVA. La UI muestra CON IVA al cliente. El descuento efectivo se aplica solo sobre la parte pagada en cash (los pagos mixtos lo hacen automáticamente).
             </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={montoEfectivo}
-              onChange={(e) => setMontoEfectivo(e.target.value.replace(/[^0-9]/g, ""))}
-              style={{ ...inputStyle, fontSize: 16 }}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Probar el Extracto con Amarok (temporal — hasta que llegue la UI de Nueva Orden) ── */}
+      <div style={{ ...card, padding: 20, marginTop: 16 }}>
+        <div style={{ fontFamily: fontD, fontSize: 16, fontWeight: 800, marginBottom: 6 }}>🧪 Probar Extracto de Precios</div>
+        <div style={{ fontSize: 12, color: T.gray, marginBottom: 14 }}>
+          Ejemplo end-to-end con datos reales: VW Amarok 2.0 TD 180cv 2016+ (KIT WKU-2001) + 7L Mobil Super 2000 10W-40 granel. La UI del extracto se integra en Nueva Orden en la próxima iteración.
+        </div>
+        <button
+          onClick={openTestAmarok}
+          style={{ ...btnPrimary(T.accent), padding: "10px 24px", fontSize: 13 }}
+        >
+          🧮 Ver ejemplo — Amarok Service Full
+        </button>
+        {testError && (
+          <div style={{ padding: 10, background: T.red + "15", border: `1px solid ${T.red}`, borderRadius: 8, color: T.red, marginTop: 12, fontSize: 12 }}>
+            ⚠️ {testError}
+          </div>
+        )}
+      </div>
+
+      {/* Modal del extracto */}
+      {probando && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setProbando(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflow: "auto" }}
+        >
+          <div style={{ maxWidth: 560, width: "100%" }}>
+            <ExtractoPrecios
+              fitment={probando.fitment}
+              aceite={probando.aceite}
+              litros={probando.litros}
+              trabajo={probando.trabajo}
+              presentacionAceite={probando.presentacionAceite}
+              config={config}
+              role="dueño"
+              onClose={() => setProbando(null)}
+              T={T}
+              fontD={fontD}
+              card={card}
+              btnPrimary={btnPrimary}
+              inputStyle={inputStyle}
             />
           </div>
-        )}
-
-        {/* Total real */}
-        <div style={{ background: T.bg3, borderRadius: 10, padding: 14, border: `1px solid ${T.border}` }}>
-          <Row
-            label={metodoPago === "tarjeta" ? "💳 Total con tarjeta" : metodoPago === "efectivo" ? `💵 Total efectivo (−${Math.round((extracto.config.descuentoEfectivo || 0.15) * 100)}%)` : "🔀 Total mixto"}
-            value={fmt$(cliente.total)}
-            big bold color={T.green}
-          />
-          {cliente.ahorro > 0 && (
-            <div style={{ fontSize: 11, color: T.green, textAlign: "right", marginTop: 2 }}>
-              Ahorro vs. tarjeta: {fmt$(cliente.ahorro)}
-            </div>
-          )}
-        </div>
-
-        {/* Zona de color + margen */}
-        {precioSinIva > 0 && (
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: zonaConf.hex + "15", border: `1px solid ${zonaConf.hex}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 18 }}>{zonaConf.icon}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: zonaConf.hex }}>{zonaConf.label}</span>
-            </div>
-            {ownerView && (
-              <span style={{ fontSize: 13, fontWeight: 800, fontFamily: fontD, color: zonaConf.hex }}>
-                Margen: {margen}%
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Acciones ── */}
-      {(onGuardar || onWhatsApp || onConvertir) && (
-        <div style={{ padding: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {onGuardar && (
-            <button onClick={() => onGuardar({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, color: T.grayLight, flex: 1, minWidth: 140, fontSize: 12 }}>
-              💾 Guardar cotización
-            </button>
-          )}
-          {onWhatsApp && (
-            <button onClick={() => onWhatsApp({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })} style={{ ...btnPrimary(T.green), flex: 1, minWidth: 140, fontSize: 12 }}>
-              📱 WhatsApp PDF
-            </button>
-          )}
-          {onConvertir && (
-            <button onClick={() => onConvertir({ extracto, precioFinalConIva: precioConIva, metodoPago, montoEfectivo: efectivoMonto, cliente })} style={{ ...btnPrimary(T.accent), flex: 1, minWidth: 140, fontSize: 12 }}>
-              → Abrir orden
-            </button>
-          )}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Sub-componente para las 3 filas de precio clickeables ──
-function ClickPrice({ icon, label, valueSinIva, valueConIva, showSinIva, onClick, color, highlight, T, fontD }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "10px 12px", borderRadius: 10, cursor: "pointer",
-        background: highlight ? color + "12" : T.bg,
-        border: `1px solid ${highlight ? color : T.border}`,
-        marginTop: 8, transition: "all .15s",
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = color; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = highlight ? color : T.border; }}
-    >
-      <span style={{ fontSize: 13, fontWeight: 700, color: highlight ? color : T.grayLight }}>
-        {icon} {label}
-      </span>
-      <div style={{ textAlign: "right" }}>
-        {showSinIva && (
-          <div style={{ fontSize: 11, color: T.gray, fontFamily: fontD }}>{fmt$(valueSinIva)} <span style={{ fontSize: 9 }}>sin IVA</span></div>
-        )}
-        <div style={{ fontSize: 16, fontWeight: 800, color: color, fontFamily: fontD }}>{fmt$(valueConIva)}</div>
-      </div>
     </div>
   );
 }
