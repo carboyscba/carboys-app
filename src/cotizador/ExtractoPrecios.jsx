@@ -120,7 +120,20 @@ export default function ExtractoPrecios({
 
       <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>📦 Materiales {ownerView ? "(sin IVA)" : ""}</div>
-        {kit ? (
+        {extracto.materiales.filtros?.modo === "base_aire_aceite" ? (
+          <div style={{ marginBottom: 8 }}>
+            <Row label="Aire + Aceite (Service Base)" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} bold />
+            {skuIndex && (
+              <div style={{ paddingLeft: 20, marginTop: 4 }}>
+                {(extracto.materiales.filtros?.skus || []).map(s => {
+                  const art = skuIndex[s.sku];
+                  const tipoShort = ({ filtro_aire: "aire", filtro_aceite: "aceite" })[art?.tipo] || art?.tipo || "";
+                  return <div key={s.sku} style={{ fontSize: 11, color: T.grayLight, padding: "2px 0" }}>· <span style={{ fontWeight: 700 }}>{s.sku}</span> ({tipoShort})</div>;
+                })}
+              </div>
+            )}
+          </div>
+        ) : kit ? (
           <div style={{ marginBottom: 8 }}>
             <Row label={`KIT ${kit.kitCode} (${kit.skusIncluidos?.length || 0} filtros)`} value={ownerView ? fmt$(kit.precio) : "✓"} bold />
             {kitIndex && skuIndex && (
@@ -133,7 +146,7 @@ export default function ExtractoPrecios({
               </div>
             )}
           </div>
-        ) : <Row label="Filtros sueltos" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} />}
+        ) : <Row label="Filtros sueltos (4)" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} />}
         <Row label={`Aceite ${aceite?.nombre || ""}`}
           subtext={`${presentacion} × ${litros}L${ownerView && extracto.materiales.aceite?.precio_por_litro ? ` @ ${fmt$(extracto.materiales.aceite.precio_por_litro)}/L` : ""}`}
           value={ownerView ? fmt$(extracto.materiales.aceite?.total) : `${litros}L`} />
