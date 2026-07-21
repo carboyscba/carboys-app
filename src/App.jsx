@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } 
 import ConfigCotizador from "./cotizador/ConfigCotizador.jsx";
 import ConfigProveedores from "./cotizador/ConfigProveedores.jsx";
 import NuevaCotizacionModal from "./cotizador/NuevaCotizacionModal.jsx";
+import MiniExtractoPath2 from "./cotizador/MiniExtractoPath2.jsx";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -3428,6 +3429,21 @@ const NewOrderScreen = (props) => {
                     </div>
                   </div>}
                 </div>
+
+                {/* ── Mini-Extracto Path 2 (Iter 7) — Service Full/Base ── */}
+                {config?.cotizador?.activo && (w.type === "Service Full" || w.type === "Service Base") && (
+                  <MiniExtractoPath2
+                    marca={form.brand}
+                    modelo={form.model}
+                    ano={form.year}
+                    trabajo={w.type}
+                    config={config}
+                    role={props.user?.role || "encargado"}
+                    currentPrice={w.price}
+                    onPickPrice={(sinIva) => updateWork(i, "price", String(sinIva))}
+                    T={T} fontD={fontD} card={card} btnPrimary={btnPrimary} selectStyle={selectStyle}
+                  />
+                )}
 
                 {/* Sub-items for category-based works */}
                 {w.trenItems && (w.type === "Baterías" || w.type === "Baterias") ? (
@@ -22616,7 +22632,7 @@ export default function App() {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
       case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} config={config} user={user} /> : null;
-      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} />;
+      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} user={user} />;
       case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
