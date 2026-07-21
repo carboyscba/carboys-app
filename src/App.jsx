@@ -4,6 +4,7 @@ import ConfigProveedores from "./cotizador/ConfigProveedores.jsx";
 import NuevaCotizacionModal from "./cotizador/NuevaCotizacionModal.jsx";
 import MiniExtractoPath2 from "./cotizador/MiniExtractoPath2.jsx";
 import CotizacionesScreen from "./cotizador/CotizacionesScreen.jsx";
+import ConfigConcesionarias from "./cotizador/ConfigConcesionarias.jsx";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -315,10 +316,10 @@ const fsGetDoc = async (col, id) => {
 //        IDB actúa como caché offline: datos disponibles sin internet
 // ══════════════════════════════════════════════════════════════════
 let _IDB_NAME    = "carboys_central"; // se actualiza en switchFirebase()
-const IDB_VERSION = 5;
+const IDB_VERSION = 6;
 const IDB_STORES  = ["orders", "clients", "config", "sync_queue", "users",
   "adm_egresos", "adm_proveedores", "adm_factprov",
-  "adm_servicios", "adm_igastos", "adm_cierres", "cotizaciones"];
+  "adm_servicios", "adm_igastos", "adm_cierres", "cotizaciones", "concesionarias"];
 
 let _idb = null; // instancia abierta
 
@@ -2841,6 +2842,7 @@ const NewOrderScreen = (props) => {
         <NuevaCotizacionModal
           config={props.config}
           role={props.user?.role || "encargado"}
+          concesionarias={props.concesionarias}
           onClose={() => setCotizacionModal(false)}
           onGuardar={props.onGuardarCotizacion ? (data) => { props.onGuardarCotizacion(data); setCotizacionModal(false); } : null}
           onWhatsApp={props.onGuardarCotizacion ? (data) => {
@@ -3450,6 +3452,7 @@ const NewOrderScreen = (props) => {
                     ano={form.year}
                     trabajo={w.type}
                     config={config}
+                    concesionarias={props.concesionarias}
                     role={props.user?.role || "encargado"}
                     currentPrice={w.price}
                     onPickPrice={(sinIva) => updateWork(i, "price", String(sinIva))}
@@ -4883,7 +4886,7 @@ const DashboardScreen = (props) => {
   );
 };
 
-const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient, config, user, onGuardarCotizacion }) => {
+const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient, config, user, onGuardarCotizacion, concesionarias }) => {
   // Cotizador (Iter 6 — Path 1.B)
   const [cotModal, setCotModal] = useState(null);   // null | { marca, modelo, ano, motor_hint }
   const [q, setQ] = useState("");
@@ -4998,6 +5001,7 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
           <NuevaCotizacionModal
             config={config}
             role={user?.role || "encargado"}
+            concesionarias={concesionarias}
             initialForm={{ ...cotModal, dominio: selVehicle.domain }}
             onClose={() => setCotModal(null)}
             onGuardar={onGuardarCotizacion ? (data) => { onGuardarCotizacion(data); setCotModal(null); } : null}
@@ -21006,7 +21010,7 @@ const WAHAConfigSection = ({ config, setConfig, card, inputStyle, labelStyle, bt
   );
 };
 
-const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNavigate, activeSucursal, googleAuth }) => {
+const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNavigate, activeSucursal, googleAuth, concesionarias, setConcesionarias }) => {
   const [section, setSection] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [showNewUser, setShowNewUser] = useState(false);
@@ -21066,6 +21070,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     { key: "categorias", icon: "📦", label: "Categorías de Trabajo", desc: "Tipos de servicio" },
     { key: "cotizador", icon: "🧮", label: "Cotizador", desc: "Motor de precios: M.O., márgenes, techo, efectivo", only: "dueño" },
     { key: "proveedores", icon: "📦", label: "Lista Proveedores", desc: "BORUR, catálogo Wega + Mobil, semilla inicial", only: "dueño" },
+    { key: "concesionarias", icon: "🏢", label: "Concesionarias", desc: "Precios oficiales para el techo competitivo", only: "dueño" },
 
   ].filter(s => !s.only || s.only.split(",").includes(user.role));
 
@@ -21837,6 +21842,25 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     </div>
   );
 
+  if (section === "concesionarias") return (
+    <div style={{ padding: 24, maxWidth: 760, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>🏢 Concesionarias</div>
+          <div style={{ fontSize: 12, color: T.gray }}>Precios oficiales para el techo competitivo</div>
+        </div>
+      </div>
+      <ConfigConcesionarias
+        concesionarias={concesionarias}
+        setConcesionarias={setConcesionarias}
+        usuarioNombre={user?.name}
+        T={T} fontD={fontD} card={card} btnPrimary={btnPrimary}
+        inputStyle={inputStyle} selectStyle={selectStyle} labelStyle={labelStyle}
+      />
+    </div>
+  );
+
   return null;
 };
 
@@ -21924,6 +21948,7 @@ export default function App() {
         { col: 'adm_igastos', setter: _setIgGastos },
         { col: 'adm_cierres', setter: _setCierres },
         { col: 'cotizaciones', setter: _setCotizaciones },
+        { col: 'concesionarias', setter: _setConcesionarias },
       ];
       await Promise.all(adminCols.map(async ({ col, setter }) => {
         try {
@@ -22017,6 +22042,9 @@ export default function App() {
   // ── Cotizaciones (Iter 8) ──
   const [cotizaciones, _setCotizaciones] = useState([]);
   const setCotizaciones = _mkAdminSetter('cotizaciones', 'cotizaciones', _setCotizaciones);
+  // ── Concesionarias (Iter 9) — precios oficiales para el techo competitivo ──
+  const [concesionarias, _setConcesionarias] = useState([]);
+  const setConcesionarias = _mkAdminSetter('concesionarias', 'concesionarias', _setConcesionarias);
   // Helper: construir + guardar una cotización desde el Extracto
   const saveCotizacion = useCallback((data, origenPath) => {
     const f = data.form || {};
@@ -22221,14 +22249,16 @@ export default function App() {
     // ── PASO 1: Cargar IDB al instante (UI disponible offline) ──
     const loadFromIDB = async () => {
       try {
-        const [idbOrders, idbClients, idbConfigs, idbUsers, idbCotiz] = await Promise.all([
+        const [idbOrders, idbClients, idbConfigs, idbUsers, idbCotiz, idbConces] = await Promise.all([
           idbLoad('orders'),
           idbLoad('clients'),
           idbLoad('config'),
           idbLoad('users'),
           idbLoad('cotizaciones'),
+          idbLoad('concesionarias'),
         ]);
         if (idbCotiz.length > 0) _setCotizaciones(idbCotiz);
+        if (idbConces.length > 0) _setConcesionarias(idbConces);
         // Órdenes desde IDB
         if (idbOrders.length > 0) {
           _setOrders(idbOrders.sort(cmpId));
@@ -22414,6 +22444,7 @@ export default function App() {
         { col: 'adm_igastos',     setter: _setIgGastos    },
         { col: 'adm_cierres',     setter: _setCierres     },
         { col: 'cotizaciones',    setter: _setCotizaciones },
+        { col: 'concesionarias',  setter: _setConcesionarias },
       ];
       const unsubAdmins = adminCols.map(({ col, setter }) =>
         onSnapshotSlow(col, snap => {
@@ -22741,9 +22772,9 @@ export default function App() {
 
   const renderScreen = () => {
     switch (screen) {
-      case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} config={config} />;
-      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} config={config} user={user} onGuardarCotizacion={(data) => saveCotizacion(data, "path1_b")} /> : null;
-      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} user={user} onGuardarCotizacion={(data) => saveCotizacion(data, "path1_a")} />;
+      case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
+      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} config={config} user={user} onGuardarCotizacion={(data) => saveCotizacion(data, "path1_b")} concesionarias={concesionarias} /> : null;
+      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} user={user} onGuardarCotizacion={(data) => saveCotizacion(data, "path1_a")} concesionarias={concesionarias} />;
       case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
@@ -22755,8 +22786,7 @@ export default function App() {
       case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} setConfig={setConfig} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} cotizaciones={cotizaciones} setCotizaciones={setCotizaciones} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} config={config} onNavigate={nav} /> : null;
       case "fojaChequeo": return currentOrder ? <FojaChequeoScreen order={currentOrder} clients={clients} config={config} onNavigate={nav} /> : null;
-            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
-      case "cotizaciones": return <CotizacionesScreen cotizaciones={cotizaciones} setCotizaciones={setCotizaciones} config={config} normalizePhone={normalizePhone} onNavigate={nav} T={T} fontD={fontD} card={card} btnPrimary={btnPrimary} inputStyle={inputStyle} />;
+            case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} concesionarias={concesionarias} setConcesionarias={setConcesionarias} /> : null;
       default: return null;
     }
   };
