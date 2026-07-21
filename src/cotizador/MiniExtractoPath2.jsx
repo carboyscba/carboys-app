@@ -26,6 +26,7 @@ export default function MiniExtractoPath2({
   const [selAceiteId, setSelAceiteId] = useState("");
   const [extracto, setExtracto] = useState(null);
   const [error, setError] = useState("");
+  const [customConIva, setCustomConIva] = useState(""); // input Custom (con IVA)
 
   useEffect(() => {
     let mounted = true;
@@ -175,8 +176,23 @@ export default function MiniExtractoPath2({
         <Chip label="Mínima" valueConIva={extracto.ventaMinimaConIva} valueSinIva={extracto.ventaMinima} color={T.red} />
         <Chip label="Óptima" valueConIva={extracto.ventaOptimaConIva} valueSinIva={extracto.ventaOptima} color={T.green} highlight />
         {extracto.techoCompetitivo != null && <Chip label="Techo" valueConIva={extracto.techoConIva} valueSinIva={extracto.techoCompetitivo} color={T.orange} />}
+        {/* Chip Custom: input inline. El GM tipea con IVA, guardamos sin IVA en la orden. */}
+        <div style={{ flex: 1, minWidth: 110, padding: "6px 8px", borderRadius: 8, background: T.bg, border: `1px solid ${T.accent}`, textAlign: "center" }}>
+          <div style={{ fontSize: 9, color: T.accent, fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>Custom (c/IVA)</div>
+          <input type="text" inputMode="numeric" value={customConIva}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^0-9]/g, "");
+              setCustomConIva(raw);
+              autoloaded.current = true; // freno el autopick de Óptima
+              const ivaFactor = 1 + (config?.ivaRate ?? 21) / 100;
+              const sinIva = raw ? Math.round(parseInt(raw, 10) / ivaFactor) : 0;
+              onPickPrice(sinIva);
+            }}
+            placeholder="0"
+            style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: T.accent, fontSize: 14, fontWeight: 800, fontFamily: fontD, textAlign: "center" }} />
+        </div>
       </div>
-      <div style={{ fontSize: 10, color: T.gray, marginTop: 8, textAlign: "center" }}>Tocá un precio para cargarlo. El precio se guarda sin IVA.</div>
+      <div style={{ fontSize: 10, color: T.gray, marginTop: 8, textAlign: "center" }}>Tocá Mínima/Óptima/Techo o tipeá un Custom con IVA. Se guarda sin IVA.</div>
     </div>
   );
 }
