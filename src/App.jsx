@@ -7801,7 +7801,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     { key: "servicios", icon: "🔧", l: "Servicios" },
     { key: "sueldos", icon: "💼", l: "Sueldos" },
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
-    ...(user?.role === "dueño" ? [{ key: "cotizador", icon: "🧮", l: "Cotizador" }] : []),
     { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "campanas", icon: "📣", l: "Campañas" },
   ];
@@ -14553,19 +14552,6 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         );
       })()}
 
-      {/* ══════ COTIZADOR (Iter 2 — solo dueño) ══════ */}
-      {tab === "cotizador" && (
-        <ConfigCotizador
-          config={config}
-          setConfig={setConfig}
-          T={T}
-          fontD={fontD}
-          card={card}
-          btnPrimary={btnPrimary}
-          inputStyle={inputStyle}
-          labelStyle={labelStyle}
-        />
-      )}
 
     </div>
     </>
@@ -20933,6 +20919,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     { key: "backup", icon: "💾", label: "Backup / Exportar", desc: "Descargar datos" },
     { key: "taller", icon: "🏠", label: "Datos del Taller", desc: "Nombre, dirección, teléfono" },
     { key: "categorias", icon: "📦", label: "Categorías de Trabajo", desc: "Tipos de servicio" },
+    { key: "cotizador", icon: "🧮", label: "Cotizador", desc: "Motor de precios: M.O., márgenes, techo, efectivo", only: "dueño" },
 
   ].filter(s => !s.only || s.only.split(",").includes(user.role));
 
@@ -21661,6 +21648,28 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
       </div>
     );
   }
+
+  if (section === "cotizador") return (
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>🧮 Cotizador</div>
+          <div style={{ fontSize: 12, color: T.gray }}>Motor de precios: M.O., márgenes, techo, efectivo</div>
+        </div>
+      </div>
+      <ConfigCotizador
+        config={config}
+        setConfig={setConfig}
+        T={T}
+        fontD={fontD}
+        card={card}
+        btnPrimary={btnPrimary}
+        inputStyle={inputStyle}
+        labelStyle={labelStyle}
+      />
+    </div>
+  );
 
   return null;
 };
