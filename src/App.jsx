@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from "react";
 import ConfigCotizador from "./cotizador/ConfigCotizador.jsx";
+import ConfigProveedores from "./cotizador/ConfigProveedores.jsx";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -20920,6 +20921,7 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
     { key: "taller", icon: "🏠", label: "Datos del Taller", desc: "Nombre, dirección, teléfono" },
     { key: "categorias", icon: "📦", label: "Categorías de Trabajo", desc: "Tipos de servicio" },
     { key: "cotizador", icon: "🧮", label: "Cotizador", desc: "Motor de precios: M.O., márgenes, techo, efectivo", only: "dueño" },
+    { key: "proveedores", icon: "📦", label: "Lista Proveedores", desc: "BORUR, catálogo Wega + Mobil, semilla inicial", only: "dueño" },
 
   ].filter(s => !s.only || s.only.split(",").includes(user.role));
 
@@ -21667,6 +21669,26 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
         btnPrimary={btnPrimary}
         inputStyle={inputStyle}
         labelStyle={labelStyle}
+      />
+    </div>
+  );
+
+  if (section === "proveedores") return (
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", animation: "fadeUp .3s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span onClick={() => setSection(null)} style={{ cursor: "pointer", fontSize: 20, color: T.gray }}>←</span>
+        <div>
+          <div style={{ fontFamily: fontD, fontSize: 24, fontWeight: 700 }}>📦 Lista Proveedores</div>
+          <div style={{ fontSize: 12, color: T.gray }}>Proveedores del catálogo del cotizador</div>
+        </div>
+      </div>
+      <ConfigProveedores
+        fsSave={fsSave}
+        fsGetDoc={fsGetDoc}
+        T={T}
+        fontD={fontD}
+        card={card}
+        btnPrimary={btnPrimary}
       />
     </div>
   );
