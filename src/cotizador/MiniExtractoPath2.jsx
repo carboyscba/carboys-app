@@ -43,7 +43,10 @@ export default function MiniExtractoPath2({
           if (inRange.length) matches = inRange;
         }
         setFitList(matches);
-        if (matches.length >= 1) setSelMotor(matches[0].motor_hint || "");
+        // Si hay UN solo fitment, autoseleccionar. Si hay varios, forzar elección
+        // manual del usuario — el motor cambia el kit y los litros.
+        if (matches.length === 1) setSelMotor(matches[0].motor_hint || "");
+        else setSelMotor(""); // vacío = "Elegí motor…"
       } catch (e) { if (mounted) setError(e.message); }
       finally { if (mounted) setLoading(false); }
     })();
@@ -53,7 +56,9 @@ export default function MiniExtractoPath2({
   const selectedFitment = useMemo(() => {
     if (!fitList.length) return null;
     if (fitList.length === 1) return fitList[0];
-    return fitList.find(f => (f.motor_hint || "") === selMotor) || fitList[0];
+    // Con varios fitments no autoseleccionamos: si el usuario aún no eligió, devolvemos null.
+    if (!selMotor) return null;
+    return fitList.find(f => (f.motor_hint || "") === selMotor) || null;
   }, [fitList, selMotor]);
 
   const aceiteObj = useMemo(() => {
@@ -94,10 +99,29 @@ export default function MiniExtractoPath2({
 
   if (loading) return <div style={{ ...card, padding: 12, marginTop: 8, fontSize: 12, color: T.gray, textAlign: "center" }}>⏳ Buscando precio sugerido…</div>;
 
-  if (!selectedFitment) {
+  // Caso: no hay ningún fitment para el vehículo.
+  if (!fitList.length) {
     return <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px dashed ${T.border}`, fontSize: 11, color: T.gray }}>
       🧮 Sin fitment para {marca} {modelo}{ano ? ` ${ano}` : ""} — cargá el precio a mano.
     </div>;
+  }
+
+  // Caso: hay varios motores y el usuario aún no eligió → mostrar solo el selector.
+  if (!selectedFitment) {
+    return (
+      <div style={{ ...card, padding: 14, marginTop: 8, borderColor: T.orange, background: `${T.orange}08` }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.orange, marginBottom: 8 }}>⚠️ Elegí motor — cambia el kit y los litros</div>
+        <div style={{ fontSize: 11, color: T.grayLight, marginBottom: 10 }}>{marca} {modelo}{ano ? ` ${ano}` : ""} tiene {fitList.length} versiones.</div>
+        <select value={selMotor} onChange={e => { autoloaded.current = false; setSelMotor(e.target.value); }}
+          style={{ ...selectStyle, fontSize: 12, padding: "8px 10px", width: "100%" }}>
+          <option value="">— Elegí motor…</option>
+          {fitList.map((f, i) => {
+            const rango = f.ano_desde ? `${f.ano_desde}${f.ano_hasta ? `–${f.ano_hasta}` : "→"}` : "";
+            return <option key={i} value={f.motor_hint || ""}>{f.motor_hint || "—"}{rango ? ` · ${rango}` : ""} · kit {f.kit_recomendado}</option>;
+          })}
+        </select>
+      </div>
+    );
   }
 
   if (!extracto) return null;
@@ -118,12 +142,17 @@ export default function MiniExtractoPath2({
 
   return (
     <div style={{ ...card, padding: 14, marginTop: 8, borderColor: T.accent, background: `${T.accent}08` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>🧮 Precio sugerido — Cotizador</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent }}>
+          🧮 {selectedFitment.motor_hint || "Motor único"}{selectedFitment.ano_desde ? ` · ${selectedFitment.ano_desde}${selectedFitment.ano_hasta ? `–${selectedFitment.ano_hasta}` : "→"}` : ""}
+        </div>
         {fitList.length > 1 && (
           <select value={selMotor} onChange={e => { autoloaded.current = false; setSelMotor(e.target.value); }}
-            style={{ ...selectStyle, fontSize: 11, padding: "4px 8px", width: "auto", minWidth: 120 }}>
-            {fitList.map((f, i) => <option key={i} value={f.motor_hint || ""}>{f.motor_hint || "—"}{f.ano_desde ? ` ${f.ano_desde}→` : ""} · {f.kit_recomendado}</option>)}
+            style={{ ...selectStyle, fontSize: 11, padding: "4px 8px", width: "auto", minWidth: 160 }}>
+            {fitList.map((f, i) => {
+              const rango = f.ano_desde ? ` ${f.ano_desde}${f.ano_hasta ? `–${f.ano_hasta}` : "→"}` : "";
+              return <option key={i} value={f.motor_hint || ""}>{f.motor_hint || "—"}{rango} · {f.kit_recomendado}</option>;
+            })}
           </select>
         )}
       </div>
