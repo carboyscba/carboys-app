@@ -8,6 +8,23 @@ import { DEFAULT_COTIZADOR_CONFIG } from "./engine.js";
 import { loadFitment, loadCatalogoMobil } from "./dataLoader.js";
 import ExtractoPrecios from "./ExtractoPrecios.jsx";
 
+// Field afuera del componente para que React no lo re-cree en cada render
+// (si estaba adentro, cada setState desmontaba el input y perdía el foco).
+function Field({ label, value, onChange, suffix, hint, T, labelStyle, inputStyle }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <input type="text" inputMode="decimal" value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
+          style={{ ...inputStyle, paddingRight: suffix ? 52 : 12 }} />
+        {suffix && <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: T.gray, fontSize: 12, fontWeight: 700, pointerEvents: "none" }}>{suffix}</span>}
+      </div>
+      {hint && <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
+}
+
 export default function ConfigCotizador({
   config, setConfig, T, fontD, card, btnPrimary, inputStyle, labelStyle,
 }) {
@@ -81,18 +98,9 @@ export default function ConfigCotizador({
     } catch (e) { setError(e.message); }
   };
 
-  const Field = ({ label, value, onChange, suffix, hint }) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={labelStyle}>{label}</label>
-      <div style={{ position: "relative" }}>
-        <input type="text" inputMode="decimal" value={value}
-          onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
-          style={{ ...inputStyle, paddingRight: suffix ? 52 : 12 }} />
-        {suffix && <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: T.gray, fontSize: 12, fontWeight: 700, pointerEvents: "none" }}>{suffix}</span>}
-      </div>
-      {hint && <div style={{ fontSize: 11, color: T.gray, marginTop: 4 }}>{hint}</div>}
-    </div>
-  );
+  // Field vive afuera del componente. Le pasamos T/labelStyle/inputStyle explícitos
+  // en cada uso (usar un wrapper acá adentro también lo re-crearía por render).
+  const themeProps = { T, labelStyle, inputStyle };
 
   return (
     <div>
@@ -116,25 +124,25 @@ export default function ConfigCotizador({
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>💼 Mano de obra (por hora)</div>
-            <Field label="Auto estándar" value={form.manoObraEstandar} onChange={(v) => upd("manoObraEstandar", v)} suffix="ARS" hint="Default: $120.000 (sin IVA)" />
-            <Field label="Alta gama" value={form.manoObraAltaGama} onChange={(v) => upd("manoObraAltaGama", v)} suffix="ARS" hint="Audi, BMW, Mercedes-Benz, Porsche, etc." />
+            <Field {...themeProps} label="Auto estándar" value={form.manoObraEstandar} onChange={(v) => upd("manoObraEstandar", v)} suffix="ARS" hint="Default: $120.000 (sin IVA)" />
+            <Field {...themeProps} label="Alta gama" value={form.manoObraAltaGama} onChange={(v) => upd("manoObraAltaGama", v)} suffix="ARS" hint="Audi, BMW, Mercedes-Benz, Porsche, etc." />
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>📊 Márgenes</div>
-            <Field label="Margen Service Full" value={form.margenMinimoFull} onChange={(v) => upd("margenMinimoFull", v)} suffix="%" hint="50% = venta óptima 2× costo." />
-            <Field label="Margen Service Base" value={form.margenMinimoBase} onChange={(v) => upd("margenMinimoBase", v)} suffix="%" hint="Mismo cálculo (sin techo)." />
+            <Field {...themeProps} label="Margen Service Full" value={form.margenMinimoFull} onChange={(v) => upd("margenMinimoFull", v)} suffix="%" hint="50% = venta óptima 2× costo." />
+            <Field {...themeProps} label="Margen Service Base" value={form.margenMinimoBase} onChange={(v) => upd("margenMinimoBase", v)} suffix="%" hint="Mismo cálculo (sin techo)." />
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎯 Techo competitivo</div>
-            <Field label="Factor sobre precio oficial" value={form.factorTechoCompetitivo} onChange={(v) => upd("factorTechoCompetitivo", v)} suffix="%" hint="85% = 15% más barato que el oficial." />
+            <Field {...themeProps} label="Factor sobre precio oficial" value={form.factorTechoCompetitivo} onChange={(v) => upd("factorTechoCompetitivo", v)} suffix="%" hint="85% = 15% más barato que el oficial." />
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>💵 Descuento efectivo</div>
-            <Field label="Descuento al cash" value={form.descuentoEfectivo} onChange={(v) => upd("descuentoEfectivo", v)} suffix="%" hint="15% default. 17,36% equivale a quitar IVA." />
+            <Field {...themeProps} label="Descuento al cash" value={form.descuentoEfectivo} onChange={(v) => upd("descuentoEfectivo", v)} suffix="%" hint="15% default. 17,36% equivale a quitar IVA." />
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🔔 Alertas</div>
-            <Field label="Revisar M.O. cada" value={form.alertaMoMeses} onChange={(v) => upd("alertaMoMeses", v)} suffix="meses" />
+            <Field {...themeProps} label="Revisar M.O. cada" value={form.alertaMoMeses} onChange={(v) => upd("alertaMoMeses", v)} suffix="meses" />
           </div>
         </div>
 
