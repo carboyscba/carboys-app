@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from "react";
+import ConfigCotizador from "./cotizador/ConfigCotizador.jsx";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -7800,6 +7801,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     { key: "servicios", icon: "🔧", l: "Servicios" },
     { key: "sueldos", icon: "💼", l: "Sueldos" },
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
+    ...(user?.role === "dueño" ? [{ key: "cotizador", icon: "🧮", l: "Cotizador" }] : []),
     { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "campanas", icon: "📣", l: "Campañas" },
   ];
@@ -14551,6 +14553,19 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         );
       })()}
 
+      {/* ══════ COTIZADOR (Iter 2 — solo dueño) ══════ */}
+      {tab === "cotizador" && (
+        <ConfigCotizador
+          config={config}
+          setConfig={setConfig}
+          T={T}
+          fontD={fontD}
+          card={card}
+          btnPrimary={btnPrimary}
+          inputStyle={inputStyle}
+          labelStyle={labelStyle}
+        />
+      )}
 
     </div>
     </>
