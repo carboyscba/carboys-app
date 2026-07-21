@@ -3,6 +3,7 @@ import ConfigCotizador from "./cotizador/ConfigCotizador.jsx";
 import ConfigProveedores from "./cotizador/ConfigProveedores.jsx";
 import NuevaCotizacionModal from "./cotizador/NuevaCotizacionModal.jsx";
 import MiniExtractoPath2 from "./cotizador/MiniExtractoPath2.jsx";
+import CotizacionesScreen from "./cotizador/CotizacionesScreen.jsx";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -314,10 +315,10 @@ const fsGetDoc = async (col, id) => {
 //        IDB actúa como caché offline: datos disponibles sin internet
 // ══════════════════════════════════════════════════════════════════
 let _IDB_NAME    = "carboys_central"; // se actualiza en switchFirebase()
-const IDB_VERSION = 4;
+const IDB_VERSION = 5;
 const IDB_STORES  = ["orders", "clients", "config", "sync_queue", "users",
   "adm_egresos", "adm_proveedores", "adm_factprov",
-  "adm_servicios", "adm_igastos", "adm_cierres"];
+  "adm_servicios", "adm_igastos", "adm_cierres", "cotizaciones"];
 
 let _idb = null; // instancia abierta
 
@@ -2841,6 +2842,17 @@ const NewOrderScreen = (props) => {
           config={props.config}
           role={props.user?.role || "encargado"}
           onClose={() => setCotizacionModal(false)}
+          onGuardar={props.onGuardarCotizacion ? (data) => { props.onGuardarCotizacion(data); setCotizacionModal(false); } : null}
+          onWhatsApp={props.onGuardarCotizacion ? (data) => {
+            props.onGuardarCotizacion(data);
+            const tel = (data.form?.telefono || "").replace(/[^0-9]/g, "");
+            if (tel) {
+              const veh = `${data.form?.marca || ""} ${data.form?.modelo || ""}`.trim();
+              const msg = `Hola${data.form?.nombre ? " " + data.form.nombre : ""}! Cotización CarBoys:\n🚗 ${veh}\n💰 ${new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(data.cliente?.total || data.precioFinalConIva || 0)}\n\nSaludos, CarBoys 🔧`;
+              window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, "_blank");
+            }
+            setCotizacionModal(false);
+          } : null}
           T={T}
           fontD={fontD}
           card={card}
@@ -4816,6 +4828,9 @@ const DashboardScreen = (props) => {
           ...(getPerm(user, "admin") ? [
             { icon: "📊", label: "Administración", action: "admin", show: true },
           ] : []),
+          ...(props.config?.cotizador?.activo ? [
+            { icon: "📄", label: "Cotizaciones", action: "cotizaciones", show: true },
+          ] : []),
           ...(getPerm(user, "config") ? [
             { icon: "⚙️", label: "Configuración", action: "config", show: true },
           ] : []),
@@ -4871,7 +4886,7 @@ const DashboardScreen = (props) => {
   );
 };
 
-const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient, config, user }) => {
+const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient, config, user, onGuardarCotizacion }) => {
   // Cotizador (Iter 6 — Path 1.B)
   const [cotModal, setCotModal] = useState(null);   // null | { marca, modelo, ano, motor_hint }
   const [q, setQ] = useState("");
@@ -4986,8 +5001,19 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
           <NuevaCotizacionModal
             config={config}
             role={user?.role || "encargado"}
-            initialForm={cotModal}
+            initialForm={{ ...cotModal, dominio: selVehicle.domain }}
             onClose={() => setCotModal(null)}
+            onGuardar={onGuardarCotizacion ? (data) => { onGuardarCotizacion(data); setCotModal(null); } : null}
+            onWhatsApp={onGuardarCotizacion ? (data) => {
+              onGuardarCotizacion(data);
+              const tel = (data.form?.telefono || "").replace(/[^0-9]/g, "");
+              if (tel) {
+                const veh = `${data.form?.marca || ""} ${data.form?.modelo || ""}`.trim();
+                const msg = `Hola${data.form?.nombre ? " " + data.form.nombre : ""}! Cotización CarBoys:\n🚗 ${veh}\n💰 ${new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(data.cliente?.total || data.precioFinalConIva || 0)}\n\nSaludos, CarBoys 🔧`;
+                window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, "_blank");
+              }
+              setCotModal(null);
+            } : null}
             T={T} fontD={fontD} card={card} btnPrimary={btnPrimary}
             inputStyle={inputStyle} selectStyle={selectStyle} labelStyle={labelStyle}
           />
@@ -21887,6 +21913,7 @@ export default function App() {
         { col: 'adm_servicios', setter: _setServicios },
         { col: 'adm_igastos', setter: _setIgGastos },
         { col: 'adm_cierres', setter: _setCierres },
+        { col: 'cotizaciones', setter: _setCotizaciones },
       ];
       await Promise.all(adminCols.map(async ({ col, setter }) => {
         try {
@@ -21977,6 +22004,49 @@ export default function App() {
   const setServicios   = _mkAdminSetter('adm_servicios',   'adm_servicios',   _setServicios);
   const setIgGastos    = _mkAdminSetter('adm_igastos',     'adm_igastos',     _setIgGastos);
   const setCierres     = _mkAdminSetter('adm_cierres',     'adm_cierres',     _setCierres);
+  // ── Cotizaciones (Iter 8) ──
+  const [cotizaciones, _setCotizaciones] = useState([]);
+  const setCotizaciones = _mkAdminSetter('cotizaciones', 'cotizaciones', _setCotizaciones);
+  // Helper: construir + guardar una cotización desde el Extracto
+  const saveCotizacion = useCallback((data, origenPath) => {
+    const f = data.form || {};
+    const ext = data.extracto || {};
+    const fit = data.fitment || {};
+    const nombre = [f.nombre, f.apellido].filter(Boolean).join(" ").trim() || null;
+    const cot = {
+      id: "cot_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+      fecha: new Date().toISOString(),
+      cliente: {
+        clientId: f.clientId || null,
+        nombre,
+        telefono: f.telefono || null,
+      },
+      vehiculo: {
+        dominio: f.dominio || null,
+        marca: f.marca || fit.marca || "",
+        modelo: f.modelo || fit.modelo || "",
+        año: f.ano || null,
+        motorId: f.motor_hint || fit.motor_hint || null,
+        kit: fit.kit_recomendado || null,
+      },
+      trabajo: (f.trabajo || "service_full"),
+      precios: {
+        ventaMinima: ext.ventaMinima ?? null,
+        ventaOptima: ext.ventaOptima ?? null,
+        techoCompetitivo: ext.techoCompetitivo ?? null,
+        precioFinalTarjeta: data.precioFinalConIva ?? null,
+        precioFinalEfectivo: data.cliente?.total ?? null,
+      },
+      precioAcordado: data.cliente?.total ?? data.precioFinalConIva ?? null,
+      metodoPago: data.metodoPago || "tarjeta",
+      origenPath: origenPath || "path1_a",
+      estado: "abierta",
+      orderId: null,
+      usuarioCreador: user?.name || null,
+    };
+    setCotizaciones(prev => [...prev, cot]);
+    return cot;
+  }, [user]);
   // ── Users — ahora persistidos en Firestore por sucursal ──
   const [users, _setUsers_raw] = useState(USERS);
   const setUsers = _mkAdminSetter('users', 'users', _setUsers_raw);
@@ -22141,12 +22211,14 @@ export default function App() {
     // ── PASO 1: Cargar IDB al instante (UI disponible offline) ──
     const loadFromIDB = async () => {
       try {
-        const [idbOrders, idbClients, idbConfigs, idbUsers] = await Promise.all([
+        const [idbOrders, idbClients, idbConfigs, idbUsers, idbCotiz] = await Promise.all([
           idbLoad('orders'),
           idbLoad('clients'),
           idbLoad('config'),
           idbLoad('users'),
+          idbLoad('cotizaciones'),
         ]);
+        if (idbCotiz.length > 0) _setCotizaciones(idbCotiz);
         // Órdenes desde IDB
         if (idbOrders.length > 0) {
           _setOrders(idbOrders.sort(cmpId));
@@ -22331,6 +22403,7 @@ export default function App() {
         { col: 'adm_servicios',   setter: _setServicios   },
         { col: 'adm_igastos',     setter: _setIgGastos    },
         { col: 'adm_cierres',     setter: _setCierres     },
+        { col: 'cotizaciones',    setter: _setCotizaciones },
       ];
       const unsubAdmins = adminCols.map(({ col, setter }) =>
         onSnapshotSlow(col, snap => {
@@ -22354,6 +22427,34 @@ export default function App() {
       unsubAdmins.forEach(u => u?.());
     };
   }, [googleAuth, activeSucursal]);
+
+  // ── Auto-conversión de cotizaciones (Iter 8) ──
+  // Si se abre una orden con el mismo dominio + tipo de trabajo de una
+  // cotización abierta (creada antes), la marca como convertida.
+  useEffect(() => {
+    if (!cotizaciones.length || !orders.length) return;
+    const abiertas = cotizaciones.filter(c => c.estado === "abierta" && c.vehiculo?.dominio);
+    if (!abiertas.length) return;
+    let cambios = null;
+    abiertas.forEach(cot => {
+      const trabajoLabel = cot.trabajo === "service_base" ? "Service Base" : "Service Full";
+      const match = orders.find(o =>
+        o.domain === cot.vehiculo.dominio &&
+        o.status !== "cancelled" &&
+        (o.date || "") >= (cot.fecha || "").slice(0, 10) &&
+        (o.works || []).some(w => w.type === trabajoLabel)
+      );
+      if (match) {
+        cambios = cambios || {};
+        cambios[cot.id] = match.id;
+      }
+    });
+    if (cambios) {
+      setCotizaciones(prev => prev.map(c =>
+        cambios[c.id] ? { ...c, estado: "convertida", orderId: cambios[c.id], fechaConversion: new Date().toISOString() } : c
+      ));
+    }
+  }, [orders, cotizaciones]);
 
   // Cuando vuelve la conexión → disparar sync inmediato de pendientes
   useEffect(() => {
@@ -22630,9 +22731,9 @@ export default function App() {
 
   const renderScreen = () => {
     switch (screen) {
-      case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} config={config} user={user} /> : null;
-      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} user={user} />;
+      case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} config={config} />;
+      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} config={config} user={user} onGuardarCotizacion={(data) => saveCotizacion(data, "path1_b")} /> : null;
+      case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} user={user} onGuardarCotizacion={(data) => saveCotizacion(data, "path1_a")} />;
       case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
       case "vehicleDetail": return currentOrder ? <VehicleDetailScreen order={currentOrder} clients={clients} setClients={setClients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} navHistoryRef={navHistoryRef} /> : null;
@@ -22645,6 +22746,7 @@ export default function App() {
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} config={config} onNavigate={nav} /> : null;
       case "fojaChequeo": return currentOrder ? <FojaChequeoScreen order={currentOrder} clients={clients} config={config} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
+      case "cotizaciones": return <CotizacionesScreen cotizaciones={cotizaciones} setCotizaciones={setCotizaciones} config={config} normalizePhone={normalizePhone} onNavigate={nav} T={T} fontD={fontD} card={card} btnPrimary={btnPrimary} inputStyle={inputStyle} />;
       default: return null;
     }
   };
