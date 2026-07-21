@@ -50,6 +50,7 @@ export default function NuevaCotizacionModal({
     nombre: initialForm?.nombre || "",
     apellido: initialForm?.apellido || "",
     telefono: initialForm?.telefono || "",
+    dominio: initialForm?.dominio || null,   // Path 1.B: dominio conocido (para auto-conversión)
   });
 
   const [step, setStep] = useState("form"); // "form" | "extracto"
