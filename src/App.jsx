@@ -4828,9 +4828,6 @@ const DashboardScreen = (props) => {
           ...(getPerm(user, "admin") ? [
             { icon: "📊", label: "Administración", action: "admin", show: true },
           ] : []),
-          ...(props.config?.cotizador?.activo ? [
-            { icon: "📄", label: "Cotizaciones", action: "cotizaciones", show: true },
-          ] : []),
           ...(getPerm(user, "config") ? [
             { icon: "⚙️", label: "Configuración", action: "config", show: true },
           ] : []),
@@ -7570,7 +7567,7 @@ const FacturaModal = ({ data, onClose, onEmit, config, facturando }) => {
   );
 };
 
-const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres, user }) => {
+const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig, onNavigate, initialTab, initialOrder, users, egresos, setEgresos, proveedores, setProveedores, factProv, setFactProv, servicios, setServicios, igGastos, setIgGastos, cierres, setCierres, user, cotizaciones, setCotizaciones }) => {
   const cobroOnly = user && getPerm(user, "cobro") && !getPerm(user, "admin");
   const [tab, setTab] = useState(initialTab || (cobroOnly ? "cobros" : "resumen"));
   const [showTotalVentas, setShowTotalVentas] = useState(false);
@@ -7938,6 +7935,7 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
     ...((SUCURSALES_REGISTRY.find(s => s.id === _activeSucursalId)?.modules?.ignacio) ? [{ key: "ignacio", icon: "👑", l: "Ignacio" }] : []),
     { key: "stats", icon: "📈", l: "Estadísticas" },
     { key: "campanas", icon: "📣", l: "Campañas" },
+    ...(config?.cotizador?.activo ? [{ key: "cotizaciones", icon: "📄", l: "Cotizaciones" }] : []),
   ];
   const TABS = cobroOnly ? _ALL_TABS.filter(t => t.key === "cobros") : _ALL_TABS;
 
@@ -14687,6 +14685,18 @@ const AdminScreen = ({ orders, clients, setOrders, setClients, config, setConfig
         );
       })()}
 
+      {/* ══════ COTIZACIONES (Iter 8 — CRM) ══════ */}
+      {tab === "cotizaciones" && (
+        <CotizacionesScreen
+          embedded
+          cotizaciones={cotizaciones}
+          setCotizaciones={setCotizaciones}
+          config={config}
+          normalizePhone={normalizePhone}
+          onNavigate={onNavigate}
+          T={T} fontD={fontD} card={card} btnPrimary={btnPrimary} inputStyle={inputStyle}
+        />
+      )}
 
     </div>
     </>
@@ -22742,7 +22752,7 @@ export default function App() {
       case "budgetPricing": return currentOrder ? <BudgetPricingScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} config={config} onNavigate={nav} /> : null;
       case "serviceSheet": return currentOrder ? <ServiceSheetScreen order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} /> : null;
       case "authManage": return currentOrder ? <AuthManageScreen notification={notifications.find(n => n.orderId === currentOrder.id && n.status === "pending")} order={currentOrder} clients={clients} user={user} orders={orders} setOrders={setOrders} notifications={notifications} setNotifications={setNotifications} config={config} onNavigate={nav} /> : null;
-      case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} setConfig={setConfig} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} /> : null;
+      case "admin": return (getPerm(user, "admin") || getPerm(user, "cobro")) ? <AdminScreen orders={orders} clients={clients} setOrders={setOrders} setClients={setClients} config={config} setConfig={setConfig} onNavigate={nav} initialTab={adminInitialTab} initialOrder={adminInitialOrder} users={users} egresos={egresos} setEgresos={setEgresos} proveedores={proveedores} setProveedores={setProveedores} factProv={factProv} setFactProv={setFactProv} servicios={servicios} setServicios={setServicios} igGastos={igGastos} setIgGastos={setIgGastos} cierres={cierres} setCierres={setCierres} user={user} cotizaciones={cotizaciones} setCotizaciones={setCotizaciones} /> : null;
       case "fojaClient": return currentOrder ? <FojaClientScreen order={currentOrder} clients={clients} notifications={notifications} config={config} onNavigate={nav} /> : null;
       case "fojaChequeo": return currentOrder ? <FojaChequeoScreen order={currentOrder} clients={clients} config={config} onNavigate={nav} /> : null;
             case "config": return getPerm(user, "config") ? <ConfigScreen user={user} setUser={setUser} users={users} setUsers={setUsers} config={config} setConfig={setConfig} onNavigate={nav} activeSucursal={activeSucursal} googleAuth={googleAuth} /> : null;
