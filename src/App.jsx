@@ -21867,11 +21867,19 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
 export default function App() {
   useEffect(() => {
     const handleFocus = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-        setTimeout(() => {
-          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 300);
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+      // Skipear inputs dentro de modales fijos (posición fixed en ancestro).
+      // El scroll rompe los modales del cotizador y provoca "salto" del cursor
+      // al tipear porque el focus vuelve a triggerearse en cada re-render.
+      let el = e.target.parentElement;
+      while (el && el !== document.body) {
+        const pos = window.getComputedStyle(el).position;
+        if (pos === 'fixed' || pos === 'sticky') return;
+        el = el.parentElement;
       }
+      setTimeout(() => {
+        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
     };
     document.addEventListener('focusin', handleFocus);
     return () => document.removeEventListener('focusin', handleFocus);
