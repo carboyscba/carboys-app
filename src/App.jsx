@@ -4855,7 +4855,9 @@ const DashboardScreen = (props) => {
   );
 };
 
-const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient }) => {
+const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, onEditClient, config, user }) => {
+  // Cotizador (Iter 6 — Path 1.B)
+  const [cotModal, setCotModal] = useState(null);   // null | { marca, modelo, ano, motor_hint }
   const [q, setQ] = useState("");
   const ref = useRef(null);
   const [selVehicle, setSelVehicle] = useState(() => {
@@ -4921,16 +4923,59 @@ const SearchScreen = ({ clients, setClients, orders, onNavigate, initialDomain, 
       <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
         <button onClick={() => { setSelVehicle(null); setSelClient(null); }} style={{ ...btnPrimary(T.bg3), border: `1px solid ${T.border}`, fontSize: 13, marginBottom: 16 }}>← Volver a búsqueda</button>
 
-        {/* Nueva Visita button */}
-        <div onClick={() => onNavigate("newOrder", { domain: selVehicle.domain, clientId: selClient?.id })}
-          style={{ ...card, padding: 16, marginBottom: 16, cursor: "pointer", background: `${T.green}08`, borderColor: T.green, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
-          onMouseEnter={e => { e.currentTarget.style.background = `${T.green}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.green}08`; }}>
-          <span style={{ fontSize: 22 }}>🔧</span>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: T.green }}>NUEVA VISITA</div>
-            <div style={{ fontSize: 11, color: T.gray }}>Registrar nuevo ingreso para este vehículo</div>
-          </div>
-        </div>
+        {/* Nueva Visita + COTIZACIÓN (Iter 6 — Path 1.B) */}
+        {(() => {
+          const cotizadorOn = config?.cotizador?.activo;
+          const nuevaVisitaEl = (
+            <div onClick={() => onNavigate("newOrder", { domain: selVehicle.domain, clientId: selClient?.id })}
+              style={{ ...card, padding: 16, cursor: "pointer", background: `${T.green}08`, borderColor: T.green, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flex: 1 }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${T.green}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.green}08`; }}>
+              <span style={{ fontSize: 22 }}>🔧</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: T.green }}>NUEVA VISITA</div>
+                <div style={{ fontSize: 11, color: T.gray }}>Registrar nuevo ingreso</div>
+              </div>
+            </div>
+          );
+          if (!cotizadorOn) {
+            return <div style={{ marginBottom: 16 }}>{nuevaVisitaEl}</div>;
+          }
+          return (
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+              {nuevaVisitaEl}
+              <div
+                onClick={() => setCotModal({
+                  marca: selVehicle.brand || "",
+                  modelo: selVehicle.model || "",
+                  ano: selVehicle.year ? String(selVehicle.year) : "",
+                  motor_hint: "",
+                  nombre: cl?.name || "",
+                  apellido: cl?.lastName || "",
+                  telefono: cl?.phone || "",
+                })}
+                style={{ ...card, padding: 16, cursor: "pointer", background: `${T.accent}08`, borderColor: T.accent, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flex: 1 }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${T.accent}15`; }} onMouseLeave={e => { e.currentTarget.style.background = `${T.accent}08`; }}>
+                <span style={{ fontSize: 22 }}>🧮</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: T.accent }}>COTIZACIÓN</div>
+                  <div style={{ fontSize: 11, color: T.gray }}>Precio sin abrir orden</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Modal cotización (Iter 6) — se abre con datos precargados del vehículo/cliente */}
+        {cotModal && (
+          <NuevaCotizacionModal
+            config={config}
+            role={user?.role || "encargado"}
+            initialForm={cotModal}
+            onClose={() => setCotModal(null)}
+            T={T} fontD={fontD} card={card} btnPrimary={btnPrimary}
+            inputStyle={inputStyle} selectStyle={selectStyle} labelStyle={labelStyle}
+          />
+        )}
 
         <div style={{ ...card, padding: 20, marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -22570,7 +22615,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case "dashboard": return <DashboardScreen user={user} orders={orders} clients={clients} notifications={notifications} setNotifications={setNotifications} onNavigate={nav} />;
-      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} /> : null;
+      case "search": return getPerm(user, "buscarDominio") ? <SearchScreen clients={clients} setClients={setClients} orders={orders} onNavigate={nav} initialDomain={selOrder?.domain || null} onEditClient={(c) => setEditClientGlobal({ clientId: c.id, name: c.name, lastName: c.lastName, phone: c.phone || "", dni: c.dni || "", cuit: c.cuit || "" })} config={config} user={user} /> : null;
       case "newOrder": return <NewOrderScreen clients={clients} setClients={setClients} orders={orders} setOrders={setOrders} config={config} vehicleDB={vehicleDB} setVehicleDB={setVehicleDB} onNavigate={nav} initialData={newOrderInit} />;
       case "quickSale": return <QuickSaleScreen config={config} orders={orders} setOrders={setOrders} clients={clients} setClients={setClients} user={user} onNavigate={nav} />;
       case "workshop": return <WorkshopScreen orders={orders} clients={clients} user={user} onNavigate={nav} />;
