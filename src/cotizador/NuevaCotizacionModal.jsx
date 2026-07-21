@@ -7,6 +7,17 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import ExtractoPrecios from "./ExtractoPrecios.jsx";
 import { loadFitment, loadCatalogoMobil } from "./dataLoader.js";
 
+// ModalWrap afuera del componente. Definirlo adentro creaba un tipo nuevo por render
+// y React desmontaba todo el árbol (inputs perdían el foco al tipear cada dígito).
+function ModalWrap({ children, onClose }) {
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflow: "auto" }}>
+      <div style={{ maxWidth: 620, width: "100%", marginTop: 20, marginBottom: 20 }}>{children}</div>
+    </div>
+  );
+}
+
 export default function NuevaCotizacionModal({
   config, role = "dueño", initialForm, concesionarias = null,
   onClose, onGuardar, onWhatsApp, onConvertir,
@@ -116,18 +127,11 @@ export default function NuevaCotizacionModal({
 
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const ModalWrap = ({ children }) => (
-    <div onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflow: "auto" }}>
-      <div style={{ maxWidth: 620, width: "100%", marginTop: 20, marginBottom: 20 }}>{children}</div>
-    </div>
-  );
-
-  if (loading) return <ModalWrap><div style={{ padding: 40, textAlign: "center", color: T.gray, fontSize: 14, ...card }}>⏳ Cargando catálogo…</div></ModalWrap>;
+  if (loading) return <ModalWrap onClose={onClose}><div style={{ padding: 40, textAlign: "center", color: T.gray, fontSize: 14, ...card }}>⏳ Cargando catálogo…</div></ModalWrap>;
 
   if (step === "extracto" && selectedFitment && selectedAceite) {
     return (
-      <ModalWrap>
+      <ModalWrap onClose={onClose}>
         <ExtractoPrecios
           fitment={selectedFitment} aceite={selectedAceite} litros={parseFloat(form.litros) || 5}
           trabajo={form.trabajo} presentacionAceite={form.presentacionId}
@@ -144,7 +148,7 @@ export default function NuevaCotizacionModal({
   }
 
   return (
-    <ModalWrap>
+    <ModalWrap onClose={onClose}>
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
         <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.accent}08)`, borderBottom: `2px solid ${T.accent}`, padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
