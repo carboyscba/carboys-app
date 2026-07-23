@@ -2026,6 +2026,32 @@ const NewOrderScreen = (props) => {
 
   const [works, setWorks] = useState([]);
 
+  // ── Catálogo completo desde fitment.json (Iter B) ──
+  // Bug 1 iter B: la nueva orden usaba la lista corta hardcoded (VEHICLE_DB).
+  // Ahora cargamos las 63 marcas y ~3900 modelos que scrapeamos de wega.com.ar.
+  const [fitmentBrandsModels, setFitmentBrandsModels] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const mod = await import("./cotizador/dataLoader.js");
+        const fit = await mod.loadFitment();
+        if (!mounted) return;
+        const map = {};
+        for (const f of (fit.fitments || [])) {
+          if (!f.marca || !f.modelo) continue;
+          if (!map[f.marca]) map[f.marca] = new Set();
+          map[f.marca].add(f.modelo);
+        }
+        // Convertir Sets a arrays ordenados
+        const out = {};
+        for (const [k, v] of Object.entries(map)) out[k] = [...v].sort();
+        setFitmentBrandsModels(out);
+      } catch (e) { /* silent — fallback a VEHICLE_DB */ }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const [payments, setPayments] = useState([{ method: "", amount: "", account: "", installments: 3 }]);
   const [showBrakePopup, setShowBrakePopup] = useState(false);
   const [showClientHistory, setShowClientHistory] = useState(false);
@@ -2276,8 +2302,26 @@ const NewOrderScreen = (props) => {
 
   const clientHistory = foundVehicle ? orders.filter(o => o.domain === foundVehicle.domain && o.status !== "cancelled").sort((a, b) => (b.date || "").localeCompare(a.date || "")) : [];
 
-  const brands = Object.keys(vehicleDB || VEHICLE_DB).sort();
-  const models = form.brand ? ((vehicleDB || VEHICLE_DB)[form.brand] || []) : [];
+  // Fuente combinada: fitment.json (wega scrape) + vehicleDB (config sucursal) + VEHICLE_DB (fallback hardcoded).
+  // Prioridad: fitment > vehicleDB > VEHICLE_DB. Se unen (unión de sets), no se pisan.
+  const brandsCombined = (() => {
+    const s = new Set();
+    if (fitmentBrandsModels) Object.keys(fitmentBrandsModels).forEach(b => s.add(b));
+    Object.keys(vehicleDB || VEHICLE_DB).forEach(b => s.add(b));
+    return [...s].sort();
+  })();
+  const modelsCombined = (() => {
+    if (!form.brand) return [];
+    const s = new Set();
+    if (fitmentBrandsModels && fitmentBrandsModels[form.brand]) {
+      fitmentBrandsModels[form.brand].forEach(m => s.add(m));
+    }
+    const dbList = (vehicleDB || VEHICLE_DB)[form.brand] || [];
+    dbList.forEach(m => s.add(m));
+    return [...s].sort();
+  })();
+  const brands = brandsCombined;
+  const models = modelsCombined;
 
   return (
     <div style={{ padding: 24, animation: "fadeUp .3s ease", maxWidth: 700, margin: "0 auto" }}>
