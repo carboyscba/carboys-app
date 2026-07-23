@@ -2353,7 +2353,17 @@ const NewOrderScreen = (props) => {
           {/* Domain search */}
           {searchMode === "domain" && (
             <div>
-              <input inputMode="text" value={domainSearch} onChange={e => { setDomainSearch(e.target.value); setHistoryVehicle(null); setHistoryOrderDetail(null); }}
+              <input inputMode="text" value={domainSearch} onChange={e => {
+                setDomainSearch(e.target.value);
+                // Limpieza de estados que quedan pegados y ensucian el buscador
+                setHistoryVehicle(null);
+                setHistoryOrderDetail(null);
+                setCrossResult(null);
+                setCrossSearching(false);
+                setFoundClient(null);
+                setFoundVehicle(null);
+                setDniFoundClient(null);
+              }}
                 onKeyDown={e => e.key === "Enter" && searchDomain()}
                 placeholder="Ingresá el dominio (ej: AD848BJ)" style={{ ...inputStyle, fontSize: 16, padding: "16px 20px", borderColor: domainSearch ? T.accent : T.border }} autoFocus />
 
@@ -2453,7 +2463,11 @@ const NewOrderScreen = (props) => {
                 );
                 const shown = matches.slice(0, 30);
                 return (
-                  <div style={{ marginTop: 12 }}>
+                  // key incluye la query normalizada + count para forzar remount limpio
+                  // en cada cambio de búsqueda. Sin esto, algunas cards viejas quedaban
+                  // pegadas en el DOM aunque el filtro ya las había descartado
+                  // (bug reproducido con "ae460ml" mostrando AA039UM además del match real).
+                  <div key={`domain-matches-${dsNorm}-${matches.length}`} style={{ marginTop: 12 }}>
                     {matches.length > 30 && <div style={{ fontSize: 12, color: T.gray, marginBottom: 8, textAlign: "center" }}>Mostrando 30 de {matches.length} resultados — seguí escribiendo para filtrar</div>}
                     {shown.map(({ c, v, vCount, activeOrder }, idx) => (
                       <div key={v ? v.domain : `client-${c.id}-${idx}`} style={{ ...card, padding: 16, marginBottom: 10, borderLeft: `4px solid ${T.accent}` }}>
