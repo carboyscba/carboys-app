@@ -262,8 +262,8 @@ export default function MiniExtractoPath2({
             style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: T.accent, fontSize: 14, fontWeight: 800, fontFamily: fontD, textAlign: "center" }} />
         </div>
       </div>
-      {/* Nivel de confianza del techo (precio oficial) */}
-      {nvTecho ? (
+      {/* Nivel de confianza del techo (precio oficial) — SOLO Service Full */}
+      {trabajoKey === "service_full" && (nvTecho ? (
         <div style={{ fontSize: 10, marginTop: 8, textAlign: "center", color: nvTecho.color, lineHeight: 1.5 }}>
           {nvTecho.icon} <b>Techo {nvTecho.label}</b>{extracto.techoFuente ? ` · ${extracto.techoFuente}` : ""}
           {(extracto.techoNivel === "aproximado" || extracto.techoNivel === "estimado") &&
@@ -273,7 +273,7 @@ export default function MiniExtractoPath2({
         <div style={{ fontSize: 10, marginTop: 8, textAlign: "center", color: T.gray, lineHeight: 1.5 }}>
           Sin precio oficial de referencia — cotizá por costo + margen. Cargá el oficial en Config → Concesionarias.
         </div>
-      )}
+      ))}
       <div style={{ fontSize: 10, color: T.gray, marginTop: 6, textAlign: "center" }}>Número grande = <b>tarjeta</b> (con IVA). 💵 chico = <b>efectivo</b>. Tocá uno o tipeá un Custom con IVA.</div>
     </div>
   );
