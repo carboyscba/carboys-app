@@ -162,7 +162,7 @@ export default function ExtractoPrecios({
 
       <div style={{ padding: 20, background: T.bg3, borderBottom: `1px solid ${T.border}` }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎯 Precios sugeridos (efectivo / tarjeta)</div>
-        <ClickPrice icon="🔻" label={ownerView ? "Venta mínima (costo total)" : "Venta mínima"}
+        <ClickPrice icon="🔻" label={ownerView ? "Venta mínima (repuestos ×2 + M.O.)" : "Venta mínima"}
           valueSinIva={extracto.ventaMinima} valueConIva={extracto.ventaMinimaConIva} showSinIva={ownerView}
           onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaMinimaConIva)))} color={T.red} />
         <ClickPrice icon="🎯" label={ownerView ? `Venta óptima (piso ${Math.round((extracto.config.margenMinimoFull || 0.5) * 100)}%)` : "Venta óptima"}
