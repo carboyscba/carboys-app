@@ -48,7 +48,9 @@ export default function ExtractoPrecios({
         if (!mounted) return;
         setKitIndex(ki); setSkuIndex(si);
         const e = await cotizarService({
-          fitment, aceite, litros, trabajo, config, presentacionAceite,
+          fitment, aceite, litros, trabajo,
+          config: config?.cotizador || config,        // sub-config del cotizador (margen, factor techo, etc.)
+          presentacionAceite,
           precioOficialSinIva: precioOficialSinIva,   // si vino explícito por prop → exacto
           concesionarias: concesionarias || [],       // si no, la cascada estima con nivel
           kitIndex: ki, skuIndex: si,
@@ -177,6 +179,8 @@ export default function ExtractoPrecios({
                 onClick={() => setPrecioFinalConIva(String(Math.round(extracto.techoConIva)))} color={nv.hex} />
               <div style={{ fontSize: 11, color: nv.hex, marginTop: 6, textAlign: "center", lineHeight: 1.5 }}>
                 {nv.icon} <b>{nv.label}</b>{extracto.techoFuente ? ` · ${extracto.techoFuente}` : ""}
+                {ownerView && extracto.oficialSinIva != null &&
+                  <span style={{ color: T.gray }}> · Oficial {fmt$(Math.round(extracto.oficialSinIva * (1 + extracto.ivaRate)))} × {Math.round((extracto.config.factorTechoCompetitivo || 0.85) * 100)}% = techo</span>}
                 {(extracto.techoNivel === "aproximado" || extracto.techoNivel === "estimado") &&
                   <span style={{ color: T.gray }}> · cargá el oficial en Config → Concesionarias para mayor precisión</span>}
               </div>
