@@ -173,18 +173,23 @@ export async function cotizarService({
   const ventaOptima = round(ventaMinima / (1 - margen));
   const ivaFactor = 1 + ivaRate;
 
-  // ── Precio oficial (techo competitivo) — cascada con nivel de confianza ──
+  // ── Precio oficial (techo competitivo) — SOLO Service Full ──
+  // El techo (comparativa con la concesionaria) no aplica a Service Base.
   // Si viene precioOficialSinIva directo (llamada legacy) → exacto.
   // Si vienen las concesionarias → cascada (exacto/aproximado/estimado) usando
   // el costo interno (ventaMinima) como base de la fórmula.
-  let oficial = { precioSinIva: precioOficialSinIva, nivel: precioOficialSinIva ? "exacto" : null, fuente: null, fecha: null };
-  if (precioOficialSinIva == null && concesionarias) {
-    oficial = estimarOficial({
-      concesionarias,
-      marca: fitment.marca, modelo: fitment.modelo, motor: fitment.motor_hint,
-      trabajo, ivaRate, costoInterno: ventaMinima,
-      factorOficialEstimado: cfg.factorOficialEstimado,
-    });
+  let oficial = { precioSinIva: null, nivel: null, fuente: null, fecha: null };
+  if (trabajo === "service_full") {
+    if (precioOficialSinIva != null) {
+      oficial = { precioSinIva: precioOficialSinIva, nivel: "exacto", fuente: null, fecha: null };
+    } else if (concesionarias) {
+      oficial = estimarOficial({
+        concesionarias,
+        marca: fitment.marca, modelo: fitment.modelo, motor: fitment.motor_hint,
+        trabajo, ivaRate, costoInterno: ventaMinima,
+        factorOficialEstimado: cfg.factorOficialEstimado,
+      });
+    }
   }
   // Techo competitivo (capa efectivo, igual que ventaOptima). techoConIva = tarjeta.
   const techoCompetitivo = oficial.precioSinIva != null
