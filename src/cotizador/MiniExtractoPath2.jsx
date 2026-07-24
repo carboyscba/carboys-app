@@ -5,7 +5,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { loadFitment, loadCatalogoMobil, getKitIndex, getSkuIndex } from "./dataLoader.js";
-import { cotizarService, buscarPrecioOficialSinIva } from "./engine.js";
+import { cotizarService } from "./engine.js";
 
 // Mapa tipo→label corto para mostrar SKUs con su rol
 const TIPO_SHORT = {
@@ -95,10 +95,7 @@ export default function MiniExtractoPath2({
       try {
         const e = await cotizarService({
           fitment: selectedFitment, aceite: aceiteObj, litros, trabajo: trabajoKey, config: config?.cotizador,
-          precioOficialSinIva: buscarPrecioOficialSinIva(concesionarias || [], {
-            marca: selectedFitment.marca, modelo: selectedFitment.modelo, motor: selectedFitment.motor_hint,
-            trabajo: trabajoKey, ivaRate: (config?.ivaRate ?? 21) / 100,
-          }),
+          concesionarias: concesionarias || [],   // la cascada estima el oficial con nivel de confianza
           kitIndex, skuIndex, ivaRate: (config?.ivaRate ?? 21) / 100,
         });
         if (mounted) setExtracto(e);
@@ -155,9 +152,17 @@ export default function MiniExtractoPath2({
       onMouseLeave={e => { e.currentTarget.style.borderColor = highlight ? color : T.border; e.currentTarget.style.transform = "none"; }}>
       <div style={{ fontSize: 9, color: T.gray, fontWeight: 700, textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: fontD, marginTop: 2 }}>{fmt$(valueConIva)}</div>
-      {ownerView && <div style={{ fontSize: 9, color: T.gray }}>{fmt$(valueSinIva)} s/IVA</div>}
+      <div style={{ fontSize: 9, color: T.gray }}>💵 {fmt$(valueSinIva)} efvo</div>
     </div>
   );
+
+  // Nivel de confianza del techo (precio oficial)
+  const TECHO_NIVEL = {
+    exacto:     { color: T.green,   icon: "🎯", label: "Oficial exacto" },
+    aproximado: { color: "#f5b301", icon: "≈",  label: "Aproximado" },
+    estimado:   { color: T.orange,  icon: "~",  label: "Estimado" },
+  };
+  const nvTecho = TECHO_NIVEL[extracto.techoNivel] || null;
 
   return (
     <div style={{ ...card, padding: 14, marginTop: 8, borderColor: T.accent, background: `${T.accent}08` }}>
@@ -178,7 +183,7 @@ export default function MiniExtractoPath2({
       <div style={{ fontSize: 11, color: T.grayLight, marginBottom: 10, lineHeight: 1.6 }}>
         {extracto.materiales.filtros?.modo === "base_aire_aceite" ? (
           <div>
-            <div>📦 <b>Aire + Aceite</b> (Service Base){ownerView ? ` · ${fmt$(extracto.materiales.filtros?.precio)} s/IVA` : ""}</div>
+            <div>📦 <b>Aire + Aceite</b> (Service Base){ownerView ? ` · ${fmt$(extracto.materiales.filtros?.precio)} c/IVA` : ""}</div>
             {skuIndex && (
               <div style={{ paddingLeft: 18, fontSize: 10, color: T.gray, marginTop: 2 }}>
                 {(extracto.materiales.filtros?.skus || []).map(s => (
@@ -191,7 +196,7 @@ export default function MiniExtractoPath2({
           </div>
         ) : kit ? (
           <div>
-            <div>📦 <b>KIT {kit.kitCode}</b> — {kit.nombre || `${kit.skusIncluidos?.length || 0} filtros`}{ownerView ? ` · ${fmt$(kit.precio)} s/IVA` : ""}</div>
+            <div>📦 <b>KIT {kit.kitCode}</b> — {kit.nombre || `${kit.skusIncluidos?.length || 0} filtros`}{ownerView ? ` · ${fmt$(extracto.materiales.filtros?.precio)} c/IVA` : ""}</div>
             {skuIndex && (
               <div style={{ paddingLeft: 18, fontSize: 10, color: T.gray, marginTop: 2 }}>
                 {(kit.skusIncluidos || []).map(s => (
@@ -216,7 +221,7 @@ export default function MiniExtractoPath2({
             )}
           </div>
         )}
-        <div>🛢 {aceiteObj?.nombre} · {extracto.materiales.aceite?.presentacion} × {litros}L{ownerView && extracto.materiales.aceite?.total ? ` · ${fmt$(extracto.materiales.aceite.total)} s/IVA` : ""}</div>
+        <div>🛢 {aceiteObj?.nombre} · {extracto.materiales.aceite?.presentacion} × {litros}L{ownerView && extracto.materiales.aceite?.total ? ` · ${fmt$(extracto.materiales.aceite.total)} c/IVA` : ""}</div>
         {ownerView && <div>🔧 M.O. {selectedFitment.categoria === "alta_gama" ? "alta gama" : "estándar"} · {fmt$(extracto.manoObra.total)} s/IVA</div>}
       </div>
       {aceites.length > 0 && (
@@ -231,7 +236,16 @@ export default function MiniExtractoPath2({
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <Chip label="Mínima" valueConIva={extracto.ventaMinimaConIva} valueSinIva={extracto.ventaMinima} color={T.red} />
         <Chip label="Óptima" valueConIva={extracto.ventaOptimaConIva} valueSinIva={extracto.ventaOptima} color={T.green} highlight />
-        {extracto.techoCompetitivo != null && <Chip label="Techo" valueConIva={extracto.techoConIva} valueSinIva={extracto.techoCompetitivo} color={T.orange} />}
+        {extracto.techoCompetitivo != null && nvTecho && (
+          <div onClick={() => onPickPrice(Math.round(extracto.techoCompetitivo))}
+            style={{ flex: 1, minWidth: 90, cursor: "pointer", textAlign: "center", padding: "8px 6px", borderRadius: 8, background: nvTecho.color + "15", border: `1px solid ${nvTecho.color}`, transition: "all .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}>
+            <div style={{ fontSize: 9, color: nvTecho.color, fontWeight: 700, textTransform: "uppercase" }}>{nvTecho.icon} Techo</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: nvTecho.color, fontFamily: fontD, marginTop: 2 }}>{fmt$(extracto.techoConIva)}</div>
+            <div style={{ fontSize: 9, color: T.gray }}>💵 {fmt$(extracto.techoCompetitivo)} efvo</div>
+          </div>
+        )}
         {/* Chip Custom: input inline. El GM tipea con IVA, guardamos sin IVA en la orden. */}
         <div style={{ flex: 1, minWidth: 110, padding: "6px 8px", borderRadius: 8, background: T.bg, border: `1px solid ${T.accent}`, textAlign: "center" }}>
           <div style={{ fontSize: 9, color: T.accent, fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>Custom (c/IVA)</div>
@@ -248,7 +262,19 @@ export default function MiniExtractoPath2({
             style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: T.accent, fontSize: 14, fontWeight: 800, fontFamily: fontD, textAlign: "center" }} />
         </div>
       </div>
-      <div style={{ fontSize: 10, color: T.gray, marginTop: 8, textAlign: "center" }}>Tocá Mínima/Óptima/Techo o tipeá un Custom con IVA. Se guarda sin IVA.</div>
+      {/* Nivel de confianza del techo (precio oficial) */}
+      {nvTecho ? (
+        <div style={{ fontSize: 10, marginTop: 8, textAlign: "center", color: nvTecho.color, lineHeight: 1.5 }}>
+          {nvTecho.icon} <b>Techo {nvTecho.label}</b>{extracto.techoFuente ? ` · ${extracto.techoFuente}` : ""}
+          {(extracto.techoNivel === "aproximado" || extracto.techoNivel === "estimado") &&
+            <span style={{ color: T.gray }}> · ¿Tenés el oficial? Cargalo en Config → Concesionarias</span>}
+        </div>
+      ) : (
+        <div style={{ fontSize: 10, marginTop: 8, textAlign: "center", color: T.gray, lineHeight: 1.5 }}>
+          Sin precio oficial de referencia — cotizá por costo + margen. Cargá el oficial en Config → Concesionarias.
+        </div>
+      )}
+      <div style={{ fontSize: 10, color: T.gray, marginTop: 6, textAlign: "center" }}>Número grande = <b>tarjeta</b> (con IVA). 💵 chico = <b>efectivo</b>. Tocá uno o tipeá un Custom con IVA.</div>
     </div>
   );
 }
