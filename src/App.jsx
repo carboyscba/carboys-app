@@ -5,6 +5,7 @@ import NuevaCotizacionModal from "./cotizador/NuevaCotizacionModal.jsx";
 import MiniExtractoPath2 from "./cotizador/MiniExtractoPath2.jsx";
 import CotizacionesScreen from "./cotizador/CotizacionesScreen.jsx";
 import ConfigConcesionarias from "./cotizador/ConfigConcesionarias.jsx";
+import { setPreciosAceitesOverride } from "./cotizador/dataLoader.js";
 // ══════════════════════════════════════════════════════════════════
 // ── MULTI-TENANT: Registro de Sucursales ──────────────────────────
 // Cada sucursal tiene su propia nube Firebase.
@@ -21900,10 +21901,14 @@ const ConfigScreen = ({ user, setUser, users, setUsers, config, setConfig, onNav
       <ConfigProveedores
         fsSave={fsSave}
         fsGetDoc={fsGetDoc}
+        config={config}
+        setConfig={setConfig}
         T={T}
         fontD={fontD}
         card={card}
         btnPrimary={btnPrimary}
+        inputStyle={inputStyle}
+        labelStyle={labelStyle}
       />
     </div>
   );
@@ -22302,7 +22307,10 @@ export default function App() {
     });
   }, []);
 
-
+  // Aplicar los precios de aceites editados (Config → Proveedores) al cotizador.
+  useEffect(() => {
+    setPreciosAceitesOverride(config?.preciosAceites || {});
+  }, [config?.preciosAceites]);
 
   // ── Carga inicial: IDB primero (offline-first), luego Firestore ──
   useEffect(() => {
