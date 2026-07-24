@@ -27,7 +27,29 @@ export async function loadCatalogoMobil() {
   const r = await fetch(`${BASE}/catalogo_mobil.json`);
   if (!r.ok) throw new Error(`No se pudo cargar catalogo_mobil.json (${r.status})`);
   _cachedCatalogoMobil = await r.json();
+  _applyOverrideAceites();   // aplicar precios editados por el usuario (si hay)
   return _cachedCatalogoMobil;
+}
+
+// ── Override de precios de aceites (editados desde Config → Proveedores) ──
+// Mapa { "aceiteId::presentacionId": precioPorLitro }. Los precios editados
+// pisan el precio del JSON base, y el cotizador los usa automáticamente.
+let _preciosAceitesOverride = {};
+function _applyOverrideAceites() {
+  if (!_cachedCatalogoMobil) return;
+  for (const a of (_cachedCatalogoMobil.aceites || [])) {
+    for (const p of (a.presentaciones || [])) {
+      const v = _preciosAceitesOverride[`${a.id}::${p.id}`];
+      if (v != null && !Number.isNaN(Number(v))) p.precio_por_litro = Number(v);
+    }
+  }
+  _aceiteIndex = null; // forzar rebuild del índice con los precios nuevos
+}
+
+/** Setea el override de precios de aceites y lo aplica al cache. */
+export function setPreciosAceitesOverride(map) {
+  _preciosAceitesOverride = map || {};
+  _applyOverrideAceites();
 }
 
 /** Carga fitment.json (vehículo → filtros). ~113 KB. */
