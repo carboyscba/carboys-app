@@ -27,6 +27,7 @@ export const DEFAULT_COTIZADOR_CONFIG = {
   factorTechoCompetitivo: 0.85,      // techo = precio_oficial × 0.85
   descuentoEfectivo: 0.15,           // 15% off al pagar en efectivo
   alertaMoMeses: 6,
+  factorOficialEstimado: 2.5,        // cuando no hay precio oficial cargado: oficial ≈ costo_interno × este factor
 };
 
 /**
@@ -143,6 +144,7 @@ export async function cotizarService({
   config = DEFAULT_COTIZADOR_CONFIG,
   trabajo = "service_full",
   precioOficialSinIva = null,
+  concesionarias = null,          // si viene, se estima el oficial con la cascada
   presentacionAceite = null,
   ivaRate = 0.21,
   kitIndex: kitIdx,
@@ -168,9 +170,23 @@ export async function cotizarService({
   const margen = trabajo === "service_full" ? cfg.margenMinimoFull : cfg.margenMinimoBase;
   const ventaOptima = round(ventaMinima / (1 - margen));
   const ivaFactor = 1 + ivaRate;
+
+  // ── Precio oficial (techo competitivo) — cascada con nivel de confianza ──
+  // Si viene precioOficialSinIva directo (llamada legacy) → exacto.
+  // Si vienen las concesionarias → cascada (exacto/aproximado/estimado) usando
+  // el costo interno (ventaMinima) como base de la fórmula.
+  let oficial = { precioSinIva: precioOficialSinIva, nivel: precioOficialSinIva ? "exacto" : null, fuente: null, fecha: null };
+  if (precioOficialSinIva == null && concesionarias) {
+    oficial = estimarOficial({
+      concesionarias,
+      marca: fitment.marca, modelo: fitment.modelo, motor: fitment.motor_hint,
+      trabajo, ivaRate, costoInterno: ventaMinima,
+      factorOficialEstimado: cfg.factorOficialEstimado,
+    });
+  }
   // Techo competitivo (capa efectivo, igual que ventaOptima). techoConIva = tarjeta.
-  const techoCompetitivo = precioOficialSinIva
-    ? round(precioOficialSinIva * cfg.factorTechoCompetitivo)
+  const techoCompetitivo = oficial.precioSinIva != null
+    ? round(oficial.precioSinIva * cfg.factorTechoCompetitivo)
     : null;
 
   // Versiones con IVA de venta = precio TARJETA (efectivo × (1+IVA)).
@@ -192,6 +208,11 @@ export async function cotizarService({
     ventaMinimaConIva,
     ventaOptimaConIva,
     techoConIva,
+    // Techo: nivel de confianza para la UI ('exacto'|'aproximado'|'estimado'|null)
+    techoNivel: oficial.nivel,
+    techoFuente: oficial.fuente,
+    techoFecha: oficial.fecha,
+    oficialSinIva: oficial.precioSinIva,
     // Meta
     config: cfg,
     ivaRate,
@@ -257,35 +278,79 @@ export function buildCotizadorSnapshot({ extracto, precioFinalTarjeta, precioFin
 }
 
 /**
- * Busca el precio oficial de concesionaria para un vehículo y trabajo dados.
- * Devuelve el precio SIN IVA (convierte si el registro está guardado con IVA),
- * o null si no hay match.
+ * Estima el precio oficial de concesionaria para un vehículo, con una CASCADA
+ * de fallback que SIEMPRE devuelve algo (salvo guardrail), marcando el nivel
+ * de confianza para que la UI lo muestre con color:
+ *
+ *   'exacto'      🎯 verde   — cargado a mano para ese modelo (motor exacto o "todos los motores")
+ *   'aproximado'  ≈ amarillo — mismo modelo otro motor, o promedio de la marca
+ *   'estimado'    ~ naranja  — fórmula: costo interno × factorOficialEstimado
+ *   null          — sin dato confiable (o el estimado quedó por debajo del costo)
+ *
+ * Devuelve { precioSinIva, nivel, fuente, fecha }. Precio siempre SIN IVA.
  */
-export function buscarPrecioOficialSinIva(concesionarias, { marca, modelo, motor, trabajo = "service_full", ivaRate = 0.21 }) {
-  if (!Array.isArray(concesionarias) || !concesionarias.length) return null;
+export function estimarOficial({ concesionarias, marca, modelo, motor, trabajo = "service_full", ivaRate = 0.21, costoInterno = null, factorOficialEstimado = 2.5 }) {
   const norm = (s) => String(s || "").toLowerCase().trim();
+  const ivaF = 1 + ivaRate;
+  const campo = trabajo === "service_base" ? "precioServiceBase" : "precioServiceFull";
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const precioSinIvaDe = (c) => {
+    const p = c[campo];
+    if (p == null || p === "") return null;
+    return (c.conIva !== false) ? Number(p) / ivaF : Number(p);
+  };
+  const median = (arr) => {
+    const a = arr.filter(x => x != null && !Number.isNaN(x)).sort((x, y) => x - y);
+    if (!a.length) return null;
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  };
+  const out = (precio, nivel, fuente, fecha = null) => {
+    if (precio == null) return { precioSinIva: null, nivel: null, fuente: null, fecha: null };
+    // Guardrail: un techo por debajo del costo interno no sirve → mejor sin dato.
+    if (costoInterno != null && precio < costoInterno) return { precioSinIva: null, nivel: null, fuente: "bajo_costo", fecha: null };
+    return { precioSinIva: round2(precio), nivel, fuente, fecha };
+  };
+
+  const list = Array.isArray(concesionarias) ? concesionarias : [];
   const marcaN = norm(marca), modeloN = norm(modelo), motorN = norm(motor);
 
-  const candidatos = concesionarias.filter(c => {
-    if (norm(c.marca) !== marcaN) return false;
-    const cm = norm(c.modelo);
-    if (!modeloN) return false;
-    return cm.includes(modeloN) || modeloN.includes(cm);
-  });
-  if (!candidatos.length) return null;
+  // ── Mismo marca + modelo ──
+  const mismoModelo = list.filter(c => norm(c.marca) === marcaN && modeloN &&
+    (norm(c.modelo).includes(modeloN) || modeloN.includes(norm(c.modelo))) && precioSinIvaDe(c) != null);
 
-  let elegido = candidatos[0];
-  if (motorN) {
-    const conMotor = candidatos.find(c => norm(c.motor) && (norm(c.motor).includes(motorN) || motorN.includes(norm(c.motor))));
-    if (conMotor) elegido = conMotor;
+  if (mismoModelo.length) {
+    // N0: motor exacto
+    if (motorN) {
+      const conMotor = mismoModelo.find(c => norm(c.motor) && (norm(c.motor).includes(motorN) || motorN.includes(norm(c.motor))));
+      if (conMotor) return out(precioSinIvaDe(conMotor), "exacto", `${conMotor.modelo}${conMotor.motor ? " " + conMotor.motor : ""}`, conMotor.fechaActualizacion);
+    }
+    // N1: entrada "sin motor" = precio general del modelo (aplica a todos los motores)
+    const sinMotor = mismoModelo.find(c => !norm(c.motor));
+    if (sinMotor) return out(precioSinIvaDe(sinMotor), "exacto", `${sinMotor.modelo} (todos los motores)`, sinMotor.fechaActualizacion);
+    // N2: mismo modelo, otro motor → aproximado (mediana)
+    return out(median(mismoModelo.map(precioSinIvaDe)), "aproximado", `${modelo} (otra versión)`, mismoModelo[0].fechaActualizacion);
   }
 
-  const campo = trabajo === "service_base" ? "precioServiceBase" : "precioServiceFull";
-  const precio = elegido[campo];
-  if (precio == null || precio === "") return null;
+  // N3: misma marca, cualquier modelo → aproximado (mediana de la marca)
+  const mismaMarca = list.filter(c => norm(c.marca) === marcaN && precioSinIvaDe(c) != null);
+  if (mismaMarca.length) {
+    return out(median(mismaMarca.map(precioSinIvaDe)), "aproximado", `promedio ${marca}`, null);
+  }
 
-  const conIva = elegido.conIva !== false;
-  return conIva ? Math.round((Number(precio) / (1 + ivaRate)) * 100) / 100 : Number(precio);
+  // N4: fórmula — costo interno × factor (cuando no hay nada parecido cargado)
+  if (costoInterno != null && costoInterno > 0) {
+    return out(costoInterno * factorOficialEstimado, "estimado", `fórmula (costo × ${factorOficialEstimado})`, null);
+  }
+
+  return out(null, null, null);
+}
+
+/**
+ * Compat: devuelve solo el precio SIN IVA (o null). Usa la cascada nueva.
+ */
+export function buscarPrecioOficialSinIva(concesionarias, opts) {
+  return estimarOficial({ concesionarias, ...opts }).precioSinIva;
 }
 
 // ── Helper de conveniencia para buscar fitment por (marca, modelo, motor, año) ──
