@@ -170,7 +170,8 @@ export default function ExtractoPrecios({
         <ClickPrice icon="🎯" label={ownerView ? `Venta óptima (piso ${Math.round((extracto.config.margenMinimoFull || 0.5) * 100)}%)` : "Venta óptima"}
           valueSinIva={extracto.ventaOptima} valueConIva={extracto.ventaOptimaConIva} showSinIva={ownerView}
           onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaOptimaConIva)))} color={T.green} highlight />
-        {extracto.techoCompetitivo != null && TECHO_NIVEL[extracto.techoNivel] ? (() => {
+        {/* Techo (comparativa con concesionaria) — SOLO Service Full */}
+        {trabajo === "service_full" && (extracto.techoCompetitivo != null && TECHO_NIVEL[extracto.techoNivel] ? (() => {
           const nv = TECHO_NIVEL[extracto.techoNivel];
           return (
             <>
@@ -190,7 +191,7 @@ export default function ExtractoPrecios({
           <div style={{ padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px dashed ${T.border}`, fontSize: 12, color: T.gray, marginTop: 8 }}>
             🔺 Sin precio oficial de referencia — cotizá por costo + margen. Cargá el oficial en Config → Concesionarias.
           </div>
-        )}
+        ))}
       </div>
 
       <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
