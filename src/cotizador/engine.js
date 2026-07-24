@@ -164,9 +164,11 @@ export async function cotizarService({
   const tarifaHora = fitment.categoria === "alta_gama" ? cfg.manoObraAltaGama : cfg.manoObraEstandar;
   const manoObra = round(tarifaHora * moHoras);
 
-  // Costo base = materiales CON IVA + M.O. sin IVA. Este es el precio EFECTIVO
-  // (lo que sale de verdad). El "con IVA" de abajo agrega el IVA de venta (TARJETA).
-  const ventaMinima = round(materiales.subtotal_con_iva + manoObra);
+  // ── VENTA MÍNIMA (única regla FIJA del dueño) = repuestos × 2 + M.O. ──
+  // Los materiales (con IVA) se marcan al doble; la mano de obra va a tarifa (una vez).
+  const ventaMinima = round(materiales.subtotal_con_iva * 2 + manoObra);
+  // ── VENTA ÓPTIMA = venta mínima ÷ (1 − margen). El % se edita en Config → Cotizador. ──
+  // Hoy 50% ⇒ óptima = mínima × 2. El dueño lo ajusta a mano según el mercado.
   const margen = trabajo === "service_full" ? cfg.margenMinimoFull : cfg.margenMinimoBase;
   const ventaOptima = round(ventaMinima / (1 - margen));
   const ivaFactor = 1 + ivaRate;
