@@ -4,7 +4,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import React, { useEffect, useState } from "react";
-import { cotizarService, precioFinalCliente, zonaDePrecio, buscarPrecioOficialSinIva } from "./engine.js";
+import { cotizarService, precioFinalCliente, zonaDePrecio } from "./engine.js";
 import { getKitIndex, getSkuIndex, getAceiteIndex } from "./dataLoader.js";
 
 const ZONE_COLORS = {
@@ -16,23 +16,19 @@ const ZONE_COLORS = {
 
 const fmt$ = (n) => n == null || Number.isNaN(n) ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
+// Nivel de confianza del techo (precio oficial)
+const TECHO_NIVEL = {
+  exacto:     { hex: "#43a047", icon: "🎯", label: "Oficial exacto" },
+  aproximado: { hex: "#f5b301", icon: "≈",  label: "Aproximado" },
+  estimado:   { hex: "#fb8c00", icon: "~",  label: "Estimado" },
+};
+
 export default function ExtractoPrecios({
   fitment, aceite, litros, trabajo = "service_full", config,
   precioOficialSinIva = null, concesionarias = null, presentacionAceite = null, role = "dueño",
   onClose, onGuardar, onWhatsApp, onConvertir,
   T, fontD, card, btnPrimary, inputStyle,
 }) {
-  const precioOficialCalc = React.useMemo(() => {
-    if (precioOficialSinIva != null) return precioOficialSinIva;
-    if (concesionarias && fitment) {
-      return buscarPrecioOficialSinIva(concesionarias, {
-        marca: fitment.marca, modelo: fitment.modelo, motor: fitment.motor_hint,
-        trabajo, ivaRate: (config?.ivaRate ?? 21) / 100,
-      });
-    }
-    return null;
-  }, [precioOficialSinIva, concesionarias, fitment, trabajo, config]);
-
   const ownerView = role === "dueño";
   const [extracto, setExtracto] = useState(null);
   const [error, setError] = useState("");
@@ -53,7 +49,9 @@ export default function ExtractoPrecios({
         setKitIndex(ki); setSkuIndex(si);
         const e = await cotizarService({
           fitment, aceite, litros, trabajo, config, presentacionAceite,
-          precioOficialSinIva: precioOficialCalc, kitIndex: ki, skuIndex: si,
+          precioOficialSinIva: precioOficialSinIva,   // si vino explícito por prop → exacto
+          concesionarias: concesionarias || [],       // si no, la cascada estima con nivel
+          kitIndex: ki, skuIndex: si,
           ivaRate: (config?.ivaRate ?? 21) / 100,
         });
         if (!mounted) return;
@@ -63,7 +61,7 @@ export default function ExtractoPrecios({
       finally { if (mounted) setLoading(false); }
     })();
     return () => { mounted = false; };
-  }, [fitment, aceite, litros, trabajo, config, presentacionAceite, precioOficialCalc]);
+  }, [fitment, aceite, litros, trabajo, config, presentacionAceite, precioOficialSinIva, concesionarias]);
 
   if (loading) return <div style={{ ...card, padding: 40, textAlign: "center", color: T.gray, fontSize: 14 }}>⏳ Calculando extracto…</div>;
   if (error) return <div style={{ ...card, padding: 20, borderColor: T.red, background: T.red + "10", color: T.red, fontSize: 13 }}>⚠️ {error}</div>;
@@ -100,8 +98,8 @@ export default function ExtractoPrecios({
       onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = highlight ? color : T.border; }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: highlight ? color : T.grayLight }}>{icon} {label}</span>
       <div style={{ textAlign: "right" }}>
-        {showSinIva && <div style={{ fontSize: 11, color: T.gray, fontFamily: fontD }}>{fmt$(valueSinIva)} <span style={{ fontSize: 9 }}>sin IVA</span></div>}
-        <div style={{ fontSize: 16, fontWeight: 800, color, fontFamily: fontD }}>{fmt$(valueConIva)}</div>
+        <div style={{ fontSize: 11, color: T.gray, fontFamily: fontD }}>💵 {fmt$(valueSinIva)} <span style={{ fontSize: 9 }}>efvo</span></div>
+        <div style={{ fontSize: 16, fontWeight: 800, color, fontFamily: fontD }}>{fmt$(valueConIva)} <span style={{ fontSize: 9, color: T.gray }}>tarj</span></div>
       </div>
     </div>
   );
@@ -119,7 +117,7 @@ export default function ExtractoPrecios({
       </div>
 
       <div style={{ padding: 20, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>📦 Materiales {ownerView ? "(sin IVA)" : ""}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>📦 Materiales {ownerView ? "(con IVA)" : ""}</div>
         {extracto.materiales.filtros?.modo === "base_aire_aceite" ? (
           <div style={{ marginBottom: 8 }}>
             <Row label="Aire + Aceite (Service Base)" value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} bold />
@@ -135,7 +133,7 @@ export default function ExtractoPrecios({
           </div>
         ) : kit ? (
           <div style={{ marginBottom: 8 }}>
-            <Row label={`KIT ${kit.kitCode} (${kit.skusIncluidos?.length || 0} filtros)`} value={ownerView ? fmt$(kit.precio) : "✓"} bold />
+            <Row label={`KIT ${kit.kitCode} (${kit.skusIncluidos?.length || 0} filtros)`} value={ownerView ? fmt$(extracto.materiales.filtros?.precio) : "✓"} bold />
             {kitIndex && skuIndex && (
               <div style={{ paddingLeft: 20, marginTop: 4 }}>
                 {(kit.skusIncluidos || []).map(s => {
@@ -163,20 +161,30 @@ export default function ExtractoPrecios({
       )}
 
       <div style={{ padding: 20, background: T.bg3, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎯 Precios sugeridos {ownerView ? "(sin/con IVA)" : "(con IVA)"}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎯 Precios sugeridos (efectivo / tarjeta)</div>
         <ClickPrice icon="🔻" label={ownerView ? "Venta mínima (costo total)" : "Venta mínima"}
           valueSinIva={extracto.ventaMinima} valueConIva={extracto.ventaMinimaConIva} showSinIva={ownerView}
           onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaMinimaConIva)))} color={T.red} />
         <ClickPrice icon="🎯" label={ownerView ? `Venta óptima (piso ${Math.round((extracto.config.margenMinimoFull || 0.5) * 100)}%)` : "Venta óptima"}
           valueSinIva={extracto.ventaOptima} valueConIva={extracto.ventaOptimaConIva} showSinIva={ownerView}
           onClick={() => setPrecioFinalConIva(String(Math.round(extracto.ventaOptimaConIva)))} color={T.green} highlight />
-        {extracto.techoCompetitivo != null ? (
-          <ClickPrice icon="🔺" label={ownerView ? `Techo (${Math.round((extracto.config.factorTechoCompetitivo || 0.85) * 100)}% oficial)` : "Techo competitivo"}
-            valueSinIva={extracto.techoCompetitivo} valueConIva={extracto.techoConIva} showSinIva={ownerView}
-            onClick={() => setPrecioFinalConIva(String(Math.round(extracto.techoConIva)))} color={T.orange} />
-        ) : (
+        {extracto.techoCompetitivo != null && TECHO_NIVEL[extracto.techoNivel] ? (() => {
+          const nv = TECHO_NIVEL[extracto.techoNivel];
+          return (
+            <>
+              <ClickPrice icon={nv.icon} label={`Techo — ${nv.label}`}
+                valueSinIva={extracto.techoCompetitivo} valueConIva={extracto.techoConIva} showSinIva={ownerView}
+                onClick={() => setPrecioFinalConIva(String(Math.round(extracto.techoConIva)))} color={nv.hex} />
+              <div style={{ fontSize: 11, color: nv.hex, marginTop: 6, textAlign: "center", lineHeight: 1.5 }}>
+                {nv.icon} <b>{nv.label}</b>{extracto.techoFuente ? ` · ${extracto.techoFuente}` : ""}
+                {(extracto.techoNivel === "aproximado" || extracto.techoNivel === "estimado") &&
+                  <span style={{ color: T.gray }}> · cargá el oficial en Config → Concesionarias para mayor precisión</span>}
+              </div>
+            </>
+          );
+        })() : (
           <div style={{ padding: "8px 12px", borderRadius: 8, background: T.bg, border: `1px dashed ${T.border}`, fontSize: 12, color: T.gray, marginTop: 8 }}>
-            🔺 Techo competitivo — falta cargar precio oficial de la concesionaria
+            🔺 Sin precio oficial de referencia — cotizá por costo + margen. Cargá el oficial en Config → Concesionarias.
           </div>
         )}
       </div>
