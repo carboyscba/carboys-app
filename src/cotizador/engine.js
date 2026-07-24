@@ -57,8 +57,15 @@ export function precioPorLitroDeAceite(aceite, presentacionId = null) {
  *   • Service Base → SOLO filtro de aire + filtro de aceite (NUNCA kit, NUNCA los 4).
  *
  * Al costo de los filtros se le suma aceite líquido (litros × precio_por_litro).
+ *
+ * IMPORTANTE (Iter B — regla del dueño): el COSTO de referencia es el precio
+ * CON IVA de las listas (kit / filtros / aceite) — es lo que realmente se paga
+ * a Borur. Por eso multiplicamos cada precio de lista (que viene sin IVA) por
+ * (1 + ivaRate). La mano de obra NO lleva IVA (se suma aparte en cotizarService).
  */
-export function costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite, trabajo = "service_full" }) {
+export function costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite, trabajo = "service_full", ivaRate = 0.21 }) {
+  const ivaFactor = 1 + ivaRate;
+  const conIva = (n) => round((n || 0) * ivaFactor);   // precio de lista (sin IVA) → costo con IVA
   let costoFiltros = 0;
   let detalleFiltros = null;
 
@@ -69,18 +76,19 @@ export function costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, p
     for (const s of skus) {
       const a = skuIndex[s];
       if (a) {
-        costoFiltros += a.costoNeto;
-        detalleSueltos.push({ sku: s, precio: a.costoNeto });
+        const p = conIva(a.costoNeto);
+        costoFiltros += p;
+        detalleSueltos.push({ sku: s, precio: p });
       }
     }
-    detalleFiltros = { modo: "base_aire_aceite", skus: detalleSueltos, precio: costoFiltros };
+    detalleFiltros = { modo: "base_aire_aceite", skus: detalleSueltos, precio: round(costoFiltros) };
   } else if (fitment.kit_recomendado && kitIndex[fitment.kit_recomendado]) {
-    // ── SERVICE FULL + KIT ── usar precio del kit
+    // ── SERVICE FULL + KIT ── usar precio del kit (con IVA)
     const kit = kitIndex[fitment.kit_recomendado];
-    costoFiltros = kit.precio || 0;
+    costoFiltros = conIva(kit.precio);
     detalleFiltros = { modo: "kit", kitCode: kit.kitCode, precio: costoFiltros, skus: kit.skusIncluidos };
   } else {
-    // ── SERVICE FULL + SUELTOS ── suma de los 4 filtros
+    // ── SERVICE FULL + SUELTOS ── suma de los 4 filtros (con IVA)
     const skus = [
       fitment.sku_aire, fitment.sku_aceite, fitment.sku_combustible, fitment.sku_habitaculo
     ].filter(Boolean);
@@ -88,26 +96,29 @@ export function costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, p
     for (const s of skus) {
       const a = skuIndex[s];
       if (a) {
-        costoFiltros += a.costoNeto;
-        detalleSueltos.push({ sku: s, precio: a.costoNeto });
+        const p = conIva(a.costoNeto);
+        costoFiltros += p;
+        detalleSueltos.push({ sku: s, precio: p });
       }
     }
-    detalleFiltros = { modo: "sueltos", skus: detalleSueltos, precio: costoFiltros };
+    detalleFiltros = { modo: "sueltos", skus: detalleSueltos, precio: round(costoFiltros) };
   }
   const info = precioPorLitroDeAceite(aceite, presentacionAceite);
-  const costoAceite = info ? info.precio_por_litro * litros : 0;
+  const costoAceite = info ? conIva(info.precio_por_litro * litros) : 0;
   const detalleAceite = info ? {
     aceite_id: aceite.id,
     nombre: aceite.nombre,
     litros,
-    precio_por_litro: info.precio_por_litro,
+    precio_por_litro: conIva(info.precio_por_litro),
     presentacion: info.presentacion.envase,
     total: round(costoAceite),
   } : null;
   return {
     filtros: detalleFiltros,
     aceite: detalleAceite,
-    subtotal_sin_iva: round(costoFiltros + costoAceite),
+    // subtotal de materiales CON IVA (costo real que paga el taller)
+    subtotal_sin_iva: round(costoFiltros + costoAceite),  // nombre histórico; ahora es CON IVA
+    subtotal_con_iva: round(costoFiltros + costoAceite),
   };
 }
 
@@ -145,22 +156,24 @@ export async function cotizarService({
   const kitIndex = kitIdx || await getKitIndex();
   const skuIndex = skuIdx || await getSkuIndex();
 
-  const materiales = costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite, trabajo });
+  const materiales = costoMateriales({ fitment, kitIndex, skuIndex, aceite, litros, presentacionAceite, trabajo, ivaRate });
 
-  // Mano de obra según categoría del fitment
+  // Mano de obra según categoría del fitment (SIN IVA — se suma al costo con-IVA de materiales)
   const tarifaHora = fitment.categoria === "alta_gama" ? cfg.manoObraAltaGama : cfg.manoObraEstandar;
   const manoObra = round(tarifaHora * moHoras);
 
-  // Tres números — TODOS SIN IVA internamente
-  const ventaMinima = round(materiales.subtotal_sin_iva + manoObra);
+  // Costo base = materiales CON IVA + M.O. sin IVA. Este es el precio EFECTIVO
+  // (lo que sale de verdad). El "con IVA" de abajo agrega el IVA de venta (TARJETA).
+  const ventaMinima = round(materiales.subtotal_con_iva + manoObra);
   const margen = trabajo === "service_full" ? cfg.margenMinimoFull : cfg.margenMinimoBase;
   const ventaOptima = round(ventaMinima / (1 - margen));
+  const ivaFactor = 1 + ivaRate;
+  // Techo competitivo (capa efectivo, igual que ventaOptima). techoConIva = tarjeta.
   const techoCompetitivo = precioOficialSinIva
     ? round(precioOficialSinIva * cfg.factorTechoCompetitivo)
     : null;
 
-  // Versiones con IVA (capa de presentación)
-  const ivaFactor = 1 + ivaRate;
+  // Versiones con IVA de venta = precio TARJETA (efectivo × (1+IVA)).
   const ventaMinimaConIva = round(ventaMinima * ivaFactor);
   const ventaOptimaConIva = round(ventaOptima * ivaFactor);
   const techoConIva = techoCompetitivo ? round(techoCompetitivo * ivaFactor) : null;
