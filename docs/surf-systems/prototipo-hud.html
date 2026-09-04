@@ -1,0 +1,1294 @@
+<title>Anatomía del Surf System</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --paper:#e9ebee;
+  --sheet:#ffffff;
+  --ink:#151a20;
+  --ink-2:#3d4750;
+  --ink-3:#6d7883;
+  --rule:#c9ced4;
+  --rule-soft:#dfe3e7;
+  --accent:#0d5f6e;
+  --accent-soft:#d6e7ea;
+  --amber:#b26a12;
+  --crit:#a32b1f;
+  --ok:#1d7a4c;
+
+  /* paleta de instrumento — igual en ambos temas, son pantallas */
+  --hud-bg:#05070a;
+  --hud-panel:#10161d;
+  --hud-line:#243039;
+  --hud-text:#e8eef3;
+  --hud-dim:#7b8a97;
+  --cyan:#3fb6e8;
+  --cyan-deep:#0d6a94;
+  --green:#3ddc7f;
+  --red:#e03127;
+  --orange:#f2691b;
+  --tige-green:#2fac3c;
+  --yellow:#f5c518;
+  --malibu:#2ea6e0;
+
+  --shell:min(1160px,100% - 3rem);
+  --gap:clamp(1rem,2.2vw,1.6rem);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d1114;
+    --sheet:#141a1f;
+    --ink:#e6ebef;
+    --ink-2:#b3bec7;
+    --ink-3:#7e8b95;
+    --rule:#2a333b;
+    --rule-soft:#1e262d;
+    --accent:#4fc3d6;
+    --accent-soft:#12313a;
+    --amber:#e2a44b;
+    --crit:#e2685a;
+    --ok:#4fc98a;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d1114;
+  --sheet:#141a1f;
+  --ink:#e6ebef;
+  --ink-2:#b3bec7;
+  --ink-3:#7e8b95;
+  --rule:#2a333b;
+  --rule-soft:#1e262d;
+  --accent:#4fc3d6;
+  --accent-soft:#12313a;
+  --amber:#e2a44b;
+  --crit:#e2685a;
+  --ok:#4fc98a;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font:400 16px/1.6 "IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:"Saira Condensed",Impact,sans-serif;font-weight:700;margin:0;text-wrap:balance;line-height:1.05}
+p{margin:0}
+a{color:var(--accent)}
+
+.eyebrow{
+  font:700 12px/1 "JetBrains Mono",ui-monospace,monospace;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);
+}
+
+/* ---------- cabecera ---------- */
+.masthead{
+  width:var(--shell);margin:0 auto;padding:clamp(2.2rem,5vw,3.4rem) 0 1.6rem;
+  display:grid;gap:1.1rem;
+}
+.masthead h1{font-size:clamp(2.6rem,7vw,4.6rem);letter-spacing:-.01em;text-transform:uppercase}
+.masthead h1 span{display:block;color:var(--accent)}
+.dek{max-width:62ch;color:var(--ink-2);font-size:1.05rem}
+.meta-strip{
+  display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;padding-top:.9rem;border-top:1px solid var(--rule);
+  font:400 12.5px/1.4 "JetBrains Mono",monospace;color:var(--ink-3);
+}
+.meta-strip b{color:var(--ink-2);font-weight:700}
+
+/* ---------- nav ---------- */
+.railnav{
+  position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--paper) 92%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--rule);
+}
+.railnav ol{
+  width:var(--shell);margin:0 auto;padding:0;list-style:none;
+  display:flex;gap:1.5rem;overflow-x:auto;
+}
+.railnav a{
+  display:block;padding:.85rem 0;text-decoration:none;color:var(--ink-3);
+  font:600 13px/1 "Saira Condensed",sans-serif;letter-spacing:.1em;text-transform:uppercase;
+  white-space:nowrap;border-bottom:2px solid transparent;
+}
+.railnav a:hover,.railnav a:focus-visible{color:var(--ink);border-bottom-color:var(--accent)}
+
+main{width:var(--shell);margin:0 auto;padding:2.5rem 0 5rem;display:grid;gap:clamp(3rem,6vw,4.5rem)}
+
+/* ---------- secciones de marca ---------- */
+.brand{display:grid;gap:1.3rem;scroll-margin-top:4rem}
+.brand-head{display:grid;gap:.5rem;border-top:3px solid var(--ink);padding-top:.9rem}
+.brand-head .row{display:flex;flex-wrap:wrap;align-items:baseline;gap:.4rem 1rem}
+.brand-head h2{font-size:clamp(1.9rem,4.2vw,2.9rem);text-transform:uppercase;letter-spacing:.005em}
+.brand-head .sys{
+  font:700 13px/1 "JetBrains Mono",monospace;color:var(--accent);
+  letter-spacing:.06em;
+}
+.brand-head p{max-width:66ch;color:var(--ink-2)}
+
+/* bahía de pantalla */
+.bay{
+  background:var(--hud-bg);border:1px solid var(--hud-line);border-radius:6px;
+  padding:14px;overflow-x:auto;
+}
+.bay-caption{
+  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  font:400 12px/1.5 "JetBrains Mono",monospace;color:var(--ink-3);margin-top:.55rem;
+}
+.bay-caption em{font-style:normal;color:var(--ink-2)}
+
+/* fichas de comportamiento */
+.specs{display:grid;grid-template-columns:repeat(3,1fr);gap:0 2rem;border-top:1px solid var(--rule)}
+@media (max-width:900px){.specs{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.specs{grid-template-columns:1fr}}
+.spec{padding:.95rem 1.1rem .95rem 0;border-bottom:1px solid var(--rule-soft)}
+.spec dt{font:700 11.5px/1 "JetBrains Mono",monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-bottom:.42rem}
+.spec dd{margin:0;font-size:.94rem;color:var(--ink)}
+.spec dd b{font-family:"JetBrains Mono",monospace;font-size:.88em;background:var(--accent-soft);color:var(--accent);padding:.05em .35em;border-radius:3px}
+
+/* nota lateral */
+.note{
+  border-left:3px solid var(--accent);padding:.15rem 0 .15rem 1rem;
+  color:var(--ink-2);font-size:.95rem;max-width:70ch;
+}
+.note strong{color:var(--ink)}
+
+/* ======================================================
+   HUD compartido
+   ====================================================== */
+.hud{
+  min-width:820px;color:var(--hud-text);
+  font-family:"Saira Condensed",sans-serif;
+  user-select:none;
+}
+.hud button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0}
+.hud button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.mono{font-family:"JetBrains Mono",monospace}
+
+/* ---- NAUTIQUE ---- */
+.nq{
+  display:grid;grid-template-columns:56px 1fr;grid-template-rows:34px 1fr;
+  background:linear-gradient(150deg,#0a1017 0%,#111c27 45%,#0c141c 100%);
+  border-radius:4px;overflow:hidden;height:352px;
+}
+.nq-rail{grid-row:1/3;display:grid;align-content:start;gap:2px;padding-top:34px;background:#05090d}
+.nq-rail span{
+  height:44px;display:grid;place-items:center;color:#93a4b2;font-size:18px;
+}
+.nq-rail span.on{background:#16222e;color:#cfe6f5;box-shadow:inset 2px 0 0 var(--cyan)}
+.nq-top{
+  grid-column:2;grid-row:1;display:flex;align-items:center;gap:0;height:34px;
+  border-bottom:1px solid #1b2833;font-size:12.5px;color:#a9bac7;
+}
+.nq-top .l{display:flex;gap:14px;padding:0 14px;flex:0 0 auto}
+.nq-top .r{
+  flex:1;display:grid;grid-template-columns:1.4fr .9fr 1fr;align-items:center;
+  background:#03070b;height:100%;border-left:1px solid #1b2833;
+}
+.nq-top .r>div{display:flex;align-items:center;justify-content:center;gap:10px;height:100%;position:relative}
+.nq-top .r>div+div::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:1px;background:#243039;transform:skewX(-16deg)}
+.nq-top .prof{flex-direction:column;gap:0;line-height:1.15}
+.nq-top .prof em{font-style:normal;font-size:11px;color:#7e929f}
+.nq-body{grid-column:2;grid-row:2;min-height:0;display:grid;grid-template-columns:250px 1fr 1fr;gap:0;padding:10px 12px 12px}
+.nq-left{display:grid;align-content:start;gap:6px;text-align:center}
+.nq-spd{font-size:58px;line-height:.9;letter-spacing:-.02em;font-weight:600}
+.nq-spd i{font-style:normal;font-size:14px;color:#8ea0ad;vertical-align:super;margin-left:6px}
+.nq-cruise{color:var(--green);font-size:22px;letter-spacing:.04em;
+  background:radial-gradient(ellipse at center,rgba(61,220,127,.28),transparent 70%);}
+.nq-rpm{font-size:12px;color:#8ea0ad;letter-spacing:.1em}
+.nq-bar{height:5px;background:#1b262f;border-radius:2px;overflow:hidden}
+.nq-bar i{display:block;height:100%;width:14%;background:#5f6f7c}
+.nq-gauges{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin-top:6px;font-size:11px;color:#8ea0ad}
+.nq-gauges div{display:grid;gap:3px;justify-items:center}
+.nq-gauges u{display:block;width:100%;height:3px;background:#243039;text-decoration:none;border-radius:2px}
+.nq-gauges u i{display:block;height:100%;background:#c8d6e0;border-radius:2px}
+.nq-depth{margin-top:8px;font-size:30px;color:#dbe6ee;letter-spacing:.02em}
+.nq-depth em,.nq-depth b{font-style:normal;font-weight:400;font-size:11px;color:#6e8090;letter-spacing:.14em;vertical-align:middle}
+.nq-mid{display:grid;grid-template-rows:1fr auto auto;gap:8px;padding:0 10px;min-height:0}
+.nq-xsec{min-height:96px;border:1px solid #2b4457;border-radius:2px;background:rgba(10,26,38,.55);position:relative}
+.nq-xsec span{position:absolute;top:5px;left:8px;font-size:9.5px;letter-spacing:.2em;color:#557186}
+.nq-shape{
+  background:#02060a;border:1px solid #fff;border-radius:3px;padding:7px 12px;
+  display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:center;
+}
+.nq-shape .lbl{font-size:13.5px;letter-spacing:.02em}
+.nq-shape .val{text-align:center;font-size:17px;font-weight:600}
+.nq-slider{grid-column:1/-1;display:flex;align-items:center;gap:9px}
+.nq-track{flex:1;height:16px;position:relative;cursor:pointer}
+.nq-track .ticks{position:absolute;inset:50% 0 auto;height:1px;background:#3f5464}
+.nq-track .tick{position:absolute;top:-4px;width:1px;height:9px;background:#3f5464}
+.nq-track .thumb{position:absolute;top:0;width:2px;height:16px;background:#fff;transform:translateX(-1px)}
+.nq-surfmode{
+  background:#0c141b;border-radius:3px;padding:6px 12px;display:flex;align-items:center;gap:14px;font-size:13px;
+}
+.nq-surfmode .off{color:#5b6b78;font-size:15px}
+.nq-side{
+  width:52px;height:26px;border-radius:3px;display:grid;place-items:center;font-size:15px;
+  background:#161f28;color:#8fa3b1;transition:background .18s,color .18s;
+}
+.nq-side.on{background:#3c4a56;color:#fff;box-shadow:inset 0 0 0 1px #6c8090}
+.nq-right{display:grid;grid-template-rows:1fr auto auto;gap:8px;min-height:0}
+.nq-boat{position:relative;display:grid;place-items:center;min-height:0}
+.nq-tank{position:absolute;border:1px solid #35505f;background:rgba(20,45,62,.5);border-radius:2px;
+  font-size:9px;color:#8fb0c4;display:grid;place-items:center;font-family:"JetBrains Mono",monospace}
+.nq-assist{background:#0c141b;border-radius:3px;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font-size:12.5px}
+.nq-assist .seg{display:flex;gap:2px}
+.nq-assist .seg b{padding:2px 9px;border-radius:2px;font-weight:600;color:#63737f;font-size:13px}
+.nq-assist .seg b.on{background:#2f3c47;color:#fff}
+
+/* ---- MALIBU ---- */
+.mb{
+  display:grid;grid-template-columns:270px 1fr 330px;gap:0;height:330px;
+  background:
+    radial-gradient(circle at 12px 12px,#1a1a1a 1px,transparent 1px) 0 0/9px 9px,
+    #0b0b0c;
+  border:1px solid #2a2a2c;border-radius:6px;padding:12px;position:relative;
+}
+.mb-top{
+  position:absolute;top:0;left:0;right:0;height:26px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 14px;font-size:12px;color:#c8c8cc;
+  font-family:"JetBrains Mono",monospace;
+}
+.mb-top .nw{font-family:"Saira Condensed";font-size:22px;font-style:italic;color:#fff}
+.mb-speedo{position:relative;display:grid;place-items:center;padding-top:20px}
+.mb-speedo .val{position:absolute;text-align:center;transform:translateY(-6px)}
+.mb-speedo .val b{display:block;font-size:44px;font-style:italic;font-weight:500;color:#fff;line-height:1}
+.mb-speedo .val i{font-style:normal;font-size:10px;color:#9a9a9f;letter-spacing:.1em}
+.mb-center{display:grid;place-items:center;padding-top:22px}
+.mb-water{
+  width:100%;height:74%;border-radius:2px;
+  background:linear-gradient(180deg,#2fa8e4,#1a7fc0);position:relative;
+}
+.mb-water span{position:absolute;top:-26px;left:6px;color:#fff;font:italic 600 22px "Saira Condensed"}
+.mb-surf{display:grid;align-content:start;gap:10px;padding-top:16px}
+.mb-arc{position:relative;height:96px}
+.mb-arc button{
+  position:absolute;font-size:14px;line-height:1.02;text-align:center;letter-spacing:.02em;
+  color:#8e9298;font-weight:600;transition:color .2s;
+}
+.mb-arc button.sel{color:#fff}
+.mb-arc button.moving{color:var(--yellow)}
+.mb-arc button.set{color:var(--malibu)}
+.mb-arc .gate-l{left:2px;top:24px}
+.mb-arc .gate-c{left:50%;transform:translateX(-50%);top:2px}
+.mb-arc .gate-r{right:2px;top:24px}
+.mb-arc .logo{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:0;text-align:center;
+}
+.mb-arc .logo i{
+  display:block;width:44px;height:44px;margin:0 auto;border-radius:50%;
+  border:2px solid #6e7378;
+  background:conic-gradient(from 200deg,#3a3f45,#8d949b,#3a3f45);
+  -webkit-mask:radial-gradient(circle,transparent 34%,#000 36%);
+  mask:radial-gradient(circle,transparent 34%,#000 36%);
+}
+.mb-arc .logo em{
+  font-style:normal;font-size:8px;letter-spacing:.16em;color:#b9bfc5;
+  border:1px solid #4c5157;padding:1px 5px;display:inline-block;margin-top:3px;
+}
+.mb-ballast{display:flex;gap:9px;justify-content:center;align-items:flex-end}
+.mb-ballast div{display:grid;gap:3px;justify-items:center;font:700 9px/1 "JetBrains Mono";color:#8e9298}
+.mb-ballast u{
+  width:15px;height:42px;text-decoration:none;background:#1c1e21;border:1px solid #34383d;
+  display:flex;flex-direction:column-reverse;
+}
+.mb-ballast u i{display:block;width:100%;background:var(--malibu)}
+.mb-wedge{display:flex;align-items:center;justify-content:center;gap:12px;font:600 10px/1 "Saira Condensed";letter-spacing:.14em;color:#9aa0a6}
+.mb-wedge .steps{display:flex;gap:3px;align-items:flex-end}
+.mb-wedge .steps b{width:13px;background:#24272b;border:1px solid #34383d;font-weight:400;font-size:8px;color:#7d838a;text-align:center}
+.mb-wedge .steps b.want{border-color:var(--malibu);color:#fff}
+.mb-wedge .steps b.is{background:var(--malibu);border-color:var(--malibu);color:#04212f}
+.mb-btnrow{
+  position:absolute;left:12px;right:12px;bottom:8px;display:flex;justify-content:center;gap:16px;
+  font-size:14px;color:#6f757b;
+}
+.mb-btnrow b{width:24px;height:24px;border-radius:50%;border:1px solid #3a3e43;display:grid;place-items:center;font-weight:400}
+
+/* ---- MASTERCRAFT ---- */
+.mc{
+  background:#2b2b2d;border-radius:8px;padding:0 0 12px;height:394px;
+  display:grid;grid-template-rows:34px auto 1fr auto;gap:11px;
+  border:1px solid #3d3d40;
+}
+.mc-modes{display:grid;grid-template-columns:repeat(5,1fr);background:#151516;border-radius:8px 8px 0 0}
+.mc-modes button{
+  font:600 15px/34px "Saira Condensed";letter-spacing:.11em;color:#8b8b8f;text-align:center;
+  border-bottom:3px solid transparent;
+}
+.mc-modes button.on{color:var(--red);border-bottom-color:var(--red)}
+.mc-tools{display:flex;gap:9px;padding:0 12px;align-items:stretch;height:40px}
+.mc-tools .pill{
+  background:#3a3a3d;border-radius:7px;display:flex;align-items:center;gap:9px;padding:0 13px;
+  font-size:14px;color:#d6d6d9;
+}
+.mc-tools .pill.grow{flex:1}
+.mc-toggle{margin-left:auto;display:flex;background:#3a3a3d;border-radius:7px;overflow:hidden}
+.mc-toggle button{padding:0 12px;font:600 12.5px/1.05 "Saira Condensed";color:#a9a9ad;text-align:center;letter-spacing:.03em}
+.mc-toggle button.on{background:#b9b9bd;color:#1a1a1b}
+.mc-stage{padding:0 12px;display:grid;gap:12px}
+.mc-rapid{display:grid;grid-template-columns:52px 46px 1fr;gap:12px;align-items:stretch}
+.mc-vslider{position:relative;display:grid;grid-template-rows:repeat(7,1fr);align-items:center;justify-items:end;
+  font:400 11px/1 "JetBrains Mono";color:#9a9a9e;padding-right:4px}
+.mc-vslider span{display:flex;align-items:center;gap:4px}
+.mc-vslider span::after{content:"";width:9px;height:2px;background:#6a6a6e}
+.mc-vslider .thumb{
+  position:absolute;left:-2px;width:17px;height:17px;border-radius:50%;background:#b7b7bb;
+  transition:top .22s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px #000;
+}
+.mc-arrows{display:grid;grid-template-rows:auto 1fr auto;gap:6px;align-items:center;justify-items:center;
+  background:#3a3a3d;border-radius:8px;padding:8px 0;font-size:13px;color:#c9c9cd}
+.mc-arrows .cap{font:600 9px/1 "Saira Condensed";letter-spacing:.1em;color:#9a9a9e}
+.mc-wave{background:#0d0d0e;border-radius:8px;border:1px solid #4a4a4e;position:relative;overflow:hidden;display:grid}
+.mc-wave .sides{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:2px;background:#4a4a4e}
+.mc-wave .sides button{background:#3a3a3d;padding:7px 0;font:600 14px/1 "Saira Condensed";letter-spacing:.08em;color:#c9c9cd}
+.mc-wave .sides button.on{background:#d3d3d7;color:#141415}
+.mc-ready{position:absolute;top:8px;right:10px;display:flex;align-items:center;gap:7px;font:400 10px/1 "JetBrains Mono";color:var(--yellow)}
+.mc-ready u{display:block;width:56px;height:4px;background:#3a3a3d;text-decoration:none;border-radius:2px;overflow:hidden}
+.mc-ready u i{display:block;height:100%;background:var(--yellow);width:0}
+.mc-ready.idle{opacity:0;transition:opacity .3s}
+.mc-custom{display:grid;grid-template-columns:1fr 108px 1fr;gap:14px;align-items:start}
+.mc-col{display:grid;gap:8px;justify-items:center}
+.mc-col .cap{font:600 11px/1 "Saira Condensed";letter-spacing:.19em;color:#a9a9ad}
+.mc-caps{display:flex;gap:9px}
+.mc-cap{width:44px;height:52px;border-radius:9px;display:grid;place-items:center;position:relative;overflow:hidden;
+  font:700 19px/1 "Saira Condensed";color:#fff;background:#232325;border:1px solid #4a4a4e}
+.mc-cap .fill{position:absolute;left:0;right:0;bottom:0;background:#7d1f16;transition:height .3s}
+.mc-cap span{position:relative}
+.mc-cap em{position:absolute;bottom:2px;font-style:normal;font:400 7px/1 "JetBrains Mono";color:#c9c9cd;letter-spacing:.08em}
+.mc-sub{display:flex;gap:7px;font:600 12px/1 "Saira Condensed";letter-spacing:.08em;color:#c9c9cd}
+.mc-sub b{background:#3a3a3d;border-radius:6px;padding:7px 15px;font-weight:600}
+.mc-zero{
+  background:#0f2013;border:2px solid var(--green);border-radius:12px;padding:8px 0;
+  display:grid;justify-items:center;gap:2px;
+}
+.mc-zero .big{font:600 34px/1 "Saira Condensed";color:#fff}
+.mc-zero .big i{font-style:normal;font-size:17px}
+.mc-zero .tag{font:700 9px/1.25 "JetBrains Mono";color:var(--green);letter-spacing:.08em;text-align:center}
+.mc-zero button{color:#9fdcb4;font-size:15px}
+.mc-rocker{display:flex;align-items:center;background:#3a3a3d;border-radius:8px;overflow:hidden}
+.mc-rocker button{padding:8px 14px;font:600 13px/1 "Saira Condensed";letter-spacing:.08em;color:#c9c9cd}
+.mc-rocker button.on{background:#d3d3d7;color:#141415}
+.mc-rocker .knob{width:26px;height:26px;border-radius:50%;margin:0 -2px;z-index:1;
+  background:radial-gradient(circle at 35% 30%,#4fc3e8,#0b4c6b);border:1px solid #0a2b3c}
+.mc-slots{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:0 12px}
+.mc-slots b{
+  background:#3a3a3d;border-radius:6px;padding:8px 0;text-align:center;
+  font:600 13px/1.05 "Saira Condensed";color:#8b8b8f;letter-spacing:.06em;
+}
+.mc-slots b em{display:block;font-style:normal;font-size:8px;color:#6b6b6f;letter-spacing:.09em}
+
+/* ---- TIGÉ ---- */
+.tg{display:grid;grid-template-columns:340px 1fr;gap:26px;align-items:center;
+  background:#050506;border-radius:6px;padding:16px;height:352px;border:1px solid #1c1c1f}
+.tg-dial{
+  width:308px;height:308px;border-radius:50%;justify-self:center;position:relative;
+  background:#000;border:5px solid var(--tige-green);overflow:hidden;
+}
+.tg-seg{position:absolute;top:0;height:88px;display:grid;place-items:center;color:#fff}
+.tg-seg.l{left:0;width:84px;background:#2b2b2d;clip-path:polygon(0 0,100% 0,78% 100%,0 62%)}
+.tg-seg.c{left:50%;transform:translateX(-50%);width:132px;background:var(--tige-green);
+  clip-path:polygon(8% 0,92% 0,84% 100%,16% 100%);}
+.tg-seg.r{right:0;width:84px;background:#2b2b2d;clip-path:polygon(0 0,100% 0,100% 62%,22% 100%)}
+.tg-seg.l.on,.tg-seg.r.on{background:var(--tige-green)}
+.tg-seg.c b{font:700 30px/1 "Saira Condensed";font-style:italic;letter-spacing:-.02em}
+.tg-seg.c em{font-style:normal;font:500 15px/1 "Saira Condensed";letter-spacing:.16em;margin-top:2px}
+.tg-seg .arw{font-size:26px;line-height:1;margin-top:-14px}
+.tg-bars{position:absolute;left:26px;right:26px;bottom:52px;height:132px;display:grid;
+  grid-template-columns:repeat(5,1fr);gap:5px;align-items:end}
+.tg-bars button{border:1px solid #17515f;background:transparent;border-radius:1px}
+.tg-bars button.on{background:#35b6ea;border-color:#35b6ea}
+.tg-scale{position:absolute;left:26px;right:26px;bottom:30px;display:flex;justify-content:space-between;
+  font:500 13px/1 "Saira Condensed";letter-spacing:.13em;color:#c9d3da}
+.tg-dots{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;color:#9aa4ab;font-size:17px;letter-spacing:.14em}
+.tg-side{display:grid;gap:16px;align-content:center}
+.tg-taps{background:#000;border:1px solid #1c1c1f;border-radius:14px;padding:14px 18px;
+  display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;justify-items:center}
+.tg-taps .cap{grid-column:1/-1;font:600 15px/1 "Saira Condensed";letter-spacing:.1em;color:#fff}
+.tg-plate{display:grid;grid-template-columns:auto auto;gap:0 6px;align-items:center}
+.tg-plate .name{writing-mode:vertical-rl;transform:rotate(180deg);font:600 11px/1 "Saira Condensed";letter-spacing:.14em;color:#fff}
+.tg-plate .stack{display:grid;gap:3px;justify-items:center}
+.tg-plate .stack u{width:26px;height:9px;text-decoration:none;background:#4a4d51;display:block}
+.tg-plate .stack u.on{background:#c6cbd0}
+.tg-plate button{color:#a5aab0;font-size:13px;line-height:1}
+.tg-center{display:flex;align-items:center;gap:10px}
+.tg-center b{font:700 40px/1 "Saira Condensed";color:#fff}
+.tg-center button{font-size:24px;color:#fff}
+.tg-taps .home{grid-column:1/-1;font:700 13px/1 "Saira Condensed";letter-spacing:.14em;color:var(--tige-green)}
+
+/* ---- PROPUESTA LENCO ---- */
+.lc{
+  background:linear-gradient(165deg,#080d12,#0e161d);border:1px solid #1e2a33;border-radius:6px;
+  padding:12px;display:grid;grid-template-rows:36px 1fr auto;gap:11px;height:400px;
+}
+.lc-modes{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:2px;background:#050a0e;border-radius:4px;overflow:hidden}
+.lc-modes button{font:600 14px/36px "Saira Condensed";letter-spacing:.13em;color:#6d818f;text-align:center}
+.lc-modes button.on{background:#132430;color:var(--cyan);box-shadow:inset 0 -2px 0 var(--cyan)}
+.lc-modes .prof{padding:0 14px;font:400 12px/36px "JetBrains Mono";color:#8fa3b1}
+.lc-grid{display:grid;grid-template-columns:196px 1fr 208px;gap:11px}
+.lc-panel{background:#0b1319;border:1px solid #1c2933;border-radius:5px;padding:10px 11px;display:grid;gap:9px;align-content:start}
+.lc-panel .cap{font:700 10px/1 "JetBrains Mono";letter-spacing:.19em;color:#61798a}
+.lc-flap{display:grid;grid-template-columns:1fr auto;gap:3px 8px;align-items:center}
+.lc-flap .nm{font:600 12px/1 "Saira Condensed";letter-spacing:.13em;color:#9db2c0}
+.lc-flap .num{font:700 27px/1 "Saira Condensed";font-variant-numeric:tabular-nums;transition:color .25s}
+.lc-flap .num em{font-style:normal;font-size:12px;color:#5d7a8c}
+.lc-flap .st{
+  grid-column:2;justify-self:end;font:700 8px/1 "JetBrains Mono";letter-spacing:.11em;
+  padding:3px 6px;border-radius:2px;
+}
+.lc-flap .track{grid-column:1/-1;height:5px;background:#132029;border-radius:2px;position:relative;overflow:hidden}
+.lc-flap .track .want{position:absolute;top:0;bottom:0;width:2px;background:#e7eef3}
+.lc-flap .track .is{position:absolute;left:0;top:0;bottom:0;transition:width .25s,background .25s}
+/* estados */
+.s-idle{color:#e7eef3}         .b-idle{background:#1d2d38;color:#c3d3de}   .f-idle{background:#39505f}
+.s-move{color:var(--yellow)}   .b-move{background:#3b2f06;color:var(--yellow)} .f-move{background:var(--yellow)}
+.s-set{color:var(--cyan)}      .b-set{background:#07303f;color:var(--cyan)}  .f-set{background:var(--cyan)}
+.s-fault{color:var(--red)}     .b-fault{background:#3a0f0c;color:#ff7b6f}    .f-fault{background:var(--red)}
+
+.lc-stage{display:grid;grid-template-rows:1fr auto auto;gap:9px}
+.lc-wave{background:#060c11;border:1px solid #1c2933;border-radius:5px;position:relative;overflow:hidden}
+.lc-wave .tag2{position:absolute;top:6px;left:9px;font:700 9px/1 "JetBrains Mono";letter-spacing:.18em;color:#4d6b7d}
+.lc-ready{position:absolute;top:6px;right:9px;display:flex;align-items:center;gap:6px;
+  font:400 9px/1 "JetBrains Mono";color:var(--yellow);opacity:0;transition:opacity .3s}
+.lc-ready.on{opacity:1}
+.lc-ready u{width:48px;height:3px;background:#1c2933;display:block;text-decoration:none;border-radius:2px;overflow:hidden}
+.lc-ready u i{display:block;height:100%;width:0;background:var(--yellow)}
+.lc-master{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+  background:#0b1319;border:1px solid #24404f;border-radius:5px;padding:8px 12px}
+.lc-master .lbl{font:600 12px/1 "Saira Condensed";letter-spacing:.13em;color:#9db2c0}
+.lc-master .val{font:700 24px/1 "Saira Condensed";color:#fff;min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
+.lc-master input{width:100%;accent-color:var(--cyan)}
+.lc-sides{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.lc-sides button{
+  padding:9px 0;border-radius:4px;background:#0e1a22;border:1px solid #1e2f3b;
+  font:600 13px/1 "Saira Condensed";letter-spacing:.13em;color:#8fa3b1;transition:all .18s;
+}
+.lc-sides button.on{background:#12313f;border-color:var(--cyan);color:#fff}
+.lc-right{display:grid;gap:9px;align-content:start}
+.lc-spd{background:#0b1319;border:1px solid #1c2933;border-radius:5px;padding:9px 11px;display:grid;gap:4px;justify-items:center}
+.lc-spd .big{font:700 32px/1 "Saira Condensed";color:#fff;font-variant-numeric:tabular-nums}
+.lc-spd .tag{font:700 9px/1 "JetBrains Mono";letter-spacing:.11em;color:var(--green)}
+.lc-spd .tag.off{color:#6d818f}
+.lc-ball{display:flex;gap:7px;justify-content:center}
+.lc-ball div{display:grid;gap:3px;justify-items:center;font:700 8px/1 "JetBrains Mono";color:#61798a}
+.lc-ball u{width:17px;height:38px;background:#132029;text-decoration:none;display:flex;flex-direction:column-reverse;border:1px solid #1e2f3b}
+.lc-ball u i{background:var(--cyan-deep);width:100%}
+.lc-home{
+  background:#0e1a22;border:1px solid #2a4553;border-radius:4px;padding:9px 0;text-align:center;
+  font:600 13px/1 "Saira Condensed";letter-spacing:.13em;color:#a8c4d4;
+}
+.lc-home:hover{background:#12313f;color:#fff}
+.lc-slots{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.lc-slots b{background:#0b1319;border:1px solid #1c2933;border-radius:4px;padding:7px 0;text-align:center;
+  font:600 12px/1.1 "Saira Condensed";letter-spacing:.06em;color:#7d94a4}
+.lc-slots b em{display:block;font-style:normal;font:400 7px/1 "JetBrains Mono";color:#4d6b7d;letter-spacing:.08em}
+.lc-slots b.full{border-color:#2a4553;color:#dce8f0}
+
+/* ---------- tabla comparativa ---------- */
+.cmp{width:100%;border-collapse:collapse;font-size:.9rem}
+.cmp th,.cmp td{text-align:left;padding:.7rem .9rem .7rem 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+.cmp thead th{
+  font:700 11px/1 "JetBrains Mono",monospace;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-3);border-bottom:1px solid var(--rule);
+}
+.cmp tbody th{font-family:"Saira Condensed";font-size:1.02rem;font-weight:600;letter-spacing:.03em;white-space:nowrap}
+.cmp td b{font-family:"JetBrains Mono",monospace;font-size:.84em;font-weight:400;color:var(--ink-2)}
+.tablewrap{overflow-x:auto;border-top:3px solid var(--ink)}
+.tablewrap table{min-width:720px}
+
+/* ---------- checklist ---------- */
+.pick{display:grid;gap:.85rem;counter-reset:step}
+.pick li{
+  list-style:none;display:grid;grid-template-columns:auto 1fr;gap:.85rem;align-items:start;
+  padding-bottom:.85rem;border-bottom:1px solid var(--rule-soft);
+}
+.pick li::before{
+  counter-increment:step;content:counter(step,decimal-leading-zero);
+  font:700 12px/1.5 "JetBrains Mono",monospace;color:var(--accent);
+}
+.pick strong{display:block;font-family:"Saira Condensed";font-size:1.15rem;letter-spacing:.02em}
+.pick span{color:var(--ink-2);font-size:.94rem}
+.pick em{font-style:normal;font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--ink-3)}
+
+footer{
+  width:var(--shell);margin:0 auto;padding:2rem 0 4rem;border-top:1px solid var(--rule);
+  color:var(--ink-3);font-size:.85rem;display:grid;gap:.5rem;
+}
+footer a{color:var(--ink-2)}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important;animation-duration:.01ms !important}}
+@media (max-width:720px){
+  :root{--shell:min(1160px,100% - 1.6rem)}
+  .lc-grid{grid-template-columns:180px 1fr 190px}
+}
+</style>
+
+<header class="masthead">
+  <p class="eyebrow">Referencia de producto · Proyecto flaps Lenco</p>
+  <h1>Anatomía del<span>Surf System</span></h1>
+  <p class="dek">Cómo cuatro fabricantes resuelven la misma pregunta en pantalla: <em>cuánto flap, de qué lado, y cómo le digo al conductor que el sistema está trabajando.</em> Las cuatro pantallas de abajo están reconstruidas desde los manuales oficiales y son operables — tocá los controles.</p>
+  <div class="meta-strip">
+    <span><b>Fuentes:</b> manuales 2022–2025</span>
+    <span><b>Marcas:</b> Nautique · Malibu · MasterCraft · Tigé</span>
+    <span><b>Actuadores:</b> Lenco CAN / NMEA 2000</span>
+  </div>
+</header>
+
+<nav class="railnav" aria-label="Secciones">
+  <ol>
+    <li><a href="#nautique">Nautique</a></li>
+    <li><a href="#malibu">Malibu</a></li>
+    <li><a href="#mastercraft">MasterCraft</a></li>
+    <li><a href="#tige">Tigé</a></li>
+    <li><a href="#patrones">Patrones</a></li>
+    <li><a href="#lenco">Propuesta Lenco</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ============ NAUTIQUE ============ -->
+<section class="brand" id="nautique">
+  <div class="brand-head">
+    <div class="row">
+      <h2>Nautique</h2>
+      <span class="sys">LINC Panoray 12.4" · NSS + Hydro-Plate</span>
+    </div>
+    <p>Un solo número gobierna toda la ola. El conductor nunca ve los platos: ve el <strong>corte transversal</strong> de la ola que va a generar, y lo mueve entre 0 y 10.</p>
+  </div>
+
+  <div class="bay">
+    <div class="hud nq">
+      <div class="nq-rail" aria-hidden="true">
+        <span class="on">⌂</span><span>♪</span><span>▭</span><span>◉</span><span>◈</span><span>⚙</span>
+      </div>
+      <div class="nq-top">
+        <div class="l mono"><span>12:00</span><span>☀ 77°F</span><span>◍ 70°F</span><span>USB</span></div>
+        <div class="r">
+          <div><span>🔊</span><span style="flex:1;max-width:110px;height:2px;background:#3b4d5b;position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:38%;background:#dfe8ee"></i></span><span>+</span></div>
+          <div class="prof"><span>🏄</span><em>Wakesurf</em></div>
+          <div><span>−</span><span class="mono" style="color:#dfe8ee">11.6 MPH</span><span>+</span></div>
+        </div>
+      </div>
+      <div class="nq-body">
+        <div class="nq-left">
+          <div class="nq-spd">0.0<i>MPH</i></div>
+          <div class="nq-cruise">⟳ ON</div>
+          <div class="nq-rpm mono">650 RPM</div>
+          <div class="nq-bar"><i></i></div>
+          <div class="nq-gauges">
+            <div>🌡<u><i style="width:52%"></i></u></div>
+            <div>🔋<u><i style="width:74%"></i></u></div>
+            <div>🛢<u><i style="width:61%"></i></u></div>
+            <div>⛽<u><i style="width:44%"></i></u></div>
+          </div>
+          <div class="nq-depth"><em>DEPTH</em> 8.4 <b>FT</b></div>
+        </div>
+
+        <div class="nq-mid">
+          <figure class="nq-xsec" style="margin:0">
+            <span>SHAPE CROSS SECTION</span>
+            <svg viewBox="0 0 260 96" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+              <path id="nqWave" fill="rgba(63,182,232,.16)" stroke="#7fd0f2" stroke-width="1.4"></path>
+              <path id="nqWave2" fill="none" stroke="rgba(127,208,242,.35)" stroke-width="1"></path>
+            </svg>
+          </figure>
+          <div class="nq-shape">
+            <span class="lbl">Wave Shape</span>
+            <span class="val" id="nqVal">5</span>
+            <div class="nq-slider">
+              <span style="font-size:15px">◟</span>
+              <div class="nq-track" id="nqTrack" role="slider" tabindex="0" aria-label="Wave Shape" aria-valuemin="0" aria-valuemax="10" aria-valuenow="5">
+                <div class="ticks"></div>
+                <div class="thumb" id="nqThumb" style="left:50%"></div>
+              </div>
+              <span style="font-size:15px">◝</span>
+            </div>
+          </div>
+          <div class="nq-surfmode">
+            <span>Surf Mode</span>
+            <span class="off" id="nqOff">OFF</span>
+            <button class="nq-side" data-nq="port" aria-label="Ola a babor">🏄◀</button>
+            <button class="nq-side on" data-nq="stbd" aria-label="Ola a estribor">▶🏄</button>
+          </div>
+        </div>
+
+        <div class="nq-right">
+          <div class="nq-boat">
+            <svg viewBox="0 0 150 150" style="width:150px;height:100%;opacity:.55">
+              <path d="M75 6 C104 30 116 66 116 106 L116 140 L34 140 L34 106 C34 66 46 30 75 6 Z"
+                    fill="#0d1c27" stroke="#31556c" stroke-width="1.4"/>
+              <path d="M75 22 C97 44 106 74 106 106 L106 130 L44 130 L44 106 C44 74 53 44 75 22 Z"
+                    fill="none" stroke="#1f3b4d" stroke-width="1"/>
+            </svg>
+            <div class="nq-tank" style="left:2px;top:38px;width:34px;height:26px">P 60</div>
+            <div class="nq-tank" style="right:2px;top:38px;width:34px;height:26px">S 60</div>
+            <div class="nq-tank" style="left:50%;transform:translateX(-50%);top:6px;width:38px;height:24px">B 80</div>
+          </div>
+          <div class="nq-assist"><span>Manual Steering Assist</span><span>↰ ↱</span></div>
+          <div class="nq-assist"><span>Auto Steering Assist</span>
+            <span class="seg"><b class="on">OFF</b><b>LO</b><b>HI</b></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="bay-caption"><em>Reconstrucción operable</em> — mové el slider de Wave Shape y cambiá el lado. <span>Manual LINC Panoray Single Display, MY2022</span></p>
+
+  <dl class="specs">
+    <div class="spec"><dt>Control de ola</dt><dd>Un valor <b>0–10</b>. Del 6 al 10 el paso es más fino para ajustar el labio. En modo wake el mismo control pasa a ser <b>0–5</b>.</dd></div>
+    <div class="spec"><dt>Corte de velocidad</dt><dd>Debajo de <b>13.0 mph</b> la pantalla muestra Wave Shape + Surf Mode. Arriba, Wake Shape + Plane Assist. Cambia sola.</dd></div>
+    <div class="spec"><dt>Bloqueo</dt><dd>Sin cruise control no hay Surf Mode — el barco podría irse a velocidad de planeo. Los indicadores de cruise apagado se dibujan en naranja.</dd></div>
+    <div class="spec"><dt>Cambio de lado</dt><dd>Se toca el ícono de surfista que <em>no</em> está resaltado y la ola se pasa en marcha, sin mover gente ni ballast.</dd></div>
+    <div class="spec"><dt>Perfiles</dt><dd>Nombre, ícono, velocidad, wave shape, nivel por tanque y — solo si la velocidad es de surf — <b>Surf Side</b>. El gráfico se actualiza mientras se edita.</dd></div>
+    <div class="spec"><dt>Redundancia</dt><dd>Perilla Helm Command en el volante, reloj Garmin y el Surf Switch de muñeca para que el surfista transfiera el lado él mismo.</dd></div>
+  </dl>
+
+  <p class="note"><strong>Para copiar:</strong> el corte transversal de la ola. Es la única de las cuatro que le muestra al conductor la <em>forma resultante</em> en vez del estado del hardware, y es lo que hace que un valor abstracto como “5” signifique algo.</p>
+</section>
+
+<!-- ============ MALIBU ============ -->
+<section class="brand" id="malibu">
+  <div class="brand-head">
+    <div class="row">
+      <h2>Malibu</h2>
+      <span class="sys">MaliView 12" + 7" · Surf Gate + Power Wedge III</span>
+    </div>
+    <p>El sistema no expone ningún número de compuerta. Lo que expone — y es la mejor parte — es una <strong>máquina de estados por color</strong> que dice en todo momento qué está haciendo el actuador.</p>
+  </div>
+
+  <div class="bay">
+    <div class="hud mb">
+      <div class="mb-top">
+        <span>27' &nbsp; 0<sub>psi</sub> &nbsp; 30° &nbsp; 0.0<sub>v</sub></span>
+        <span>12:00PM &nbsp; ☁ 75° &nbsp; ≋ 68° <b class="nw">NW</b></span>
+      </div>
+      <div class="mb-speedo">
+        <svg viewBox="0 0 210 210" style="width:200px;height:200px">
+          <path d="M150 22 A96 96 0 1 0 150 188" fill="none" stroke="#3b3d41" stroke-width="12" stroke-linecap="round"/>
+          <path d="M150 22 A96 96 0 0 0 54 26" fill="none" stroke="#8e2018" stroke-width="12" stroke-linecap="round"/>
+          <g fill="#c8c8cc" font-family="Saira Condensed" font-size="17" font-style="italic">
+            <text x="27" y="72">60</text><text x="14" y="112">45</text>
+            <text x="27" y="152">30</text><text x="58" y="182">15</text>
+          </g>
+          <line x1="105" y1="105" x2="86" y2="176" stroke="#e0201a" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+        <div class="val"><b>0.0</b><i>MPH</i></div>
+      </div>
+      <div class="mb-center">
+        <div class="mb-water"><span>27'</span></div>
+      </div>
+      <div class="mb-surf">
+        <div class="mb-arc">
+          <svg viewBox="0 0 300 100" style="position:absolute;inset:0;width:100%;height:100%">
+            <path d="M14 84 A130 130 0 0 1 286 84" fill="none" stroke="#4a4d52" stroke-width="2"/>
+            <path id="mbArcFill" d="" fill="none" stroke="#2ea6e0" stroke-width="9" stroke-linecap="butt" opacity="0"/>
+          </svg>
+          <button class="gate-l" data-mb="left">SURF<br>LEFT</button>
+          <button class="gate-c sel" data-mb="center">CENTER</button>
+          <button class="gate-r" data-mb="right">SURF<br>RIGHT</button>
+          <span class="logo"><i></i><em>SURF GATE</em></span>
+        </div>
+        <div class="mb-ballast">
+          <div><u><i style="height:70%"></i></u>B</div>
+          <div><u><i style="height:100%"></i></u>C</div>
+          <div><u><i style="height:100%"></i></u>P</div>
+          <div><u><i style="height:45%"></i></u>S</div>
+        </div>
+        <div class="mb-wedge">
+          <span>LIFT</span>
+          <span class="steps">
+            <b style="height:12px">0</b><b style="height:16px">1</b><b style="height:20px">2</b>
+            <b class="is" style="height:24px">3</b><b class="want" style="height:28px">4</b>
+            <b style="height:32px">5</b><b style="height:36px">6</b><b style="height:40px">7</b><b style="height:44px">8</b>
+          </span>
+          <span>STOW</span>
+        </div>
+      </div>
+      <div class="mb-btnrow" aria-hidden="true">
+        <b>⌂</b><b>⚓</b><b>◑</b><b>≋</b><b>▤</b><b>◷</b><b>◐</b><b>☾</b>
+      </div>
+    </div>
+  </div>
+  <p class="bay-caption"><em>Reconstrucción operable</em> — tocá SURF LEFT / CENTER / SURF RIGHT y mirá la secuencia de colores. <span>Manual Malibu MY2023, pág. 54–56</span></p>
+
+  <dl class="specs">
+    <div class="spec"><dt>Pedido, sin condiciones</dt><dd><span style="color:#fff;background:#333;padding:.05em .4em;border-radius:3px">BLANCO</span> — el lado está elegido pero el barco todavía no llegó a velocidad de surf.</dd></div>
+    <div class="spec"><dt>En movimiento</dt><dd><span style="color:#111;background:#f5c518;padding:.05em .4em;border-radius:3px">AMARILLO</span> — la compuerta está extendiendo o retrayendo. También al volver a cero.</dd></div>
+    <div class="spec"><dt>En posición</dt><dd><span style="color:#04212f;background:#2ea6e0;padding:.05em .4em;border-radius:3px">AZUL</span> — completamente extendida. Es el único estado en el que la ola está lista.</dd></div>
+    <div class="spec"><dt>Ventana de trabajo</dt><dd>Las compuertas salen entre <b>9.0</b> y <b>15.0 mph</b>. Fuera de rango se retraen solas y vuelven a salir al volver — sin perder el lado elegido.</dd></div>
+    <div class="spec"><dt>Fallas</dt><dd><em>Switch Left/Right Alarm</em>: el limit switch no cerró con la compuerta retraída → <strong>ese lado queda bloqueado</strong>. <em>High Speed</em>: arriba de 15 mph retrae hasta volver al rango.</dd></div>
+    <div class="spec"><dt>Pedido vs. real</dt><dd>El Power Wedge lo hace explícito: <em>highlight azul</em> = posición deseada, <em>barra azul sólida</em> = posición real mientras se mueve.</dd></div>
+    <div class="spec"><dt>Aviso al surfista</dt><dd>Al cambiar de lado parpadean las luces de la torre y suenan beeps. Desactivable en Settings.</dd></div>
+    <div class="spec"><dt>Volver a cero</dt><dd><em>Home Mode</em>: un toque apaga cruise, drena tanques, centra el Surf Gate y guarda el Wedge — solo entre <b>1</b> y <b>10 mph</b>.</dd></div>
+    <div class="spec"><dt>Controles redundantes</dt><dd>Pantalla de <b>7"</b> a la izquierda del volante para estéreo, luces y bilge, y el <em>Sport Dash</em> rotativo a la derecha que replica Surf Gate, Wedge y cruise.</dd></div>
+  </dl>
+
+  <p class="note"><strong>Para copiar:</strong> los cuatro estados de color, tal cual. Es la especificación más completa de las cuatro marcas y se mapea uno a uno a un actuador Lenco con lectura de posición.</p>
+</section>
+
+<!-- ============ MASTERCRAFT ============ -->
+<section class="brand" id="mastercraft">
+  <div class="brand-head">
+    <div class="row">
+      <h2>MasterCraft</h2>
+      <span class="sys">PV1100 + PV700 · Surf Star (3 tabs)</span>
+    </div>
+    <p>Dos niveles en la misma pantalla: <strong>Rapid Surf</strong> para el conductor que quiere una ola ya, y <strong>Custom Surf</strong> para el que quiere tocar cada tab. El toggle vive arriba a la derecha y nunca se mueve.</p>
+  </div>
+
+  <div class="bay">
+    <div class="hud mc">
+      <div class="mc-modes">
+        <button>DRIVE</button><button class="on">SURF</button><button>WAKE</button><button>SKI</button><button>CHILL</button>
+      </div>
+      <div class="mc-tools">
+        <span class="pill">🔊</span>
+        <span class="pill grow">👤 &nbsp;<span class="mono" style="font-size:12px" id="mcProfile">3 · Extra Mellow</span></span>
+        <span class="pill">💾</span><span class="pill">👤⁺</span>
+        <span class="mc-toggle">
+          <button class="on" data-mc-view="rapid">Rapid<br>Surf</button>
+          <button data-mc-view="custom">Custom<br>Surf</button>
+        </span>
+      </div>
+
+      <div class="mc-stage" id="mcRapid">
+        <div class="mc-rapid">
+          <div class="mc-vslider" id="mcSlider">
+            <span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+            <div class="thumb" id="mcThumb" style="top:calc(100% - 17px)"></div>
+          </div>
+          <div class="mc-arrows">
+            <span class="cap">STEEP</span>
+            <button id="mcUp" aria-label="Ola más parada">⌃</button>
+            <button id="mcDown" aria-label="Ola más suave">⌄</button>
+            <span class="cap">MELLOW</span>
+          </div>
+          <div class="mc-wave">
+            <svg viewBox="0 0 420 190" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+              <path id="mcWavePath" fill="#1f7fae" stroke="#7fd0f2" stroke-width="1.5"></path>
+            </svg>
+            <div class="mc-ready idle" id="mcReady">● FORMANDO OLA <u><i id="mcReadyBar"></i></u></div>
+            <div class="sides">
+              <button data-mc-side="left">SURF LEFT</button>
+              <button class="on" data-mc-side="right">SURF RIGHT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mc-stage" id="mcCustom" hidden>
+        <div class="mc-custom">
+          <div class="mc-col">
+            <span class="cap">BALLAST</span>
+            <div class="mc-caps">
+              <span class="mc-cap"><i class="fill" style="height:100%"></i><span>100</span><em>PORT</em></span>
+              <span class="mc-cap"><i class="fill" style="height:100%"></i><span>100</span><em>CTR</em></span>
+              <span class="mc-cap"><i class="fill" style="height:100%"></i><span>100</span><em>STBD</em></span>
+            </div>
+            <div class="mc-sub"><b>FILL</b><b>EMPTY</b></div>
+          </div>
+          <div class="mc-zero">
+            <button aria-label="Subir velocidad">⌃</button>
+            <span class="big">11<i>.2</i></span>
+            <span class="tag">ZEROOFF<br>CRUISE ON</span>
+            <button aria-label="Bajar velocidad">⌄</button>
+          </div>
+          <div class="mc-col">
+            <span class="cap">TABS</span>
+            <div class="mc-caps">
+              <span class="mc-cap"><i class="fill" id="mcTabP" style="height:45%"></i><span id="mcTabPv">45</span><em>PORT</em></span>
+              <span class="mc-cap"><i class="fill" style="height:0"></i><span>0</span><em>CTR</em></span>
+              <span class="mc-cap"><i class="fill" id="mcTabS" style="height:0"></i><span id="mcTabSv">0</span><em>STBD</em></span>
+            </div>
+            <div class="mc-rocker">
+              <button data-mc-side="left">LEFT</button>
+              <span class="knob"></span>
+              <button class="on" data-mc-side="right">RIGHT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mc-slots">
+        <b>EMPTY<em>HOLD TO SET</em></b><b>EMPTY<em>HOLD TO SET</em></b><b>EMPTY<em>HOLD TO SET</em></b>
+        <b>EMPTY<em>HOLD TO SET</em></b><b>EMPTY<em>HOLD TO SET</em></b><b>EMPTY<em>HOLD TO SET</em></b>
+      </div>
+    </div>
+  </div>
+  <p class="bay-caption"><em>Reconstrucción operable</em> — cambiá entre Rapid y Custom, movés el nivel 1–7 y el lado. <span>Manual MasterCraft MY2024, pág. 126–130</span></p>
+
+  <dl class="specs">
+    <div class="spec"><dt>Naval Presets</dt><dd><b>7</b> niveles: 1 = la más chica y corta, 7 = la más alta y parada. La media es 3–5. Con las dos variantes de lado son <b>14</b>.</dd></div>
+    <div class="spec"><dt>Readiness timer</dt><dd>Con cada cambio aparece una luz amarilla parpadeando y una barra de progreso con el tiempo que falta para que la ola se forme.</dd></div>
+    <div class="spec"><dt>Custom Surf</dt><dd>Ballast por tanque, ZeroOff al centro y <b>% de posición por tab</b> (Port / Ctr / Stbd) a la derecha. Tocar una cápsula abre su pantalla dedicada.</dd></div>
+    <div class="spec"><dt>Guardado rápido</dt><dd>6 slots que dicen <em>EMPTY · HOLD TO SET</em>: se guarda manteniendo presionado. El manager guarda hasta <b>30</b> perfiles.</dd></div>
+    <div class="spec"><dt>Dirección del actuador</dt><dd>Más plato metido en el agua = ola <strong>más suave</strong>. Menos plato = más parada. Contra-intuitivo: hay que fijar el mapeo una sola vez y documentarlo.</dd></div>
+    <div class="spec"><dt>Seguridad</dt><dd>No se puede cambiar de modo con la marcha puesta. El manual pide toques cortos del switch: un movimiento grande de golpe puede hacer perder el control.</dd></div>
+  </dl>
+
+  <p class="note"><strong>Para copiar:</strong> el par Rápido / Manual sobre la misma pantalla, y el readiness timer. Un flap tarda segundos en llegar — decírselo al conductor evita que toque tres veces el mismo botón.</p>
+</section>
+
+<!-- ============ TIGÉ ============ -->
+<section class="brand" id="tige">
+  <div class="brand-head">
+    <div class="row">
+      <h2>Tigé</h2>
+      <span class="sys">CLEAR Horizon 12.1" · TAPS 3T (3 platos)</span>
+    </div>
+    <p>Todo circular y todo en un toque. Es la única marca que deja <strong>tocar directamente el tramo de la ola</strong> que se quiere, sin slider ni +/−, y la única que expone los tres platos por separado en la pantalla principal.</p>
+  </div>
+
+  <div class="bay">
+    <div class="hud tg">
+      <div class="tg-dial">
+        <button class="tg-seg l" data-tg="port" aria-label="Surf a babor"><span class="arw">◀</span></button>
+        <div class="tg-seg c"><b>GO</b><em>SURF</em></div>
+        <button class="tg-seg r on" data-tg="stbd" aria-label="Surf a estribor"><span class="arw">▶</span></button>
+        <div class="tg-bars" id="tgBars">
+          <button class="on" style="height:24%" data-tg-lvl="1" aria-label="Nivel 1"></button>
+          <button class="on" style="height:40%" data-tg-lvl="2" aria-label="Nivel 2"></button>
+          <button class="on" style="height:58%" data-tg-lvl="3" aria-label="Nivel 3"></button>
+          <button style="height:78%" data-tg-lvl="4" aria-label="Nivel 4"></button>
+          <button style="height:100%" data-tg-lvl="5" aria-label="Nivel 5"></button>
+        </div>
+        <div class="tg-scale"><span>MELLOW</span><span>STEEP</span></div>
+        <div class="tg-dots">•••</div>
+      </div>
+
+      <div class="tg-side">
+        <div class="tg-taps">
+          <span class="cap">TAPS</span>
+          <div class="tg-plate">
+            <span class="name">PORT</span>
+            <span class="stack">
+              <button data-tg-tap="port-up" aria-label="Subir plato babor">▲</button>
+              <u class="on"></u><u class="on"></u><u class="on"></u><u></u><u></u>
+              <button data-tg-tap="port-dn" aria-label="Bajar plato babor">▼</button>
+            </span>
+          </div>
+          <div class="tg-center">
+            <button data-tg-ctr="-1" aria-label="Bajar plato central">−</button>
+            <b id="tgCtr">2</b>
+            <button data-tg-ctr="1" aria-label="Subir plato central">+</button>
+          </div>
+          <div class="tg-plate">
+            <span class="stack">
+              <button data-tg-tap="stbd-up" aria-label="Subir plato estribor">▲</button>
+              <u class="on"></u><u class="on"></u><u></u><u></u><u></u>
+              <button data-tg-tap="stbd-dn" aria-label="Bajar plato estribor">▼</button>
+            </span>
+            <span class="name">STBD</span>
+          </div>
+          <span class="home">GO SURF</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="bay-caption"><em>Reconstrucción operable</em> — tocá una barra de la ola, las flechas ◀ ▶ y los platos del TAPS. <span>Manual Tigé CLEAR Horizon MY2025</span></p>
+
+  <dl class="specs">
+    <div class="spec"><dt>Ajuste de ola</dt><dd>Cinco tramos entre <b>MELLOW</b> y <b>STEEP</b>. Se toca el tramo, no hay slider. <strong>Cada lado guarda su propio ajuste.</strong></dd></div>
+    <div class="spec"><dt>Compensación automática</dt><dd>La velocidad sube <b>0.1 mph</b> al bajar el nivel de ola y baja <b>0.1 mph</b> al subirlo. El sistema corrige solo.</dd></div>
+    <div class="spec"><dt>TAPS</dt><dd>Columnas de 5 segmentos con ▲▼ para <em>babor</em> y <em>estribor</em>, y <b>− 2 +</b> para el plato central en niveles <b>1–5</b>.</dd></div>
+    <div class="spec"><dt>Perfiles GO</dt><dd>Cuatro cuartos: <em>Ski · Surf · Wake · Go Home</em>. Un toque a GO y el sistema arma cruise, ballast y platos.</dd></div>
+    <div class="spec"><dt>Auto TAPS</dt><dd>En Wake y Ski, TAPS se fija solo según <em>BEG / INT / ADV</em>; el ajuste manual se habilita a medida que sube la velocidad.</dd></div>
+    <div class="spec"><dt>Go Home</dt><dd>Vuelve al instrumento, enciende Zero Off y devuelve TAPS al nivel <b>2</b> por default.</dd></div>
+  </dl>
+
+  <p class="note"><strong>Para copiar:</strong> que cada lado recuerde su propio nivel de ola. Es el detalle que más se nota en el agua y ninguna de las otras tres lo hace explícito.</p>
+</section>
+
+<!-- ============ PATRONES ============ -->
+<section class="brand" id="patrones">
+  <div class="brand-head">
+    <div class="row">
+      <h2>Lo que hacen las cuatro</h2>
+      <span class="sys">Denominador común</span>
+    </div>
+    <p>Distintas estéticas, mismas decisiones de fondo. Estas nueve se repiten en las cuatro marcas y conviene no discutirlas.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table class="cmp">
+      <thead>
+        <tr><th>Decisión</th><th>Nautique</th><th>Malibu</th><th>MasterCraft</th><th>Tigé</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Control de ola</th><td>Wave Shape <b>0–10</b></td><td>Indirecto (presets)</td><td>Naval Preset <b>1–7</b></td><td>5 tramos táctiles</td></tr>
+        <tr><th>Selector de lado</th><td>2 íconos surfista</td><td>Arco de 3 estados</td><td>Rocker LEFT/RIGHT</td><td>Flechas ◀ ▶</td></tr>
+        <tr><th>Platos por separado</th><td>No</td><td>No</td><td>Sí, en Custom (<b>%</b>)</td><td>Sí, en TAPS (<b>1–5</b>)</td></tr>
+        <tr><th>Dibuja la ola</th><td>Corte transversal</td><td>No</td><td>Gráfico + agua cian</td><td>Histograma de 5 barras</td></tr>
+        <tr><th>Pedido vs. real</th><td>—</td><td>Color + barra sólida</td><td>Readiness timer</td><td>—</td></tr>
+        <tr><th>Gate por velocidad</th><td>Sin cruise, sin surf</td><td><b>9–15 mph</b></td><td>Sin cambio con marcha</td><td>Auto TAPS por velocidad</td></tr>
+        <tr><th>Botón “todo listo”</th><td>User Profile</td><td>Load Preset</td><td>Tow Mode</td><td><b>GO</b></td></tr>
+        <tr><th>Volver a cero</th><td>—</td><td>Home Mode</td><td>—</td><td>Go Home</td></tr>
+        <tr><th>Control físico</th><td>Helm Command + reloj</td><td>Sport Dash rotativo</td><td>Switch pack</td><td>Smart Wheel</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note">La coincidencia más fuerte: <strong>ninguna de las cuatro le pide al conductor que piense en grados de flap.</strong> El hardware aparece como dato secundario, detrás de un modo avanzado. Lo primario siempre es la ola.</p>
+</section>
+
+<!-- ============ LENCO ============ -->
+<section class="brand" id="lenco">
+  <div class="brand-head">
+    <div class="row">
+      <h2>Propuesta Lenco</h2>
+      <span class="sys">Base MasterCraft + estados Malibu</span>
+    </div>
+    <p>Los actuadores Lenco son CAN / NMEA 2000 y devuelven <strong>posición real</strong>, no solo la comandada. Eso habilita hacer bien el patrón que Malibu resuelve con colores y MasterCraft con el timer: mostrar siempre las dos cosas a la vez.</p>
+  </div>
+
+  <div class="bay">
+    <div class="hud lc">
+      <div class="lc-modes">
+        <button>NAVEGAR</button><button class="on">SURF</button><button>WAKE</button><button>CONFIG</button>
+        <span class="prof" id="lcProfile">Perfil: Nico · Mellow</span>
+      </div>
+
+      <div class="lc-grid">
+        <div class="lc-panel">
+          <span class="cap">FLAPS · % RECORRIDO</span>
+          <div class="lc-flap" data-flap="babor">
+            <span class="nm">BABOR</span>
+            <span class="st b-idle">RETRAÍDO</span>
+            <span class="num s-idle"><span class="v">0</span><em>%</em></span>
+            <span class="track"><i class="is f-idle" style="width:0"></i><i class="want" style="left:0"></i></span>
+          </div>
+          <div class="lc-flap" data-flap="centro">
+            <span class="nm">CENTRO</span>
+            <span class="st b-idle">RETRAÍDO</span>
+            <span class="num s-idle"><span class="v">0</span><em>%</em></span>
+            <span class="track"><i class="is f-idle" style="width:0"></i><i class="want" style="left:0"></i></span>
+          </div>
+          <div class="lc-flap" data-flap="estribor">
+            <span class="nm">ESTRIBOR</span>
+            <span class="st b-idle">RETRAÍDO</span>
+            <span class="num s-idle"><span class="v">0</span><em>%</em></span>
+            <span class="track"><i class="is f-idle" style="width:0"></i><i class="want" style="left:0"></i></span>
+          </div>
+        </div>
+
+        <div class="lc-stage">
+          <div class="lc-wave">
+            <span class="tag2">FORMA DE OLA</span>
+            <div class="lc-ready" id="lcReady">● FORMANDO <u><i id="lcReadyBar"></i></u></div>
+            <svg viewBox="0 0 400 150" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+              <path id="lcWavePath" fill="rgba(63,182,232,.18)" stroke="#5cc3ec" stroke-width="1.6"></path>
+            </svg>
+          </div>
+          <div class="lc-master">
+            <span class="lbl">NIVEL DE OLA</span>
+            <input type="range" min="0" max="10" value="6" id="lcLevel" aria-label="Nivel de ola">
+            <span class="val" id="lcLevelVal">6</span>
+          </div>
+          <div class="lc-sides">
+            <button data-lc-side="babor">◀ BABOR</button>
+            <button class="on" data-lc-side="centro">CENTRO</button>
+            <button data-lc-side="estribor">ESTRIBOR ▶</button>
+          </div>
+        </div>
+
+        <div class="lc-right">
+          <div class="lc-spd">
+            <span class="big" id="lcSpd">11.2</span>
+            <span class="tag" id="lcSpdTag">ZERO OFF · CRUISE ON</span>
+          </div>
+          <div class="lc-panel">
+            <span class="cap">BALLAST</span>
+            <div class="lc-ball">
+              <div><u><i style="height:60%"></i></u>PROA</div>
+              <div><u><i style="height:100%"></i></u>BAB</div>
+              <div><u><i style="height:40%"></i></u>EST</div>
+            </div>
+          </div>
+          <button class="lc-home" id="lcHome">IR A CASA</button>
+        </div>
+      </div>
+
+      <div class="lc-slots">
+        <b class="full">P1<em>NICO</em></b><b class="full">P2<em>SOFI</em></b><b class="full">P3<em>PRO</em></b>
+        <b>P4<em>MANTENER</em></b><b>P5<em>MANTENER</em></b><b>P6<em>MANTENER</em></b>
+      </div>
+    </div>
+  </div>
+  <p class="bay-caption"><em>Prototipo operable</em> — elegí un lado y mové el nivel: los flaps pasan por <span style="color:#f5c518">movimiento</span> antes de quedar <span style="color:#3fb6e8">en posición</span>. “Ir a casa” devuelve todo a cero. <span>Valores de ejemplo</span></p>
+
+  <ol class="pick">
+    <li><strong>Un slider maestro 0–10, y el modo manual detrás de un toggle</strong>
+      <span>El nivel se traduce a % por flap con una curva de calibración. Nautique demuestra que un solo número alcanza; MasterCraft demuestra que el modo experto tiene que existir igual. <em>Nunca los dos como controles primarios a la vez.</em></span></li>
+    <li><strong>Selector de lado de tres estados, siempre visible</strong>
+      <span>BABOR · CENTRO · ESTRIBOR. Tocar el lado inactivo es la transferencia. Nunca un dropdown, nunca un menú.</span></li>
+    <li><strong>Los cuatro colores de estado, por flap</strong>
+      <span><em>blanco</em> pedido · <em>ámbar</em> moviendo · <em>cian</em> en posición · <em>rojo</em> falla y lado bloqueado. Copiado de Malibu, que es la única que lo documenta completo.</span></li>
+    <li><strong>Posición pedida y posición real, juntas</strong>
+      <span>El número grande es lo pedido; la barra fina abajo es lo que devuelve el CAN. Mostrar una sola es mentirle al conductor mientras el actuador se mueve.</span></li>
+    <li><strong>Ventana de velocidad configurable</strong>
+      <span>Default <em>9–15 mph</em>. Fuera de rango, retracción automática sin perder el lado elegido; al volver, reextiende solo. Sin cruise, sin surf.</span></li>
+    <li><strong>Readiness timer</strong>
+      <span>Barra de progreso más indicador ámbar con el tiempo estimado hasta que la ola se forma. Es lo que evita que alguien toque el mismo botón tres veces.</span></li>
+    <li><strong>Presets con nombre, ícono y lado</strong>
+      <span>Nivel de ola, % por flap, velocidad y ballast. Seis slots rápidos con <em>mantener para guardar</em> y un manager detrás.</span></li>
+    <li><strong>Un botón de volver a cero</strong>
+      <span>Centra flaps, apaga cruise y drena ballast, habilitado solo dentro del rango seguro de velocidad. Home Mode y GO HOME hacen exactamente esto.</span></li>
+    <li><strong>Dibujar la ola, no el flap</strong>
+      <span>Es lo que hace que la pantalla se lea como un sistema de surf y no como un panel de trim tabs. Sin esto, el valor “6” no significa nada.</span></li>
+    <li><strong>Avisar hacia afuera del barco</strong>
+      <span>Luces o bocina al cambiar de lado, para que el surfista sepa. Desactivable, como en Malibu.</span></li>
+  </ol>
+
+  <p class="note"><strong>Ojo con el signo:</strong> en Surf Star, más plato metido en el agua da ola <em>más suave</em>. Definí la dirección del mapeo una vez, escribila en el código y no la vuelvas a tocar.</p>
+</section>
+
+</main>
+
+<footer>
+  <p><strong>Fuentes:</strong> manuales de propietario oficiales — Nautique LINC Panoray (MY2021/2022), Malibu (MY2023, “Dashes and Video Screens”), MasterCraft (MY2024, PV1100/PV700 y Surf Star), Tigé CLEAR Horizon (MY2025). Especificaciones de actuadores: Lenco Marine / Navico.</p>
+  <p>Las pantallas de esta página son reconstrucciones propias hechas para comparar patrones de interfaz. Marcas y logos pertenecen a sus dueños.</p>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  const $=(s,c)=>(c||document).querySelector(s);
+  const $$=(s,c)=>Array.from((c||document).querySelectorAll(s));
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  /* ---------- generadores de perfil de ola ----------
+     t = 0 (mellow / rampa) .. 1 (steep / labio parado)          */
+
+  // Nautique: meseta de agua y caída de la cara. t alto = caída más tardía y más vertical.
+  function crossSection(t,w,h,fill){
+    const top=h*0.20, bot=h*0.92;
+    const knee=w*(0.34+0.22*t);
+    const run=w*(0.40*(1-t)+0.05);
+    const d=`M0 ${top}`
+      +` C ${knee*0.55} ${top}, ${knee*0.80} ${top+(bot-top)*0.03}, ${knee} ${top+(bot-top)*0.09}`
+      +` C ${knee+run*0.26} ${top+(bot-top)*0.40}, ${knee+run*0.52} ${bot-(bot-top)*0.05}, ${knee+run} ${bot}`
+      +` L ${w} ${bot}`;
+    return fill? d+` L ${w} ${h} L 0 ${h} Z` : d;
+  }
+
+  // MasterCraft / Lenco: ola que sube y voltea, con labio a la derecha.
+  function surfWave(t,w,h){
+    const base=h*0.99;
+    const top=h*(0.42-0.30*t);
+    const cx=w*(0.58+0.08*t);
+    const over=w*0.09*t;                 // el labio se adelanta al ponerse steep
+    return `M0 ${base} L0 ${h*0.88}`
+      +` C ${w*0.24} ${h*0.85}, ${cx-w*0.20} ${top+(base-top)*0.30}, ${cx} ${top}`
+      +` C ${cx+over} ${top+(base-top)*0.10}, ${cx+w*0.05} ${top+(base-top)*0.55}, ${cx+w*0.11} ${base}`
+      +` L ${w} ${base} L ${w} ${h} L 0 ${h} Z`;
+  }
+
+  /* ================= NAUTIQUE ================= */
+  const nqTrack=$('#nqTrack'), nqThumb=$('#nqThumb'), nqVal=$('#nqVal');
+  let nqLevel=5;
+  function nqRender(){
+    const t=nqLevel/10;
+    nqVal.textContent=nqLevel;
+    nqThumb.style.left=(t*100)+'%';
+    nqTrack.setAttribute('aria-valuenow',nqLevel);
+    $('#nqWave').setAttribute('d',crossSection(t,260,96,true));
+    $('#nqWave2').setAttribute('d',crossSection(clamp(t-0.16,0,1),260,96,false));
+  }
+  // ticks
+  (function(){
+    const holder=nqTrack;
+    for(let i=0;i<=10;i++){
+      const d=document.createElement('span');
+      d.className='tick'; d.style.left=(i*10)+'%';
+      d.style.height=(i>=6?'12px':'9px'); d.style.top=(i>=6?'-6px':'-4px');
+      holder.appendChild(d);
+    }
+  })();
+  function nqSet(e){
+    const r=nqTrack.getBoundingClientRect();
+    const x=( (e.touches?e.touches[0].clientX:e.clientX) - r.left)/r.width;
+    nqLevel=clamp(Math.round(x*10),0,10); nqRender();
+  }
+  let nqDrag=false;
+  nqTrack.addEventListener('pointerdown',e=>{nqDrag=true;nqTrack.setPointerCapture(e.pointerId);nqSet(e);});
+  nqTrack.addEventListener('pointermove',e=>{if(nqDrag)nqSet(e);});
+  nqTrack.addEventListener('pointerup',()=>{nqDrag=false;});
+  nqTrack.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowUp'){nqLevel=clamp(nqLevel+1,0,10);nqRender();e.preventDefault();}
+    if(e.key==='ArrowLeft'||e.key==='ArrowDown'){nqLevel=clamp(nqLevel-1,0,10);nqRender();e.preventDefault();}
+  });
+  $$('[data-nq]').forEach(b=>b.addEventListener('click',()=>{
+    $$('[data-nq]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    $('#nqOff').style.color='#5b6b78';
+  }));
+  nqRender();
+
+  /* ================= MALIBU ================= */
+  const mbArc=$('#mbArcFill');
+  const ARC={left:'M14 84 A130 130 0 0 1 108 22', center:'M108 22 A130 130 0 0 1 192 22', right:'M192 22 A130 130 0 0 1 286 84'};
+  let mbTimer=null;
+  function mbGo(side,btn){
+    clearTimeout(mbTimer);
+    $$('[data-mb]').forEach(x=>x.classList.remove('sel','moving','set'));
+    mbArc.setAttribute('d',ARC[side]||'');
+    if(side==='center'){
+      btn.classList.add('sel'); mbArc.style.opacity='0'; return;
+    }
+    btn.classList.add('moving');                    // AMARILLO — extendiendo
+    mbArc.setAttribute('stroke','#f5c518'); mbArc.style.opacity='1';
+    mbTimer=setTimeout(()=>{
+      btn.classList.remove('moving'); btn.classList.add('set');  // AZUL — en posición
+      mbArc.setAttribute('stroke','#2ea6e0');
+    },1500);
+  }
+  $$('[data-mb]').forEach(b=>b.addEventListener('click',()=>mbGo(b.dataset.mb,b)));
+
+  /* ================= MASTERCRAFT ================= */
+  const MC_NAMES=['','1 · Súper Mellow','2 · Mellow','3 · Extra Mellow','4 · Medio','5 · Firme','6 · Steep','7 · Pro'];
+  let mcLevel=3;
+  const mcThumb=$('#mcThumb'), mcReady=$('#mcReady'), mcReadyBar=$('#mcReadyBar');
+  let mcTimer=null,mcAnim=null;
+  function mcRender(animate){
+    const idx=7-mcLevel;                      // fila 0 = nivel 7
+    mcThumb.style.top='calc('+(idx/6*100)+'% - '+(idx/6*17)+'px)';
+    $('#mcProfile').textContent=MC_NAMES[mcLevel];
+    $('#mcWavePath').setAttribute('d',surfWave((mcLevel-1)/6,420,190));
+    const side=$('[data-mc-side].on') ? $('[data-mc-side].on').dataset.mcSide : 'right';
+    const pct=Math.round(((mcLevel-1)/6)*70+20);
+    $('#mcTabP').style.height=(side==='left'?pct:0)+'%';
+    $('#mcTabPv').textContent=side==='left'?pct:0;
+    $('#mcTabS').style.height=(side==='right'?pct:0)+'%';
+    $('#mcTabSv').textContent=side==='right'?pct:0;
+    if(animate)mcReadyGo();
+  }
+  function mcReadyGo(){
+    clearTimeout(mcTimer); cancelAnimationFrame(mcAnim);
+    mcReady.classList.remove('idle'); mcReadyBar.style.width='0';
+    const t0=performance.now(), dur=1800;
+    (function step(now){
+      const p=clamp((now-t0)/dur,0,1);
+      mcReadyBar.style.width=(p*100)+'%';
+      if(p<1)mcAnim=requestAnimationFrame(step);
+      else mcTimer=setTimeout(()=>mcReady.classList.add('idle'),350);
+    })(t0);
+  }
+  $('#mcUp').addEventListener('click',()=>{mcLevel=clamp(mcLevel+1,1,7);mcRender(true);});
+  $('#mcDown').addEventListener('click',()=>{mcLevel=clamp(mcLevel-1,1,7);mcRender(true);});
+  $$('#mcSlider span').forEach((s,i)=>s.addEventListener('click',()=>{mcLevel=7-i;mcRender(true);}));
+  $$('[data-mc-side]').forEach(b=>b.addEventListener('click',()=>{
+    $$('[data-mc-side]').forEach(x=>x.classList.remove('on'));
+    $$('[data-mc-side="'+b.dataset.mcSide+'"]').forEach(x=>x.classList.add('on'));
+    mcRender(true);
+  }));
+  $$('[data-mc-view]').forEach(b=>b.addEventListener('click',()=>{
+    $$('[data-mc-view]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    const rapid=b.dataset.mcView==='rapid';
+    $('#mcRapid').hidden=!rapid; $('#mcCustom').hidden=rapid;
+  }));
+  mcRender(false);
+
+  /* ================= TIGÉ ================= */
+  const tgBars=$$('#tgBars button');
+  const tgSide={port:2,stbd:3};              // cada lado recuerda su propio nivel
+  let tgActive='stbd';
+  function tgRender(){
+    const lvl=tgSide[tgActive];
+    tgBars.forEach((b,i)=>b.classList.toggle('on',i<lvl));
+  }
+  tgBars.forEach((b,i)=>b.addEventListener('click',()=>{tgSide[tgActive]=i+1;tgRender();}));
+  $$('[data-tg]').forEach(b=>b.addEventListener('click',()=>{
+    $$('[data-tg]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); tgActive=b.dataset.tg; tgRender();
+  }));
+  let tgCtr=2;
+  $$('[data-tg-ctr]').forEach(b=>b.addEventListener('click',()=>{
+    tgCtr=clamp(tgCtr+Number(b.dataset.tgCtr),1,5); $('#tgCtr').textContent=tgCtr;
+  }));
+  $$('[data-tg-tap]').forEach(b=>b.addEventListener('click',()=>{
+    const [which,dir]=b.dataset.tgTap.split('-');
+    const stack=b.parentElement, segs=$$('u',stack);
+    let n=segs.filter(s=>s.classList.contains('on')).length;
+    n=clamp(n+(dir==='up'?1:-1),0,5);
+    segs.forEach((s,i)=>s.classList.toggle('on',i>=segs.length-n));
+  }));
+  tgRender();
+
+  /* ================= PROPUESTA LENCO ================= */
+  const LC_STATES={
+    idle:{label:'RETRAÍDO',s:'s-idle',b:'b-idle',f:'f-idle'},
+    move:{label:'MOVIENDO',s:'s-move',b:'b-move',f:'f-move'},
+    set:{label:'EN POSICIÓN',s:'s-set',b:'b-set',f:'f-set'}
+  };
+  const lcFlaps={
+    babor:{want:0,is:0,state:'idle'},
+    centro:{want:0,is:0,state:'idle'},
+    estribor:{want:0,is:0,state:'idle'}
+  };
+  let lcSide='centro', lcLevel=6, lcAnim=null, lcReadyAnim=null, lcReadyTimer=null;
+
+  function lcTargets(){
+    const pct=Math.round(lcLevel*8.5)+10;         // 0–10 → 10–95 %
+    return {
+      babor:    lcSide==='babor'    ? pct : 0,
+      centro:   lcSide==='centro'   ? 0   : Math.round(pct*0.25),
+      estribor: lcSide==='estribor' ? pct : 0
+    };
+  }
+  function lcPaint(){
+    Object.entries(lcFlaps).forEach(([name,f])=>{
+      const row=$('[data-flap="'+name+'"]');
+      const st=LC_STATES[f.state];
+      const num=$('.num',row), badge=$('.st',row), fill=$('.is',row), want=$('.want',row);
+      num.className='num '+st.s;
+      $('.v',num).textContent=Math.round(f.is);
+      badge.className='st '+st.b; badge.textContent=st.label;
+      fill.className='is '+st.f; fill.style.width=f.is+'%';
+      want.style.left='calc('+f.want+'% - 1px)';
+      want.style.opacity=Math.abs(f.want-f.is)>1?'1':'0';
+    });
+    $('#lcWavePath').setAttribute('d',surfWave(lcLevel/10,400,150));
+    $('#lcLevelVal').textContent=lcLevel;
+    $('#lcProfile').textContent=lcSide==='centro'?'Perfil: — · centro':'Perfil: Nico · nivel '+lcLevel;
+  }
+  function lcCommit(){
+    const t=lcTargets();
+    Object.keys(lcFlaps).forEach(k=>{
+      lcFlaps[k].want=t[k];
+      lcFlaps[k].state=Math.abs(t[k]-lcFlaps[k].is)>1?'move':(t[k]>0?'set':'idle');
+    });
+    lcReadyStart();
+    cancelAnimationFrame(lcAnim);
+    (function step(){
+      let moving=false;
+      Object.values(lcFlaps).forEach(f=>{
+        const d=f.want-f.is;
+        if(Math.abs(d)>0.6){ f.is+=d*0.09; moving=true; }
+        else { f.is=f.want; f.state=f.want>0?'set':'idle'; }
+      });
+      lcPaint();
+      if(moving)lcAnim=requestAnimationFrame(step);
+    })();
+  }
+  function lcReadyStart(){
+    const bar=$('#lcReadyBar'), box=$('#lcReady');
+    clearTimeout(lcReadyTimer); cancelAnimationFrame(lcReadyAnim);
+    box.classList.add('on'); bar.style.width='0';
+    const t0=performance.now(),dur=1600;
+    (function step(now){
+      const p=clamp((now-t0)/dur,0,1); bar.style.width=(p*100)+'%';
+      if(p<1)lcReadyAnim=requestAnimationFrame(step);
+      else lcReadyTimer=setTimeout(()=>box.classList.remove('on'),300);
+    })(t0);
+  }
+  $$('[data-lc-side]').forEach(b=>b.addEventListener('click',()=>{
+    $$('[data-lc-side]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    lcSide=b.dataset.lcSide; lcCommit();
+  }));
+  $('#lcLevel').addEventListener('input',e=>{lcLevel=Number(e.target.value);lcCommit();});
+  $('#lcHome').addEventListener('click',()=>{
+    lcSide='centro'; lcLevel=0; $('#lcLevel').value=0;
+    $$('[data-lc-side]').forEach(x=>x.classList.toggle('on',x.dataset.lcSide==='centro'));
+    $('#lcSpd').textContent='0.0'; $('#lcSpdTag').textContent='CRUISE OFF'; $('#lcSpdTag').classList.add('off');
+    lcCommit();
+  });
+  lcPaint();
+})();
+</script>
