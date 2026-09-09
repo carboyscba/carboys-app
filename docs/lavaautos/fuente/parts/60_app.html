@@ -1,0 +1,256 @@
+<section class="sec"><div class="sec-head"><div class="num">08</div><div><h1>La app: CARWASH Control</h1><div class="sub">Propuesta de plataforma de monitoreo, operación y venta para una red de lavaderos automáticos</div></div></div>
+
+<div class="callout b"><b>Idea central.</b> No es "una app de monitoreo": es el <b>sistema nervioso</b> del negocio. Cada máquina, cada bidón de shampoo, cada cámara y cada cobro reportan a un mismo lugar, y ese lugar es el mismo sistema multi-sucursal que CARBOYS ya usa (React + Firebase, una nube por sucursal, gerente general con acceso a todas). La ventaja competitiva no es la máquina —cualquiera puede importar una— sino <b>operar 5 máquinas con el esfuerzo de operar una</b>.</div>
+
+<h2>8.1 Qué se ve desde el celular (visión de producto)</h2>
+<div class="cols">
+<div class="c60">
+<div class="fig" style="background:#0b1220;border-color:#1e293b;color:#e2e8f0;padding:4mm">
+ <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3mm"><div style="font-family:Montserrat;font-weight:800;font-size:12px">CAR<span style="color:#ff5a55">WASH</span> Control <span style="font-weight:400;font-size:8px;color:#94a3b8">· Vista Gerente General · Hoy 9 sep, 17:42</span></div><div style="font-size:8px;color:#94a3b8">4 sedes · 3 en línea · 1 alerta</div></div>
+ <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-bottom:2.5mm">
+  <div style="background:#111c33;border-radius:2mm;padding:2mm"><div style="font-size:7.5px;color:#94a3b8">Lavados hoy</div><div style="font-family:Montserrat;font-weight:800;font-size:15px">312</div><div style="font-size:7px;color:#4ade80">▲ 12 % vs. martes pasado</div></div>
+  <div style="background:#111c33;border-radius:2mm;padding:2mm"><div style="font-size:7.5px;color:#94a3b8">Ingresos hoy</div><div style="font-family:Montserrat;font-weight:800;font-size:15px">$ 6,1 M</div><div style="font-size:7px;color:#94a3b8">ticket prom. $ 19.600</div></div>
+  <div style="background:#111c33;border-radius:2mm;padding:2mm"><div style="font-size:7.5px;color:#94a3b8">Costo por lavado</div><div style="font-family:Montserrat;font-weight:800;font-size:15px">$ 3.480</div><div style="font-size:7px;color:#94a3b8">agua 9 % · luz 41 % · química 50 %</div></div>
+  <div style="background:#3b1d1d;border-radius:2mm;padding:2mm;border:1px solid #ef4444"><div style="font-size:7.5px;color:#fca5a5">Alerta</div><div style="font-family:Montserrat;font-weight:800;font-size:11px">Cera al 6 %</div><div style="font-size:7px;color:#fca5a5">Sede Cerro · ~2 días · pedido sugerido</div></div>
+ </div>
+ <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:2mm">
+  <div style="background:#111c33;border-radius:2mm;padding:2mm">
+   <div style="font-size:8px;color:#94a3b8;margin-bottom:1.5mm">Sedes</div>
+   <div style="font-size:8px;line-height:1.9">
+    <div><span style="color:#4ade80">●</span> <b>Casa Central</b> · Istobal M'NEX22 · lavando (prog. Premium, 3:10) · 98 hoy</div>
+    <div><span style="color:#4ade80">●</span> <b>Cerro</b> · Christ Varius · libre · 84 hoy · <span style="color:#fca5a5">cera baja</span></div>
+    <div><span style="color:#4ade80">●</span> <b>Nueva Cba</b> · Autobase AB-165 · lavando · 71 hoy · cola 2</div>
+    <div><span style="color:#f87171">●</span> <b>Ruta 20</b> · CBK 308 · <b>E-23 fotocélula lateral</b> · 59 hoy · técnico avisado 17:31</div>
+   </div>
+  </div>
+  <div style="background:#111c33;border-radius:2mm;padding:2mm">
+   <div style="font-size:8px;color:#94a3b8;margin-bottom:1.5mm">Químicos (días restantes)</div>
+   <div style="font-size:8px;line-height:1.9">
+    <div>Shampoo <span style="display:inline-block;width:40%;height:2mm;background:#1e40af;border-radius:1mm;vertical-align:middle"></span> 11 d</div>
+    <div>Espuma <span style="display:inline-block;width:55%;height:2mm;background:#1e40af;border-radius:1mm;vertical-align:middle"></span> 16 d</div>
+    <div>Cera <span style="display:inline-block;width:8%;height:2mm;background:#ef4444;border-radius:1mm;vertical-align:middle"></span> 2 d</div>
+    <div>Llantas <span style="display:inline-block;width:30%;height:2mm;background:#f59e0b;border-radius:1mm;vertical-align:middle"></span> 7 d</div>
+   </div>
+  </div>
+  <div style="background:#111c33;border-radius:2mm;padding:2mm">
+   <div style="font-size:8px;color:#94a3b8;margin-bottom:1.5mm">Cámaras en vivo</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1mm">
+    <div style="height:11mm;background:linear-gradient(135deg,#1e293b,#334155);border-radius:1mm;font-size:6.5px;padding:1mm;color:#cbd5e1">Central · bahía</div>
+    <div style="height:11mm;background:linear-gradient(135deg,#1e293b,#334155);border-radius:1mm;font-size:6.5px;padding:1mm;color:#cbd5e1">Cerro · entrada</div>
+    <div style="height:11mm;background:linear-gradient(135deg,#1e293b,#334155);border-radius:1mm;font-size:6.5px;padding:1mm;color:#cbd5e1">Nueva Cba · cola</div>
+    <div style="height:11mm;background:linear-gradient(135deg,#3b1d1d,#7f1d1d);border-radius:1mm;font-size:6.5px;padding:1mm;color:#fecaca">Ruta 20 · tablero</div>
+   </div>
+  </div>
+ </div>
+ <div class="capt" style="color:#94a3b8;margin-top:2.5mm">Maqueta conceptual del panel principal (vista gerente). Datos ilustrativos.</div>
+</div>
+</div>
+<div>
+<h3>Preguntas que la app contesta en 5 segundos</h3>
+<ul>
+<li>¿Cuántos autos lavó cada sede hoy y cuánto facturó? ¿Está lavando ahora?</li>
+<li>¿Cuánto me cuesta cada lavado en agua, luz y química, hoy, en cada máquina?</li>
+<li>¿Cuándo se acaba el shampoo/cera de cada local? ¿Ya pedí?</li>
+<li>¿Por qué se paró la máquina de Ruta 20 y quién va?</li>
+<li>¿Qué pasó con el Corolla que dice que le rayamos el espejo el sábado a las 16:20? (clip del lavado)</li>
+<li>¿Cuál programa deja más margen? ¿Conviene subir el Premium $ 2.000?</li>
+<li>¿Cuántos suscriptores ilimitados tengo, cuántos vinieron esta semana y cuántos van a dar de baja?</li>
+<li>¿Cómo se compara la máquina china de Nueva Córdoba con la europea de Central en fallas por 1.000 lavados?</li>
+</ul>
+<div class="callout g"><b>Regla de diseño:</b> cada pantalla responde una pregunta de negocio. Si un dato no cambia una decisión (pedir, ir, subir precio, llamar al técnico), no va en el panel; va en un reporte.</div>
+</div>
+</div>
+
+<h2>8.2 Módulos de la plataforma</h2>
+<div class="grid3">
+<div class="card"><div class="ic">🖥️</div><h4>1. Panel multi-sede</h4>Estado en vivo de cada máquina (libre / lavando / error / mantenimiento), lavados y facturación del día, cola, comparativa entre sedes, ranking. Semáforo por sede.</div>
+<div class="card"><div class="ic">🧴</div><h4>2. Químicos</h4>Nivel real de cada bidón (sensor ultrasónico o balanza), consumo por lavado y por programa, días restantes, <b>pedido automático al proveedor</b> con stock mínimo, alerta de sobredosificación (bomba desregulada) o dosificación cero (no sale cera = cliente enojado).</div>
+<div class="card"><div class="ic">💧⚡</div><h4>3. Consumos</h4>Agua y electricidad por lavado, por hora y por programa (medidor de pulsos + medidor trifásico Modbus). Costo por lavado en vivo. <b>Alarma de fuga</b>: consumo de agua con máquina parada. Eficiencia del reciclado. Comparación con tarifa EPEC / Aguas Cordobesas.</div>
+<div class="card"><div class="ic">🔧</div><h4>4. Máquina y mantenimiento</h4>Contador de ciclos, tiempo por ciclo, códigos de error del PLC en lenguaje humano, historial de fallas, <b>mantenimiento predictivo</b> (por ciclos, horas y corriente de motores), checklist digital del técnico con fotos, stock de repuestos críticos por sede, garantías.</div>
+<div class="card"><div class="ic">📷</div><h4>5. Cámaras</h4>Vivo desde el celular (bahía, entrada, tablero, cola). <b>Un clip por lavado</b>, guardado 60 días y vinculado al ticket / patente: la respuesta a "me lo rayaron". Detección de auto mal posicionado, persona dentro de la bahía, vandalismo nocturno, conteo de cola.</div>
+<div class="card"><div class="ic">💳</div><h4>6. Cobro y acceso</h4>QR Mercado Pago / MODO en el tótem, tarjeta en terminal desatendida, códigos de lavado regalados desde el lubricentro, <b>membresía ilimitada con reconocimiento de patente</b> (la barrera abre sola), cuentas de flota (remises, Uber, empresas) con factura mensual.</div>
+<div class="card"><div class="ic">📱</div><h4>7. App de cliente (PWA)</h4>Comprar y regalar lavados, elegir programa, ver ocupación en vivo ("hay 2 autos en cola"), historial y facturas, suscripción, foto de "tu auto saliendo", puntos, referidos, recordatorio de service CARBOYS.</div>
+<div class="card"><div class="ic">👷</div><h4>8. Personal y operación</h4>Apertura/cierre con checklist y foto, tareas diarias (limpiar fotocélulas, revisar bidones), incidentes, turnos, propinas, indicadores por empleado, capacitación con videos cortos.</div>
+<div class="card"><div class="ic">📊</div><h4>9. Finanzas</h4>P&amp;L por sede y consolidado, margen por programa, costo por lavado, punto de equilibrio diario en vivo, comparación de proveedores de química (costo por lavado real), exportación contable, integración con la facturación de CARBOYS.</div>
+<div class="card"><div class="ic">🤖</div><h4>10. Asistente IA</h4>"¿Por qué bajó el margen en Cerro?" / "Explicame el error E-47 y qué revisar" / resumen diario por WhatsApp a las 21:00 / detección de anomalías (lavados que tardan 30 % más = cepillo trabado) / previsión de demanda por pronóstico de lluvia y feriados.</div>
+<div class="card"><div class="ic">📣</div><h4>11. Marketing automático</h4>Lluvia mañana → pausar campaña; 3 días de sol después de lluvia → promo por WhatsApp; cliente sin venir 45 días → cupón; cumpleaños del auto (patente); encuesta NPS post lavado; reseñas de Google guiadas.</div>
+<div class="card"><div class="ic">🏢</div><h4>12. Franquicia / multi-operador</h4>Roles: gerente general, encargado de sede, técnico, contador, franquiciado. Cada sede en su propia nube (como hoy en CARBOYS). Royalties calculados automáticamente sobre lavados reales medidos por el PLC, no declarados.</div>
+</div>
+
+<h2>8.3 Qué se mide y con qué</h2>
+<table class="tight">
+<thead><tr><th>Dato</th><th>Fuente / sensor</th><th>Costo aprox.</th><th>Decisión que habilita</th></tr></thead>
+<tbody>
+<tr><td>Estado, programa, ciclo, errores</td><td>PLC de la máquina vía Modbus TCP / S7 (Siemens) / puerto serie; o la nube del fabricante si tiene API (ver 8.4)</td><td>USD 0–300 (gateway)</td><td>Saber qué pasa sin llamar; contar lavados reales</td></tr>
+<tr><td>Nivel de químicos por bidón</td><td>Sensor ultrasónico (JSN-SR04T / ToF VL53L1X) en la tapa, o balanza con celda de carga bajo el bidón; ESP32 con WiFi</td><td>USD 15–40 por bidón</td><td>Pedido a tiempo, detectar consumo anómalo</td></tr>
+<tr><td>Dosificación real</td><td>Pulsos de la bomba dosificadora (Seko / Etatron) o caudalímetro mini en línea</td><td>USD 20–60 por línea</td><td>Costo de química por lavado exacto; bomba fallada</td></tr>
+<tr><td>Agua</td><td>Caudalímetro de pulsos 1" en la entrada + otro en el reciclado</td><td>USD 40–120</td><td>Costo, fugas, eficiencia del reciclado</td></tr>
+<tr><td>Electricidad</td><td>Medidor trifásico Modbus (Eastron SDM630) en el tablero + pinzas por motor (opcional)</td><td>USD 90–200</td><td>Costo por lavado, motor forzado, secado ineficiente</td></tr>
+<tr><td>Video</td><td>2–4 cámaras IP PoE (Reolink / Hikvision / Dahua) + NVR local + puente WebRTC</td><td>USD 300–700 por sede</td><td>Reclamos, seguridad, cola, control remoto</td></tr>
+<tr><td>Patente</td><td>Cámara ANPR (Hikvision) o cámara común + Plate Recognizer (nube)</td><td>USD 150–500 + USD 0,003/lectura</td><td>Membresías sin fricción, historial por auto</td></tr>
+<tr><td>Cobro</td><td>Tótem con QR dinámico Mercado Pago + terminal desatendida; relé que arranca la máquina</td><td>USD 500–2.500</td><td>Operar 24 h sin caja</td></tr>
+<tr><td>Ambiente</td><td>Temperatura de bahía (heladas), humedad del tablero, apertura de puertas</td><td>USD 10–30</td><td>Anticongelante, prevención de fallas eléctricas</td></tr>
+</tbody></table>
+
+<h2>8.4 Sistemas propios de los fabricantes: qué traen y qué podemos integrar</h2>
+<table class="tight">
+<thead><tr><th style="width:12%">Fabricante</th><th style="width:20%">Plataforma propia</th><th>Qué muestra</th><th style="width:12%">Control remoto</th><th style="width:20%">API abierta para nuestra app</th><th style="width:10%">Veredicto integración</th></tr></thead>
+<tbody>
+<tr><td><b>Istobal</b> (ES)</td><td>Smartwash (Manager, App Remote, POS, app de consumidor, ISTOBALCard)</td><td>Estado en vivo, contadores por programa, errores; en plan Premium: consumo de agua/energía/químicos y nivel de productos, históricos</td><td>Sí: arranque, parada, reconocer errores, cámara integrada (M'WASH)</td><td><b>Sí, 4 APIs documentadas:</b> Accounting, Telemetry, Operation (estado + arranque), Ticket. Plan Premium mensual. IEC 62443</td><td><span class="tag ok">Excelente</span></td></tr>
+<tr><td><b>WashTec</b> (DE)</td><td>mywashtec.com, SmartSite, CarWash Assist, EasyCarWash PRO, CashManager</td><td>Estado, rentabilidad, consumo y utilización (reporte mensual), KPIs de venta, AquaPur (agua, lodos)</td><td>Sí (SmartSite); WashTec interviene remoto</td><td><b>Sí: mywashtec.api</b> (REST + GraphQL, eventos: inicio de lavado, fallas). Usada por apps, POS, webshops</td><td><span class="tag ok">Excelente</span></td></tr>
+<tr><td><b>Christ</b> (DE)</td><td>CIS NEXT (web), Christ Cloud, app Wwwash, terminales TOUCH POS / VENDOR</td><td>Estado, <b>niveles de químicos</b>, historial de errores, lavados por programa, utilización; mail al fallar</td><td>Sí: mantenimiento, configuración y updates remotos</td><td><b>No documentada.</b> Solo interfaz a sistema de caja y tarjetas de flota. Negociar export CSV / acceso PLC</td><td><span class="tag mid">Negociar</span></td></tr>
+<tr><td><b>Kärcher</b> (DE)</td><td>K!Connect, Charlie Fleet / Charlie Pay, Pay&amp;Wash, RDS (diagnóstico remoto)</td><td>Estado por sitio, facturación por máquina, comparación agua/luz/throughput, errores, correlación con clima</td><td>Sí: parámetros, reinicio, horarios y precios</td><td><b>No documentada</b></td><td><span class="tag mid">Negociar</span></td></tr>
+<tr><td><b>Ceccato</b> (IT)</td><td>App de gestión remota (Hyperion Tech 3.0), comunicación bidireccional</td><td>Parámetros, troubleshooting, clonado de programación</td><td>Sí</td><td>No documentada</td><td><span class="tag mid">Negociar</span></td></tr>
+<tr><td><b>Aquarama</b> (IT)</td><td>Aquacontrol (smartphone / tablet / PC)</td><td>Control y monitoreo remoto (detalle no verificado)</td><td>Sí</td><td>No documentada</td><td><span class="tag mid">Negociar</span></td></tr>
+<tr><td><b>Tammermatic</b> (FI)</td><td>TammerCloud, TammerGuard 24/7</td><td>Vista en tiempo real, diagnóstico, updates, datos de negocio</td><td>Sí</td><td>No documentada</td><td><span class="tag mid">Negociar</span></td></tr>
+<tr><td><b>Ryko / PDQ</b> (US)</td><td>PDQ Access (ICS), WALS loyalty, NCS Lens</td><td>Reportes, alertas en vivo, programación remota, fidelidad multi-sitio</td><td>Sí</td><td>No pública (ICS WashConnect como capa)</td><td><span class="tag mid">Negociar</span></td></tr>
+<tr><td><b>Leisuwash</b> (CN)</td><td>Leisuwash Cloud / APP (4G/Wi-Fi de serie)</td><td>Transacciones, alertas de químicos, ingresos, diagnóstico, multi-sitio; en 380 PLUS: arranque/parada y ajustes remotos</td><td>Sí, con OTA</td><td>No documentada, pero <b>PLC Siemens S7-1200</b> y módulo 4G genérico: se puede leer el PLC o reapuntar el DTU a nuestro broker</td><td><span class="tag ok">Bueno (vía PLC)</span></td></tr>
+<tr><td><b>Autobase, Risense, CBK, Sino Star, Shinewash</b> (CN)</td><td>Apps genéricas de monitoreo / diagnóstico; Risense arranque por QR</td><td>Estado, upgrade remoto, algunos contadores</td><td>Sí</td><td>No documentada. PLC Mitsubishi / Siemens / Delta: Modbus o MC Protocol accesibles con gateway</td><td><span class="tag ok">Bueno (vía PLC)</span></td></tr>
+</tbody></table>
+<div class="cols">
+<div>
+<div class="callout g"><b>Conclusión para la compra.</b> Si el criterio "datos abiertos" pesa, las dos marcas que hoy documentan una API son <b>Istobal</b> y <b>WashTec</b>. Con las chinas el camino es distinto pero viable: el PLC es de marca global (Siemens S7-1200 en Leisuwash, Mitsubishi en Shinewash, Delta en muchas), y leerlo por Modbus / S7 / MC Protocol con un gateway de USD 100–300 es rutina para cualquier integrador industrial de Córdoba. Con Christ, Kärcher o Ceccato hay que <b>negociar por contrato</b> el acceso, porque no lo publican.</div>
+</div>
+<div>
+<h4>Lo que hay que pedir en el pliego (a cualquier marca)</h4>
+<ol>
+<li>Acceso a API o export (JSON/CSV) de contadores por programa, errores con hora, tiempos de ciclo, niveles de químicos y consumos.</li>
+<li>Marca y modelo del PLC y HMI; si tiene Ethernet; si aceptan habilitar OPC UA o Modbus TCP con mapa de registros.</li>
+<li>Especificación eléctrica de la entrada de arranque externo (impulso de crédito, selección de programa) y de la salida "máquina ocupada / fin de lavado".</li>
+<li>Salidas de las sondas de nivel de químicos y de las bombas dosificadoras (24 V).</li>
+<li>Puerto de red libre en el gabinete y permiso escrito para instalar un gateway propio sin perder garantía.</li>
+</ol>
+</div>
+</div>
+
+
+<h2>8.5 Arquitectura técnica propuesta</h2>
+<div class="fig">
+<svg viewBox="0 0 760 250" width="100%" height="190" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif" font-size="10">
+ <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+ <!-- sede -->
+ <rect x="10" y="20" width="300" height="210" rx="8" fill="#f8fafc" stroke="#cbd5e1"/><text x="20" y="38" font-weight="700" fill="#1e3a8a">SEDE (edge)</text>
+ <rect x="20" y="50" width="120" height="34" rx="4" fill="#fee2e2" stroke="#fca5a5"/><text x="28" y="65" fill="#7f1d1d">PLC máquina</text><text x="28" y="78" fill="#7f1d1d" font-size="8">Modbus TCP / S7 / RS-485</text>
+ <rect x="20" y="92" width="120" height="34" rx="4" fill="#fef3c7" stroke="#fcd34d"/><text x="28" y="107" fill="#78350f">Sensores ESP32</text><text x="28" y="120" fill="#78350f" font-size="8">niveles, pulsos, agua, temp.</text>
+ <rect x="20" y="134" width="120" height="34" rx="4" fill="#dbeafe" stroke="#93c5fd"/><text x="28" y="149" fill="#1e3a8a">Medidor trifásico</text><text x="28" y="162" fill="#1e3a8a" font-size="8">Eastron SDM630 · Modbus</text>
+ <rect x="20" y="176" width="120" height="34" rx="4" fill="#e2e8f0" stroke="#94a3b8"/><text x="28" y="191" fill="#0f172a">Cámaras IP PoE</text><text x="28" y="204" fill="#0f172a" font-size="8">RTSP → NVR local</text>
+ <rect x="170" y="70" width="130" height="90" rx="6" fill="#1e3a8a"/><text x="180" y="90" fill="#fff" font-weight="700">Gateway</text><text x="180" y="105" fill="#dbeafe" font-size="8">Raspberry Pi 5 / IOT2050</text><text x="180" y="118" fill="#dbeafe" font-size="8">Node-RED + go2rtc</text><text x="180" y="131" fill="#dbeafe" font-size="8">buffer local (SQLite)</text><text x="180" y="144" fill="#dbeafe" font-size="8">4G de respaldo</text>
+ <rect x="170" y="176" width="130" height="34" rx="4" fill="#dcfce7" stroke="#86efac"/><text x="178" y="191" fill="#14532d">Tótem de cobro</text><text x="178" y="204" fill="#14532d" font-size="8">QR MP / terminal → relé arranque</text>
+ <line x1="140" y1="67" x2="170" y2="95" stroke="#64748b" marker-end="url(#a2)"/><line x1="140" y1="109" x2="170" y2="110" stroke="#64748b" marker-end="url(#a2)"/><line x1="140" y1="151" x2="170" y2="125" stroke="#64748b" marker-end="url(#a2)"/><line x1="140" y1="193" x2="170" y2="150" stroke="#64748b" marker-end="url(#a2)"/>
+ <!-- nube -->
+ <line x1="300" y1="115" x2="350" y2="115" stroke="#64748b" stroke-width="2" marker-end="url(#a2)"/><text x="305" y="108" font-size="8" fill="#64748b">MQTT/TLS</text>
+ <rect x="350" y="20" width="230" height="210" rx="8" fill="#f8fafc" stroke="#cbd5e1"/><text x="360" y="38" font-weight="700" fill="#1e3a8a">NUBE (Google Cloud / Firebase)</text>
+ <rect x="360" y="50" width="210" height="30" rx="4" fill="#dbeafe" stroke="#93c5fd"/><text x="368" y="69">Broker MQTT (EMQX Cloud) → Cloud Functions</text>
+ <rect x="360" y="88" width="100" height="40" rx="4" fill="#fff" stroke="#94a3b8"/><text x="368" y="104">Firestore</text><text x="368" y="117" font-size="8">estado en vivo, config</text>
+ <rect x="470" y="88" width="100" height="40" rx="4" fill="#fff" stroke="#94a3b8"/><text x="478" y="104">BigQuery</text><text x="478" y="117" font-size="8">series de tiempo, P&amp;L</text>
+ <rect x="360" y="136" width="210" height="30" rx="4" fill="#fff" stroke="#94a3b8"/><text x="368" y="155">Storage: clips de video · Plate Recognizer</text>
+ <rect x="360" y="174" width="210" height="46" rx="4" fill="#fef3c7" stroke="#fcd34d"/><text x="368" y="190">Claude API: asistente, anomalías, resumen diario</text><text x="368" y="204" font-size="8">Mercado Pago API · WhatsApp Business API · clima</text>
+ <!-- clientes -->
+ <line x1="580" y1="115" x2="620" y2="115" stroke="#64748b" stroke-width="2" marker-end="url(#a2)"/>
+ <rect x="620" y="20" width="130" height="210" rx="8" fill="#f8fafc" stroke="#cbd5e1"/><text x="630" y="38" font-weight="700" fill="#1e3a8a">PANTALLAS</text>
+ <rect x="630" y="50" width="110" height="34" rx="4" fill="#1d4ed8"/><text x="638" y="65" fill="#fff">CARBOYS App</text><text x="638" y="78" fill="#dbeafe" font-size="8">módulo Lavadero (React)</text>
+ <rect x="630" y="92" width="110" height="34" rx="4" fill="#e53935"/><text x="638" y="107" fill="#fff">App cliente (PWA)</text><text x="638" y="120" fill="#fee2e2" font-size="8">comprar, suscribir, ver</text>
+ <rect x="630" y="134" width="110" height="34" rx="4" fill="#fff" stroke="#94a3b8"/><text x="638" y="149">Técnico (móvil)</text><text x="638" y="162" font-size="8">alarmas, checklist</text>
+ <rect x="630" y="176" width="110" height="34" rx="4" fill="#fff" stroke="#94a3b8"/><text x="638" y="191">WhatsApp / Telegram</text><text x="638" y="204" font-size="8">alertas y resumen</text>
+</svg>
+<div class="capt">Arquitectura de referencia: la sede funciona aunque se corte internet (el gateway guarda y reenvía); la nube reutiliza el stack actual de CARBOYS.</div>
+</div>
+
+<div class="cols">
+<div>
+<h3>Decisiones de arquitectura</h3>
+<ul>
+<li><b>Edge primero.</b> La máquina tiene que poder cobrar y lavar sin internet. El gateway (Raspberry Pi 5 con caja industrial, o Siemens IOT2050 si queremos "grado industrial") corre Node-RED: lee el PLC, los sensores y las cámaras, y empuja por MQTT. Si se corta la conexión, guarda y sincroniza.</li>
+<li><b>Reutilizar Firebase.</b> Estado en vivo y configuración en Firestore (el mismo patrón multi-tenant de CARBOYS: una nube por sucursal). Series de tiempo largas (miles de lecturas por día por sede) en BigQuery o InfluxDB Cloud, no en Firestore, por costo.</li>
+<li><b>Video local, clips en la nube.</b> El vivo se ve por WebRTC directo (go2rtc/MediaMTX) sin pagar streaming; solo los clips por lavado (30–60 s, 2–4 MB) se suben a Storage.</li>
+<li><b>PLC abierto como requisito de compra.</b> Antes de firmar con el fabricante: "¿nos dan el mapa de registros Modbus / los tags del PLC?". Si dicen que no, negociar una <b>salida de señales</b> (contactos secos: máquina ocupada, programa, error, fin de lavado) que cualquier PLC puede dar.</li>
+<li><b>Seguridad.</b> VPN (Tailscale/WireGuard) entre sedes y nube, sin puertos abiertos; usuarios con roles; cámaras nunca expuestas a internet directamente.</li>
+</ul>
+</div>
+<div>
+<h3>Costo por sede (hardware + nube)</h3>
+<table class="tight">
+<tr><th>Ítem</th><th>USD</th></tr>
+<tr><td>Gateway industrial + caja + UPS</td><td>250–600</td></tr>
+<tr><td>Sensores de nivel (5 bidones) + pulsos (4 líneas) + ESP32</td><td>150–300</td></tr>
+<tr><td>Medidor trifásico + caudalímetros (2)</td><td>200–350</td></tr>
+<tr><td>4 cámaras PoE + switch + NVR/disco</td><td>400–900</td></tr>
+<tr><td>Cámara ANPR o licencia LPR</td><td>150–500</td></tr>
+<tr><td>Tótem de cobro (pantalla, QR, terminal, relé)</td><td>800–2.500</td></tr>
+<tr><td><b>Total hardware por sede</b></td><td><b>2.000–5.000</b></td></tr>
+<tr><td>Nube por sede / mes (Firebase, BigQuery, MQTT, LPR, WhatsApp, Claude API)</td><td>25–80 / mes</td></tr>
+<tr><td>Desarrollo MVP (3–4 meses, 1 dev full-stack + 1 integrador OT part-time)</td><td>15.000–35.000 (o equivalente en tiempo propio)</td></tr>
+</table>
+<p class="small">Comparación: las plataformas comerciales de gestión de lavaderos (DRB, Washify, Rinsed) cobran USD 200–800 por sede por mes y no integran maquinaria rollover de origen chino ni Mercado Pago. Ver 8.4.</p>
+</div>
+</div>
+
+<h2>8.6 Veinte ideas innovadoras (de la más simple a la más ambiciosa)</h2>
+<div class="two">
+<div class="num-list">
+<div><b>Clip por lavado ligado al ticket.</b> Cada lavado genera un video de 45 s (entrada, lavado, salida). Resuelve el 100 % de los reclamos por daños y, además, se puede mandar al cliente como "tu auto quedó así". Nadie lo hace en Córdoba.</div>
+<div><b>Foto antes / después automática.</b> Dos fotos con la misma cámara, con la patente leída; un carrusel en la app del cliente y en Instagram con permiso.</div>
+<div><b>Lavado ilimitado con patente.</b> Suscripción mensual (ej. $ 45.000 – 60.000); la cámara lee la patente y arranca. Sin tarjeta, sin QR. Es el modelo que convirtió a Mister Car Wash y Quick Quack en negocios de USD 1.000 M+: <b>ingresos recurrentes</b>.</div>
+<div><b>"Service + lavado" de CARBOYS.</b> Todo cambio de aceite incluye un lavado (código QR en la factura). Es el puente natural entre los dos negocios: el cliente conoce el lavadero sin pagar, y vuelve.</div>
+<div><b>Precio dinámico por clima y hora.</b> Después de lluvia, la demanda explota: precio Premium. Martes 10:00 de sol: 20 % off publicado en la app. La máquina está ociosa el 60 % del tiempo; hay que vender ese tiempo.</div>
+<div><b>Cola visible en la app y en Google.</b> "2 autos esperando, 9 min". Reduce abandonos y reparte demanda entre sedes.</div>
+<div><b>Pedido automático de química.</b> Cuando el bidón baja del umbral, se genera la orden al proveedor por WhatsApp API, con el consumo real como argumento de negociación.</div>
+<div><b>Costo por lavado en vivo en el tótem interno.</b> El encargado ve "hoy cada lavado cuesta $ 3.480": cultura de costos.</div>
+<div><b>Mantenimiento por ciclos, no por calendario.</b> Cada componente tiene su vida útil en ciclos; la app agenda el técnico y pide el repuesto antes de la falla. Con máquinas chinas, esto es la diferencia entre 95 % y 70 % de disponibilidad.</div>
+<div><b>Gemelo digital simple.</b> Comparar tiempo de ciclo, corriente de motores y consumo de cada máquina contra su "huella normal"; desviación > 15 % = alerta. Detecta cepillos trabados, fotocélulas sucias, fugas.</div>
+<div><b>Modo "técnico remoto".</b> El fabricante o el distribuidor entra por VPN a ver el PLC y la cámara del tablero: diagnósticos sin viaje. Negociarlo en el contrato de compra.</div>
+<div><b>Cuentas de flota con reporte.</b> Remiserías, Uber/Cabify/DiDi, concesionarias (entrega de 0 km), rent-a-car, empresas con flota: factura mensual, límite por auto, reporte de uso. Un vendedor B2B puede llenar las horas muertas.</div>
+<div><b>Regalar lavados.</b> Código de regalo por WhatsApp; el que lo recibe instala la app. Mecánica de referidos: "regalá un lavado, ganá un lavado".</div>
+<div><b>Programa fidelidad con la patente como tarjeta.</b> Sin tarjeta física ni app obligatoria: la patente acumula; el décimo lavado es gratis.</div>
+<div><b>Sensor de "cliente atascado".</b> Si un auto entra y no arranca el programa en 90 s, aviso al encargado y mensaje en la pantalla; menos frustración en la primera visita.</div>
+<div><b>Modo nocturno 24 h vigilado.</b> Cámaras con detección de persona + luces + audio bidireccional; barrera cerrada; el gerente autoriza desde el celular. Vende la franja 22:00–7:00 sin personal.</div>
+<div><b>Índice de "auto sucio" por zona.</b> Cruzar patentes recurrentes con dirección declarada: campañas por barrio después de tormentas de tierra.</div>
+<div><b>Marketplace de servicios en la espera.</b> Mientras lava (5 min): vender aromatizantes, limpiaparabrisas, líquido de lavaparabrisas o turno de service en la app; el kiosco físico lo entrega.</div>
+<div><b>Panel público en Instagram / web.</b> "Hoy lavamos 312 autos y ahorramos 18.000 L de agua reciclando": transparencia como marca (Córdoba tiene sensibilidad hídrica).</div>
+<div><b>Modelo para terceros.</b> Si el sistema funciona, se puede ofrecer a otros lavaderos (SaaS) o como base de una franquicia: el software es el activo más escalable del proyecto.</div>
+</div>
+</div>
+
+<h2>8.7 Hoja de ruta</h2>
+<table class="tight">
+<thead><tr><th style="width:18%">Fase</th><th>Alcance</th><th style="width:16%">Tiempo</th><th style="width:20%">Criterio de éxito</th></tr></thead>
+<tbody>
+<tr><td><b>0. Antes de comprar la máquina</b></td><td>Exigir al fabricante: documentación del PLC, señales de estado, protocolo de comunicación, acceso al panel. Elegir 1 sede piloto. Definir catálogo de programas y precios.</td><td>Ahora – compra</td><td>Contrato con cláusula de datos abiertos</td></tr>
+<tr><td><b>1. MVP "veo mi máquina"</b></td><td>Gateway + lectura del PLC (estado, ciclos, errores) + 4 cámaras en vivo + niveles de bidones + medidor eléctrico + agua. Panel en la app CARBOYS. Alertas por WhatsApp. Cobro manual / QR simple.</td><td>3–4 meses desde la instalación</td><td>Lavados contados = lavados cobrados; alerta de químicos anticipada 3 días</td></tr>
+<tr><td><b>2. "Vendo sin caja"</b></td><td>Tótem con QR Mercado Pago + terminal, arranque por relé, códigos de regalo desde el lubricentro, clip por lavado, app cliente PWA.</td><td>+3 meses</td><td>≥ 60 % de lavados sin intervención humana</td></tr>
+<tr><td><b>3. "Ingresos recurrentes"</b></td><td>Membresía ilimitada con patente (LPR), flotas, fidelidad, precio dinámico, marketing automático, NPS.</td><td>+3 meses</td><td>≥ 25 % de los ingresos por suscripción</td></tr>
+<tr><td><b>4. "Cinco máquinas con esfuerzo de una"</b></td><td>Mantenimiento predictivo, gemelo digital, asistente IA, P&amp;L automático, roles de franquicia, segunda y tercera sede.</td><td>Mes 12–18</td><td>Disponibilidad ≥ 95 %; costo por lavado −15 %</td></tr>
+</tbody></table>
+
+<h2>8.8 Riesgos técnicos y cómo bajarlos</h2>
+<table class="tight">
+<thead><tr><th>Riesgo</th><th>Probabilidad</th><th>Mitigación</th></tr></thead>
+<tbody>
+<tr><td>El fabricante no da acceso al PLC ni tiene API</td><td>Alta (europeos: cerrado o pago; chinos: PLC abierto pero sin documentación)</td><td>Negociar antes de comprar; plan B con señales de contactos secos + sensores propios + cámara del panel; plan C leer el HMI</td></tr>
+<tr><td>Sensores en ambiente húmedo y químico</td><td>Media</td><td>Cajas IP67, sensores sin contacto (ultrasónico/ToF), cables blindados, revisión mensual en el checklist</td></tr>
+<tr><td>Internet inestable en la sede</td><td>Media</td><td>Buffer local en el gateway, 4G de respaldo, cobro que funciona sin nube</td></tr>
+<tr><td>Costo de nube por video</td><td>Media</td><td>Vivo por WebRTC punto a punto; subir solo clips; retención 60 días</td></tr>
+<tr><td>Privacidad (patentes, video)</td><td>Baja–media</td><td>Cartelería, política de datos, Ley 25.326, retención limitada, consentimiento para fotos en redes</td></tr>
+<tr><td>Sobre-ingeniería antes de tener 1 máquina funcionando</td><td><b>Alta</b></td><td>Fase 1 mínima; nada de IA hasta tener 3 meses de datos reales</td></tr>
+</tbody></table>
+
+<h2>8.9 Cobro sin caja, patentes y marco legal: lo verificado</h2>
+<div class="cols">
+<div>
+<h3>Cobro en pista sin empleado</h3>
+<ul>
+<li><b>Transferencias 3.0 (BCRA Com. "A" 7153)</b>: todo QR de cobro es interoperable (lo paga cualquier billetera: MODO, Mercado Pago, Ualá, apps de bancos) y la comisión máxima al comercio por pago con transferencia es <b>0,8 %</b>, con acreditación inmediata. Es el medio más barato para un lavado de $ 15–25 k.</li>
+<li><b>Mercado Pago</b>: QR dinámico (uno por operación, apto para escenarios no atendidos), QR híbrido, terminal <b>Point Smart</b> con API de "intenciones de pago" (la app manda el monto a la terminal y recibe el resultado por webhook), y <b>Suscripciones</b> (preapproval) para el plan ilimitado. Alternativas: Getnet (Get QR + API), Payway, Fiserv/Clover. Terminales EMV para intemperie tipo Nayax: confirmar homologación local.</li>
+<li><b>Arranque de la máquina</b>: webhook "pago aprobado" → documento de comando en Firestore → el gateway de la sede da un pulso de relé de 24 V (300–500 ms) a la entrada "impulso de crédito / programa N" del PLC, la misma que usa el terminal original. Con Istobal se puede usar directamente la Operation API. Watchdog: si el gateway se cae, el terminal original sigue funcionando.</li>
+</ul>
+</div>
+<div>
+<h3>Reconocimiento de patentes (LPR) y ley</h3>
+<ul>
+<li><b>Opciones</b>: cámara ANPR Hikvision / Dahua (reconoce en el borde, cierra un relé; USD 500–1.000; probar con patentes Mercosur AA123BB y viejas ABC123), <b>Plate Recognizer</b> (nube, región Argentina soportada; gratis hasta 2.500 lecturas/mes, USD 50 por 50.000), o <b>Frigate</b> (NVR open source con LPR local, gratis).</li>
+<li><b>Ley 25.326</b>: el video y la patente asociada a un cliente son datos personales. Cartel visible en cada sede ("Zona videovigilada – Responsable: CarBoys SAS – finalidad – Ley 25.326"), inscripción de las bases en el RNBD, consentimiento al dar de alta la suscripción por patente, retención de video ≤ 30 días salvo incidente, y cláusulas contractuales tipo si los datos van a nube en EE. UU. (Firebase, Plate Recognizer).</li>
+<li><b>Video</b>: cámaras PoE cableadas (Hikvision / Dahua son las de mayor disponibilidad en Argentina), vivo por WebRTC con go2rtc o MediaMTX en el gateway, grabación local en disco, solo clips a la nube. Nunca exponer RTSP a internet; acceso por túnel (Tailscale / Cloudflare) con el login de la app.</li>
+</ul>
+</div>
+</div>
+</section>

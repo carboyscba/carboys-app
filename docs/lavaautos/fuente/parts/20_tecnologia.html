@@ -1,0 +1,96 @@
+<section class="sec"><div class="sec-head"><div class="num">03</div><div><h1>Entender la máquina antes de comprarla</h1><div class="sub">Tipos de lavado automático, anatomía de un rollover, qué exige la obra y qué se rompe</div></div></div>
+
+<h2>3.1 Los tres tipos de lavado automático</h2>
+<table>
+<thead><tr><th style="width:17%">Tipo</th><th>Cómo funciona</th><th style="width:15%">Capacidad</th><th style="width:18%">Inversión máquina</th><th>Para quién</th></tr></thead>
+<tbody>
+<tr><td><b>Rollover / puente (con contacto)</b><br><span class="small">"gantry", "in-bay automatic", "portale"</span></td><td>El auto queda quieto; un pórtico sobre rieles se desplaza sobre él con 2 cepillos verticales + 1 horizontal, aplica espuma, cera y seca con turbinas que siguen el contorno. Programa completo: 4–7 min.</td><td>8–15 autos/hora (100–150 autos/día pico)</td><td>USD 35–70 k (China) · € 45–110 k (Europa) + obra USD 25–60 k</td><td><b>El caso CARBOYS:</b> locales de 1–2 bahías, sin personal permanente, integrable al lubricentro. Mejor relación inversión / lavados.</td></tr>
+<tr><td><b>Rollover sin contacto (touchless)</b></td><td>Igual pórtico pero lava solo con alta presión (80–100 bar) y química fuerte (alcalina + ácida). No toca la pintura.</td><td>6–10 autos/hora</td><td>Similar o algo menor que con cepillos</td><td>Mercados donde el cliente teme rayas (USA). En Argentina, con tierra y barro, <b>lava peor</b> y consume más química. Opción como 2ª bahía "premium".</td></tr>
+<tr><td><b>Túnel (transportador)</b></td><td>Una cadena arrastra el auto por 15–40 m de equipos fijos (arcos, cepillos, secadores). Mucho volumen, mucha obra.</td><td>40–120 autos/hora</td><td>USD 250 k – 1 M+ (mini-túnel desde USD 150 k)</td><td>Solo con terreno grande sobre avenida y > 200 autos/día. No recomendado como primer paso.</td></tr>
+<tr><td><b>Autoservicio (boxes con lanza)</b></td><td>El cliente lava con lanza de alta presión y cepillo de espuma, pagando por tiempo.</td><td>Ilimitada</td><td>USD 6–15 k por box</td><td>Complemento barato de bajo ticket; útil para captar flujo y ocupar terreno.</td></tr>
+</tbody></table>
+
+<div class="callout b"><b>Definición de producto para este proyecto:</b> rollover <b>con contacto</b> (cepillos), <b>con secado por contorno</b>, 3 cepillos, lavado de llantas, alta presión lateral opcional, cera/abrillantador, preparado para 380 V / 50 Hz, con PLC estándar (Siemens o Mitsubishi) y dosificación química medible. Es la configuración que aparece en las 14 fichas.</div>
+
+<h2>3.2 Anatomía de un rollover con cepillos y secado</h2>
+<div class="fig">
+<svg viewBox="0 0 760 300" width="100%" height="220" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+ <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#334155"/></marker></defs>
+ <!-- piso y rieles -->
+ <rect x="20" y="250" width="720" height="8" fill="#94a3b8"/>
+ <rect x="20" y="262" width="720" height="3" fill="#cbd5e1"/>
+ <text x="30" y="285" font-size="11" fill="#64748b">Rieles (7,5–9 m) empotrados en losa de hormigón con canaleta central de desagüe</text>
+ <!-- portico -->
+ <rect x="230" y="40" width="300" height="18" rx="4" fill="#1e3a8a"/>
+ <rect x="230" y="40" width="18" height="212" rx="3" fill="#1e3a8a"/>
+ <rect x="512" y="40" width="18" height="212" rx="3" fill="#1e3a8a"/>
+ <!-- cepillo horizontal -->
+ <rect x="262" y="70" width="236" height="26" rx="13" fill="#e53935" opacity=".85"/>
+ <!-- cepillos verticales -->
+ <rect x="255" y="100" width="24" height="140" rx="12" fill="#e53935" opacity=".85"/>
+ <rect x="481" y="100" width="24" height="140" rx="12" fill="#e53935" opacity=".85"/>
+ <!-- lavallantas -->
+ <circle cx="290" cy="238" r="12" fill="#1d4ed8"/><circle cx="470" cy="238" r="12" fill="#1d4ed8"/>
+ <!-- secador -->
+ <rect x="300" y="100" width="160" height="14" rx="7" fill="#0ea5e9"/>
+ <rect x="285" y="120" width="12" height="70" rx="6" fill="#0ea5e9"/><rect x="463" y="120" width="12" height="70" rx="6" fill="#0ea5e9"/>
+ <!-- auto -->
+ <path d="M310 250 L310 205 Q320 175 360 172 L400 172 Q440 172 455 200 L460 250 Z" fill="#e2e8f0" stroke="#94a3b8"/>
+ <circle cx="340" cy="250" r="14" fill="#334155"/><circle cx="430" cy="250" r="14" fill="#334155"/>
+ <!-- panel -->
+ <rect x="600" y="150" width="60" height="100" rx="4" fill="#475569"/><rect x="608" y="160" width="44" height="30" fill="#93c5fd"/>
+ <text x="590" y="140" font-size="10" fill="#334155">Tablero: PLC +</text><text x="590" y="126" font-size="10" fill="#334155">variadores</text>
+ <!-- quimicos -->
+ <rect x="60" y="180" width="30" height="70" rx="3" fill="#fbbf24"/><rect x="100" y="180" width="30" height="70" rx="3" fill="#a3e635"/><rect x="140" y="180" width="30" height="70" rx="3" fill="#f472b6"/>
+ <text x="52" y="170" font-size="10" fill="#334155">Bidones: shampoo, cera, espuma</text>
+ <text x="52" y="156" font-size="10" fill="#334155">+ bombas dosificadoras</text>
+ <!-- labels -->
+ <text x="240" y="30" font-size="11" font-weight="700" fill="#1e3a8a">Pórtico motorizado (traslación 0,1–0,2 m/s)</text>
+ <text x="540" y="86" font-size="10" fill="#b71c1c">Cepillo horizontal (techo/capó)</text>
+ <text x="540" y="110" font-size="10" fill="#0369a1">Secador de contorno (3–5 turbinas, 4–5,5 kW c/u)</text>
+ <text x="540" y="180" font-size="10" fill="#b71c1c">Cepillos verticales (laterales)</text>
+ <text x="540" y="240" font-size="10" fill="#1d4ed8">Lavallantas rotativo</text>
+</svg>
+<div class="capt">Esquema simplificado de un puente de lavado con 3 cepillos, lavallantas y secado de contorno. Los cepillos pueden ser de polietileno (PE), espuma de celda cerrada o textil.</div>
+</div>
+
+<div class="cols">
+<div>
+<h3>Componentes que definen calidad y costo</h3>
+<ul>
+<li><b>Cepillos.</b> PE (polietileno): baratos, duran 3–5 años, más agresivos; espuma (foam, "SofTecs", "Carlite"): no retienen agua ni tierra, secan mejor, no marcan pintura, cuestan 2–3 veces más; textil/microfibra: el más suave, se ensucia y pesa mojado. <b>Lo que los clientes en Argentina perciben es "raya o no raya"</b>: la espuma es un argumento de venta.</li>
+<li><b>Motores y variadores.</b> Los europeos usan motores IE3 con variadores (Siemens, Schneider, Danfoss). Los chinos de gama media usan motores propios con variadores Delta/Inovance. En una máquina que hace 30.000 ciclos/año, el motor de traslación y los de cepillos son los que fallan.</li>
+<li><b>PLC y sensores.</b> Siemens S7-1200 / LOGO, Mitsubishi FX o Delta. Fotocélulas de contorno, encoders, finales de carrera. <b>Exigir PLC de marca global</b>: es lo que permite conseguir repuestos en Córdoba y leer datos para nuestra app.</li>
+<li><b>Secado.</b> El secado es el 40–60 % del consumo eléctrico y lo que el cliente juzga al salir. Turbinas de 4–5,5 kW con tobera de contorno que baja sobre el auto; versiones "eco" con turbinas de alta eficiencia.</li>
+</ul>
+</div>
+<div>
+<h3>Lo que exige la obra (para cotizar bien)</h3>
+<table class="tight spec">
+<tr><td>Bahía interior</td><td>Mín. 7,5 × 4,5 m, altura libre 3,6–3,9 m (verificar con cada modelo)</td></tr>
+<tr><td>Losa y rieles</td><td>Hormigón armado 20 cm, nivelado ±3 mm, canaleta central y pendientes</td></tr>
+<tr><td>Electricidad</td><td>Trifásica 380 V / 50 Hz, 25–45 kW instalados con secado (tarifa comercial EPEC, ver 5.3)</td></tr>
+<tr><td>Agua</td><td>3–4 bar, 40–60 L/min; tanque pulmón 1.000–2.000 L + bomba presurizadora; ablandador si el agua es dura (Córdoba lo es)</td></tr>
+<tr><td>Aire comprimido</td><td>Algunos modelos requieren 6–8 bar (compresor 100–200 L)</td></tr>
+<tr><td>Efluentes</td><td>Desarenador + cámara desengrasadora + cámara de inspección; reciclado de agua opcional (70–85 % de recuperación)</td></tr>
+<tr><td>Anticongelante</td><td>En Córdoba se dan heladas: calefacción de bahía o purga automática de líneas en invierno</td></tr>
+<tr><td>Conectividad</td><td>Internet cableado para PLC / cámaras / pago; UPS para el tablero</td></tr>
+</table>
+</div>
+</div>
+
+<h2>3.3 Qué se rompe y cuánto cuesta (patrones de todas las marcas)</h2>
+<table>
+<thead><tr><th>Componente</th><th>Vida útil típica</th><th>Síntoma</th><th>Costo repuesto (orden)</th><th>Cómo lo detecta la app</th></tr></thead>
+<tbody>
+<tr><td>Cepillos PE</td><td>3–5 años / 60–100 k lavados</td><td>Pierde filamentos, lava mal, deja marcas</td><td>€ 1.500–3.000 el juego (PE) · € 4–8 k (espuma)</td><td>Contador de ciclos + corriente de motor</td></tr>
+<tr><td>Rodamientos de cepillos y ruedas de traslación</td><td>2–4 años</td><td>Ruido, vibración, desalineación</td><td>€ 100–400 c/u</td><td>Vibración/corriente, tiempo de ciclo</td></tr>
+<tr><td>Fotocélulas y sensores</td><td>Variable (agua, golpes)</td><td>El puente "no ve" el auto, frena, se frena a mitad</td><td>€ 50–250</td><td>Códigos de error del PLC, cámara</td></tr>
+<tr><td>Bombas dosificadoras y venturis</td><td>1–3 años</td><td>No sale espuma/cera, dosifica mal</td><td>€ 150–600</td><td>Pulsos de dosificación vs. ciclos; nivel de bidones</td></tr>
+<tr><td>Turbinas de secado</td><td>8–15 años</td><td>Ruido, seca menos</td><td>€ 800–2.000 c/u</td><td>Corriente por turbina</td></tr>
+<tr><td>Bomba de alta presión</td><td>3–6 años</td><td>Pierde presión, gotea</td><td>€ 700–2.500</td><td>Presión / corriente</td></tr>
+<tr><td>Variadores de frecuencia</td><td>8–12 años</td><td>Error de sobrecorriente, no arranca</td><td>€ 300–1.200</td><td>Alarma PLC</td></tr>
+<tr><td>Cadenas, cables portacables, mangueras</td><td>3–6 años</td><td>Fugas, cortes</td><td>€ 50–500</td><td>Inspección visual (cámara) + consumo de agua anómalo</td></tr>
+</tbody></table>
+<p class="small">Rangos consolidados a partir de catálogos de repuestos, foros de operadores (carwashforum.com, Reddit r/carwash, foros ES/IT) y cotizaciones de distribuidores citadas en las fichas. Los precios de China suelen ser 30–60 % de los europeos para piezas equivalentes, pero con 4–8 semanas de espera.</p>
+</section>
