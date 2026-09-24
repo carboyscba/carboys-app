@@ -8,6 +8,7 @@ y plan de acción.
 - `Informe_CARWASH_by_CARBOYS_Proyecto_Lavaautos.pdf` — el informe completo (53 páginas).
 - `investigacion/` — los siete cuadernos de investigación en Markdown con todas las fuentes (URLs).
 - `fuente/` — el código fuente del informe (HTML por secciones + CSS + datos de fichas) y el script de armado.
+- `cheerwash_cl800/` — dossier de compra del CL800 de Cheer Wash (PI AR04-001C1, sep 2026) con su fuente.
 
 ## Regenerar el PDF
 

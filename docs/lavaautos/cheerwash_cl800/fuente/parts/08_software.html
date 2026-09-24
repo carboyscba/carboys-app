@@ -1,0 +1,45 @@
+<section class="sec"><div class="sec-head"><div class="num">07</div><div><h1>Software, HMI, pagos y API</h1><div class="sub">Pantalla en español, app remota, Modbus y cómo se conecta Mercado Pago</div></div></div>
+<div class="cols">
+<div class="c55">
+<div class="ph"><img src="img/u_hmi_main.jpg" style="height:58mm"><div class="c">HMI Weinview en español, página principal: estado de sensores (cuerpo, brazo "BG", secador "MH", fotocélulas, ultrasónico), posición y velocidad en vivo, arranque de los 4 programas, modo "No tripulado".</div></div>
+</div>
+<div>
+<div class="ph"><img src="img/u_hmi_prog.jpg" style="height:34mm"><div class="c">Configuración de programas: 4 programas × 12 pasos.</div></div>
+<div class="ph" style="margin-top:2mm"><img src="img/hmi_phone.jpg" style="height:34mm;object-fit:contain"><div class="c">Espejo del HMI en el celular vía app (requiere internet).</div></div>
+</div>
+</div>
+<div class="cols">
+<div>
+<h3>Lo que el sistema propio hace</h3>
+<ul><li>4 programas editables paso a paso (presión alta/media/baja, tiempos, espumas, secado rápido o completo).</li><li>Contador de lavados (total y por rango), registro de alarmas con fecha y código, autotest al encender, permisos de operación por usuario.</li><li>Parada de emergencia, protección por falta de agua, fuga a tierra, anticolisión doble.</li><li>App móvil que replica la pantalla del HMI (ver estado, alarmas, últimos lavados) con el router que proveen.</li><li>Actualizaciones gratuitas del programa por vía remota; diagnóstico remoto con "PLC downloader".</li><li>Idiomas: HMI, pantalla LED y voz en español sin cargo.</li></ul>
+<h3>Lo que no hace (y necesitamos para CARWASH Control)</h3>
+<ul><li>No mide consumo de agua ni de electricidad por lavado, ni niveles de bidones: hay que instrumentar (caudalímetro, medidor trifásico, sensores de nivel).</li><li>No hay nube multi-sede ni reportes de ingresos: la app es un espejo del HMI.</li><li>La API "se entrega cuando llegue la máquina"; Victor recomendó no desarrollar hasta tenerla.</li></ul>
+</div>
+<div>
+<h3>Integración de pagos: lo que sí está documentado</h3>
+<div class="box grey">
+<p><b>Opción 1, contactos secos:</b> el dispositivo de pago cierra 1 segundo una entrada del PLC (Pago 1–4 = Programa 1–4); el PLC devuelve una salida "listo / ocupado o falla" para bloquear cobros.</p>
+<p><b>Opción 2, Modbus:</b> RS-485 (Modbus RTU) o Ethernet (<b>Modbus TCP</b>, IP 192.168.15.10, puerto 502). Registro <b>40001</b>: escribir 1–4 arranca el programa 1–4. Registro <b>40002</b>: 0 = se puede arrancar, 1 = ocupado. Si el dispositivo de pago no habla Modbus, un gateway IoT convierte el protocolo.</p>
+<p class="small">Fuente: "Payment Device Connection Diagram" (Cheer Wash). Esto es exactamente lo que necesita nuestra app para vender por QR de Mercado Pago y arrancar la máquina: un webhook de pago aprobado → escritura Modbus del programa. El módulo de USD 455 + 750 de soporte hace lo mismo con hardware de Cheer Wash.</p></div>
+<div class="callout g"><b>Pedido concreto a Victor:</b> el mapa completo de registros Modbus del PLC (no solo 40001/40002): contador de lavados, programa en curso, paso actual, código de alarma, estado de sensores, tiempo de ciclo. Con eso, CARWASH Control lee la máquina sin tocar el programa del PLC.</div>
+</div>
+</div>
+
+<h3 style="margin-top:4mm">Cómo quedaría la integración CARWASH Control ↔ CL800</h3>
+<div class="fig">
+<svg viewBox="0 0 780 128" width="100%" height="120" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif" font-size="9">
+ <defs><marker id="f1" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#1e3a8a"/></marker></defs>
+ <g font-weight="700" fill="#fff" text-anchor="middle">
+ <rect x="10" y="22" width="130" height="46" rx="8" fill="#009ee3"/><text x="75" y="42">Cliente paga por QR</text><text x="75" y="56" font-weight="400" font-size="8">Mercado Pago (app o tótem)</text>
+ <rect x="175" y="22" width="150" height="46" rx="8" fill="#e53935"/><text x="250" y="42">CARWASH Control</text><text x="250" y="56" font-weight="400" font-size="8">webhook "pago aprobado" → cola</text>
+ <rect x="360" y="22" width="150" height="46" rx="8" fill="#1e3a8a"/><text x="435" y="42">Modbus TCP 192.168.15.10</text><text x="435" y="56" font-weight="400" font-size="8">escribe 40001 = 1…4 (programa)</text>
+ <rect x="545" y="22" width="105" height="46" rx="8" fill="#334155"/><text x="597" y="42">PLC Siemens</text><text x="597" y="56" font-weight="400" font-size="8">HMI Weinview</text>
+ <rect x="685" y="22" width="85" height="46" rx="8" fill="#16a34a"/><text x="727" y="42">CL800</text><text x="727" y="56" font-weight="400" font-size="8">lava 3–8 min</text>
+ </g>
+ <g stroke="#1e3a8a" stroke-width="2" marker-end="url(#f1)"><line x1="140" y1="45" x2="172" y2="45"/><line x1="325" y1="45" x2="357" y2="45"/><line x1="510" y1="45" x2="542" y2="45"/><line x1="650" y1="45" x2="682" y2="45"/></g>
+ <path d="M597,68 C597,100 250,100 250,70" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#f1)"/>
+ <text x="425" y="106" text-anchor="middle" font-size="8" fill="#92400e">lee 40002 (0 libre / 1 ocupado) + contador, alarmas, consumo por lavado → panel multi-sede, reportes, alertas</text>
+ <text x="10" y="122" font-size="7.5" fill="#64748b">Sin gateway de Cheer Wash: la app habla Modbus TCP directo con el PLC por la red local; los sensores propios (caudalímetro, medidor trifásico, nivel de bidones) van por un ESP32/PLC auxiliar a la misma nube.</text>
+</svg>
+</div>
+</section>
