@@ -13,6 +13,7 @@ condiciones comerciales y las preguntas que quedan abiertas antes de pagar el an
   - `B_quimica_touchless_eficacia.md` — química estándar del lavado touchless, evaluación de la receta de Cheer Wash, evidencia independiente, riesgos sobre el vehículo, opiniones sobre Cheer Wash y proveedores en Argentina.
   - `C_pago_importacion_bcra.md` — normativa cambiaria del BCRA vigente (septiembre 2026) para pagar la importación: anticipos, pago a la vista, carta de crédito, leasing y financiamiento.
   - `D_creditos_maquinaria_importada.md` — créditos y leasing para maquinaria importada para una SAS PyME (octubre 2026): BNA, BICE, Bancor, CFI Córdoba, bancos privados, SGR, leasing, lado chino y escenarios de cuota.
+  - `E_anjor_rancagua_ruta20.md` — análisis de Anjor S.A. y de las estaciones de Av. Rancagua y Ruta 20: entorno, tráfico, demografía, competencia, precios de lavado en Córdoba, benchmarks de captura y modelos de acuerdo estación-operador.
 
 Fuentes: chat de WhatsApp con Cheer Wash (9–14 sep 2026), Product Details Sheet CL800 2026V2, brochure 2609,
 lista de opcionales 2609V2, lista de partes 2026, MSDS, PI 20260914V1, estimaciones de HOY S.A. (15 sep 2026)
